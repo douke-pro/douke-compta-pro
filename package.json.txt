@@ -1,0 +1,22 @@
+{
+  "name": "douke-compta-pro",
+  "version": "1.0.0",
+  "description": "DOUKÈ Compta Pro - Gestion Comptable SYSCOHADA Révisé",
+  "main": "index.html",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/douke-pro/douke-compta-pro.git"
+  },
+  "keywords": ["comptabilité", "syscohada", "ci", "gestion"],
+  "author": "Votre Nom",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

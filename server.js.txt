@@ -1,0 +1,18 @@
+const express = require('express');
+const path = require('path');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Servir les fichiers statiques
+app.use(express.static('.'));
+
+// Route principale
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Démarrer le serveur
+app.listen(PORT, () => {
+    console.log(`🚀 DOUKÈ Compta Pro démarré sur le port ${PORT}`);
+    console.log(`📱 Accédez à votre application sur : http://localhost:${PORT}`);
+});
