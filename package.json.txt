@@ -1,22 +1,22 @@
-{
+
   "name": "douke-compta-pro",
   "version": "1.0.0",
-  "description": "DOUKÈ Compta Pro - Gestion Comptable SYSCOHADA Révisé",
+  "description": "Application de gestion comptable SYSCOHADA Révisé pour les pays OHADA",
   "main": "index.html",
   "scripts": {
-    "start": "node server.js"
+    "build": "echo 'Build completed - Static HTML app'",
+    "start": "echo 'Starting static HTML app'"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/douke-pro/douke-compta-pro.git"
-  },
-  "keywords": ["comptabilité", "syscohada", "ci", "gestion"],
-  "author": "Votre Nom",
+  "keywords": [
+    "comptabilite",
+    "syscohada",
+    "ohada",
+    "gestion",
+    "entreprise"
+  ],
+  "author": "DOUKÈ Compta Pro",
   "license": "MIT",
-  "dependencies": {
-    "express": "^4.18.2"
-  },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   }
 }
