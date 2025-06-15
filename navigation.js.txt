@@ -1,0 +1,281 @@
+// =============================================================================
+// NAVIGATION & INTERFACE MANAGEMENT - FONCTIONS ORIGINALES COMPLÈTES
+// =============================================================================
+
+function loadNavigationMenu() {
+    const menuItems = {
+        admin: [
+            { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord Admin', active: true },
+            { id: 'users', icon: 'fas fa-users', text: 'Gestion Collaborateurs' },
+            { id: 'companies', icon: 'fas fa-building', text: 'Gestion Entreprises' },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+            { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+            { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+        ],
+        'collaborateur-senior': [
+            { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
+            { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+            { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+            { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+        ],
+        collaborateur: [
+            { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
+            { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+            { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+            { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+        ],
+        user: [
+            { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Mon Entreprise', active: true },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Mes Écritures' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+            { id: 'caisse', icon: 'fas fa-cash-register', text: 'Mes Caisses' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'Mes Rapports' },
+            { id: 'import', icon: 'fas fa-upload', text: 'Import Balance' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+        ],
+        caissier: [
+            { id: 'dashboard', icon: 'fas fa-cash-register', text: 'Ma Caisse', active: true },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Opérations Caisse' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Comptes Disponibles' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'État de Caisse' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+        ]
+    };
+
+    const items = menuItems[app.currentProfile] || menuItems.user;
+    const menuHtml = items.map(item => `
+    <a href="#" onclick="navigateTo('${item.id}'); return false;" class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${item.active ? 'bg-primary text-white' : ''}">
+    <i class="${item.icon} w-5 h-5 mr-3"></i>
+    <span>${item.text}</span>
+    </a>
+    `).join('');
+
+    document.getElementById('navigationMenu').innerHTML = menuHtml;
+}
+
+function navigateTo(page, element = null) {
+    // Remove active class from all menu items
+    document.querySelectorAll('#navigationMenu a').forEach(item => {
+        item.classList.remove('bg-primary', 'text-white');
+        item.classList.add('text-gray-700', 'dark:text-gray-300');
+    });
+
+    // Add active class to clicked item
+    if (element) {
+        element.classList.add('bg-primary', 'text-white');
+        element.classList.remove('text-gray-700', 'dark:text-gray-300');
+    } else {
+        // Find the clicked element from event if available
+        try {
+            const clickedElement = event.target.closest('a');
+            if (clickedElement && clickedElement.parentElement.id === 'navigationMenu') {
+                clickedElement.classList.add('bg-primary', 'text-white');
+                clickedElement.classList.remove('text-gray-700', 'dark:text-gray-300');
+            }
+        } catch (e) {
+            // Ignore error if event is not available
+        }
+    }
+
+    console.log('🔄 Navigation vers:', page);
+
+    // Load page content with error handling
+    try {
+        switch(page) {
+            case 'dashboard':
+                loadDashboard();
+                break;
+            case 'users':
+                loadUsersManagement();
+                break;
+            case 'companies':
+                loadCompanies();
+                break;
+            case 'entries':
+                loadEntries();
+                break;
+            case 'accounts':
+                loadAccounts();
+                break;
+            case 'caisse':
+                loadCaisse();
+                break;
+            case 'reports':
+                loadReports();
+                break;
+            case 'import':
+                loadImport();
+                break;
+            case 'settings':
+                loadSettings();
+                break;
+            default:
+                console.log('⚠️ Page inconnue, chargement du dashboard');
+                loadDashboard();
+        }
+    } catch (error) {
+        console.error('❌ Erreur lors du chargement de la page:', error);
+        showErrorMessage('Erreur lors du chargement de la page: ' + page);
+    }
+}
+
+function updateUserInfo() {
+    const profiles = {
+        'admin': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+        'collaborateur-senior': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+        'collaborateur': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+        'user': { showSelector: false, defaultCompany: 'SARL TECH INNOVATION' },
+        'caissier': { showSelector: false, defaultCompany: 'SA COMMERCE PLUS' }
+    };
+
+    const profile = profiles[app.currentProfile];
+
+    document.getElementById('currentUser').textContent = app.currentUser.name;
+    document.getElementById('currentCompany').textContent = app.currentCompany ? getCompanyName() : profile.defaultCompany;
+    document.getElementById('sidebarUserName').textContent = app.currentUser.name;
+    document.getElementById('sidebarUserRole').textContent = app.currentUser.role;
+
+    // Gestion de l'affichage du sélecteur d'entreprise
+    const companySelector = document.getElementById('companySelector');
+    const adminActions = document.getElementById('adminActions');
+
+    if (companySelector) {
+        companySelector.style.display = profile.showSelector ? 'block' : 'none';
+
+        // Peupler le sélecteur
+        if (profile.showSelector) {
+            populateCompanySelector();
+        }
+    }
+
+    // Affichage des actions admin uniquement pour les administrateurs
+    if (adminActions) {
+        adminActions.style.display = app.currentProfile === 'admin' ? 'block' : 'none';
+    }
+
+    // Appliquer le logo s'il existe
+    updateLogoGlobally();
+}
+
+function populateCompanySelector() {
+    const select = document.getElementById('activeCompanySelect');
+    if (select) {
+        select.innerHTML = '<option value="">-- Sélectionner une entreprise --</option>';
+
+        app.companies.forEach(company => {
+            const option = document.createElement('option');
+            option.value = company.id;
+            option.textContent = company.name;
+            if (company.id == app.currentCompany) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+    }
+}
+
+function getCompanyName() {
+    if (!app.currentCompany) return 'Aucune entreprise sélectionnée';
+
+    const company = app.companies.find(c => c.id == app.currentCompany);
+    return company ? company.name : 'Entreprise inconnue';
+}
+
+function updateSelectedCompanyInfo() {
+    const company = app.companies.find(c => c.id == app.currentCompany);
+    const infoElement = document.getElementById('selectedCompanyInfo');
+    const currentCompanyElement = document.getElementById('currentCompany');
+
+    if (company) {
+        if (infoElement) {
+            infoElement.innerHTML = `${company.system} • ${company.status}`;
+        }
+        if (currentCompanyElement) {
+            currentCompanyElement.textContent = company.name;
+        }
+    } else {
+        if (infoElement) {
+            infoElement.innerHTML = '';
+        }
+        if (currentCompanyElement) {
+            currentCompanyElement.textContent = 'Aucune entreprise sélectionnée';
+        }
+    }
+}
+
+// LOGO MANAGEMENT - FONCTION ORIGINALE COMPLÈTE
+function uploadLogo() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                alert('❌ Le fichier est trop volumineux. Taille maximum: 2 MB');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                app.companyLogo = e.target.result;
+
+                // Update logo display everywhere in the application
+                updateLogoGlobally();
+                showSuccessMessage('✅ Logo uploadé et appliqué à toute l\'application !');
+                console.log('✅ Logo uploadé');
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    input.click();
+}
+
+function updateLogoGlobally() {
+    if (!app.companyLogo) return;
+
+    // Update main logo in sidebar
+    const logoElement = document.getElementById('appLogo');
+    if (logoElement) {
+        logoElement.innerHTML = `<img src="${app.companyLogo}" alt="Logo" class="w-8 h-8 rounded object-cover">`;
+    }
+
+    // Update all company logos
+    const logoElements = document.querySelectorAll('.company-logo');
+    logoElements.forEach(element => {
+        if (element.classList.contains('w-20')) {
+            element.innerHTML = `<img src="${app.companyLogo}" alt="Logo" class="w-20 h-20 rounded-full object-cover shadow-lg">`;
+        } else {
+            element.innerHTML = `<img src="${app.companyLogo}" alt="Logo" class="w-8 h-8 rounded object-cover">`;
+        }
+    });
+
+    // Update logo in settings page if visible
+    const settingsLogo = document.querySelector('.w-16.h-16.bg-gray-100, .w-16.h-16.bg-gray-700');
+    if (settingsLogo) {
+        settingsLogo.innerHTML = `<img src="${app.companyLogo}" alt="Logo" class="w-full h-full object-cover rounded-lg">`;
+    }
+}
+
+// Notifications
+function toggleNotificationsPanel() {
+    const panel = document.getElementById('notificationsPanel');
+    if (panel) {
+        panel.classList.toggle('hidden');
+    }
+}
+
+function showNotificationSettings() {
+    showSuccessMessage('🔔 Paramètres de notifications\n\nFonctionnalité en cours de développement.');
+}

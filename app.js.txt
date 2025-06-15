@@ -1,0 +1,189 @@
+// =============================================================================
+// DOUKÈ COMPTA PRO - APPLICATION PRINCIPALE
+// =============================================================================
+
+// Application State - ÉTAT ORIGINAL COMPLET
+const app = {
+    currentProfile: null,
+    currentCompany: null,
+    currentUser: null,
+    isAuthenticated: false,
+    accounts: [],
+    entries: [],
+    companies: [],
+    users: [],
+    cashRegisters: [],
+    companyLogo: null,
+    notifications: [],
+    deadlines: []
+};
+
+// Theme management - FONCTION ORIGINALE COMPLÈTE
+const themeManager = {
+    current: 'system',
+
+    init() {
+        // Detect initial theme
+        if (localStorage.getItem('theme') === 'dark' ||
+            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            this.current = 'dark';
+        } else if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+            this.current = 'light';
+        } else {
+            this.current = 'system';
+        }
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (this.current === 'system') {
+                if (event.matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
+        });
+    },
+
+    setTheme(theme) {
+        this.current = theme;
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else if (theme === 'light') {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        } else {
+            localStorage.removeItem('theme');
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+    }
+};
+
+// THEME MANAGEMENT - FONCTION ORIGINALE COMPLÈTE
+function toggleThemeMenu() {
+    const menu = document.getElementById('themeMenu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+function setTheme(theme) {
+    try {
+        themeManager.setTheme(theme);
+        document.getElementById('themeMenu').classList.add('hidden');
+        showSuccessMessage('✅ Thème modifié : ' + theme);
+    } catch (error) {
+        console.error('Erreur changement thème:', error);
+    }
+}
+
+// EVENT LISTENERS & INITIALIZATION
+function bindEventListeners() {
+    try {
+        // Company selector
+        setTimeout(() => {
+            const companySelect = document.getElementById('activeCompanySelect');
+            if (companySelect) {
+                companySelect.addEventListener('change', function(e) {
+                    app.currentCompany = e.target.value;
+                    updateSelectedCompanyInfo();
+                    console.log('✅ Entreprise sélectionnée:', app.currentCompany);
+                });
+            }
+        }, 100);
+
+        // Sidebar toggle
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) {
+                    sidebar.classList.toggle('-translate-x-full');
+                }
+            });
+        }
+
+        // Login form
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                handleLogin();
+            });
+        }
+
+        // Close sidebar on outside click (mobile)
+        document.addEventListener('click', function(e) {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+
+            if (window.innerWidth < 1024 && sidebar && sidebarToggle && !sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+                sidebar.classList.add('-translate-x-full');
+            }
+        });
+    } catch (error) {
+        console.error('Erreur bindEventListeners:', error);
+    }
+}
+
+function initializeApp() {
+    try {
+        console.log('🔄 Initialisation de l\'application...');
+
+        initializeData();
+        loadNavigationMenu();
+        updateUserInfo();
+        loadDashboard();
+        bindEventListeners();
+
+        console.log('✅ DOUKÈ Compta Pro initialisé avec succès !');
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'initialisation:', error);
+        showErrorMessage('Erreur lors de l\'initialisation de l\'application');
+    }
+}
+
+// Close theme menu when clicking outside
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('themeMenu');
+    const button = e.target.closest('[onclick="toggleThemeMenu()"]');
+    if (menu && !menu.contains(e.target) && !button) {
+        menu.classList.add('hidden');
+    }
+
+    // Close notifications panel when clicking outside
+    const notifPanel = document.getElementById('notificationsPanel');
+    const notifButton = e.target.closest('[onclick="toggleNotificationsPanel()"]');
+    if (notifPanel && !notifPanel.contains(e.target) && !notifButton) {
+        notifPanel.classList.add('hidden');
+    }
+});
+
+// APPLICATION START
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        themeManager.init();
+        setTimeout(() => {
+            bindEventListeners();
+            console.log('🚀 DOUKÈ Compta Pro - Application démarrée avec toutes les fonctionnalités restaurées');
+        }, 100);
+    } catch (error) {
+        console.error('❌ Erreur au démarrage:', error);
+    }
+});
+
+// Protection globale contre les erreurs
+window.addEventListener('error', function(e) {
+    console.error('❌ Erreur globale capturée:', e.error);
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('❌ Promesse rejetée:', e.reason);
+});
