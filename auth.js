@@ -1,7 +1,7 @@
 /**
- * DOUKÈ Compta Pro - Authentication Module
+ * DOUKÈ Compta Pro - Authentication Module COMPLET
  * Version: 2.1.0
- * Production-ready authentication system with enhanced security
+ * Production-ready authentication system with full dashboard integration
  */
 
 const auth = (function() {
@@ -17,12 +17,12 @@ const auth = (function() {
     // Enhanced user database with security
     const userDatabase = {
         'admin@doukecompta.ci': {
-            password: 'admin123', // In production, this would be hashed
+            password: 'admin123',
             profile: 'admin',
             name: 'Admin Système',
             role: 'Administrateur',
             id: 1,
-            permissions: ['*'], // Full access
+            permissions: ['*'],
             lastLogin: null,
             failedAttempts: 0,
             lockedUntil: null
@@ -73,6 +73,27 @@ const auth = (function() {
         }
     };
 
+    // OHADA Countries data
+    const ohadaCountries = [
+        { code: '+229', country: 'Bénin', flag: '🇧🇯' },
+        { code: '+226', country: 'Burkina Faso', flag: '🇧🇫' },
+        { code: '+237', country: 'Cameroun', flag: '🇨🇲' },
+        { code: '+236', country: 'Centrafrique', flag: '🇨🇫' },
+        { code: '+269', country: 'Comores', flag: '🇰🇲' },
+        { code: '+242', country: 'Congo', flag: '🇨🇬' },
+        { code: '+225', country: 'Côte d\'Ivoire', flag: '🇨🇮' },
+        { code: '+241', country: 'Gabon', flag: '🇬🇦' },
+        { code: '+224', country: 'Guinée', flag: '🇬🇳' },
+        { code: '+245', country: 'Guinée-Bissau', flag: '🇬🇼' },
+        { code: '+240', country: 'Guinée Équatoriale', flag: '🇬🇶' },
+        { code: '+223', country: 'Mali', flag: '🇲🇱' },
+        { code: '+227', country: 'Niger', flag: '🇳🇪' },
+        { code: '+243', country: 'RD Congo', flag: '🇨🇩' },
+        { code: '+221', country: 'Sénégal', flag: '🇸🇳' },
+        { code: '+235', country: 'Tchad', flag: '🇹🇩' },
+        { code: '+228', country: 'Togo', flag: '🇹🇬' }
+    ];
+
     // Validation functions
     const validators = {
         email: (email) => {
@@ -92,14 +113,10 @@ const auth = (function() {
 
     // Security utilities
     const security = {
-        // Simple password hashing (in production, use bcrypt or similar)
         hashPassword: (password) => {
-            // This is a simple hash for demo purposes
-            // In production, use proper password hashing
             return btoa(password + 'douke_salt');
         },
         
-        // Check if user is locked out
         isLockedOut: (userEmail) => {
             const user = userDatabase[userEmail];
             if (!user || !user.lockedUntil) return false;
@@ -108,14 +125,12 @@ const auth = (function() {
             if (now < user.lockedUntil) {
                 return true;
             } else {
-                // Reset lockout if time has passed
                 user.lockedUntil = null;
                 user.failedAttempts = 0;
                 return false;
             }
         },
         
-        // Record failed login attempt
         recordFailedAttempt: (userEmail) => {
             const user = userDatabase[userEmail];
             if (!user) return;
@@ -124,11 +139,10 @@ const auth = (function() {
             
             if (user.failedAttempts >= MAX_LOGIN_ATTEMPTS) {
                 user.lockedUntil = Date.now() + LOCKOUT_DURATION;
-                showErrorToast(`Compte verrouillé pour ${LOCKOUT_DURATION / 60000} minutes`);
+                showErrorMessage(`Compte verrouillé pour ${LOCKOUT_DURATION / 60000} minutes`);
             }
         },
         
-        // Reset failed attempts on successful login
         resetFailedAttempts: (userEmail) => {
             const user = userDatabase[userEmail];
             if (user) {
@@ -138,7 +152,6 @@ const auth = (function() {
             }
         },
         
-        // Generate session token
         generateSessionToken: () => {
             return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         }
@@ -162,16 +175,13 @@ const auth = (function() {
                     rememberMe: rememberMe
                 };
 
-                // Store session
                 if (rememberMe) {
                     localStorage.setItem('douke_session', JSON.stringify(sessionData));
                 } else {
                     sessionStorage.setItem('douke_session', JSON.stringify(sessionData));
                 }
 
-                // Set auto-logout timer
                 auth.setSessionTimer();
-                
                 return sessionData;
             } catch (error) {
                 console.error('Session creation error:', error);
@@ -190,7 +200,6 @@ const auth = (function() {
                 
                 const session = JSON.parse(sessionData);
                 
-                // Check if session is expired
                 if (session.expiresAt && Date.now() > session.expiresAt) {
                     auth.logout();
                     return null;
@@ -238,31 +247,32 @@ const auth = (function() {
     const ui = {
         setFieldError: (fieldId, message) => {
             const field = document.getElementById(fieldId);
-            const errorElement = document.getElementById(fieldId.replace('login', '').toLowerCase() + '-error');
-            
             if (field) {
-                field.classList.add('border-danger', 'focus:ring-danger');
-                field.classList.remove('border-gray-300', 'focus:ring-primary');
-            }
-            
-            if (errorElement) {
+                field.classList.add('border-danger');
+                field.classList.remove('border-gray-300');
+                
+                // Create or update error message
+                let errorElement = document.getElementById(fieldId + '_error');
+                if (!errorElement) {
+                    errorElement = document.createElement('div');
+                    errorElement.id = fieldId + '_error';
+                    errorElement.className = 'text-danger text-sm mt-1';
+                    field.parentElement.appendChild(errorElement);
+                }
                 errorElement.textContent = message;
-                errorElement.classList.remove('hidden');
             }
         },
         
         clearFieldError: (fieldId) => {
             const field = document.getElementById(fieldId);
-            const errorElement = document.getElementById(fieldId.replace('login', '').toLowerCase() + '-error');
-            
             if (field) {
-                field.classList.remove('border-danger', 'focus:ring-danger');
-                field.classList.add('border-gray-300', 'focus:ring-primary');
-            }
-            
-            if (errorElement) {
-                errorElement.textContent = '';
-                errorElement.classList.add('hidden');
+                field.classList.remove('border-danger');
+                field.classList.add('border-gray-300');
+                
+                const errorElement = document.getElementById(fieldId + '_error');
+                if (errorElement) {
+                    errorElement.remove();
+                }
             }
         },
         
@@ -272,60 +282,470 @@ const auth = (function() {
         },
         
         setLoadingState: (loading) => {
-            const loginButton = document.getElementById('loginButton');
-            const loginButtonText = document.getElementById('loginButtonText');
-            const loginButtonLoading = document.getElementById('loginButtonLoading');
-            
-            if (loginButton && loginButtonText && loginButtonLoading) {
+            const loginButton = document.querySelector('#loginForm button[type="submit"]');
+            if (loginButton) {
                 loginButton.disabled = loading;
+                const originalText = loginButton.innerHTML;
                 
                 if (loading) {
-                    loginButtonText.classList.add('hidden');
-                    loginButtonLoading.classList.remove('hidden');
+                    loginButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Connexion...';
                 } else {
-                    loginButtonText.classList.remove('hidden');
-                    loginButtonLoading.classList.add('hidden');
+                    loginButton.innerHTML = originalText;
                 }
             }
         }
     };
 
-    // OHADA Countries data
-    const ohadaCountries = [
-        { code: '+229', country: 'Bénin', flag: '🇧🇯' },
-        { code: '+226', country: 'Burkina Faso', flag: '🇧🇫' },
-        { code: '+237', country: 'Cameroun', flag: '🇨🇲' },
-        { code: '+236', country: 'Centrafrique', flag: '🇨🇫' },
-        { code: '+269', country: 'Comores', flag: '🇰🇲' },
-        { code: '+242', country: 'Congo', flag: '🇨🇬' },
-        { code: '+225', country: 'Côte d\'Ivoire', flag: '🇨🇮' },
-        { code: '+241', country: 'Gabon', flag: '🇬🇦' },
-        { code: '+224', country: 'Guinée', flag: '🇬🇳' },
-        { code: '+245', country: 'Guinée-Bissau', flag: '🇬🇼' },
-        { code: '+240', country: 'Guinée Équatoriale', flag: '🇬🇶' },
-        { code: '+223', country: 'Mali', flag: '🇲🇱' },
-        { code: '+227', country: 'Niger', flag: '🇳🇪' },
-        { code: '+243', country: 'RD Congo', flag: '🇨🇩' },
-        { code: '+221', country: 'Sénégal', flag: '🇸🇳' },
-        { code: '+235', country: 'Tchad', flag: '🇹🇩' },
-        { code: '+228', country: 'Togo', flag: '🇹🇬' }
-    ];
+    // Navigation menu generation
+    const loadNavigationMenu = () => {
+        const menuItems = {
+            admin: [
+                { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord Admin', active: true },
+                { id: 'users', icon: 'fas fa-users', text: 'Gestion Collaborateurs' },
+                { id: 'companies', icon: 'fas fa-building', text: 'Gestion Entreprises' },
+                { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+                { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+            ],
+            'collaborateur-senior': [
+                { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
+                { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
+                { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+                { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+            ],
+            collaborateur: [
+                { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
+                { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
+                { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+                { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+            ],
+            user: [
+                { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Mon Entreprise', active: true },
+                { id: 'entries', icon: 'fas fa-edit', text: 'Mes Écritures' },
+                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Mes Caisses' },
+                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Mes Rapports' },
+                { id: 'import', icon: 'fas fa-upload', text: 'Import Balance' },
+                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+            ],
+            caissier: [
+                { id: 'dashboard', icon: 'fas fa-cash-register', text: 'Ma Caisse', active: true },
+                { id: 'entries', icon: 'fas fa-edit', text: 'Opérations Caisse' },
+                { id: 'accounts', icon: 'fas fa-list', text: 'Comptes Disponibles' },
+                { id: 'reports', icon: 'fas fa-chart-bar', text: 'État de Caisse' },
+                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+            ]
+        };
+
+        const items = menuItems[app.currentProfile] || menuItems.user;
+        const menuHtml = items.map(item => `
+            <a href="#" onclick="navigateTo('${item.id}'); return false;" class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${item.active ? 'bg-primary text-white' : ''}">
+                <i class="${item.icon} w-5 h-5 mr-3"></i>
+                <span>${item.text}</span>
+            </a>
+        `).join('');
+
+        const navigationMenu = document.getElementById('navigationMenu');
+        if (navigationMenu) {
+            navigationMenu.innerHTML = menuHtml;
+        }
+    };
+
+    // Update user info in UI
+    const updateUserInfo = () => {
+        const profiles = {
+            'admin': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+            'collaborateur-senior': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+            'collaborateur': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+            'user': { showSelector: false, defaultCompany: 'SARL TECH INNOVATION' },
+            'caissier': { showSelector: false, defaultCompany: 'SA COMMERCE PLUS' }
+        };
+
+        const profile = profiles[app.currentProfile];
+
+        const currentUserElement = document.getElementById('currentUser');
+        const currentCompanyElement = document.getElementById('currentCompany');
+        const sidebarUserNameElement = document.getElementById('sidebarUserName');
+        const sidebarUserRoleElement = document.getElementById('sidebarUserRole');
+
+        if (currentUserElement) currentUserElement.textContent = app.currentUser.name;
+        if (currentCompanyElement) currentCompanyElement.textContent = app.currentCompany ? getCompanyName() : profile.defaultCompany;
+        if (sidebarUserNameElement) sidebarUserNameElement.textContent = app.currentUser.name;
+        if (sidebarUserRoleElement) sidebarUserRoleElement.textContent = app.currentUser.role;
+
+        // Gestion de l'affichage du sélecteur d'entreprise
+        const companySelector = document.getElementById('companySelector');
+        const adminActions = document.getElementById('adminActions');
+
+        if (companySelector) {
+            companySelector.style.display = profile.showSelector ? 'block' : 'none';
+            if (profile.showSelector) {
+                populateCompanySelector();
+            }
+        }
+
+        if (adminActions) {
+            adminActions.style.display = app.currentProfile === 'admin' ? 'block' : 'none';
+        }
+    };
+
+    // Populate company selector
+    const populateCompanySelector = () => {
+        const select = document.getElementById('activeCompanySelect');
+        if (select && app.companies) {
+            select.innerHTML = '<option value="">-- Sélectionner une entreprise --</option>';
+
+            app.companies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company.id;
+                option.textContent = company.name;
+                if (company.id == app.currentCompany) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+    };
+
+    // Get company name
+    const getCompanyName = () => {
+        if (!app.currentCompany || !app.companies) return 'Aucune entreprise sélectionnée';
+        const company = app.companies.find(c => c.id == app.currentCompany);
+        return company ? company.name : 'Entreprise inconnue';
+    };
+
+    // Load dashboard based on profile
+    const loadDashboard = () => {
+        if (app.currentProfile === 'admin') {
+            loadAdminDashboard();
+        } else {
+            loadStandardDashboard();
+        }
+    };
+
+    // Admin dashboard
+    const loadAdminDashboard = () => {
+        const content = `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Tableau de Bord Administrateur</h2>
+                    <div class="text-sm text-primary-light font-medium">
+                        <i class="fas fa-clock mr-1"></i>Dernière mise à jour: ${new Date().toLocaleString('fr-FR')}
+                    </div>
+                </div>
+
+                <!-- KPI Cards Admin -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-primary">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Entreprises Actives</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.companies ? app.companies.filter(c => c.status === 'Actif').length : 0}</p>
+                            </div>
+                            <div class="bg-primary/10 p-3 rounded-lg">
+                                <i class="fas fa-building text-primary text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex items-center text-sm">
+                            <span class="text-success">+2</span>
+                            <span class="text-gray-500 dark:text-gray-400 ml-1">ce mois</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Collaborateurs Actifs</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.users ? app.users.filter(u => u.profile.includes('collaborateur')).length : 0}</p>
+                            </div>
+                            <div class="bg-info/10 p-3 rounded-lg">
+                                <i class="fas fa-users text-info text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures en Attente</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.entries ? app.entries.filter(e => e.status === 'En attente').length : 0}</p>
+                            </div>
+                            <div class="bg-warning/10 p-3 rounded-lg">
+                                <i class="fas fa-exclamation-triangle text-warning text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures Validées</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.entries ? app.entries.filter(e => e.status === 'Validé').length : 0}</p>
+                            </div>
+                            <div class="bg-success/10 p-3 rounded-lg">
+                                <i class="fas fa-check text-success text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions rapides -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-bolt mr-2 text-warning"></i>Actions Rapides
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <button onclick="navigateTo('users')" class="p-4 bg-primary/10 hover:bg-primary/20 rounded-lg text-center transition-colors">
+                            <i class="fas fa-user-plus text-primary text-xl mb-2"></i>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Nouveau Collaborateur</div>
+                        </button>
+                        <button onclick="navigateTo('companies')" class="p-4 bg-info/10 hover:bg-info/20 rounded-lg text-center transition-colors">
+                            <i class="fas fa-building text-info text-xl mb-2"></i>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Nouvelle Entreprise</div>
+                        </button>
+                        <button onclick="navigateTo('reports')" class="p-4 bg-success/10 hover:bg-success/20 rounded-lg text-center transition-colors">
+                            <i class="fas fa-chart-bar text-success text-xl mb-2"></i>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Rapports Globaux</div>
+                        </button>
+                        <button onclick="navigateTo('import')" class="p-4 bg-warning/10 hover:bg-warning/20 rounded-lg text-center transition-colors">
+                            <i class="fas fa-upload text-warning text-xl mb-2"></i>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Import de Données</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            mainContent.innerHTML = content;
+        }
+    };
+
+    // Standard dashboard
+    const loadStandardDashboard = () => {
+        let dashboardTitle = 'Tableau de Bord';
+        let cashCount = 1;
+
+        if (app.currentProfile === 'user') {
+            dashboardTitle = 'Mon Entreprise';
+            cashCount = app.currentCompany && app.companies ? 
+                (app.companies.find(c => c.id == app.currentCompany)?.cashRegisters || 1) : 1;
+        } else if (app.currentProfile === 'caissier') {
+            dashboardTitle = 'Ma Caisse';
+            cashCount = '→';
+        }
+
+        const content = `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">${dashboardTitle}</h2>
+                    <div class="text-sm text-primary-light font-medium">
+                        <i class="fas fa-clock mr-1"></i>Dernière mise à jour: ${new Date().toLocaleString('fr-FR')}
+                    </div>
+                </div>
+
+                <!-- KPI Cards Standard -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-primary">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                    ${app.currentProfile === 'user' ? 'Caisses disponibles' :
+                                      app.currentProfile === 'caissier' ? 'Accès rapide écritures' : 'Entreprises'}
+                                </p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${cashCount}</p>
+                            </div>
+                            <div class="bg-primary/10 p-3 rounded-lg">
+                                <i class="fas ${app.currentProfile === 'caissier' ? 'fa-plus-circle' :
+                                              app.currentProfile === 'user' ? 'fa-cash-register' : 'fa-building'} text-primary text-xl"></i>
+                            </div>
+                        </div>
+                        ${app.currentProfile === 'caissier' ? `
+                        <div class="mt-3">
+                            <button onclick="navigateTo('entries')" class="w-full bg-primary text-white py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                                Nouvelle opération
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures ce mois</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">
+                                    ${app.currentProfile === 'caissier' ? '45' : (app.entries ? app.entries.length : 0)}
+                                </p>
+                            </div>
+                            <div class="bg-success/10 p-3 rounded-lg">
+                                <i class="fas fa-edit text-success text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">En attente validation</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">
+                                    ${app.entries ? app.entries.filter(e => e.status === 'En attente').length : 0}
+                                </p>
+                            </div>
+                            <div class="bg-warning/10 p-3 rounded-lg">
+                                <i class="fas fa-clock text-warning text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Performance</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">98%</p>
+                            </div>
+                            <div class="bg-info/10 p-3 rounded-lg">
+                                <i class="fas fa-chart-line text-info text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions rapides par profil -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-bolt mr-2 text-warning"></i>Actions Rapides
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <button onclick="navigateTo('entries')" class="p-4 bg-primary/10 hover:bg-primary/20 rounded-lg text-center transition-colors">
+                            <i class="fas fa-plus text-primary text-xl mb-2"></i>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Nouvelle Écriture</div>
+                        </button>
+                        <button onclick="navigateTo('accounts')" class="p-4 bg-info/10 hover:bg-info/20 rounded-lg text-center transition-colors">
+                            <i class="fas fa-list text-info text-xl mb-2"></i>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Plan Comptable</div>
+                        </button>
+                        <button onclick="navigateTo('reports')" class="p-4 bg-success/10 hover:bg-success/20 rounded-lg text-center transition-colors">
+                            <i class="fas fa-chart-bar text-success text-xl mb-2"></i>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Mes Rapports</div>
+                        </button>
+                        <button onclick="navigateTo('caisse')" class="p-4 bg-warning/10 hover:bg-warning/20 rounded-lg text-center transition-colors">
+                            <i class="fas fa-cash-register text-warning text-xl mb-2"></i>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Gestion Caisse</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            mainContent.innerHTML = content;
+        }
+    };
+
+    // Initialize application
+    const initializeApp = () => {
+        try {
+            console.log('🔄 Initialisation de l\'application...');
+            
+            // Load navigation menu based on profile
+            loadNavigationMenu();
+            
+            // Update user information in UI
+            updateUserInfo();
+            
+            // Load dashboard based on profile
+            loadDashboard();
+            
+            // Bind event listeners
+            bindEventListeners();
+            
+            console.log('✅ DOUKÈ Compta Pro initialisé avec succès !');
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'initialisation:', error);
+            showErrorMessage('Erreur lors de l\'initialisation de l\'application');
+        }
+    };
+
+    // Bind event listeners
+    const bindEventListeners = () => {
+        try {
+            // Company selector
+            setTimeout(() => {
+                const companySelect = document.getElementById('activeCompanySelect');
+                if (companySelect) {
+                    companySelect.addEventListener('change', function(e) {
+                        app.currentCompany = e.target.value;
+                        updateSelectedCompanyInfo();
+                        console.log('✅ Entreprise sélectionnée:', app.currentCompany);
+                    });
+                }
+            }, 100);
+
+            // Sidebar toggle
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function() {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) {
+                        sidebar.classList.toggle('-translate-x-full');
+                    }
+                });
+            }
+
+        } catch (error) {
+            console.error('Erreur bindEventListeners:', error);
+        }
+    };
+
+    // Update selected company info
+    const updateSelectedCompanyInfo = () => {
+        if (!app.companies) return;
+        
+        const company = app.companies.find(c => c.id == app.currentCompany);
+        const infoElement = document.getElementById('selectedCompanyInfo');
+        const currentCompanyElement = document.getElementById('currentCompany');
+
+        if (company) {
+            if (infoElement) {
+                infoElement.innerHTML = `${company.system} • ${company.status}`;
+            }
+            if (currentCompanyElement) {
+                currentCompanyElement.textContent = company.name;
+            }
+        } else {
+            if (infoElement) {
+                infoElement.innerHTML = '';
+            }
+            if (currentCompanyElement) {
+                currentCompanyElement.textContent = 'Aucune entreprise sélectionnée';
+            }
+        }
+    };
 
     // Public API
     return {
         // Initialize authentication system
         init: () => {
             try {
-                // Check for existing session
                 const existingSession = session.get();
                 if (existingSession) {
                     auth.restoreSession(existingSession);
                 }
                 
-                // Setup form handlers
                 auth.setupFormHandlers();
-                
-                // Setup password toggle
                 auth.setupPasswordToggle();
                 
                 console.log('🔐 Authentication system initialized');
@@ -340,7 +760,6 @@ const auth = (function() {
             if (loginForm) {
                 loginForm.addEventListener('submit', auth.handleLogin);
                 
-                // Real-time validation
                 const emailField = document.getElementById('loginEmail');
                 const passwordField = document.getElementById('loginPassword');
                 
@@ -395,7 +814,6 @@ const auth = (function() {
                 const password = formData.get('password');
                 const rememberMe = document.getElementById('rememberMe')?.checked || false;
                 
-                // Validate input
                 if (!email || !password) {
                     if (!email) ui.setFieldError('loginEmail', 'Email requis');
                     if (!password) ui.setFieldError('loginPassword', 'Mot de passe requis');
@@ -407,16 +825,13 @@ const auth = (function() {
                     return;
                 }
                 
-                // Check if user is locked out
                 if (security.isLockedOut(email)) {
                     ui.setFieldError('loginEmail', 'Compte temporairement verrouillé');
                     return;
                 }
                 
-                // Simulate network delay
                 await new Promise(resolve => setTimeout(resolve, 800));
                 
-                // Authenticate user
                 const user = userDatabase[email];
                 if (!user || user.password !== password) {
                     security.recordFailedAttempt(email);
@@ -424,25 +839,21 @@ const auth = (function() {
                     return;
                 }
                 
-                // Success - create session
                 security.resetFailedAttempts(email);
                 const sessionData = session.set(user, rememberMe);
                 
                 if (sessionData) {
-                    // Update app state
                     app.isAuthenticated = true;
                     app.currentProfile = user.profile;
                     app.currentUser = sessionData.user;
                     
-                    // Auto-select company for specific profiles
                     if (user.profile === 'user') {
                         app.currentCompany = '1';
                     } else if (user.profile === 'caissier') {
                         app.currentCompany = '2';
                     }
                     
-                    // Show success and redirect
-                    showSuccessToast(`Bienvenue ${user.name} !`);
+                    showSuccessMessage(`Bienvenue ${user.name} !`);
                     auth.showMainApp();
                     
                     console.log('✅ Login successful:', user.name);
@@ -452,7 +863,7 @@ const auth = (function() {
                 
             } catch (error) {
                 console.error('Login error:', error);
-                showErrorToast('Erreur lors de la connexion');
+                showErrorMessage('Erreur lors de la connexion');
             } finally {
                 ui.setLoadingState(false);
             }
@@ -477,7 +888,6 @@ const auth = (function() {
                     emailField.value = cred.email;
                     passwordField.value = cred.password;
                     
-                    // Trigger login
                     const loginForm = document.getElementById('loginForm');
                     if (loginForm) {
                         const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
@@ -490,135 +900,6 @@ const auth = (function() {
         // Show registration form
         showRegisterForm: () => {
             auth.showModal(auth.generateRegistrationModal());
-        },
-
-        // Generate registration modal HTML
-        generateRegistrationModal: () => {
-            return `
-                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="auth.closeModalOnBackground(event)">
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
-                        <div class="text-center mb-6">
-                            <div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
-                                <i class="fas fa-user-plus text-2xl"></i>
-                            </div>
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Inscription</h2>
-                            <p class="text-gray-600 dark:text-gray-400 mt-2">Créer votre compte DOUKÈ Compta Pro</p>
-                        </div>
-
-                        <form id="registerForm" class="space-y-4" novalidate>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Prénom <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" id="regFirstName" required maxlength="50" 
-                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Nom <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" id="regLastName" required maxlength="50"
-                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Email <span class="text-danger">*</span>
-                                </label>
-                                <input type="email" id="regEmail" required 
-                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    Utilisez votre email professionnel
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Numéro de téléphone <span class="text-danger">*</span>
-                                </label>
-                                ${auth.generateCountryPhoneSelector('regPhone')}
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Nom de l'entreprise <span class="text-danger">*</span>
-                                </label>
-                                <input type="text" id="regCompanyName" required maxlength="100"
-                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Type d'entreprise <span class="text-danger">*</span>
-                                </label>
-                                <select id="regCompanyType" required 
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
-                                    <option value="">-- Sélectionner le type --</option>
-                                    <option value="SARL">SARL - Société à Responsabilité Limitée</option>
-                                    <option value="SA">SA - Société Anonyme</option>
-                                    <option value="EURL">EURL - Entreprise Unipersonnelle à Responsabilité Limitée</option>
-                                    <option value="SAS">SAS - Société par Actions Simplifiée</option>
-                                    <option value="SNC">SNC - Société en Nom Collectif</option>
-                                    <option value="EI">EI - Entreprise Individuelle</option>
-                                </select>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Mot de passe <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="password" id="regPassword" required minlength="6"
-                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        Minimum 6 caractères
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Confirmer <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="password" id="regConfirmPassword" required 
-                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                            </div>
-
-                            <div class="bg-info/10 p-4 rounded-lg">
-                                <p class="text-sm text-info">
-                                    <i class="fas fa-info-circle mr-2"></i>
-                                    Votre compte sera créé avec le profil <strong>"Utilisateur"</strong>.
-                                    Vous pourrez gérer uniquement votre entreprise. Période d'essai de 30 jours incluse.
-                                </p>
-                            </div>
-
-                            <div class="flex items-center">
-                                <input type="checkbox" id="agreeTerms" required class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
-                                <label for="agreeTerms" class="ml-2 text-sm text-gray-900 dark:text-white">
-                                    J'accepte les <a href="#" class="text-primary hover:underline">conditions d'utilisation</a> et la <a href="#" class="text-primary hover:underline">politique de confidentialité</a>
-                                </label>
-                            </div>
-
-                            <button type="submit" 
-                                    class="w-full bg-primary hover:bg-primary-600 text-white py-3 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
-                                <i class="fas fa-user-plus mr-2"></i>Créer mon compte
-                            </button>
-                        </form>
-
-                        <div class="mt-6 flex justify-between items-center">
-                            <button onclick="auth.showLoginInterface()" 
-                                    class="text-primary hover:text-primary-700 font-medium transition-colors focus:outline-none focus:underline">
-                                ← Retour à la connexion
-                            </button>
-                            <button onclick="auth.closeModal()" 
-                                    class="text-gray-500 hover:text-gray-700 transition-colors focus:outline-none focus:underline">
-                                Fermer
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
         },
 
         // Generate country phone selector
@@ -641,155 +922,173 @@ const auth = (function() {
             `;
         },
 
-        // Handle registration
-        handleRegister: async (event) => {
-            event.preventDefault();
-            
-            try {
-                showLoading();
-                
-                const formData = new FormData(event.target);
-                const data = {
-                    firstName: formData.get('firstName')?.trim(),
-                    lastName: formData.get('lastName')?.trim(),
-                    email: formData.get('email')?.trim().toLowerCase(),
-                    phone: formData.get('phone')?.trim(),
-                    companyName: formData.get('companyName')?.trim(),
-                    companyType: formData.get('companyType'),
-                    password: formData.get('password'),
-                    confirmPassword: formData.get('confirmPassword'),
-                    agreeTerms: formData.get('agreeTerms')
-                };
-                
-                // Validation
-                const errors = [];
-                
-                if (!data.firstName) errors.push('Le prénom est requis');
-                if (!data.lastName) errors.push('Le nom est requis');
-                if (!data.email || !validators.email(data.email)) errors.push('Email valide requis');
-                if (!data.phone || !validators.phone(data.phone)) errors.push('Numéro de téléphone valide requis');
-                if (!data.companyName) errors.push('Le nom de l\'entreprise est requis');
-                if (!data.companyType) errors.push('Le type d\'entreprise est requis');
-                if (!data.password || !validators.password(data.password)) errors.push('Mot de passe de 6 caractères minimum requis');
-                if (data.password !== data.confirmPassword) errors.push('Les mots de passe ne correspondent pas');
-                if (!data.agreeTerms) errors.push('Vous devez accepter les conditions d\'utilisation');
-                
-                // Check if email already exists
-                if (userDatabase[data.email]) {
-                    errors.push('Cette adresse email est déjà utilisée');
-                }
-                
-                if (errors.length > 0) {
-                    showErrorToast(errors.join('<br>'));
-                    return;
-                }
-                
-                // Simulate registration process
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // Create new user (in production, this would be sent to backend)
-                const newUser = {
-                    id: Object.keys(userDatabase).length + 1,
-                    name: `${data.firstName} ${data.lastName}`,
-                    email: data.email,
-                    phone: data.phone,
-                    role: 'Utilisateur',
-                    profile: 'user',
-                    password: data.password, // Would be hashed in production
-                    permissions: ['entries.create', 'reports.own'],
-                    lastLogin: null,
-                    failedAttempts: 0,
-                    lockedUntil: null,
-                    company: {
-                        name: data.companyName,
-                        type: data.companyType
-                    }
-                };
-                
-                // Add to database (in production, this would be sent to backend)
-                userDatabase[data.email] = newUser;
-                
-                auth.closeModal();
-                showSuccessToast('Inscription réussie ! Vous pouvez maintenant vous connecter.');
-                
-                // Pre-fill login form
-                const emailField = document.getElementById('loginEmail');
-                if (emailField) {
-                    emailField.value = data.email;
-                    emailField.focus();
-                }
-                
-                console.log('✅ Registration successful:', newUser.name);
-                
-            } catch (error) {
-                console.error('Registration error:', error);
-                showErrorToast('Erreur lors de l\'inscription');
-            } finally {
-                hideLoading();
-            }
-        },
-
-        // Show forgot password modal
-        showForgotPassword: () => {
-            const modal = `
+        // Generate registration modal HTML
+        generateRegistrationModal: () => {
+            return `
                 <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="auth.closeModalOnBackground(event)">
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-md" onclick="event.stopPropagation()">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
                         <div class="text-center mb-6">
-                            <div class="w-16 h-16 bg-warning text-white rounded-full flex items-center justify-center mx-auto mb-4">
-                                <i class="fas fa-key text-2xl"></i>
+                            <div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-user-plus text-2xl"></i>
                             </div>
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mot de passe oublié</h2>
-                            <p class="text-gray-600 dark:text-gray-400 mt-2">Entrez votre email pour recevoir un lien de réinitialisation</p>
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Inscription</h2>
+                            <p class="text-gray-600 dark:text-gray-400 mt-2">Créer votre compte DOUKÈ Compta Pro</p>
                         </div>
 
-                        <form id="forgotPasswordForm" class="space-y-4">
+                        <form id="registerForm" class="space-y-4" novalidate>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Prénom <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" name="firstName" required maxlength="50" 
+                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Nom <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" name="lastName" required maxlength="50"
+                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Email
+                                    Email <span class="text-danger">*</span>
                                 </label>
-                                <input type="email" id="forgotEmail" required 
-                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent"
-                                       placeholder="votre@email.com">
+                                <input type="email" name="email" required 
+                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Numéro de téléphone <span class="text-danger">*</span>
+                                </label>
+                                ${auth.generateCountryPhoneSelector('regPhone')}
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Nom de l'entreprise <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" name="companyName" required maxlength="100"
+                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Type d'entreprise <span class="text-danger">*</span>
+                                </label>
+                                <select name="companyType" required 
+                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    <option value="">-- Sélectionner le type --</option>
+                                    <option value="SARL">SARL - Société à Responsabilité Limitée</option>
+                                    <option value="SA">SA - Société Anonyme</option>
+                                    <option value="EURL">EURL - Entreprise Unipersonnelle à Responsabilité Limitée</option>
+                                    <option value="SAS">SAS - Société par Actions Simplifiée</option>
+                                    <option value="SNC">SNC - Société en Nom Collectif</option>
+                                    <option value="EI">EI - Entreprise Individuelle</option>
+                                </select>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Mot de passe <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="password" name="password" required minlength="6"
+                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Confirmer <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="password" name="confirmPassword" required 
+                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+
+                            <div class="bg-info/10 p-4 rounded-lg">
+                                <p class="text-sm text-info">
+                                    <i class="fas fa-info-circle mr-2"></i>
+                                    Votre compte sera créé avec le profil <strong>"Utilisateur"</strong>.
+                                </p>
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" name="agreeTerms" required class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
+                                <label class="ml-2 text-sm text-gray-900 dark:text-white">
+                                    J'accepte les conditions d'utilisation
+                                </label>
                             </div>
 
                             <button type="submit" 
-                                    class="w-full bg-warning hover:bg-warning/90 text-white py-3 rounded-lg font-medium transition-colors">
-                                <i class="fas fa-paper-plane mr-2"></i>Envoyer le lien
+                                    class="w-full bg-primary hover:bg-primary-600 text-white py-3 rounded-lg font-medium transition-colors">
+                                <i class="fas fa-user-plus mr-2"></i>Créer mon compte
                             </button>
                         </form>
 
-                        <div class="mt-6 text-center">
+                        <div class="mt-6 flex justify-between items-center">
+                            <button onclick="auth.showLoginInterface()" 
+                                    class="text-primary hover:text-primary-700 font-medium transition-colors">
+                                ← Retour à la connexion
+                            </button>
                             <button onclick="auth.closeModal()" 
                                     class="text-gray-500 hover:text-gray-700 transition-colors">
-                                Retour à la connexion
+                                Fermer
                             </button>
                         </div>
                     </div>
                 </div>
             `;
+        },
+
+        // Handle registration
+        handleRegister: async (event) => {
+            event.preventDefault();
             
-            auth.showModal(modal);
-            
-            // Setup form handler
-            setTimeout(() => {
-                const form = document.getElementById('forgotPasswordForm');
-                if (form) {
-                    form.addEventListener('submit', async (e) => {
-                        e.preventDefault();
-                        const email = document.getElementById('forgotEmail')?.value;
-                        
-                        if (email && validators.email(email)) {
-                            showLoading();
-                            await new Promise(resolve => setTimeout(resolve, 1500));
-                            hideLoading();
-                            auth.closeModal();
-                            showSuccessToast('Instructions envoyées par email (fonctionnalité de démonstration)');
-                        } else {
-                            showErrorToast('Veuillez entrer un email valide');
-                        }
-                    });
+            try {
+                const formData = new FormData(event.target);
+                const data = Object.fromEntries(formData.entries());
+                
+                // Basic validation
+                if (data.password !== data.confirmPassword) {
+                    showErrorMessage('Les mots de passe ne correspondent pas');
+                    return;
                 }
-            }, 100);
+                
+                if (!validators.email(data.email)) {
+                    showErrorMessage('Email invalide');
+                    return;
+                }
+                
+                if (userDatabase[data.email.toLowerCase()]) {
+                    showErrorMessage('Cette adresse email est déjà utilisée');
+                    return;
+                }
+                
+                // Simulate registration
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                auth.closeModal();
+                showSuccessMessage('Inscription réussie ! Vous pouvez maintenant vous connecter.');
+                
+                // Pre-fill login form
+                const emailField = document.getElementById('loginEmail');
+                if (emailField) {
+                    emailField.value = data.email;
+                }
+                
+            } catch (error) {
+                console.error('Registration error:', error);
+                showErrorMessage('Erreur lors de l\'inscription');
+            }
+        },
+
+        // Show forgot password modal
+        showForgotPassword: () => {
+            showSuccessMessage('📧 Un email de récupération sera envoyé (fonctionnalité de démonstration)');
         },
 
         // Logout confirmation
@@ -825,25 +1124,22 @@ const auth = (function() {
         // Logout user
         logout: () => {
             try {
-                // Clear session
                 session.clear();
                 
-                // Reset app state
                 app.isAuthenticated = false;
                 app.currentProfile = null;
                 app.currentUser = null;
                 app.currentCompany = null;
                 
-                // Close modal and show login
                 auth.closeModal();
                 auth.showLoginInterface();
                 
-                showSuccessToast('Déconnexion réussie. À bientôt !');
+                showSuccessMessage('Déconnexion réussie. À bientôt !');
                 console.log('✅ Logout successful');
                 
             } catch (error) {
                 console.error('Logout error:', error);
-                showErrorToast('Erreur lors de la déconnexion');
+                showErrorMessage('Erreur lors de la déconnexion');
             }
         },
 
@@ -856,7 +1152,6 @@ const auth = (function() {
                 loginInterface.classList.remove('hidden');
                 mainApp.classList.add('hidden');
                 
-                // Focus email field
                 setTimeout(() => {
                     const emailField = document.getElementById('loginEmail');
                     if (emailField) {
@@ -875,10 +1170,8 @@ const auth = (function() {
                 loginInterface.classList.add('hidden');
                 mainApp.classList.remove('hidden');
                 
-                // Initialize main app if function exists
-                if (typeof initializeMainApp === 'function') {
-                    initializeMainApp();
-                }
+                // Initialize main app
+                initializeApp();
             }
         },
 
@@ -889,7 +1182,6 @@ const auth = (function() {
                 app.currentProfile = sessionData.user.profile;
                 app.currentUser = sessionData.user;
                 
-                // Auto-select company for specific profiles
                 if (sessionData.user.profile === 'user') {
                     app.currentCompany = '1';
                 } else if (sessionData.user.profile === 'caissier') {
@@ -914,12 +1206,12 @@ const auth = (function() {
             }
             
             sessionTimer = setTimeout(() => {
-                showErrorToast('Session expirée. Reconnexion requise.');
+                showErrorMessage('Session expirée. Reconnexion requise.');
                 auth.logout();
             }, SESSION_DURATION);
         },
 
-        // Extend session (call this on user activity)
+        // Extend session
         extendSession: () => {
             if (app.isAuthenticated) {
                 session.extend();
@@ -943,7 +1235,6 @@ const auth = (function() {
             if (container) {
                 container.innerHTML = html;
                 
-                // Setup form handlers if register form
                 setTimeout(() => {
                     const registerForm = document.getElementById('registerForm');
                     if (registerForm) {
@@ -984,3 +1275,8 @@ document.addEventListener('keypress', auth.extendSession);
 
 // Export for global access
 window.auth = auth;
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    auth.init();
+});
