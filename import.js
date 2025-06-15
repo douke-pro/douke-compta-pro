@@ -1,5 +1,5 @@
 // =============================================================================
-// IMPORT MANAGEMENT - FONCTION COMPLÈTE RESTAURÉE
+// IMPORT.JS - Gestion des imports de balances
 // =============================================================================
 
 function loadImport() {
@@ -107,12 +107,10 @@ function loadImport() {
     `;
     document.getElementById('mainContent').innerHTML = content;
 
-    // Setup drag and drop
     setTimeout(() => setupDragAndDrop(), 100);
 }
 
 function downloadExcelTemplate() {
-    // Créer un contenu CSV pour le template
     const csvContent = [
         'Code Compte,Libellé Compte,Solde Débit,Solde Crédit',
         '101000,Capital social,0,1000000',
@@ -124,7 +122,6 @@ function downloadExcelTemplate() {
         '701000,Ventes de marchandises,0,1200000'
     ].join('\n');
 
-    // Créer et télécharger le fichier
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -135,7 +132,7 @@ function downloadExcelTemplate() {
     link.click();
     document.body.removeChild(link);
 
-    showSuccessMessage('📄 Modèle Excel téléchargé avec succès !\n\nLe fichier "modele_import_balance.csv" contient la structure à respecter pour l\'import de vos données comptables.');
+    showSuccessMessage('Modèle Excel téléchargé avec succès !\n\nLe fichier "modele_import_balance.csv" contient la structure à respecter pour l\'import de vos données comptables.');
     console.log('✅ Template Excel téléchargé');
 }
 
@@ -187,13 +184,11 @@ function setupDragAndDrop() {
 function handleFileSelect(event) {
     const file = event.target.files[0];
     if (file) {
-        // Vérifier la taille du fichier
         if (file.size > 10 * 1024 * 1024) {
             alert('❌ Le fichier est trop volumineux. Taille maximum: 10 MB');
             return;
         }
 
-        // Vérifier le format
         const allowedTypes = ['.xlsx', '.xls', '.csv'];
         const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
         if (!allowedTypes.includes(fileExtension)) {
@@ -217,17 +212,14 @@ function startImport() {
     const fileInfoElement = document.getElementById('fileInfo');
     const importFileElement = document.getElementById('importFile');
 
-    // Simulation du processus d'import
-    showProcessingMessage('📊 Import en cours...\n\nLes données sont en cours de traitement.');
+    showProcessingMessage('Import en cours...\n\nLes données sont en cours de traitement.');
 
-    // Simuler le traitement avec un délai
     setTimeout(() => {
         if (fileInfoElement) fileInfoElement.classList.add('hidden');
         if (importFileElement) importFileElement.value = '';
 
-        showSuccessMessage(`✅ Import terminé avec succès !\n\nFichier: ${fileName}\nLignes traitées: 156\nComptes ajoutés: 23\nComptes mis à jour: 133`);
+        showSuccessMessage(`Import terminé avec succès !\n\nFichier: ${fileName}\nLignes traitées: 156\nComptes ajoutés: 23\nComptes mis à jour: 133`);
 
-        // Rafraîchir l'historique
         setTimeout(() => {
             const tbody = document.querySelector('#mainContent tbody');
             if (tbody) {
@@ -270,9 +262,9 @@ function generateImportHistory() {
 }
 
 function viewImportDetails(fileName) {
-    showSuccessMessage(`📋 Détails de l'import: ${fileName}\n\nConsultation des logs et statistiques...`);
+    showSuccessMessage(`Détails de l'import: ${fileName}\n\nConsultation des logs et statistiques...`);
 }
 
 function downloadImportLog(fileName) {
-    showSuccessMessage(`📄 Téléchargement du log: ${fileName}\n\nFichier de log téléchargé.`);
+    showSuccessMessage(`Téléchargement du log: ${fileName}\n\nFichier de log téléchargé.`);
 }
