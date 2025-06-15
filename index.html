@@ -17,11 +17,48 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="console.error('Failed to load Chart.js')"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js" onerror="console.error('Failed to load Marked.js')"></script>
     
-    <!-- Auth.js Integration -->
+    <!-- ========================================================================= -->
+    <!-- ORDRE CORRECT DES FICHIERS JAVASCRIPT - SELON VOS SPECIFICATIONS -->
+    <!-- ========================================================================= -->
+    
+    <!-- 1. CSS personnalisé (premier) -->
+    <link rel="stylesheet" href="custom.css" onerror="console.warn('custom.css not found - using default styles')">
+    
+    <!-- 2. Variables globales (TOUJOURS EN PREMIER pour JS) -->
+    <script src="data.js" onerror="console.warn('data.js not found - using inline data')"></script>
+    
+    <!-- 3. Authentification -->
     <script src="auth.js" onerror="console.warn('auth.js not found - authentication features may be limited')"></script>
+    
+    <!-- 4. Navigation et interface -->
+    <script src="navigation.js" onerror="console.warn('navigation.js not found - using basic navigation')"></script>
+    
+    <!-- 5. Dashboard -->
+    <script src="dashboard.js" onerror="console.warn('dashboard.js not found - using basic dashboard')"></script>
+    
+    <!-- 6. Module comptes -->
+    <script src="accounts.js" onerror="console.warn('accounts.js not found - accounts module disabled')"></script>
+    
+    <!-- 7. Module caisse -->
+    <script src="caisse.js" onerror="console.warn('caisse.js not found - cash register module disabled')"></script>
+    
+    <!-- 8. Saisies/journaux -->
+    <script src="entries.js" onerror="console.warn('entries.js not found - entries module disabled')"></script>
+    
+    <!-- 9. Importation -->
+    <script src="import.js" onerror="console.warn('import.js not found - import features disabled')"></script>
+    
+    <!-- 10. Rapports -->
+    <script src="reports.js" onerror="console.warn('reports.js not found - reports module disabled')"></script>
+    
+    <!-- 11. Paramètres -->
+    <script src="settings.js" onerror="console.warn('settings.js not found - settings module disabled')"></script>
+    
+    <!-- 12. Initialisation finale (TOUJOURS EN DERNIER) -->
+    <script src="app.js" onerror="console.warn('app.js not found - using inline initialization')"></script>
 
+    <!-- Configuration Tailwind sécurisée -->
     <script>
-        // Enhanced Tailwind configuration with error handling
         try {
             tailwind.config = {
                 theme: {
@@ -46,79 +83,113 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
 
-<!-- Enhanced Dark mode detection with theme switcher -->
+<!-- ========================================================================= -->
+<!-- GESTION DES THEMES - A DEPLACER VERS settings.js -->
+<!-- ========================================================================= -->
 <script>
-// Enhanced theme management with error handling
+// Ce code devrait être dans settings.js
 const themeManager = {
     current: 'system',
 
     init() {
         try {
-            // Detect initial theme
-            if (localStorage.getItem('theme') === 'dark' ||
-                (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            const savedTheme = this.getSavedTheme();
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
                 document.documentElement.classList.add('dark');
                 this.current = 'dark';
-            } else if (localStorage.getItem('theme') === 'light') {
+            } else if (savedTheme === 'light') {
                 document.documentElement.classList.remove('dark');
                 this.current = 'light';
             } else {
                 this.current = 'system';
             }
 
-            // Listen for system theme changes
-            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-            mediaQuery.addEventListener('change', (event) => {
+            // Écouter les changements du système
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
                 if (this.current === 'system') {
-                    if (event.matches) {
-                        document.documentElement.classList.add('dark');
-                    } else {
-                        document.documentElement.classList.remove('dark');
-                    }
+                    this.applySystemTheme(event.matches);
                 }
             });
         } catch (error) {
             console.error('Theme initialization error:', error);
-            // Fallback to light mode
+            this.fallbackToLight();
+        }
+    },
+
+    getSavedTheme() {
+        try {
+            return localStorage?.getItem('theme') || null;
+        } catch {
+            return null;
+        }
+    },
+
+    saveTheme(theme) {
+        try {
+            if (localStorage) {
+                if (theme === 'system') {
+                    localStorage.removeItem('theme');
+                } else {
+                    localStorage.setItem('theme', theme);
+                }
+            }
+        } catch (error) {
+            console.warn('Cannot save theme preference:', error);
+        }
+    },
+
+    applySystemTheme(prefersDark) {
+        if (prefersDark) {
+            document.documentElement.classList.add('dark');
+        } else {
             document.documentElement.classList.remove('dark');
         }
+    },
+
+    fallbackToLight() {
+        document.documentElement.classList.remove('dark');
+        this.current = 'light';
     },
 
     setTheme(theme) {
         try {
             this.current = theme;
+            
             if (theme === 'dark') {
                 document.documentElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
             } else if (theme === 'light') {
                 document.documentElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-            } else {
-                localStorage.removeItem('theme');
-                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
+            } else { // system
+                this.applySystemTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
             }
+            
+            this.saveTheme(theme);
         } catch (error) {
             console.error('Theme setting error:', error);
+            this.fallbackToLight();
         }
     }
 };
 
-// Initialize theme immediately
+// Initialiser immédiatement
 themeManager.init();
 </script>
 
-<!-- Enhanced Application State -->
+<!-- ========================================================================= -->
+<!-- ETAT APPLICATION - A DEPLACER VERS data.js -->
+<!-- ========================================================================= -->
 <script>
-// Enhanced application state with validation and error handling
-const app = {
+// Ce code devrait être dans data.js
+window.app = window.app || {
+    // État de l'application
     currentProfile: null,
     currentCompany: null,
     currentUser: null,
     isAuthenticated: false,
+    
+    // Données
     accounts: [],
     entries: [],
     companies: [],
@@ -128,121 +199,149 @@ const app = {
     notifications: [],
     deadlines: [],
     
-    // Enhanced validation helpers
+    // Validation sécurisée
     validate: {
         email: (email) => {
             try {
-                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-            } catch (error) {
-                console.error('Email validation error:', error);
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return typeof email === 'string' && emailRegex.test(email.trim());
+            } catch {
                 return false;
             }
         },
+        
         phone: (phone) => {
             try {
-                return /^[\+]?[\d\s\-\(\)]{8,}$/.test(phone);
-            } catch (error) {
-                console.error('Phone validation error:', error);
+                const phoneRegex = /^[\+]?[\d\s\-\(\)]{8,}$/;
+                return typeof phone === 'string' && phoneRegex.test(phone.trim());
+            } catch {
                 return false;
             }
         },
+        
         accountCode: (code) => {
             try {
-                return /^\d{6}$/.test(code);
-            } catch (error) {
-                console.error('Account code validation error:', error);
+                const codeRegex = /^\d{6}$/;
+                return typeof code === 'string' && codeRegex.test(code.trim());
+            } catch {
                 return false;
             }
+        },
+        
+        required: (value) => {
+            return value !== null && value !== undefined && value.toString().trim() !== '';
         }
     },
     
-    // Enhanced utility functions
+    // Utilitaires sécurisés
     utils: {
         formatCurrency: (amount) => {
             try {
-                return new Intl.NumberFormat('fr-FR').format(amount) + ' FCFA';
-            } catch (error) {
-                console.error('Currency formatting error:', error);
-                return amount + ' FCFA';
+                const num = parseFloat(amount) || 0;
+                return new Intl.NumberFormat('fr-FR').format(num) + ' FCFA';
+            } catch {
+                return '0 FCFA';
             }
         },
+        
         formatDate: (date) => {
             try {
                 return new Date(date).toLocaleDateString('fr-FR');
-            } catch (error) {
-                console.error('Date formatting error:', error);
-                return date;
+            } catch {
+                return 'Date invalide';
             }
         },
+        
         debounce: (func, wait) => {
             let timeout;
             return function executedFunction(...args) {
                 const later = () => {
                     clearTimeout(timeout);
-                    func(...args);
+                    func.apply(this, args);
                 };
                 clearTimeout(timeout);
                 timeout = setTimeout(later, wait);
             };
+        },
+        
+        sanitizeText: (text) => {
+            try {
+                return text ? text.toString().trim() : '';
+            } catch {
+                return '';
+            }
+        },
+        
+        escapeHtml: (text) => {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
+    },
+    
+    // Gestion d'erreurs centralisée
+    handleError: (error, context = 'Application') => {
+        console.error(`[${context}]`, error);
+        // En production, envoyer à un service de monitoring
     }
 };
 
-// Enhanced global error handling
-window.addEventListener('error', function(event) {
-    console.error('Global error:', event.error);
-    // In production, you might want to send this to an error tracking service
+// Gestion globale des erreurs
+window.addEventListener('error', (event) => {
+    app.handleError(event.error, 'Global Error Handler');
 });
 
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('Unhandled promise rejection:', event.reason);
+window.addEventListener('unhandledrejection', (event) => {
+    app.handleError(event.reason, 'Unhandled Promise Rejection');
     event.preventDefault();
 });
 </script>
 
-<!-- Interface de Connexion - CONSERVÉE IDENTIQUE -->
+<!-- Interface de Connexion -->
 <div id="loginInterface" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-primary-light">
     <div class="max-w-md w-full mx-4">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8">
             <!-- Logo et titre -->
             <div class="text-center mb-8">
                 <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg company-logo">
-                    <i class="fas fa-calculator text-3xl"></i>
+                    <i class="fas fa-calculator text-3xl" aria-hidden="true"></i>
                 </div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-white">DOUKÈ Compta Pro</h1>
                 <p class="text-gray-600 dark:text-gray-400 mt-2">Gestion Comptable SYSCOHADA Révisé</p>
             </div>
 
             <!-- Formulaire de connexion -->
-            <form id="loginForm" class="space-y-6">
+            <form id="loginForm" class="space-y-6" novalidate>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-envelope mr-2"></i>Email
+                    <label for="loginEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-envelope mr-2" aria-hidden="true"></i>Email
                     </label>
-                    <input type="email" id="loginEmail" required
+                    <input type="email" id="loginEmail" name="email" required autocomplete="email"
                         class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
                         placeholder="votre@email.com">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-lock mr-2"></i>Mot de passe
+                    <label for="loginPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-lock mr-2" aria-hidden="true"></i>Mot de passe
                     </label>
-                    <input type="password" id="loginPassword" required
+                    <input type="password" id="loginPassword" name="password" required autocomplete="current-password"
                         class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
                         placeholder="Votre mot de passe">
                 </div>
 
                 <div class="flex items-center justify-between">
                     <label class="flex items-center">
-                        <input type="checkbox" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary">
+                        <input type="checkbox" name="remember" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary">
                         <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Se souvenir de moi</span>
                     </label>
-                    <a href="#" onclick="showForgotPassword()" class="text-sm text-primary hover:text-primary/80 transition-colors">Mot de passe oublié ?</a>
+                    <button type="button" onclick="showForgotPassword()" class="text-sm text-primary hover:text-primary/80 transition-colors">
+                        Mot de passe oublié ?
+                    </button>
                 </div>
 
                 <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg font-medium transition-colors transform hover:scale-105">
-                    <i class="fas fa-sign-in-alt mr-2"></i>Se connecter
+                    <i class="fas fa-sign-in-alt mr-2" aria-hidden="true"></i>Se connecter
                 </button>
             </form>
 
@@ -250,19 +349,19 @@ window.addEventListener('unhandledrejection', function(event) {
             <div class="mt-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Comptes de démonstration :</h3>
                 <div class="space-y-2 text-xs">
-                    <button onclick="loginAs('admin')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
+                    <button type="button" onclick="loginAs('admin')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
                         <strong>Administrateur :</strong> admin@doukecompta.ci / admin123
                     </button>
-                    <button onclick="loginAs('collaborateur-senior')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
+                    <button type="button" onclick="loginAs('collaborateur-senior')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
                         <strong>Collaborateur Senior :</strong> marie.kouassi@cabinet.com / collab123
                     </button>
-                    <button onclick="loginAs('collaborateur')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
+                    <button type="button" onclick="loginAs('collaborateur')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
                         <strong>Collaborateur :</strong> jean.diabate@cabinet.com / collab123
                     </button>
-                    <button onclick="loginAs('user')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
+                    <button type="button" onclick="loginAs('user')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
                         <strong>Utilisateur :</strong> atraore@sarltech.ci / user123
                     </button>
-                    <button onclick="loginAs('caissier')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
+                    <button type="button" onclick="loginAs('caissier')" class="w-full text-left p-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
                         <strong>Caissier :</strong> ikone@caisse.ci / caisse123
                     </button>
                 </div>
@@ -271,14 +370,16 @@ window.addEventListener('unhandledrejection', function(event) {
             <div class="mt-6 text-center">
                 <p class="text-sm text-gray-600 dark:text-gray-400">
                     Pas encore de compte ?
-                    <button onclick="showRegisterForm()" class="text-primary hover:text-primary/80 font-medium transition-colors">S'inscrire</button>
+                    <button type="button" onclick="showRegisterForm()" class="text-primary hover:text-primary/80 font-medium transition-colors">
+                        S'inscrire
+                    </button>
                 </p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Interface principale de l'application - CONSERVÉE IDENTIQUE -->
+<!-- Interface principale de l'application -->
 <div id="mainApp" class="hidden h-screen overflow-hidden">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
@@ -288,7 +389,7 @@ window.addEventListener('unhandledrejection', function(event) {
                 <div class="flex items-center justify-center h-16 border-b border-gray-200 dark:border-gray-700 bg-primary">
                     <div class="flex items-center space-x-3">
                         <div class="w-8 h-8 bg-white text-primary rounded-lg flex items-center justify-center font-bold company-logo" id="appLogo">
-                            <i class="fas fa-calculator"></i>
+                            <i class="fas fa-calculator" aria-hidden="true"></i>
                         </div>
                         <span class="text-white font-bold text-lg">DOUKÈ Compta Pro</span>
                     </div>
@@ -298,7 +399,7 @@ window.addEventListener('unhandledrejection', function(event) {
                 <div class="p-4 bg-primary/10">
                     <div class="flex items-center space-x-3">
                         <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center">
-                            <i class="fas fa-user"></i>
+                            <i class="fas fa-user" aria-hidden="true"></i>
                         </div>
                         <div>
                             <div class="font-medium text-gray-900 dark:text-white" id="sidebarUserName"></div>
@@ -309,8 +410,8 @@ window.addEventListener('unhandledrejection', function(event) {
 
                 <!-- Sélecteur d'entreprise -->
                 <div id="companySelector" class="p-4 border-b border-gray-200 dark:border-gray-700" style="display: none;">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-building mr-2"></i>Entreprise Active
+                    <label for="activeCompanySelect" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-building mr-2" aria-hidden="true"></i>Entreprise Active
                     </label>
                     <select id="activeCompanySelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
                         <option value="">-- Sélectionner une entreprise --</option>
@@ -321,14 +422,14 @@ window.addEventListener('unhandledrejection', function(event) {
                 </div>
 
                 <!-- Navigation Menu -->
-                <nav id="navigationMenu" class="flex-1 overflow-y-auto py-4">
-                    <!-- Menu items will be populated by JavaScript -->
+                <nav id="navigationMenu" class="flex-1 overflow-y-auto py-4" role="navigation" aria-label="Menu principal">
+                    <!-- Menu items will be populated by navigation.js -->
                 </nav>
 
                 <!-- Admin Data Management -->
                 <div id="adminActions" class="p-4 border-t border-gray-200 dark:border-gray-700" style="display: none;">
-                    <button onclick="showAdminDataMenu()" class="w-full text-left text-sm text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
-                        <i class="fas fa-cog mr-2"></i>Gestion des données
+                    <button type="button" onclick="showAdminDataMenu()" class="w-full text-left text-sm text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
+                        <i class="fas fa-cog mr-2" aria-hidden="true"></i>Gestion des données
                     </button>
                 </div>
             </div>
@@ -340,8 +441,8 @@ window.addEventListener('unhandledrejection', function(event) {
             <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between px-6 py-4">
                     <div class="flex items-center space-x-4">
-                        <button id="sidebarToggle" class="lg:hidden text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-                            <i class="fas fa-bars text-xl"></i>
+                        <button type="button" id="sidebarToggle" class="lg:hidden text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" aria-label="Ouvrir la navigation">
+                            <i class="fas fa-bars text-xl" aria-hidden="true"></i>
                         </button>
                         <div>
                             <h1 class="text-xl font-semibold text-gray-900 dark:text-white" id="currentUser"></h1>
@@ -352,54 +453,56 @@ window.addEventListener('unhandledrejection', function(event) {
                     <div class="flex items-center space-x-4">
                         <!-- Theme Switcher -->
                         <div class="relative">
-                            <button onclick="toggleThemeMenu()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Changer de thème">
-                                <i class="fas fa-palette text-xl"></i>
+                            <button type="button" onclick="toggleThemeMenu()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Changer de thème" aria-label="Changer de thème">
+                                <i class="fas fa-palette text-xl" aria-hidden="true"></i>
                             </button>
-                            <div id="themeMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                            <div id="themeMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50" role="menu">
                                 <div class="py-2">
-                                    <button onclick="setTheme('light')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                        <i class="fas fa-sun mr-2"></i>Thème clair
+                                    <button type="button" onclick="setTheme('light')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">
+                                        <i class="fas fa-sun mr-2" aria-hidden="true"></i>Thème clair
                                     </button>
-                                    <button onclick="setTheme('dark')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                        <i class="fas fa-moon mr-2"></i>Thème sombre
+                                    <button type="button" onclick="setTheme('dark')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">
+                                        <i class="fas fa-moon mr-2" aria-hidden="true"></i>Thème sombre
                                     </button>
-                                    <button onclick="setTheme('system')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                        <i class="fas fa-desktop mr-2"></i>Système
+                                    <button type="button" onclick="setTheme('system')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">
+                                        <i class="fas fa-desktop mr-2" aria-hidden="true"></i>Système
                                     </button>
                                 </div>
                             </div>
                         </div>
+                        
                         <!-- Notifications -->
                         <div class="relative">
-                            <button onclick="toggleNotificationsPanel()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 relative" title="Notifications">
-                                <i class="fas fa-bell text-xl"></i>
-                                <span id="notificationBadge" class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden">3</span>
+                            <button type="button" onclick="toggleNotificationsPanel()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 relative" title="Notifications" aria-label="Notifications">
+                                <i class="fas fa-bell text-xl" aria-hidden="true"></i>
+                                <span id="notificationBadge" class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden" aria-label="3 notifications">3</span>
                             </button>
                             <div id="notificationsPanel" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
                                 <div class="p-4 border-b border-gray-200 dark:border-gray-700">
                                     <h3 class="font-semibold text-gray-900 dark:text-white">Notifications</h3>
                                 </div>
                                 <div id="notificationsList" class="p-2">
-                                    <!-- Notifications will be populated here -->
+                                    <!-- Notifications seront peuplées par notifications.js -->
                                 </div>
                                 <div class="p-3 border-t border-gray-200 dark:border-gray-700">
-                                    <button onclick="showNotificationSettings()" class="text-primary text-sm hover:text-primary/80">
-                                        <i class="fas fa-cog mr-1"></i>Paramètres notifications
+                                    <button type="button" onclick="showNotificationSettings()" class="text-primary text-sm hover:text-primary/80">
+                                        <i class="fas fa-cog mr-1" aria-hidden="true"></i>Paramètres notifications
                                     </button>
                                 </div>
                             </div>
                         </div>
-                        <button onclick="confirmLogout()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Se déconnecter">
-                            <i class="fas fa-sign-out-alt text-xl"></i>
+                        
+                        <button type="button" onclick="confirmLogout()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Se déconnecter" aria-label="Se déconnecter">
+                            <i class="fas fa-sign-out-alt text-xl" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
             </header>
 
             <!-- Main Content Area -->
-            <main class="flex-1 overflow-y-auto p-6">
+            <main class="flex-1 overflow-y-auto p-6" role="main">
                 <div id="mainContent">
-                    <!-- Content will be populated by JavaScript -->
+                    <!-- Contenu sera peuplé par dashboard.js et autres modules -->
                 </div>
             </main>
         </div>
@@ -407,447 +510,15 @@ window.addEventListener('unhandledrejection', function(event) {
 </div>
 
 <!-- Modal Container -->
-<div id="modalContainer"></div>
+<div id="modalContainer" role="dialog" aria-hidden="true"></div>
 
-<!-- Enhanced utilities and functions CONSERVÉES IDENTIQUES -->
+<!-- ========================================================================= -->
+<!-- FONCTIONS TEMPORAIRES - A REPARTIR DANS LES MODULES CORRESPONDANTS -->
+<!-- ========================================================================= -->
 <script>
-// =============================================================================
-// ENHANCED UTILITY FUNCTIONS
-// =============================================================================
-
-// Enhanced error handling wrapper for functions
-function safeExecute(func, errorMessage = 'Une erreur est survenue') {
-    try {
-        return func();
-    } catch (error) {
-        console.error(errorMessage, error);
-        showErrorMessage(errorMessage);
-        return null;
-    }
-}
-
-// Enhanced notification functions
-function showSuccessMessage(message) {
-    try {
-        alert('✅ ' + message);
-    } catch (error) {
-        console.error('Error showing success message:', error);
-    }
-}
-
-function showErrorMessage(message) {
-    try {
-        alert('❌ ' + message);
-    } catch (error) {
-        console.error('Error showing error message:', error);
-    }
-}
-
-function showProcessingMessage(message) {
-    try {
-        alert('📊 ' + message);
-    } catch (error) {
-        console.error('Error showing processing message:', error);
-    }
-}
-
-// =============================================================================
-// AUTH.JS INTEGRATION FUNCTIONS
-// =============================================================================
-
-// Function to call auth.js after successful login
-function callAuthOnLogin(userData) {
-    try {
-        // Check if auth.js functions are available
-        if (typeof window.authLogin === 'function') {
-            console.log('🔐 Calling auth.js login function...');
-            window.authLogin(userData);
-        } else if (typeof authLogin === 'function') {
-            console.log('🔐 Calling auth.js login function...');
-            authLogin(userData);
-        } else {
-            console.warn('⚠️ auth.js login function not found - proceeding without external auth');
-        }
-    } catch (error) {
-        console.error('Error calling auth.js login function:', error);
-    }
-}
-
-// Function to call auth.js after successful registration
-function callAuthOnRegister(userData) {
-    try {
-        // Check if auth.js functions are available
-        if (typeof window.authRegister === 'function') {
-            console.log('🔐 Calling auth.js register function...');
-            window.authRegister(userData);
-        } else if (typeof authRegister === 'function') {
-            console.log('🔐 Calling auth.js register function...');
-            authRegister(userData);
-        } else {
-            console.warn('⚠️ auth.js register function not found - proceeding without external auth');
-        }
-    } catch (error) {
-        console.error('Error calling auth.js register function:', error);
-    }
-}
-
-// Function to call auth.js on logout
-function callAuthOnLogout() {
-    try {
-        // Check if auth.js functions are available
-        if (typeof window.authLogout === 'function') {
-            console.log('🔐 Calling auth.js logout function...');
-            window.authLogout();
-        } else if (typeof authLogout === 'function') {
-            console.log('🔐 Calling auth.js logout function...');
-            authLogout();
-        } else {
-            console.warn('⚠️ auth.js logout function not found - proceeding without external auth');
-        }
-    } catch (error) {
-        console.error('Error calling auth.js logout function:', error);
-    }
-}
-
-// =============================================================================
-// OHADA COUNTRIES DATA - CONSERVÉ IDENTIQUE
-// =============================================================================
-
-function getOhadaCountries() {
-    return [
-        { code: '+229', country: 'Bénin', flag: '🇧🇯' },
-        { code: '+226', country: 'Burkina Faso', flag: '🇧🇫' },
-        { code: '+237', country: 'Cameroun', flag: '🇨🇲' },
-        { code: '+236', country: 'Centrafrique', flag: '🇨🇫' },
-        { code: '+269', country: 'Comores', flag: '🇰🇲' },
-        { code: '+242', country: 'Congo', flag: '🇨🇬' },
-        { code: '+225', country: 'Côte d\'Ivoire', flag: '🇨🇮' },
-        { code: '+241', country: 'Gabon', flag: '🇬🇦' },
-        { code: '+224', country: 'Guinée', flag: '🇬🇳' },
-        { code: '+245', country: 'Guinée-Bissau', flag: '🇬🇼' },
-        { code: '+240', country: 'Guinée Équatoriale', flag: '🇬🇶' },
-        { code: '+223', country: 'Mali', flag: '🇲🇱' },
-        { code: '+227', country: 'Niger', flag: '🇳🇪' },
-        { code: '+243', country: 'RD Congo', flag: '🇨🇩' },
-        { code: '+221', country: 'Sénégal', flag: '🇸🇳' },
-        { code: '+235', country: 'Tchad', flag: '🇹🇩' },
-        { code: '+228', country: 'Togo', flag: '🇹🇬' }
-    ];
-}
-
-function generateCountryPhoneSelector(fieldId, selectedCountry = '+225') {
-    try {
-        const countries = getOhadaCountries();
-        return `
-            <div class="flex">
-                <select id="${fieldId}_country" class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base border-r-0">
-                    ${countries.map(country => `
-                        <option value="${country.code}" ${country.code === selectedCountry ? 'selected' : ''}>
-                            ${country.flag} ${country.code}
-                        </option>
-                    `).join('')}
-                </select>
-                <input type="tel" id="${fieldId}" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-r-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" placeholder="XX XX XX XX XX">
-            </div>
-        `;
-    } catch (error) {
-        console.error('Error generating phone selector:', error);
-        return '<input type="tel" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Téléphone">';
-    }
-}
-
-// =============================================================================
-// DATA INITIALIZATION - CONSERVÉES IDENTIQUES 
-// =============================================================================
-
-function initializeData() {
-    return safeExecute(() => {
-        // Plan comptable SYSCOHADA Révisé complet (9 classes) - ORIGINAL COMPLET
-        app.accounts = [
-            // Classe 1 - Comptes de ressources durables
-            { code: '101000', name: 'Capital social', category: 'Capitaux propres' },
-            { code: '106000', name: 'Réserves', category: 'Capitaux propres' },
-            { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres' },
-            { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres' },
-            { code: '161000', name: 'Emprunts et dettes', category: 'Dettes financières' },
-            { code: '171000', name: 'Dettes de crédit-bail', category: 'Dettes financières' },
-
-            // Classe 2 - Comptes d'actif immobilisé
-            { code: '211000', name: 'Terrains', category: 'Immobilisations corporelles' },
-            { code: '213000', name: 'Constructions', category: 'Immobilisations corporelles' },
-            { code: '218000', name: 'Matériel de transport', category: 'Immobilisations corporelles' },
-            { code: '221000', name: 'Logiciels', category: 'Immobilisations incorporelles' },
-            { code: '244000', name: 'Matériel et outillage', category: 'Immobilisations corporelles' },
-            { code: '241000', name: 'Matériel et mobilier', category: 'Immobilisations corporelles' },
-
-            // Classe 3 - Comptes de stocks
-            { code: '311000', name: 'Marchandises', category: 'Stocks' },
-            { code: '321000', name: 'Matières premières', category: 'Stocks' },
-            { code: '371000', name: 'Stock en cours', category: 'Stocks' },
-            { code: '381000', name: 'Stocks de produits finis', category: 'Stocks' },
-
-            // Classe 4 - Comptes de tiers
-            { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs' },
-            { code: '411000', name: 'Clients', category: 'Clients' },
-            { code: '421000', name: 'Personnel', category: 'Personnel' },
-            { code: '431000', name: 'Sécurité sociale', category: 'Organismes sociaux' },
-            { code: '441000', name: 'État et collectivités', category: 'État' },
-            { code: '471000', name: 'Comptes d\'attente', category: 'Comptes transitoires' },
-
-            // Classe 5 - Comptes financiers
-            { code: '512000', name: 'Banques', category: 'Comptes bancaires' },
-            { code: '531000', name: 'Chèques postaux', category: 'Comptes postaux' },
-            { code: '571000', name: 'Caisse', category: 'Caisse' },
-            { code: '581000', name: 'Virements internes', category: 'Virements' },
-
-            // Classe 6 - Comptes de charges
-            { code: '601000', name: 'Achats de marchandises', category: 'Achats' },
-            { code: '605000', name: 'Autres achats', category: 'Achats' },
-            { code: '621000', name: 'Transports', category: 'Services extérieurs' },
-            { code: '622000', name: 'Rémunérations intermédiaires', category: 'Services extérieurs' },
-            { code: '631000', name: 'Impôts et taxes', category: 'Impôts et taxes' },
-            { code: '641000', name: 'Rémunérations du personnel', category: 'Charges de personnel' },
-            { code: '646000', name: 'Charges sociales', category: 'Charges de personnel' },
-            { code: '681000', name: 'Dotations aux amortissements', category: 'Dotations' },
-
-            // Classe 7 - Comptes de produits
-            { code: '701000', name: 'Ventes de marchandises', category: 'Ventes' },
-            { code: '706000', name: 'Services vendus', category: 'Ventes' },
-            { code: '771000', name: 'Revenus financiers', category: 'Produits financiers' },
-            { code: '781000', name: 'Reprises d\'amortissements', category: 'Reprises' },
-
-            // Classe 8 - Comptes de résultats
-            { code: '801000', name: 'Résultat en instance d\'affectation', category: 'Résultats' },
-            { code: '810000', name: 'Résultat net: bénéfice', category: 'Résultats' },
-            { code: '820000', name: 'Résultat net: perte', category: 'Résultats' },
-
-            // Classe 9 - Comptes analytiques
-            { code: '901000', name: 'Coûts de revient', category: 'Comptabilité analytique' },
-            { code: '905000', name: 'Coûts de production', category: 'Comptabilité analytique' },
-            { code: '910000', name: 'Charges indirectes', category: 'Comptabilité analytique' },
-            { code: '920000', name: 'Centres d\'analyse', category: 'Comptabilité analytique' }
-        ];
-
-        // Entreprises avec données réalistes - ORIGINAL COMPLET
-        app.companies = [
-            {
-                id: 1,
-                name: 'SARL TECH INNOVATION',
-                type: 'SARL',
-                status: 'Actif',
-                system: 'Normal',
-                phone: '+225 07 12 34 56 78',
-                address: 'Abidjan, Cocody',
-                cashRegisters: 3
-            },
-            {
-                id: 2,
-                name: 'SA COMMERCE PLUS',
-                type: 'SA',
-                status: 'Actif',
-                system: 'Normal',
-                phone: '+225 05 98 76 54 32',
-                address: 'Abidjan, Plateau',
-                cashRegisters: 5
-            },
-            {
-                id: 3,
-                name: 'EURL SERVICES PRO',
-                type: 'EURL',
-                status: 'Période d\'essai',
-                system: 'Minimal',
-                phone: '+225 01 23 45 67 89',
-                address: 'Bouaké Centre',
-                cashRegisters: 2
-            },
-            {
-                id: 4,
-                name: 'SAS DIGITAL WORLD',
-                type: 'SAS',
-                status: 'Suspendu',
-                system: 'Normal',
-                phone: '+225 07 11 22 33 44',
-                address: 'San-Pédro',
-                cashRegisters: 1
-            }
-        ];
-
-        // Utilisateurs avec profils détaillés - ORIGINAL COMPLET
-        app.users = [
-            {
-                id: 1,
-                name: 'Admin Système',
-                email: 'admin@doukecompta.ci',
-                role: 'Administrateur',
-                profile: 'admin',
-                phone: '+225 07 00 00 00 00',
-                companies: [1, 2, 3, 4],
-                status: 'Actif'
-            },
-            {
-                id: 2,
-                name: 'Marie Kouassi',
-                email: 'marie.kouassi@cabinet.com',
-                role: 'Collaborateur Senior',
-                profile: 'collaborateur-senior',
-                phone: '+225 07 11 11 11 11',
-                companies: [1, 2, 3],
-                status: 'Actif'
-            },
-            {
-                id: 3,
-                name: 'Jean Diabaté',
-                email: 'jean.diabate@cabinet.com',
-                role: 'Collaborateur',
-                profile: 'collaborateur',
-                phone: '+225 07 22 22 22 22',
-                companies: [2, 4],
-                status: 'Actif'
-            },
-            {
-                id: 4,
-                name: 'Amadou Traoré',
-                email: 'atraore@sarltech.ci',
-                role: 'Utilisateur',
-                profile: 'user',
-                phone: '+225 07 33 33 33 33',
-                companies: [1],
-                status: 'Actif'
-            },
-            {
-                id: 5,
-                name: 'Ibrahim Koné',
-                email: 'ikone@caisse.ci',
-                role: 'Caissier',
-                profile: 'caissier',
-                phone: '+225 07 44 44 44 44',
-                companies: [2],
-                status: 'Actif'
-            }
-        ];
-
-        // Écritures d'exemple avec données réelles - ORIGINAL COMPLET
-        app.entries = [
-            {
-                id: 1,
-                date: '2024-12-15',
-                journal: 'JV',
-                piece: 'JV-2024-001-0156',
-                libelle: 'Vente marchandises Client ABC',
-                companyId: 1,
-                lines: [
-                    { account: '411000', accountName: 'Clients', libelle: 'Vente Client ABC', debit: 1800000, credit: 0 },
-                    { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente marchandises', debit: 0, credit: 1500000 },
-                    { account: '441000', accountName: 'État et collectivités', libelle: 'TVA sur ventes', debit: 0, credit: 300000 }
-                ],
-                status: 'Validé',
-                userId: 2
-            },
-            {
-                id: 2,
-                date: '2024-12-14',
-                journal: 'JA',
-                piece: 'JA-2024-001-0157',
-                libelle: 'Achat marchandises Fournisseur XYZ',
-                companyId: 1,
-                lines: [
-                    { account: '601000', accountName: 'Achats de marchandises', libelle: 'Achat marchandises', debit: 850000, credit: 0 },
-                    { account: '441000', accountName: 'État et collectivités', libelle: 'TVA déductible', debit: 170000, credit: 0 },
-                    { account: '401000', accountName: 'Fournisseurs', libelle: 'Fournisseur XYZ', debit: 0, credit: 1020000 }
-                ],
-                status: 'En attente',
-                userId: 3
-            },
-            {
-                id: 3,
-                date: '2024-12-13',
-                journal: 'JC',
-                piece: 'JC-2024-002-0034',
-                libelle: 'Recette caisse vente comptant',
-                companyId: 2,
-                lines: [
-                    { account: '571000', accountName: 'Caisse', libelle: 'Encaissement espèces', debit: 150000, credit: 0 },
-                    { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente comptant', debit: 0, credit: 150000 }
-                ],
-                status: 'Validé',
-                userId: 5
-            }
-        ];
-
-        // Initialiser les caisses - ORIGINAL COMPLET
-        app.cashRegisters = [
-            {
-                id: 1,
-                name: 'Caisse Principale',
-                companyId: 2,
-                responsibleId: 5,
-                responsibleName: 'Ibrahim Koné',
-                balance: 210000,
-                status: 'Ouvert',
-                openingBalance: 150000,
-                dailyReceipts: 85000,
-                dailyExpenses: 25000
-            },
-            {
-                id: 2,
-                name: 'Caisse Ventes',
-                companyId: 2,
-                responsibleId: null,
-                responsibleName: 'Fatou Diallo',
-                balance: 85000,
-                status: 'Ouvert',
-                openingBalance: 100000,
-                dailyReceipts: 35000,
-                dailyExpenses: 50000
-            },
-            {
-                id: 3,
-                name: 'Caisse Réception',
-                companyId: 1,
-                responsibleId: null,
-                responsibleName: 'Non assigné',
-                balance: 0,
-                status: 'Fermé',
-                openingBalance: 0,
-                dailyReceipts: 0,
-                dailyExpenses: 0
-            }
-        ];
-
-        console.log('✅ Données initialisées avec succès');
-    }, 'Erreur lors de l\'initialisation des données');
-}
-
-// =============================================================================
-// THEME MANAGEMENT - CONSERVÉ IDENTIQUE 
-// =============================================================================
-
-function toggleThemeMenu() {
-    return safeExecute(() => {
-        const menu = document.getElementById('themeMenu');
-        if (menu) {
-            menu.classList.toggle('hidden');
-        }
-    }, 'Erreur lors de l\'ouverture du menu de thème');
-}
-
-function setTheme(theme) {
-    return safeExecute(() => {
-        themeManager.setTheme(theme);
-        const themeMenu = document.getElementById('themeMenu');
-        if (themeMenu) {
-            themeMenu.classList.add('hidden');
-        }
-        showSuccessMessage('✅ Thème modifié : ' + theme);
-    }, 'Erreur lors du changement de thème');
-}
-
-// =============================================================================
-// AUTHENTICATION FUNCTIONS - MODIFIÉES POUR INTÉGRER AUTH.JS
-// =============================================================================
-
+// ===== FONCTIONS A DEPLACER VERS auth.js =====
 function loginAs(profile) {
-    return safeExecute(() => {
+    try {
         const credentials = {
             'admin': { email: 'admin@doukecompta.ci', password: 'admin123' },
             'collaborateur-senior': { email: 'marie.kouassi@cabinet.com', password: 'collab123' },
@@ -863,372 +534,234 @@ function loginAs(profile) {
             if (emailField && passwordField) {
                 emailField.value = cred.email;
                 passwordField.value = cred.password;
-                handleLogin();
             }
         }
-    }, 'Erreur lors de la connexion automatique');
+    } catch (error) {
+        app.handleError(error, 'Login Demo');
+    }
 }
 
-function handleLogin() {
-    return safeExecute(() => {
-        const email = document.getElementById('loginEmail')?.value;
-        const password = document.getElementById('loginPassword')?.value;
-
-        if (!email || !password) {
-            showErrorMessage('Veuillez saisir votre email et mot de passe.');
-            return;
-        }
-
-        // Base de données des utilisateurs - ORIGINALE COMPLÈTE
-        const users = {
-            'admin@doukecompta.ci': {
-                password: 'admin123',
-                profile: 'admin',
-                name: 'Admin Système',
-                role: 'Administrateur',
-                id: 1
-            },
-            'marie.kouassi@cabinet.com': {
-                password: 'collab123',
-                profile: 'collaborateur-senior',
-                name: 'Marie Kouassi',
-                role: 'Collaborateur Senior',
-                id: 2
-            },
-            'jean.diabate@cabinet.com': {
-                password: 'collab123',
-                profile: 'collaborateur',
-                name: 'Jean Diabaté',
-                role: 'Collaborateur',
-                id: 3
-            },
-            'atraore@sarltech.ci': {
-                password: 'user123',
-                profile: 'user',
-                name: 'Amadou Traoré',
-                role: 'Utilisateur',
-                id: 4
-            },
-            'ikone@caisse.ci': {
-                password: 'caisse123',
-                profile: 'caissier',
-                name: 'Ibrahim Koné',
-                role: 'Caissier',
-                id: 5
-            }
-        };
-
-        const user = users[email];
-        if (user && user.password === password) {
-            app.isAuthenticated = true;
-            app.currentProfile = user.profile;
-            app.currentUser = {
-                id: user.id,
-                name: user.name,
-                email: email,
-                role: user.role
-            };
-
-            // Auto-sélection d'entreprise pour utilisateur et caissier
-            if (user.profile === 'user') {
-                app.currentCompany = '1';
-            } else if (user.profile === 'caissier') {
-                app.currentCompany = '2';
-            }
-
-            // NOUVEAUTÉ: Appel à auth.js après connexion réussie
-            callAuthOnLogin({
-                id: user.id,
-                name: user.name,
-                email: email,
-                role: user.role,
-                profile: user.profile,
-                timestamp: new Date().toISOString(),
-                loginMethod: 'internal'
-            });
-
-            showMainApp();
-            console.log('✅ Connexion réussie:', user.name);
-        } else {
-            showErrorMessage('Identifiants incorrects. Utilisez les comptes de démonstration.');
-        }
-    }, 'Erreur lors de la connexion');
+function showRegisterForm() {
+    // Code à déplacer vers auth.js
+    alert('📝 Formulaire d\'inscription - À implémenter dans auth.js');
 }
 
-// =============================================================================
-// MAIN APPLICATION FUNCTIONS - CONSERVÉES IDENTIQUES
-// =============================================================================
+function showForgotPassword() {
+    // Code à déplacer vers auth.js
+    alert('🔐 Récupération mot de passe - À implémenter dans auth.js');
+}
 
+// ===== FONCTIONS A DEPLACER VERS settings.js =====
+function toggleThemeMenu() {
+    try {
+        const menu = document.getElementById('themeMenu');
+        if (menu) {
+            menu.classList.toggle('hidden');
+        }
+    } catch (error) {
+        app.handleError(error, 'Theme Menu');
+    }
+}
+
+function setTheme(theme) {
+    try {
+        themeManager.setTheme(theme);
+        const themeMenu = document.getElementById('themeMenu');
+        if (themeMenu) {
+            themeMenu.classList.add('hidden');
+        }
+    } catch (error) {
+        app.handleError(error, 'Theme Setting');
+    }
+}
+
+// ===== FONCTIONS A DEPLACER VERS navigation.js =====
+function toggleNotificationsPanel() {
+    try {
+        const panel = document.getElementById('notificationsPanel');
+        if (panel) {
+            panel.classList.toggle('hidden');
+        }
+    } catch (error) {
+        app.handleError(error, 'Notifications Panel');
+    }
+}
+
+function showNotificationSettings() {
+    // Code à déplacer vers settings.js
+    alert('🔔 Paramètres notifications - À implémenter dans settings.js');
+}
+
+function showAdminDataMenu() {
+    // Code à déplacer vers settings.js ou admin.js
+    alert('🔧 Gestion données admin - À implémenter dans settings.js');
+}
+
+function confirmLogout() {
+    // Code à déplacer vers auth.js
+    if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+        logout();
+    }
+}
+
+function logout() {
+    // Code à déplacer vers auth.js
+    try {
+        // Appel auth.js si disponible
+        if (typeof window.authLogout === 'function') {
+            window.authLogout();
+        }
+        
+        // Reset application state
+        app.isAuthenticated = false;
+        app.currentProfile = null;
+        app.currentUser = null;
+        app.currentCompany = null;
+        
+        // Retour à l'écran de connexion
+        const loginInterface = document.getElementById('loginInterface');
+        const mainApp = document.getElementById('mainApp');
+        const modalContainer = document.getElementById('modalContainer');
+        
+        if (loginInterface && mainApp) {
+            loginInterface.classList.remove('hidden');
+            mainApp.classList.add('hidden');
+        }
+        
+        if (modalContainer) {
+            modalContainer.innerHTML = '';
+        }
+        
+        console.log('✅ Déconnexion réussie');
+    } catch (error) {
+        app.handleError(error, 'Logout');
+    }
+}
+
+function closeModal() {
+    try {
+        const modalContainer = document.getElementById('modalContainer');
+        if (modalContainer) {
+            modalContainer.innerHTML = '';
+        }
+    } catch (error) {
+        app.handleError(error, 'Close Modal');
+    }
+}
+
+// ===== FONCTIONS A DEPLACER VERS app.js =====
 function showMainApp() {
-    return safeExecute(() => {
+    try {
         const loginInterface = document.getElementById('loginInterface');
         const mainApp = document.getElementById('mainApp');
         
         if (loginInterface && mainApp) {
             loginInterface.classList.add('hidden');
             mainApp.classList.remove('hidden');
-            initializeApp();
-        }
-    }, 'Erreur lors de l\'affichage de l\'application');
-}
-
-function showLoginInterface() {
-    return safeExecute(() => {
-        const loginInterface = document.getElementById('loginInterface');
-        const mainApp = document.getElementById('mainApp');
-        
-        if (loginInterface && mainApp) {
-            loginInterface.classList.remove('hidden');
-            mainApp.classList.add('hidden');
             
-            const modalContainer = document.getElementById('modalContainer');
-            if (modalContainer) {
-                modalContainer.innerHTML = '';
+            // Initialiser les modules si disponibles
+            if (typeof initializeApp === 'function') {
+                initializeApp();
+            } else {
+                // Fallback temporaire
+                setTimeout(() => {
+                    const mainContent = document.getElementById('mainContent');
+                    if (mainContent && app.currentUser) {
+                        const userName = app.utils.escapeHtml(app.currentUser.name);
+                        const userRole = app.utils.escapeHtml(app.currentUser.role);
+                        
+                        mainContent.innerHTML = `
+                            <div class="text-center py-16">
+                                <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <i class="fas fa-chart-pie text-3xl" aria-hidden="true"></i>
+                                </div>
+                                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">Bienvenue ${userName} !</h2>
+                                <p class="text-gray-600 dark:text-gray-400 mb-8">
+                                    Vous êtes connecté avec le profil <strong>${userRole}</strong>
+                                </p>
+                                <div class="bg-primary/10 p-6 rounded-xl inline-block">
+                                    <p class="text-primary font-medium">
+                                        <i class="fas fa-info-circle mr-2" aria-hidden="true"></i>
+                                        Interface principale en cours de développement
+                                    </p>
+                                </div>
+                                <div class="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                    <p class="text-green-700 dark:text-green-300 text-sm">
+                                        <i class="fas fa-check-circle mr-2" aria-hidden="true"></i>
+                                        Structure modulaire mise en place - Fichiers JS prêts à être développés
+                                    </p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }, 500);
             }
-            
-            app.isAuthenticated = false;
-            app.currentProfile = null;
-            app.currentUser = null;
-            app.currentCompany = null;
         }
-    }, 'Erreur lors de l\'affichage de la page de connexion');
-}
-
-function confirmLogout() {
-    return safeExecute(() => {
-        const modal = `
-            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-md mx-4">
-                    <div class="text-center mb-6">
-                        <div class="w-16 h-16 bg-warning text-white rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i class="fas fa-sign-out-alt text-2xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">Confirmer la déconnexion</h3>
-                        <p class="text-gray-600 dark:text-gray-400 mt-2">Êtes-vous sûr de vouloir vous déconnecter ?</p>
-                    </div>
-                    <div class="flex justify-center space-x-4">
-                        <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                            Annuler
-                        </button>
-                        <button onclick="logout()" class="bg-danger hover:bg-danger/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                            <i class="fas fa-sign-out-alt mr-2"></i>Se déconnecter
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        const modalContainer = document.getElementById('modalContainer');
-        if (modalContainer) {
-            modalContainer.innerHTML = modal;
-        }
-    }, 'Erreur lors de l\'affichage de la confirmation de déconnexion');
-}
-
-function logout() {
-    return safeExecute(() => {
-        // NOUVEAUTÉ: Appel à auth.js avant déconnexion
-        callAuthOnLogout();
-        
-        closeModal();
-        showLoginInterface();
-        showSuccessMessage('✅ Déconnexion réussie. À bientôt !');
-    }, 'Erreur lors de la déconnexion');
-}
-
-// =============================================================================
-// MODAL MANAGEMENT - CONSERVÉES IDENTIQUES
-// =============================================================================
-
-function closeModal() {
-    return safeExecute(() => {
-        const modalContainer = document.getElementById('modalContainer');
-        if (modalContainer) {
-            modalContainer.innerHTML = '';
-        }
-    }, 'Erreur lors de la fermeture de la modal');
-}
-
-function closeModalOnBackground(event) {
-    if (event.target === event.currentTarget) {
-        closeModal();
+    } catch (error) {
+        app.handleError(error, 'Show Main App');
     }
 }
 
-// =============================================================================
-// PLACEHOLDER FUNCTIONS - MODIFIÉE POUR INTÉGRER AUTH.JS
-// =============================================================================
-
-function showRegisterForm() {
-    // Simulation d'un formulaire d'inscription complet
-    const modal = `
-        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeModalOnBackground(event)">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-md mx-4">
-                <div class="text-center mb-6">
-                    <div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-user-plus text-2xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">Créer un compte</h3>
-                </div>
-                <form id="registerForm" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
-                        <input type="text" id="registerName" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                        <input type="email" id="registerEmail" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mot de passe</label>
-                        <input type="password" id="registerPassword" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                    </div>
-                    <div class="flex justify-center space-x-4 mt-6">
-                        <button type="button" onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                            Annuler
-                        </button>
-                        <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                            <i class="fas fa-user-plus mr-2"></i>S'inscrire
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    `;
-    
-    const modalContainer = document.getElementById('modalContainer');
-    if (modalContainer) {
-        modalContainer.innerHTML = modal;
-        
-        // Ajouter l'événement de soumission du formulaire
-        const registerForm = document.getElementById('registerForm');
-        if (registerForm) {
-            registerForm.addEventListener('submit', function(e) {
+// ===== GESTIONNAIRES D'EVENEMENTS TEMPORAIRES =====
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        // Formulaire de connexion
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-                handleRegister();
+                
+                const email = document.getElementById('loginEmail')?.value?.trim();
+                const password = document.getElementById('loginPassword')?.value;
+                
+                if (!email || !password) {
+                    alert('❌ Veuillez saisir votre email et mot de passe.');
+                    return;
+                }
+                
+                if (!app.validate.email(email)) {
+                    alert('❌ Format d\'email invalide.');
+                    return;
+                }
+                
+                // Simulation de connexion - À déplacer vers auth.js
+                const users = {
+                    'admin@doukecompta.ci': { password: 'admin123', profile: 'admin', name: 'Admin Système', role: 'Administrateur', id: 1 },
+                    'marie.kouassi@cabinet.com': { password: 'collab123', profile: 'collaborateur-senior', name: 'Marie Kouassi', role: 'Collaborateur Senior', id: 2 },
+                    'jean.diabate@cabinet.com': { password: 'collab123', profile: 'collaborateur', name: 'Jean Diabaté', role: 'Collaborateur', id: 3 },
+                    'atraore@sarltech.ci': { password: 'user123', profile: 'user', name: 'Amadou Traoré', role: 'Utilisateur', id: 4 },
+                    'ikone@caisse.ci': { password: 'caisse123', profile: 'caissier', name: 'Ibrahim Koné', role: 'Caissier', id: 5 }
+                };
+                
+                const user = users[email];
+                if (user && user.password === password) {
+                    app.isAuthenticated = true;
+                    app.currentProfile = user.profile;
+                    app.currentUser = {
+                        id: user.id,
+                        name: user.name,
+                        email: email,
+                        role: user.role
+                    };
+                    
+                    // Auto-sélection d'entreprise
+                    if (user.profile === 'user') app.currentCompany = '1';
+                    else if (user.profile === 'caissier') app.currentCompany = '2';
+                    
+                    // Appel auth.js si disponible
+                    if (typeof window.authLogin === 'function') {
+                        window.authLogin(app.currentUser);
+                    }
+                    
+                    showMainApp();
+                    console.log('✅ Connexion réussie:', user.name);
+                } else {
+                    alert('❌ Identifiants incorrects. Utilisez les comptes de démonstration.');
+                }
             });
         }
-    }
-}
-
-function handleRegister() {
-    return safeExecute(() => {
-        const name = document.getElementById('registerName')?.value;
-        const email = document.getElementById('registerEmail')?.value;
-        const password = document.getElementById('registerPassword')?.value;
-
-        if (!name || !email || !password) {
-            showErrorMessage('Veuillez remplir tous les champs.');
-            return;
-        }
-
-        if (!app.validate.email(email)) {
-            showErrorMessage('Veuillez saisir un email valide.');
-            return;
-        }
-
-        if (password.length < 6) {
-            showErrorMessage('Le mot de passe doit contenir au moins 6 caractères.');
-            return;
-        }
-
-        // Simulation de création de compte
-        const newUser = {
-            id: Date.now(),
-            name: name,
-            email: email,
-            role: 'Utilisateur',
-            profile: 'user',
-            phone: '',
-            companies: [],
-            status: 'Actif',
-            registrationDate: new Date().toISOString()
-        };
-
-        // NOUVEAUTÉ: Appel à auth.js après inscription réussie
-        callAuthOnRegister(newUser);
-
-        closeModal();
-        showSuccessMessage('✅ Compte créé avec succès ! Vous pouvez maintenant vous connecter.');
         
-        // Optionnel: auto-remplir le formulaire de connexion
-        const loginEmail = document.getElementById('loginEmail');
-        if (loginEmail) {
-            loginEmail.value = email;
-        }
-        
-        console.log('✅ Nouveau compte créé:', newUser);
-    }, 'Erreur lors de la création du compte');
-}
-
-function showForgotPassword() {
-    showProcessingMessage('📧 Un email de récupération sera envoyé à votre adresse (fonctionnalité à implémenter).');
-}
-
-function toggleNotificationsPanel() {
-    return safeExecute(() => {
-        const panel = document.getElementById('notificationsPanel');
-        if (panel) {
-            panel.classList.toggle('hidden');
-        }
-    }, 'Erreur lors de l\'ouverture du panneau de notifications');
-}
-
-function showNotificationSettings() {
-    showProcessingMessage('🔔 Paramètres de notifications\n\nFonctionnalité en cours de développement.');
-}
-
-function showAdminDataMenu() {
-    showProcessingMessage('🔧 Gestion des données admin\n\nFonctionnalité en cours de développement.');
-}
-
-// =============================================================================
-// APPLICATION INITIALIZATION - CONSERVÉE IDENTIQUE
-// =============================================================================
-
-function initializeApp() {
-    return safeExecute(() => {
-        console.log('🔄 Initialisation de l\'application...');
-        
-        initializeData();
-        bindEventListeners();
-        
-        // Simulation du chargement de l'interface principale
-        setTimeout(() => {
-            const mainContent = document.getElementById('mainContent');
-            if (mainContent && app.currentUser) {
-                mainContent.innerHTML = `
-                    <div class="text-center py-16">
-                        <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i class="fas fa-chart-pie text-3xl"></i>
-                        </div>
-                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">Bienvenue ${app.currentUser.name} !</h2>
-                        <p class="text-gray-600 dark:text-gray-400 mb-8">
-                            Vous êtes connecté avec le profil <strong>${app.currentUser.role}</strong>
-                        </p>
-                        <div class="bg-primary/10 p-6 rounded-xl inline-block">
-                            <p class="text-primary font-medium">
-                                <i class="fas fa-info-circle mr-2"></i>
-                                Interface principale en cours de développement
-                            </p>
-                        </div>
-                        <div class="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                            <p class="text-green-700 dark:text-green-300 text-sm">
-                                <i class="fas fa-check-circle mr-2"></i>
-                                Intégration auth.js activée - Les événements de connexion/inscription sont transmis au fichier externe
-                            </p>
-                        </div>
-                    </div>
-                `;
-            }
-        }, 500);
-        
-        console.log('✅ DOUKÈ Compta Pro initialisé avec succès avec intégration auth.js !');
-    }, 'Erreur lors de l\'initialisation de l\'application');
-}
-
-function bindEventListeners() {
-    return safeExecute(() => {
-        // Sidebar toggle
+        // Toggle sidebar mobile
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebar = document.getElementById('sidebar');
         
@@ -1237,56 +770,44 @@ function bindEventListeners() {
                 sidebar.classList.toggle('-translate-x-full');
             });
         }
-
-        // Login form
-        const loginForm = document.getElementById('loginForm');
-        if (loginForm) {
-            loginForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                handleLogin();
-            });
-        }
-
-        // Close sidebar on outside click (mobile)
+        
+        // Fermer les menus en cliquant à l'extérieur
         document.addEventListener('click', function(e) {
+            // Fermer sidebar mobile
             if (sidebar && sidebarToggle && 
                 window.innerWidth < 1024 && 
                 !sidebar.contains(e.target) && 
                 !sidebarToggle.contains(e.target)) {
                 sidebar.classList.add('-translate-x-full');
             }
-        });
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            // Close theme menu when clicking outside
+            
+            // Fermer menu thème
             const themeMenu = document.getElementById('themeMenu');
             const themeButton = e.target.closest('[onclick="toggleThemeMenu()"]');
             if (themeMenu && !themeMenu.contains(e.target) && !themeButton) {
                 themeMenu.classList.add('hidden');
             }
-
-            // Close notifications panel when clicking outside
+            
+            // Fermer panneau notifications
             const notifPanel = document.getElementById('notificationsPanel');
             const notifButton = e.target.closest('[onclick="toggleNotificationsPanel()"]');
             if (notifPanel && !notifPanel.contains(e.target) && !notifButton) {
                 notifPanel.classList.add('hidden');
             }
         });
-    }, 'Erreur lors de la liaison des événements');
-}
-
-// =============================================================================
-// APPLICATION START - CONSERVÉ IDENTIQUE
-// =============================================================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    return safeExecute(() => {
-        setTimeout(() => {
-            bindEventListeners();
-            console.log('🚀 DOUKÈ Compta Pro - Application démarrée avec intégration auth.js');
-            console.log('📋 Fonctions auth.js attendues: authLogin(), authRegister(), authLogout()');
-        }, 100);
-    }, 'Erreur au démarrage de l\'application');
+        
+        console.log('🚀 DOUKÈ Compta Pro - Structure modulaire initialisée');
+        console.log('📁 Fichiers attendus:', [
+            'custom.css', 'data.js', 'auth.js', 'navigation.js', 'dashboard.js',
+            'accounts.js', 'caisse.js', 'entries.js', 'import.js', 'reports.js',
+            'settings.js', 'app.js'
+        ]);
+        
+    } catch (error) {
+        app.handleError(error, 'DOM Ready');
+    }
 });
 </script>
+
+</body>
+</html>
