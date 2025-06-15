@@ -213,4 +213,322 @@ function handleChangePassword() {
     closeModal();
     showSuccessMessage('✅ Mot de passe modifié avec succès !');
     console.log('✅ Mot de passe changé pour:', app.currentUser.email);
+
+    // =============================================================================
+// USER MANAGEMENT - GESTION DES COLLABORATEURS (ADMIN UNIQUEMENT)
+// =============================================================================
+
+function loadUsersManagement() {
+    if (app.currentProfile !== 'admin') {
+        document.getElementById('mainContent').innerHTML = `
+            <div class="text-center p-8">
+                <div class="w-16 h-16 bg-danger text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-ban text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Accès refusé</h3>
+                <p class="text-gray-600 dark:text-gray-400 mt-2">Vous n'avez pas les permissions nécessaires pour accéder à cette section.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const content = `
+        <div class="space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Collaborateurs</h2>
+                <button onclick="openAddUserModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    <i class="fas fa-user-plus mr-2"></i>Nouveau Collaborateur
+                </button>
+            </div>
+
+            <!-- Statistiques utilisateurs -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                    <div class="text-3xl font-bold text-primary">${app.users.filter(u => u.profile && u.profile.includes('collaborateur')).length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Collaborateurs</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                    <div class="text-3xl font-bold text-info">${app.users.filter(u => u.profile === 'user').length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                    <div class="text-3xl font-bold text-warning">${app.users.filter(u => u.profile === 'caissier').length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Caissiers</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                    <div class="text-3xl font-bold text-success">${app.users.filter(u => u.status === 'Actif').length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Actifs</div>
+                </div>
+            </div>
+
+            <!-- Liste des utilisateurs -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Liste des Collaborateurs</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Utilisateur</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Profil</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Statut</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            ${generateUsersRows()}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('mainContent').innerHTML = content;
+}
+
+// =============================================================================
+// COMPANIES MANAGEMENT - GESTION DES ENTREPRISES  
+// =============================================================================
+
+function loadCompanies() {
+    const content = `
+        <div class="space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                    ${app.currentProfile === 'admin' ? 'Gestion des Entreprises' : 'Mes Entreprises'}
+                </h2>
+                ${app.currentProfile === 'admin' ? `
+                <button onclick="openAddCompanyModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Nouvelle Entreprise
+                </button>
+                ` : ''}
+            </div>
+
+            <!-- Statistiques entreprises -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                    <div class="text-3xl font-bold text-primary">${app.companies.length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Total entreprises</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                    <div class="text-3xl font-bold text-success">${app.companies.filter(c => c.status === 'Actif').length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Actives</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                    <div class="text-3xl font-bold text-warning">${app.companies.filter(c => c.status === 'Période d\'essai').length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">En essai</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                    <div class="text-3xl font-bold text-danger">${app.companies.filter(c => c.status === 'Suspendu').length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Suspendues</div>
+                </div>
+            </div>
+
+            <!-- Liste des entreprises -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Liste des Entreprises</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Entreprise</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Système</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Statut</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            ${generateCompaniesRows()}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('mainContent').innerHTML = content;
+}
+
+// =============================================================================
+// FONCTIONS UTILITAIRES POUR LES TABLEAUX
+// =============================================================================
+
+function generateUsersRows() {
+    if (app.users.length === 0) {
+        return `
+            <tr>
+                <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-users text-3xl mb-2"></i>
+                    <div>Aucun utilisateur trouvé</div>
+                </td>
+            </tr>
+        `;
+    }
+
+    return app.users.map(user => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                        ${user.name ? user.name.split(' ').map(n => n[0]).join('') : 'U'}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">${user.name || 'Nom non défini'}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-4">
+                <span class="px-2 py-1 rounded text-sm ${getProfileColor(user.role || 'Utilisateur')}">${user.role || 'Utilisateur'}</span>
+            </td>
+            <td class="px-6 py-4 text-gray-900 dark:text-white">${user.email || 'Email non défini'}</td>
+            <td class="px-6 py-4">
+                <span class="px-2 py-1 rounded text-sm ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">${user.status || 'Actif'}</span>
+            </td>
+            <td class="px-6 py-4">
+                <div class="flex space-x-2">
+                    <button onclick="editUser(${user.id})" class="text-primary hover:text-primary/80" title="Modifier">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteUser(${user.id})" class="text-danger hover:text-danger/80" title="Supprimer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function generateCompaniesRows() {
+    if (app.companies.length === 0) {
+        return `
+            <tr>
+                <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-building text-3xl mb-2"></i>
+                    <div>Aucune entreprise trouvée</div>
+                </td>
+            </tr>
+        `;
+    }
+
+    return app.companies.map(company => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-4">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${company.name || 'Nom non défini'}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">${company.phone || 'Téléphone non renseigné'}</div>
+                </div>
+            </td>
+            <td class="px-6 py-4 text-gray-900 dark:text-white">${company.type || 'Type non défini'}</td>
+            <td class="px-6 py-4 text-gray-900 dark:text-white">${company.system || 'Système normal'}</td>
+            <td class="px-6 py-4">
+                <span class="px-2 py-1 rounded text-sm ${getStatusColor(company.status || 'Actif')}">${company.status || 'Actif'}</span>
+            </td>
+            <td class="px-6 py-4">
+                <div class="flex space-x-2">
+                    <button onclick="editCompany(${company.id})" class="text-primary hover:text-primary/80" title="Modifier">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    ${app.currentProfile === 'admin' ? `
+                    <button onclick="deleteCompany(${company.id})" class="text-danger hover:text-danger/80" title="Supprimer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    ` : ''}
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// =============================================================================
+// FONCTIONS UTILITAIRES POUR LES COULEURS
+// =============================================================================
+
+function getProfileColor(profile) {
+    switch(profile) {
+        case 'Administrateur': return 'bg-danger/20 text-danger';
+        case 'Collaborateur Senior': return 'bg-primary/20 text-primary';
+        case 'Collaborateur': return 'bg-info/20 text-info';
+        case 'Utilisateur': return 'bg-success/20 text-success';
+        case 'Caissier': return 'bg-warning/20 text-warning';
+        default: return 'bg-gray-500/20 text-gray-500';
+    }
+}
+
+function getStatusColor(status) {
+    switch(status) {
+        case 'Actif': return 'bg-success/20 text-success';
+        case 'Période d\'essai': return 'bg-warning/20 text-warning';
+        case 'Suspendu': return 'bg-danger/20 text-danger';
+        default: return 'bg-gray-500/20 text-gray-500';
+    }
+}
+
+// =============================================================================
+// ACTIONS POUR LES UTILISATEURS ET ENTREPRISES (PLACEHOLDERS)
+// =============================================================================
+
+function openAddUserModal() {
+    alert('🚧 Fonctionnalité "Ajouter un utilisateur" à implémenter');
+}
+
+function editUser(userId) {
+    alert(`🚧 Modification de l'utilisateur ${userId} à implémenter`);
+}
+
+function deleteUser(userId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
+        alert(`🚧 Suppression de l'utilisateur ${userId} à implémenter`);
+    }
+}
+
+function openAddCompanyModal() {
+    alert('🚧 Fonctionnalité "Ajouter une entreprise" à implémenter');
+}
+
+function editCompany(companyId) {
+    alert(`🚧 Modification de l'entreprise ${companyId} à implémenter`);
+}
+
+function deleteCompany(companyId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette entreprise ?')) {
+        alert(`🚧 Suppression de l'entreprise ${companyId} à implémenter`);
+    }
+}
+
+function uploadLogo() {
+    alert('🚧 Fonctionnalité "Upload logo" à implémenter');
+}
+
+// =============================================================================
+// FONCTIONS GLOBALES NÉCESSAIRES
+// =============================================================================
+
+function closeModal() {
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) {
+        modalContainer.innerHTML = '';
+    }
+}
+
+function closeModalOnBackground(event) {
+    if (event.target === event.currentTarget) {
+        closeModal();
+    }
+}
+
+function showSuccessMessage(message) {
+    alert(message);
+}
+
+// Assurer la disponibilité de updateUserInfo si pas définie ailleurs
+if (typeof updateUserInfo !== 'function') {
+    function updateUserInfo() {
+        // Fonction minimale si pas définie dans auth.js
+        console.log('UpdateUserInfo called from settings.js');
+    }
+}
 }
