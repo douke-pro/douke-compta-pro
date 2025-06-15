@@ -1,5 +1,9 @@
 // =============================================================================
-// SETTINGS MANAGEMENT - FONCTION COMPLÈTE RESTAURÉE
+// SETTINGS.JS - GESTION COMPLÈTE DES PARAMÈTRES ET UTILISATEURS
+// =============================================================================
+
+// =============================================================================
+// SETTINGS MANAGEMENT - GESTION DES PARAMÈTRES UTILISATEUR
 // =============================================================================
 
 function loadSettings() {
@@ -213,8 +217,9 @@ function handleChangePassword() {
     closeModal();
     showSuccessMessage('✅ Mot de passe modifié avec succès !');
     console.log('✅ Mot de passe changé pour:', app.currentUser.email);
+}
 
-    // =============================================================================
+// =============================================================================
 // USER MANAGEMENT - GESTION DES COLLABORATEURS (ADMIN UNIQUEMENT)
 // =============================================================================
 
@@ -468,7 +473,7 @@ function getStatusColor(status) {
 }
 
 // =============================================================================
-// ACTIONS POUR LES UTILISATEURS ET ENTREPRISES (PLACEHOLDERS)
+// ACTIONS POUR LES UTILISATEURS ET ENTREPRISES
 // =============================================================================
 
 function openAddUserModal() {
@@ -530,5 +535,4 @@ if (typeof updateUserInfo !== 'function') {
         // Fonction minimale si pas définie dans auth.js
         console.log('UpdateUserInfo called from settings.js');
     }
-}
 }
