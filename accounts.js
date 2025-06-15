@@ -1,5 +1,5 @@
 // =============================================================================
-// ACCOUNTS MANAGEMENT - FONCTION COMPLÈTE RESTAURÉE
+// ACCOUNTS.JS - Gestion du plan comptable SYSCOHADA
 // =============================================================================
 
 function loadAccounts() {
@@ -124,7 +124,6 @@ function handleAddAccount() {
     const name = document.getElementById('accountName').value;
     const category = document.getElementById('accountCategory').value;
 
-    // Vérifier si le code existe déjà
     if (app.accounts.find(acc => acc.code === code)) {
         alert('❌ Ce code de compte existe déjà.');
         return;
@@ -137,11 +136,11 @@ function handleAddAccount() {
     };
 
     app.accounts.push(newAccount);
-    app.accounts.sort((a, b) => a.code.localeCompare(b.code)); // Trier par code
+    app.accounts.sort((a, b) => a.code.localeCompare(b.code));
 
     closeModal();
     loadAccounts();
-    showSuccessMessage('✅ Compte créé avec succès !');
+    showSuccessMessage('Compte créé avec succès !');
     console.log('✅ Nouveau compte créé:', newAccount);
 }
 
@@ -153,13 +152,12 @@ function filterAccounts() {
 
     const filteredAccounts = app.accounts.filter(account => {
         const matchesSearch = account.code.toLowerCase().includes(searchTerm) ||
-            account.name.toLowerCase().includes(searchTerm);
+                            account.name.toLowerCase().includes(searchTerm);
         const matchesCategory = !categoryFilter || account.category === categoryFilter;
 
         return matchesSearch && matchesCategory;
     });
 
-    // Regrouper par classe
     const accountsByClass = {
         1: { name: 'Classe 1 - Comptes de ressources durables', accounts: [] },
         2: { name: 'Classe 2 - Comptes d\'actif immobilisé', accounts: [] },
@@ -202,11 +200,78 @@ function resetAccountFilters() {
     if (accountsContainer) accountsContainer.innerHTML = generateAccountsByClass();
 }
 
-// Fonctions vides pour éviter les erreurs
+function generateAccountsByClass() {
+    const accountsByClass = {
+        1: { name: 'Classe 1 - Comptes de ressources durables', accounts: [] },
+        2: { name: 'Classe 2 - Comptes d\'actif immobilisé', accounts: [] },
+        3: { name: 'Classe 3 - Comptes de stocks', accounts: [] },
+        4: { name: 'Classe 4 - Comptes de tiers', accounts: [] },
+        5: { name: 'Classe 5 - Comptes financiers', accounts: [] },
+        6: { name: 'Classe 6 - Comptes de charges', accounts: [] },
+        7: { name: 'Classe 7 - Comptes de produits', accounts: [] },
+        8: { name: 'Classe 8 - Comptes de résultats', accounts: [] },
+        9: { name: 'Classe 9 - Comptes analytiques', accounts: [] }
+    };
+
+    app.accounts.forEach(account => {
+        const classNumber = parseInt(account.code.charAt(0));
+        if (accountsByClass[classNumber]) {
+            accountsByClass[classNumber].accounts.push(account);
+        }
+    });
+
+    return Object.values(accountsByClass).map(classData => generateAccountClassHTML(classData)).join('');
+}
+
+function generateAccountClassHTML(classData) {
+    if (classData.accounts.length === 0) return '';
+
+    return `
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${classData.name}</h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400">${classData.accounts.length} compte(s)</p>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+    <thead class="bg-gray-50 dark:bg-gray-700">
+    <tr>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Code</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Intitulé</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Catégorie</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+    </tr>
+    </thead>
+    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+    ${classData.accounts.map(account => `
+    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+    <td class="px-6 py-4 font-mono text-gray-900 dark:text-white">${account.code}</td>
+    <td class="px-6 py-4 text-gray-900 dark:text-white">${account.name}</td>
+    <td class="px-6 py-4 text-gray-500 dark:text-gray-400">${account.category}</td>
+    <td class="px-6 py-4">
+    <div class="flex space-x-2">
+    <button onclick="editAccountModal('${account.code}')" class="text-primary hover:text-primary/80" title="Modifier">
+    <i class="fas fa-edit"></i>
+    </button>
+    <button onclick="confirmDeleteAccount('${account.code}')" class="text-danger hover:text-danger/80" title="Supprimer">
+    <i class="fas fa-trash"></i>
+    </button>
+    </div>
+    </td>
+    </tr>
+    `).join('')}
+    </tbody>
+    </table>
+    </div>
+    </div>
+    `;
+}
+
+// Fonctions pour les actions sur les comptes (stubs)
 function editAccountModal(code) {
-    showSuccessMessage(`📊 Modification du compte ${code}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Modification du compte ${code} - Fonctionnalité en cours de développement.`);
 }
 
 function confirmDeleteAccount(code) {
-    showSuccessMessage(`🗑️ Suppression du compte ${code}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Suppression du compte ${code} - Fonctionnalité en cours de développement.`);
 }
