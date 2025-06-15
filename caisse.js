@@ -1,5 +1,5 @@
 // =============================================================================
-// CAISSE MANAGEMENT - FONCTION COMPLÈTE RESTAURÉE
+// CAISSE.JS - Gestion des caisses
 // =============================================================================
 
 function loadCaisse() {
@@ -162,11 +162,72 @@ function handleAddCashRegister() {
 
     const responsible = responsibleId ? app.users.find(u => u.id == responsibleId) : null;
 
-    // Simuler l'ajout de la caisse
     closeModal();
     loadCaisse();
-    showSuccessMessage(`✅ Caisse "${name}" créée avec succès !`);
+    showSuccessMessage(`Caisse "${name}" créée avec succès !`);
     console.log('✅ Nouvelle caisse créée:', { name, responsible: responsible?.name, balance });
+}
+
+function generateCashierOperations() {
+    const operations = [
+        { time: '14:30', type: 'Recette', description: 'Vente comptant', amount: '+15,000', status: 'En attente' },
+        { time: '13:15', type: 'Dépense', description: 'Achat fournitures', amount: '-5,000', status: 'Validé' },
+        { time: '11:45', type: 'Recette', description: 'Encaissement client', amount: '+25,000', status: 'Validé' },
+        { time: '10:20', type: 'Dépense', description: 'Frais transport', amount: '-3,500', status: 'En attente' }
+    ];
+
+    return operations.map(op => `
+    <div class="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+    <div class="flex items-center space-x-3">
+    <div class="w-8 h-8 ${op.type === 'Recette' ? 'bg-success' : 'bg-warning'} text-white rounded-full flex items-center justify-center">
+    <i class="fas ${op.type === 'Recette' ? 'fa-arrow-down' : 'fa-arrow-up'} text-sm"></i>
+    </div>
+    <div>
+    <div class="font-medium text-gray-900 dark:text-white">${op.description}</div>
+    <div class="text-sm text-gray-500 dark:text-gray-400">${op.time}</div>
+    </div>
+    </div>
+    <div class="text-right">
+    <div class="font-bold ${op.type === 'Recette' ? 'text-success' : 'text-warning'}">${op.amount} FCFA</div>
+    <div class="text-xs ${op.status === 'Validé' ? 'text-success' : 'text-warning'}">${op.status}</div>
+    </div>
+    </div>
+    `).join('');
+}
+
+function generateCashRegistersRows() {
+    const cashRegisters = [
+        { name: 'Caisse Principale', responsible: 'Ibrahim Koné', balance: '210,000', status: 'Ouvert' },
+        { name: 'Caisse Ventes', responsible: 'Fatou Diallo', balance: '85,000', status: 'Ouvert' },
+        { name: 'Caisse Réception', responsible: 'Non assigné', balance: '0', status: 'Fermé' }
+    ];
+
+    return cashRegisters.map(cash => `
+    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+    <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${cash.name}</td>
+    <td class="px-6 py-4 text-gray-900 dark:text-white">${cash.responsible}</td>
+    <td class="px-6 py-4 font-mono text-gray-900 dark:text-white">${cash.balance} FCFA</td>
+    <td class="px-6 py-4">
+    <span class="px-2 py-1 rounded text-sm ${cash.status === 'Ouvert' ? 'bg-success/20 text-success' : 'bg-gray-500/20 text-gray-500'}">${cash.status}</span>
+    </td>
+    <td class="px-6 py-4">
+    <div class="flex space-x-2">
+    <button onclick="viewCashRegisterModal('${cash.name}')" class="text-primary hover:text-primary/80" title="Voir">
+    <i class="fas fa-eye"></i>
+    </button>
+    <button onclick="editCashRegisterModal('${cash.name}')" class="text-info hover:text-info/80" title="Modifier">
+    <i class="fas fa-edit"></i>
+    </button>
+    <button onclick="manageCashierAssignmentModal('${cash.name}')" class="text-warning hover:text-warning/80" title="Assigner caissier">
+    <i class="fas fa-user-cog"></i>
+    </button>
+    <button onclick="confirmDeleteCashRegister('${cash.name}')" class="text-danger hover:text-danger/80" title="Supprimer">
+    <i class="fas fa-trash"></i>
+    </button>
+    </div>
+    </td>
+    </tr>
+    `).join('');
 }
 
 function generateCashReport(period = 'daily') {
@@ -176,23 +237,23 @@ function generateCashReport(period = 'daily') {
         'monthly': 'Rapport mensuel'
     };
 
-    showSuccessMessage(`📊 Génération de l'${periods[period]} de caisse en cours...\n\nRapport PDF prêt pour téléchargement.`);
+    showSuccessMessage(`Génération de l'${periods[period]} de caisse en cours...\n\nRapport PDF prêt pour téléchargement.`);
     console.log('✅ Rapport de caisse généré:', period);
 }
 
-// Fonctions vides pour éviter les erreurs
+// Fonctions pour les actions sur les caisses (stubs)
 function viewCashRegisterModal(name) {
-    showSuccessMessage(`💰 Consultation de la caisse: ${name}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Consultation de la caisse: ${name} - Fonctionnalité en cours de développement.`);
 }
 
 function editCashRegisterModal(name) {
-    showSuccessMessage(`✏️ Modification de la caisse: ${name}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Modification de la caisse: ${name} - Fonctionnalité en cours de développement.`);
 }
 
 function manageCashierAssignmentModal(name) {
-    showSuccessMessage(`👤 Gestion du caissier pour: ${name}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Gestion du caissier pour: ${name} - Fonctionnalité en cours de développement.`);
 }
 
 function confirmDeleteCashRegister(name) {
-    showSuccessMessage(`🗑️ Suppression de la caisse: ${name}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Suppression de la caisse: ${name} - Fonctionnalité en cours de développement.`);
 }
