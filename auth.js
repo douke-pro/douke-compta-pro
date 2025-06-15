@@ -256,23 +256,23 @@ function showMainApp() {
 function confirmLogout() {
     const modal = `
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-md mx-4">
-    <div class="text-center mb-6">
-    <div class="w-16 h-16 bg-warning text-white rounded-full flex items-center justify-center mx-auto mb-4">
-    <i class="fas fa-sign-out-alt text-2xl"></i>
-    </div>
-    <h3 class="text-xl font-bold text-gray-900 dark:text-white">Confirmer la déconnexion</h3>
-    <p class="text-gray-600 dark:text-gray-400 mt-2">Êtes-vous sûr de vouloir vous déconnecter ?</p>
-    </div>
-    <div class="flex justify-center space-x-4">
-    <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-    Annuler
-    </button>
-    <button onclick="logout()" class="bg-danger hover:bg-danger/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-    <i class="fas fa-sign-out-alt mr-2"></i>Se déconnecter
-    </button>
-    </div>
-    </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-md mx-4">
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 bg-warning text-white rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-sign-out-alt text-2xl"></i>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white">Confirmer la déconnexion</h3>
+          <p class="text-gray-600 dark:text-gray-400 mt-2">Êtes-vous sûr de vouloir vous déconnecter ?</p>
+        </div>
+        <div class="flex justify-center space-x-4">
+          <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            Annuler
+          </button>
+          <button onclick="logout()" class="bg-danger hover:bg-danger/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            <i class="fas fa-sign-out-alt mr-2"></i>Se déconnecter
+          </button>
+        </div>
+      </div>
     </div>
     `;
     document.getElementById('modalContainer').innerHTML = modal;
