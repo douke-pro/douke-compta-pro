@@ -14,6 +14,25 @@ const auth = (function() {
     const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
     const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes
 
+    // Utility functions for messages
+    const showSuccessMessage = (message) => {
+        alert('✅ ' + message);
+    };
+
+    const showErrorMessage = (message) => {
+        alert('❌ ' + message);
+    };
+
+    // Safe execution wrapper
+    const safeExecute = (fn, errorMsg) => {
+        try {
+            return fn();
+        } catch (error) {
+            console.error(errorMsg, error);
+            return null;
+        }
+    };
+
     // Enhanced user database with security
     const userDatabase = {
         'admin@doukecompta.ci': {
@@ -251,7 +270,6 @@ const auth = (function() {
                 field.classList.add('border-danger');
                 field.classList.remove('border-gray-300');
                 
-                // Create or update error message
                 let errorElement = document.getElementById(fieldId + '_error');
                 if (!errorElement) {
                     errorElement = document.createElement('div');
@@ -285,12 +303,11 @@ const auth = (function() {
             const loginButton = document.querySelector('#loginForm button[type="submit"]');
             if (loginButton) {
                 loginButton.disabled = loading;
-                const originalText = loginButton.innerHTML;
                 
                 if (loading) {
                     loginButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Connexion...';
                 } else {
-                    loginButton.innerHTML = originalText;
+                    loginButton.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Se connecter';
                 }
             }
         }
@@ -298,124 +315,304 @@ const auth = (function() {
 
     // Navigation menu generation
     const loadNavigationMenu = () => {
-        const menuItems = {
-            admin: [
-                { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord Admin', active: true },
-                { id: 'users', icon: 'fas fa-users', text: 'Gestion Collaborateurs' },
-                { id: 'companies', icon: 'fas fa-building', text: 'Gestion Entreprises' },
-                { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
-                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
-                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
-                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
-                { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
-                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
-            ],
-            'collaborateur-senior': [
-                { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
-                { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
-                { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
-                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
-                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
-                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
-                { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
-                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
-            ],
-            collaborateur: [
-                { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
-                { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
-                { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
-                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
-                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
-                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
-                { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
-                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
-            ],
-            user: [
-                { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Mon Entreprise', active: true },
-                { id: 'entries', icon: 'fas fa-edit', text: 'Mes Écritures' },
-                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
-                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Mes Caisses' },
-                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Mes Rapports' },
-                { id: 'import', icon: 'fas fa-upload', text: 'Import Balance' },
-                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
-            ],
-            caissier: [
-                { id: 'dashboard', icon: 'fas fa-cash-register', text: 'Ma Caisse', active: true },
-                { id: 'entries', icon: 'fas fa-edit', text: 'Opérations Caisse' },
-                { id: 'accounts', icon: 'fas fa-list', text: 'Comptes Disponibles' },
-                { id: 'reports', icon: 'fas fa-chart-bar', text: 'État de Caisse' },
-                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
-            ]
-        };
+        return safeExecute(() => {
+            const menuItems = {
+                admin: [
+                    { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord Admin', active: true },
+                    { id: 'users', icon: 'fas fa-users', text: 'Gestion Collaborateurs' },
+                    { id: 'companies', icon: 'fas fa-building', text: 'Gestion Entreprises' },
+                    { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+                    { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+                    { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+                    { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+                    { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+                    { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+                ],
+                'collaborateur-senior': [
+                    { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
+                    { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
+                    { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+                    { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+                    { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+                    { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+                    { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+                    { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+                ],
+                collaborateur: [
+                    { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
+                    { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
+                    { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
+                    { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+                    { id: 'caisse', icon: 'fas fa-cash-register', text: 'Gestion Caisses' },
+                    { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports & États' },
+                    { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
+                    { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+                ],
+                user: [
+                    { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Mon Entreprise', active: true },
+                    { id: 'entries', icon: 'fas fa-edit', text: 'Mes Écritures' },
+                    { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable' },
+                    { id: 'caisse', icon: 'fas fa-cash-register', text: 'Mes Caisses' },
+                    { id: 'reports', icon: 'fas fa-chart-bar', text: 'Mes Rapports' },
+                    { id: 'import', icon: 'fas fa-upload', text: 'Import Balance' },
+                    { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+                ],
+                caissier: [
+                    { id: 'dashboard', icon: 'fas fa-cash-register', text: 'Ma Caisse', active: true },
+                    { id: 'entries', icon: 'fas fa-edit', text: 'Opérations Caisse' },
+                    { id: 'accounts', icon: 'fas fa-list', text: 'Comptes Disponibles' },
+                    { id: 'reports', icon: 'fas fa-chart-bar', text: 'État de Caisse' },
+                    { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
+                ]
+            };
 
-        const items = menuItems[app.currentProfile] || menuItems.user;
-        const menuHtml = items.map(item => `
-            <a href="#" onclick="navigateTo('${item.id}'); return false;" class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${item.active ? 'bg-primary text-white' : ''}">
-                <i class="${item.icon} w-5 h-5 mr-3"></i>
-                <span>${item.text}</span>
-            </a>
-        `).join('');
+            const items = menuItems[app.currentProfile] || menuItems.user;
+            const menuHtml = items.map(item => `
+                <a href="#" onclick="navigateTo('${item.id}'); return false;" class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${item.active ? 'bg-primary text-white' : ''}">
+                    <i class="${item.icon} w-5 h-5 mr-3"></i>
+                    <span>${item.text}</span>
+                </a>
+            `).join('');
 
-        const navigationMenu = document.getElementById('navigationMenu');
-        if (navigationMenu) {
-            navigationMenu.innerHTML = menuHtml;
+            const navigationMenu = document.getElementById('navigationMenu');
+            if (navigationMenu) {
+                navigationMenu.innerHTML = menuHtml;
+            }
+        }, 'Erreur lors du chargement du menu de navigation');
+    };
+
+    // Navigation function
+    const navigateTo = (page, element = null) => {
+        return safeExecute(() => {
+            // Remove active class from all menu items
+            document.querySelectorAll('#navigationMenu a').forEach(item => {
+                item.classList.remove('bg-primary', 'text-white');
+                item.classList.add('text-gray-700', 'dark:text-gray-300');
+            });
+
+            // Add active class to clicked item
+            if (element) {
+                element.classList.add('bg-primary', 'text-white');
+                element.classList.remove('text-gray-700', 'dark:text-gray-300');
+            }
+
+            console.log('🔄 Navigation vers:', page);
+
+            // Load page content
+            switch(page) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'users':
+                    loadUsersPlaceholder();
+                    break;
+                case 'companies':
+                    loadCompaniesPlaceholder();
+                    break;
+                case 'entries':
+                    loadEntriesPlaceholder();
+                    break;
+                case 'accounts':
+                    loadAccountsPlaceholder();
+                    break;
+                case 'caisse':
+                    loadCaissePlaceholder();
+                    break;
+                case 'reports':
+                    loadReportsPlaceholder();
+                    break;
+                case 'import':
+                    loadImportPlaceholder();
+                    break;
+                case 'settings':
+                    loadSettingsPlaceholder();
+                    break;
+                default:
+                    console.log('⚠️ Page inconnue, chargement du dashboard');
+                    loadDashboard();
+            }
+        }, 'Erreur lors de la navigation');
+    };
+
+    // Placeholder functions for navigation (to be implemented)
+    const loadUsersPlaceholder = () => {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Collaborateurs</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-users text-4xl text-primary mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Gestion des Collaborateurs</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Cette section permet de gérer les collaborateurs de votre cabinet comptable.</p>
+                </div>
+            </div>
+        `;
+        updateMainContent(content);
+    };
+
+    const loadCompaniesPlaceholder = () => {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Entreprises</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-building text-4xl text-primary mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Gestion des Entreprises</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Cette section permet de gérer le portefeuille d'entreprises clientes.</p>
+                </div>
+            </div>
+        `;
+        updateMainContent(content);
+    };
+
+    const loadEntriesPlaceholder = () => {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Écritures Comptables</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-edit text-4xl text-primary mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Écritures Comptables</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Cette section permet de saisir et valider les écritures comptables selon les normes SYSCOHADA Révisé.</p>
+                </div>
+            </div>
+        `;
+        updateMainContent(content);
+    };
+
+    const loadAccountsPlaceholder = () => {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Plan Comptable SYSCOHADA</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-list text-4xl text-primary mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Plan Comptable</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Consultation et gestion du plan comptable SYSCOHADA Révisé.</p>
+                </div>
+            </div>
+        `;
+        updateMainContent(content);
+    };
+
+    const loadCaissePlaceholder = () => {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Caisses</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-cash-register text-4xl text-primary mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Gestion des Caisses</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Suivi et gestion des opérations de caisse.</p>
+                </div>
+            </div>
+        `;
+        updateMainContent(content);
+    };
+
+    const loadReportsPlaceholder = () => {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Rapports & États Financiers</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-chart-bar text-4xl text-primary mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Rapports & États</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Génération des états financiers et rapports comptables.</p>
+                </div>
+            </div>
+        `;
+        updateMainContent(content);
+    };
+
+    const loadImportPlaceholder = () => {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Import de Balances</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-upload text-4xl text-primary mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Import de Données</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Import de balances et données comptables depuis Excel ou CSV.</p>
+                </div>
+            </div>
+        `;
+        updateMainContent(content);
+    };
+
+    const loadSettingsPlaceholder = () => {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mon Profil</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-user-cog text-4xl text-primary mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Mon Profil</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Gestion de votre profil utilisateur et paramètres de compte.</p>
+                </div>
+            </div>
+        `;
+        updateMainContent(content);
+    };
+
+    // Helper function to update main content
+    const updateMainContent = (content) => {
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            mainContent.innerHTML = content;
         }
     };
 
     // Update user info in UI
     const updateUserInfo = () => {
-        const profiles = {
-            'admin': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
-            'collaborateur-senior': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
-            'collaborateur': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
-            'user': { showSelector: false, defaultCompany: 'SARL TECH INNOVATION' },
-            'caissier': { showSelector: false, defaultCompany: 'SA COMMERCE PLUS' }
-        };
+        return safeExecute(() => {
+            const profiles = {
+                'admin': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+                'collaborateur-senior': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+                'collaborateur': { showSelector: true, defaultCompany: 'Aucune entreprise sélectionnée' },
+                'user': { showSelector: false, defaultCompany: 'SARL TECH INNOVATION' },
+                'caissier': { showSelector: false, defaultCompany: 'SA COMMERCE PLUS' }
+            };
 
-        const profile = profiles[app.currentProfile];
+            const profile = profiles[app.currentProfile];
 
-        const currentUserElement = document.getElementById('currentUser');
-        const currentCompanyElement = document.getElementById('currentCompany');
-        const sidebarUserNameElement = document.getElementById('sidebarUserName');
-        const sidebarUserRoleElement = document.getElementById('sidebarUserRole');
+            const currentUserElement = document.getElementById('currentUser');
+            const currentCompanyElement = document.getElementById('currentCompany');
+            const sidebarUserNameElement = document.getElementById('sidebarUserName');
+            const sidebarUserRoleElement = document.getElementById('sidebarUserRole');
 
-        if (currentUserElement) currentUserElement.textContent = app.currentUser.name;
-        if (currentCompanyElement) currentCompanyElement.textContent = app.currentCompany ? getCompanyName() : profile.defaultCompany;
-        if (sidebarUserNameElement) sidebarUserNameElement.textContent = app.currentUser.name;
-        if (sidebarUserRoleElement) sidebarUserRoleElement.textContent = app.currentUser.role;
+            if (currentUserElement) currentUserElement.textContent = app.currentUser.name;
+            if (currentCompanyElement) currentCompanyElement.textContent = app.currentCompany ? getCompanyName() : profile.defaultCompany;
+            if (sidebarUserNameElement) sidebarUserNameElement.textContent = app.currentUser.name;
+            if (sidebarUserRoleElement) sidebarUserRoleElement.textContent = app.currentUser.role;
 
-        // Gestion de l'affichage du sélecteur d'entreprise
-        const companySelector = document.getElementById('companySelector');
-        const adminActions = document.getElementById('adminActions');
+            // Gestion de l'affichage du sélecteur d'entreprise
+            const companySelector = document.getElementById('companySelector');
+            const adminActions = document.getElementById('adminActions');
 
-        if (companySelector) {
-            companySelector.style.display = profile.showSelector ? 'block' : 'none';
-            if (profile.showSelector) {
-                populateCompanySelector();
+            if (companySelector) {
+                companySelector.style.display = profile.showSelector ? 'block' : 'none';
+                if (profile.showSelector) {
+                    populateCompanySelector();
+                }
             }
-        }
 
-        if (adminActions) {
-            adminActions.style.display = app.currentProfile === 'admin' ? 'block' : 'none';
-        }
+            if (adminActions) {
+                adminActions.style.display = app.currentProfile === 'admin' ? 'block' : 'none';
+            }
+        }, 'Erreur lors de la mise à jour des informations utilisateur');
     };
 
     // Populate company selector
     const populateCompanySelector = () => {
-        const select = document.getElementById('activeCompanySelect');
-        if (select && app.companies) {
-            select.innerHTML = '<option value="">-- Sélectionner une entreprise --</option>';
+        return safeExecute(() => {
+            const select = document.getElementById('activeCompanySelect');
+            if (select && app.companies) {
+                select.innerHTML = '<option value="">-- Sélectionner une entreprise --</option>';
 
-            app.companies.forEach(company => {
-                const option = document.createElement('option');
-                option.value = company.id;
-                option.textContent = company.name;
-                if (company.id == app.currentCompany) {
-                    option.selected = true;
-                }
-                select.appendChild(option);
-            });
-        }
+                app.companies.forEach(company => {
+                    const option = document.createElement('option');
+                    option.value = company.id;
+                    option.textContent = company.name;
+                    if (company.id == app.currentCompany) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            }
+        }, 'Erreur lors du peuplement du sélecteur d\'entreprise');
     };
 
     // Get company name
@@ -427,11 +624,13 @@ const auth = (function() {
 
     // Load dashboard based on profile
     const loadDashboard = () => {
-        if (app.currentProfile === 'admin') {
-            loadAdminDashboard();
-        } else {
-            loadStandardDashboard();
-        }
+        return safeExecute(() => {
+            if (app.currentProfile === 'admin') {
+                loadAdminDashboard();
+            } else {
+                loadStandardDashboard();
+            }
+        }, 'Erreur lors du chargement du dashboard');
     };
 
     // Admin dashboard
@@ -451,7 +650,7 @@ const auth = (function() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Entreprises Actives</p>
-                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.companies ? app.companies.filter(c => c.status === 'Actif').length : 0}</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.companies ? app.companies.filter(c => c.status === 'Actif').length : 3}</p>
                             </div>
                             <div class="bg-primary/10 p-3 rounded-lg">
                                 <i class="fas fa-building text-primary text-xl"></i>
@@ -467,7 +666,7 @@ const auth = (function() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Collaborateurs Actifs</p>
-                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.users ? app.users.filter(u => u.profile.includes('collaborateur')).length : 0}</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.users ? app.users.filter(u => u.profile.includes('collaborateur')).length : 2}</p>
                             </div>
                             <div class="bg-info/10 p-3 rounded-lg">
                                 <i class="fas fa-users text-info text-xl"></i>
@@ -479,7 +678,7 @@ const auth = (function() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures en Attente</p>
-                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.entries ? app.entries.filter(e => e.status === 'En attente').length : 0}</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.entries ? app.entries.filter(e => e.status === 'En attente').length : 1}</p>
                             </div>
                             <div class="bg-warning/10 p-3 rounded-lg">
                                 <i class="fas fa-exclamation-triangle text-warning text-xl"></i>
@@ -491,7 +690,7 @@ const auth = (function() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures Validées</p>
-                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.entries ? app.entries.filter(e => e.status === 'Validé').length : 0}</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${app.entries ? app.entries.filter(e => e.status === 'Validé').length : 2}</p>
                             </div>
                             <div class="bg-success/10 p-3 rounded-lg">
                                 <i class="fas fa-check text-success text-xl"></i>
@@ -524,13 +723,55 @@ const auth = (function() {
                         </button>
                     </div>
                 </div>
+
+                <!-- Activité récente -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-history mr-2 text-info"></i>Activité Récente
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-success text-white rounded-full flex items-center justify-center">
+                                    <i class="fas fa-check text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Écriture validée</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">SARL TECH INNOVATION - il y a 2h</div>
+                                </div>
+                            </div>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">JV-2024-001-0156</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-plus text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Nouveau collaborateur</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Jean Diabaté ajouté - il y a 1 jour</div>
+                                </div>
+                            </div>
+                            <span class="text-sm text-success">Collaborateur</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-info text-white rounded-full flex items-center justify-center">
+                                    <i class="fas fa-building text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Nouvelle entreprise</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">SAS DIGITAL WORLD - il y a 3 jours</div>
+                                </div>
+                            </div>
+                            <span class="text-sm text-warning">Période d'essai</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
         
-        const mainContent = document.getElementById('mainContent');
-        if (mainContent) {
-            mainContent.innerHTML = content;
-        }
+        updateMainContent(content);
     };
 
     // Standard dashboard
@@ -586,7 +827,7 @@ const auth = (function() {
                             <div>
                                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures ce mois</p>
                                 <p class="text-3xl font-bold text-gray-900 dark:text-white">
-                                    ${app.currentProfile === 'caissier' ? '45' : (app.entries ? app.entries.length : 0)}
+                                    ${app.currentProfile === 'caissier' ? '45' : (app.entries ? app.entries.length : 3)}
                                 </p>
                             </div>
                             <div class="bg-success/10 p-3 rounded-lg">
@@ -600,7 +841,7 @@ const auth = (function() {
                             <div>
                                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">En attente validation</p>
                                 <p class="text-3xl font-bold text-gray-900 dark:text-white">
-                                    ${app.entries ? app.entries.filter(e => e.status === 'En attente').length : 0}
+                                    ${app.entries ? app.entries.filter(e => e.status === 'En attente').length : 1}
                                 </p>
                             </div>
                             <div class="bg-warning/10 p-3 rounded-lg">
@@ -646,18 +887,80 @@ const auth = (function() {
                         </button>
                     </div>
                 </div>
+
+                <!-- Mes données récentes -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-history mr-2 text-info"></i>Activité Récente
+                    </h3>
+                    <div class="space-y-3">
+                        ${app.currentProfile === 'caissier' ? `
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-success text-white rounded-full flex items-center justify-center">
+                                    <i class="fas fa-arrow-down text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Recette caisse</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Vente comptant - il y a 1h</div>
+                                </div>
+                            </div>
+                            <span class="text-sm font-mono text-success">+15,000 FCFA</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-warning text-white rounded-full flex items-center justify-center">
+                                    <i class="fas fa-arrow-up text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Dépense caisse</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Achat fournitures - il y a 2h</div>
+                                </div>
+                            </div>
+                            <span class="text-sm font-mono text-warning">-5,000 FCFA</span>
+                        </div>
+                        ` : `
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-success text-white rounded-full flex items-center justify-center">
+                                    <i class="fas fa-edit text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Écriture créée</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Vente marchandises - il y a 2h</div>
+                                </div>
+                            </div>
+                            <span class="text-sm text-success">Validé</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-info text-white rounded-full flex items-center justify-center">
+                                    <i class="fas fa-chart-bar text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Rapport généré</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Balance générale - il y a 1 jour</div>
+                                </div>
+                            </div>
+                            <span class="text-sm text-info">PDF</span>
+                        </div>
+                        `}
+                        <div class="text-center pt-4">
+                            <button onclick="navigateTo('entries')" class="text-primary hover:text-primary/80 text-sm font-medium">
+                                Voir toutes les activités <i class="fas fa-arrow-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
         
-        const mainContent = document.getElementById('mainContent');
-        if (mainContent) {
-            mainContent.innerHTML = content;
-        }
+        updateMainContent(content);
     };
 
     // Initialize application
     const initializeApp = () => {
-        try {
+        return safeExecute(() => {
             console.log('🔄 Initialisation de l\'application...');
             
             // Load navigation menu based on profile
@@ -673,15 +976,12 @@ const auth = (function() {
             bindEventListeners();
             
             console.log('✅ DOUKÈ Compta Pro initialisé avec succès !');
-        } catch (error) {
-            console.error('❌ Erreur lors de l\'initialisation:', error);
-            showErrorMessage('Erreur lors de l\'initialisation de l\'application');
-        }
+        }, 'Erreur lors de l\'initialisation de l\'application');
     };
 
     // Bind event listeners
     const bindEventListeners = () => {
-        try {
+        return safeExecute(() => {
             // Company selector
             setTimeout(() => {
                 const companySelect = document.getElementById('activeCompanySelect');
@@ -705,41 +1005,55 @@ const auth = (function() {
                 });
             }
 
-        } catch (error) {
-            console.error('Erreur bindEventListeners:', error);
-        }
+            // Close sidebar on outside click (mobile)
+            document.addEventListener('click', function(e) {
+                const sidebar = document.getElementById('sidebar');
+                const sidebarToggle = document.getElementById('sidebarToggle');
+
+                if (window.innerWidth < 1024 && sidebar && sidebarToggle && 
+                    !sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
+
+        }, 'Erreur lors de la liaison des événements');
     };
 
     // Update selected company info
     const updateSelectedCompanyInfo = () => {
-        if (!app.companies) return;
-        
-        const company = app.companies.find(c => c.id == app.currentCompany);
-        const infoElement = document.getElementById('selectedCompanyInfo');
-        const currentCompanyElement = document.getElementById('currentCompany');
+        return safeExecute(() => {
+            if (!app.companies) return;
+            
+            const company = app.companies.find(c => c.id == app.currentCompany);
+            const infoElement = document.getElementById('selectedCompanyInfo');
+            const currentCompanyElement = document.getElementById('currentCompany');
 
-        if (company) {
-            if (infoElement) {
-                infoElement.innerHTML = `${company.system} • ${company.status}`;
+            if (company) {
+                if (infoElement) {
+                    infoElement.innerHTML = `${company.system} • ${company.status}`;
+                }
+                if (currentCompanyElement) {
+                    currentCompanyElement.textContent = company.name;
+                }
+            } else {
+                if (infoElement) {
+                    infoElement.innerHTML = '';
+                }
+                if (currentCompanyElement) {
+                    currentCompanyElement.textContent = 'Aucune entreprise sélectionnée';
+                }
             }
-            if (currentCompanyElement) {
-                currentCompanyElement.textContent = company.name;
-            }
-        } else {
-            if (infoElement) {
-                infoElement.innerHTML = '';
-            }
-            if (currentCompanyElement) {
-                currentCompanyElement.textContent = 'Aucune entreprise sélectionnée';
-            }
-        }
+        }, 'Erreur lors de la mise à jour des informations d\'entreprise');
     };
+
+    // Export navigateTo function globally
+    window.navigateTo = navigateTo;
 
     // Public API
     return {
         // Initialize authentication system
         init: () => {
-            try {
+            return safeExecute(() => {
                 const existingSession = session.get();
                 if (existingSession) {
                     auth.restoreSession(existingSession);
@@ -749,56 +1063,58 @@ const auth = (function() {
                 auth.setupPasswordToggle();
                 
                 console.log('🔐 Authentication system initialized');
-            } catch (error) {
-                console.error('Auth initialization error:', error);
-            }
+            }, 'Erreur lors de l\'initialisation de l\'authentification');
         },
 
         // Setup form event handlers
         setupFormHandlers: () => {
-            const loginForm = document.getElementById('loginForm');
-            if (loginForm) {
-                loginForm.addEventListener('submit', auth.handleLogin);
-                
-                const emailField = document.getElementById('loginEmail');
-                const passwordField = document.getElementById('loginPassword');
-                
-                if (emailField) {
-                    emailField.addEventListener('input', () => {
-                        ui.clearFieldError('loginEmail');
-                    });
+            return safeExecute(() => {
+                const loginForm = document.getElementById('loginForm');
+                if (loginForm) {
+                    loginForm.addEventListener('submit', auth.handleLogin);
                     
-                    emailField.addEventListener('blur', () => {
-                        if (emailField.value && !validators.email(emailField.value)) {
-                            ui.setFieldError('loginEmail', 'Format d\'email invalide');
-                        }
-                    });
+                    const emailField = document.getElementById('loginEmail');
+                    const passwordField = document.getElementById('loginPassword');
+                    
+                    if (emailField) {
+                        emailField.addEventListener('input', () => {
+                            ui.clearFieldError('loginEmail');
+                        });
+                        
+                        emailField.addEventListener('blur', () => {
+                            if (emailField.value && !validators.email(emailField.value)) {
+                                ui.setFieldError('loginEmail', 'Format d\'email invalide');
+                            }
+                        });
+                    }
+                    
+                    if (passwordField) {
+                        passwordField.addEventListener('input', () => {
+                            ui.clearFieldError('loginPassword');
+                        });
+                    }
                 }
-                
-                if (passwordField) {
-                    passwordField.addEventListener('input', () => {
-                        ui.clearFieldError('loginPassword');
-                    });
-                }
-            }
+            }, 'Erreur lors de la configuration des gestionnaires de formulaire');
         },
 
         // Setup password visibility toggle
         setupPasswordToggle: () => {
-            const toggleButton = document.getElementById('togglePassword');
-            const passwordField = document.getElementById('loginPassword');
-            
-            if (toggleButton && passwordField) {
-                toggleButton.addEventListener('click', () => {
-                    const isPassword = passwordField.type === 'password';
-                    passwordField.type = isPassword ? 'text' : 'password';
-                    
-                    const icon = toggleButton.querySelector('i');
-                    if (icon) {
-                        icon.className = isPassword ? 'fas fa-eye-slash' : 'fas fa-eye';
-                    }
-                });
-            }
+            return safeExecute(() => {
+                const toggleButton = document.getElementById('togglePassword');
+                const passwordField = document.getElementById('loginPassword');
+                
+                if (toggleButton && passwordField) {
+                    toggleButton.addEventListener('click', () => {
+                        const isPassword = passwordField.type === 'password';
+                        passwordField.type = isPassword ? 'text' : 'password';
+                        
+                        const icon = toggleButton.querySelector('i');
+                        if (icon) {
+                            icon.className = isPassword ? 'fas fa-eye-slash' : 'fas fa-eye';
+                        }
+                    });
+                }
+            }, 'Erreur lors de la configuration du basculement de mot de passe');
         },
 
         // Handle login form submission
@@ -871,30 +1187,32 @@ const auth = (function() {
 
         // Quick login with predefined credentials
         loginAs: (profile) => {
-            const credentials = {
-                'admin': { email: 'admin@doukecompta.ci', password: 'admin123' },
-                'collaborateur-senior': { email: 'marie.kouassi@cabinet.com', password: 'collab123' },
-                'collaborateur': { email: 'jean.diabate@cabinet.com', password: 'collab123' },
-                'user': { email: 'atraore@sarltech.ci', password: 'user123' },
-                'caissier': { email: 'ikone@caisse.ci', password: 'caisse123' }
-            };
+            return safeExecute(() => {
+                const credentials = {
+                    'admin': { email: 'admin@doukecompta.ci', password: 'admin123' },
+                    'collaborateur-senior': { email: 'marie.kouassi@cabinet.com', password: 'collab123' },
+                    'collaborateur': { email: 'jean.diabate@cabinet.com', password: 'collab123' },
+                    'user': { email: 'atraore@sarltech.ci', password: 'user123' },
+                    'caissier': { email: 'ikone@caisse.ci', password: 'caisse123' }
+                };
 
-            const cred = credentials[profile];
-            if (cred) {
-                const emailField = document.getElementById('loginEmail');
-                const passwordField = document.getElementById('loginPassword');
-                
-                if (emailField && passwordField) {
-                    emailField.value = cred.email;
-                    passwordField.value = cred.password;
+                const cred = credentials[profile];
+                if (cred) {
+                    const emailField = document.getElementById('loginEmail');
+                    const passwordField = document.getElementById('loginPassword');
                     
-                    const loginForm = document.getElementById('loginForm');
-                    if (loginForm) {
-                        const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-                        loginForm.dispatchEvent(submitEvent);
+                    if (emailField && passwordField) {
+                        emailField.value = cred.email;
+                        passwordField.value = cred.password;
+                        
+                        const loginForm = document.getElementById('loginForm');
+                        if (loginForm) {
+                            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                            loginForm.dispatchEvent(submitEvent);
+                        }
                     }
                 }
-            }
+            }, 'Erreur lors de la connexion rapide');
         },
 
         // Show registration form
@@ -1123,7 +1441,7 @@ const auth = (function() {
 
         // Logout user
         logout: () => {
-            try {
+            return safeExecute(() => {
                 session.clear();
                 
                 app.isAuthenticated = false;
@@ -1137,47 +1455,48 @@ const auth = (function() {
                 showSuccessMessage('Déconnexion réussie. À bientôt !');
                 console.log('✅ Logout successful');
                 
-            } catch (error) {
-                console.error('Logout error:', error);
-                showErrorMessage('Erreur lors de la déconnexion');
-            }
+            }, 'Erreur lors de la déconnexion');
         },
 
         // Show login interface
         showLoginInterface: () => {
-            const loginInterface = document.getElementById('loginInterface');
-            const mainApp = document.getElementById('mainApp');
-            
-            if (loginInterface && mainApp) {
-                loginInterface.classList.remove('hidden');
-                mainApp.classList.add('hidden');
+            return safeExecute(() => {
+                const loginInterface = document.getElementById('loginInterface');
+                const mainApp = document.getElementById('mainApp');
                 
-                setTimeout(() => {
-                    const emailField = document.getElementById('loginEmail');
-                    if (emailField) {
-                        emailField.focus();
-                    }
-                }, 100);
-            }
+                if (loginInterface && mainApp) {
+                    loginInterface.classList.remove('hidden');
+                    mainApp.classList.add('hidden');
+                    
+                    setTimeout(() => {
+                        const emailField = document.getElementById('loginEmail');
+                        if (emailField) {
+                            emailField.focus();
+                        }
+                    }, 100);
+                }
+            }, 'Erreur lors de l\'affichage de l\'interface de connexion');
         },
 
         // Show main application
         showMainApp: () => {
-            const loginInterface = document.getElementById('loginInterface');
-            const mainApp = document.getElementById('mainApp');
-            
-            if (loginInterface && mainApp) {
-                loginInterface.classList.add('hidden');
-                mainApp.classList.remove('hidden');
+            return safeExecute(() => {
+                const loginInterface = document.getElementById('loginInterface');
+                const mainApp = document.getElementById('mainApp');
                 
-                // Initialize main app
-                initializeApp();
-            }
+                if (loginInterface && mainApp) {
+                    loginInterface.classList.add('hidden');
+                    mainApp.classList.remove('hidden');
+                    
+                    // Initialize main app
+                    initializeApp();
+                }
+            }, 'Erreur lors de l\'affichage de l\'application principale');
         },
 
         // Restore session
         restoreSession: (sessionData) => {
-            try {
+            return safeExecute(() => {
                 app.isAuthenticated = true;
                 app.currentProfile = sessionData.user.profile;
                 app.currentUser = sessionData.user;
@@ -1193,22 +1512,21 @@ const auth = (function() {
                 
                 console.log('✅ Session restored:', sessionData.user.name);
                 
-            } catch (error) {
-                console.error('Session restore error:', error);
-                auth.logout();
-            }
+            }, 'Erreur lors de la restauration de session');
         },
 
         // Set session timer for auto-logout
         setSessionTimer: () => {
-            if (sessionTimer) {
-                clearTimeout(sessionTimer);
-            }
-            
-            sessionTimer = setTimeout(() => {
-                showErrorMessage('Session expirée. Reconnexion requise.');
-                auth.logout();
-            }, SESSION_DURATION);
+            return safeExecute(() => {
+                if (sessionTimer) {
+                    clearTimeout(sessionTimer);
+                }
+                
+                sessionTimer = setTimeout(() => {
+                    showErrorMessage('Session expirée. Reconnexion requise.');
+                    auth.logout();
+                }, SESSION_DURATION);
+            }, 'Erreur lors de la configuration du timer de session');
         },
 
         // Extend session
@@ -1231,24 +1549,28 @@ const auth = (function() {
 
         // Modal utilities
         showModal: (html) => {
-            const container = document.getElementById('modalContainer');
-            if (container) {
-                container.innerHTML = html;
-                
-                setTimeout(() => {
-                    const registerForm = document.getElementById('registerForm');
-                    if (registerForm) {
-                        registerForm.addEventListener('submit', auth.handleRegister);
-                    }
-                }, 100);
-            }
+            return safeExecute(() => {
+                const container = document.getElementById('modalContainer');
+                if (container) {
+                    container.innerHTML = html;
+                    
+                    setTimeout(() => {
+                        const registerForm = document.getElementById('registerForm');
+                        if (registerForm) {
+                            registerForm.addEventListener('submit', auth.handleRegister);
+                        }
+                    }, 100);
+                }
+            }, 'Erreur lors de l\'affichage du modal');
         },
 
         closeModal: () => {
-            const container = document.getElementById('modalContainer');
-            if (container) {
-                container.innerHTML = '';
-            }
+            return safeExecute(() => {
+                const container = document.getElementById('modalContainer');
+                if (container) {
+                    container.innerHTML = '';
+                }
+            }, 'Erreur lors de la fermeture du modal');
         },
 
         closeModalOnBackground: (event) => {
