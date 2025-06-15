@@ -1,5 +1,5 @@
 // =============================================================================
-// REPORTS MANAGEMENT - FONCTION COMPLÈTE RESTAURÉE
+// REPORTS.JS - Gestion des rapports et états financiers
 // =============================================================================
 
 function loadReports() {
@@ -191,7 +191,6 @@ function loadReports() {
     document.getElementById('mainContent').innerHTML = content;
 }
 
-// FONCTION POUR PRÉVISUALISER LES RAPPORTS
 function previewReport(type) {
     const reportNames = {
         'journal': 'Journal Général',
@@ -425,7 +424,7 @@ function downloadReport(type) {
     const dateTo = dateToElement ? dateToElement.value : '';
     const format = formatElement ? formatElement.value : 'PDF';
 
-    showSuccessMessage(`📊 Téléchargement du rapport "${reportNames[type]}" en cours...\n\nPériode: ${dateFrom ? new Date(dateFrom).toLocaleDateString('fr-FR') : 'N/A'} - ${dateTo ? new Date(dateTo).toLocaleDateString('fr-FR') : 'N/A'}\nFormat: ${format.toUpperCase()}\nEntreprise: ${getCompanyName()}`);
+    showSuccessMessage(`Téléchargement du rapport "${reportNames[type]}" en cours...\n\nPériode: ${dateFrom ? new Date(dateFrom).toLocaleDateString('fr-FR') : 'N/A'} - ${dateTo ? new Date(dateTo).toLocaleDateString('fr-FR') : 'N/A'}\nFormat: ${format.toUpperCase()}\nEntreprise: ${getCompanyName()}`);
 
     console.log('✅ Rapport téléchargé:', {
         type: reportNames[type],
@@ -447,5 +446,5 @@ function updateReportPreview() {
     const format = formatElement ? formatElement.value : '';
     const journal = journalElement ? journalElement.value : '';
 
-    showSuccessMessage(`📊 Aperçu mis à jour pour la période du ${dateFrom ? new Date(dateFrom).toLocaleDateString('fr-FR') : 'N/A'} au ${dateTo ? new Date(dateTo).toLocaleDateString('fr-FR') : 'N/A'}`);
+    showSuccessMessage(`Aperçu mis à jour pour la période du ${dateFrom ? new Date(dateFrom).toLocaleDateString('fr-FR') : 'N/A'} au ${dateTo ? new Date(dateTo).toLocaleDateString('fr-FR') : 'N/A'}`);
 }
