@@ -16,6 +16,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" onerror="console.error('Failed to load FontAwesome')"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="console.error('Failed to load Chart.js')"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js" onerror="console.error('Failed to load Marked.js')"></script>
+    
+    <!-- Auth.js Integration -->
+    <script src="auth.js" onerror="console.warn('auth.js not found - authentication features may be limited')"></script>
 
     <script>
         // Enhanced Tailwind configuration with error handling
@@ -449,6 +452,64 @@ function showProcessingMessage(message) {
 }
 
 // =============================================================================
+// AUTH.JS INTEGRATION FUNCTIONS
+// =============================================================================
+
+// Function to call auth.js after successful login
+function callAuthOnLogin(userData) {
+    try {
+        // Check if auth.js functions are available
+        if (typeof window.authLogin === 'function') {
+            console.log('🔐 Calling auth.js login function...');
+            window.authLogin(userData);
+        } else if (typeof authLogin === 'function') {
+            console.log('🔐 Calling auth.js login function...');
+            authLogin(userData);
+        } else {
+            console.warn('⚠️ auth.js login function not found - proceeding without external auth');
+        }
+    } catch (error) {
+        console.error('Error calling auth.js login function:', error);
+    }
+}
+
+// Function to call auth.js after successful registration
+function callAuthOnRegister(userData) {
+    try {
+        // Check if auth.js functions are available
+        if (typeof window.authRegister === 'function') {
+            console.log('🔐 Calling auth.js register function...');
+            window.authRegister(userData);
+        } else if (typeof authRegister === 'function') {
+            console.log('🔐 Calling auth.js register function...');
+            authRegister(userData);
+        } else {
+            console.warn('⚠️ auth.js register function not found - proceeding without external auth');
+        }
+    } catch (error) {
+        console.error('Error calling auth.js register function:', error);
+    }
+}
+
+// Function to call auth.js on logout
+function callAuthOnLogout() {
+    try {
+        // Check if auth.js functions are available
+        if (typeof window.authLogout === 'function') {
+            console.log('🔐 Calling auth.js logout function...');
+            window.authLogout();
+        } else if (typeof authLogout === 'function') {
+            console.log('🔐 Calling auth.js logout function...');
+            authLogout();
+        } else {
+            console.warn('⚠️ auth.js logout function not found - proceeding without external auth');
+        }
+    } catch (error) {
+        console.error('Error calling auth.js logout function:', error);
+    }
+}
+
+// =============================================================================
 // OHADA COUNTRIES DATA - CONSERVÉ IDENTIQUE
 // =============================================================================
 
@@ -782,7 +843,7 @@ function setTheme(theme) {
 }
 
 // =============================================================================
-// AUTHENTICATION FUNCTIONS - CONSERVÉES IDENTIQUES
+// AUTHENTICATION FUNCTIONS - MODIFIÉES POUR INTÉGRER AUTH.JS
 // =============================================================================
 
 function loginAs(profile) {
@@ -875,6 +936,17 @@ function handleLogin() {
                 app.currentCompany = '2';
             }
 
+            // NOUVEAUTÉ: Appel à auth.js après connexion réussie
+            callAuthOnLogin({
+                id: user.id,
+                name: user.name,
+                email: email,
+                role: user.role,
+                profile: user.profile,
+                timestamp: new Date().toISOString(),
+                loginMethod: 'internal'
+            });
+
             showMainApp();
             console.log('✅ Connexion réussie:', user.name);
         } else {
@@ -954,6 +1026,9 @@ function confirmLogout() {
 
 function logout() {
     return safeExecute(() => {
+        // NOUVEAUTÉ: Appel à auth.js avant déconnexion
+        callAuthOnLogout();
+        
         closeModal();
         showLoginInterface();
         showSuccessMessage('✅ Déconnexion réussie. À bientôt !');
@@ -980,11 +1055,109 @@ function closeModalOnBackground(event) {
 }
 
 // =============================================================================
-// PLACEHOLDER FUNCTIONS - CONSERVÉES IDENTIQUES
+// PLACEHOLDER FUNCTIONS - MODIFIÉE POUR INTÉGRER AUTH.JS
 // =============================================================================
 
 function showRegisterForm() {
-    showProcessingMessage('Formulaire d\'inscription en cours de développement.');
+    // Simulation d'un formulaire d'inscription complet
+    const modal = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeModalOnBackground(event)">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-md mx-4">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-user-plus text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">Créer un compte</h3>
+                </div>
+                <form id="registerForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
+                        <input type="text" id="registerName" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                        <input type="email" id="registerEmail" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mot de passe</label>
+                        <input type="password" id="registerPassword" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </div>
+                    <div class="flex justify-center space-x-4 mt-6">
+                        <button type="button" onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            Annuler
+                        </button>
+                        <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-user-plus mr-2"></i>S'inscrire
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) {
+        modalContainer.innerHTML = modal;
+        
+        // Ajouter l'événement de soumission du formulaire
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) {
+            registerForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                handleRegister();
+            });
+        }
+    }
+}
+
+function handleRegister() {
+    return safeExecute(() => {
+        const name = document.getElementById('registerName')?.value;
+        const email = document.getElementById('registerEmail')?.value;
+        const password = document.getElementById('registerPassword')?.value;
+
+        if (!name || !email || !password) {
+            showErrorMessage('Veuillez remplir tous les champs.');
+            return;
+        }
+
+        if (!app.validate.email(email)) {
+            showErrorMessage('Veuillez saisir un email valide.');
+            return;
+        }
+
+        if (password.length < 6) {
+            showErrorMessage('Le mot de passe doit contenir au moins 6 caractères.');
+            return;
+        }
+
+        // Simulation de création de compte
+        const newUser = {
+            id: Date.now(),
+            name: name,
+            email: email,
+            role: 'Utilisateur',
+            profile: 'user',
+            phone: '',
+            companies: [],
+            status: 'Actif',
+            registrationDate: new Date().toISOString()
+        };
+
+        // NOUVEAUTÉ: Appel à auth.js après inscription réussie
+        callAuthOnRegister(newUser);
+
+        closeModal();
+        showSuccessMessage('✅ Compte créé avec succès ! Vous pouvez maintenant vous connecter.');
+        
+        // Optionnel: auto-remplir le formulaire de connexion
+        const loginEmail = document.getElementById('loginEmail');
+        if (loginEmail) {
+            loginEmail.value = email;
+        }
+        
+        console.log('✅ Nouveau compte créé:', newUser);
+    }, 'Erreur lors de la création du compte');
 }
 
 function showForgotPassword() {
@@ -1038,12 +1211,18 @@ function initializeApp() {
                                 Interface principale en cours de développement
                             </p>
                         </div>
+                        <div class="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <p class="text-green-700 dark:text-green-300 text-sm">
+                                <i class="fas fa-check-circle mr-2"></i>
+                                Intégration auth.js activée - Les événements de connexion/inscription sont transmis au fichier externe
+                            </p>
+                        </div>
                     </div>
                 `;
             }
         }, 500);
         
-        console.log('✅ DOUKÈ Compta Pro initialisé avec succès !');
+        console.log('✅ DOUKÈ Compta Pro initialisé avec succès avec intégration auth.js !');
     }, 'Erreur lors de l\'initialisation de l\'application');
 }
 
@@ -1105,11 +1284,9 @@ document.addEventListener('DOMContentLoaded', function() {
     return safeExecute(() => {
         setTimeout(() => {
             bindEventListeners();
-            console.log('🚀 DOUKÈ Compta Pro - Application démarrée avec toutes les fonctionnalités');
+            console.log('🚀 DOUKÈ Compta Pro - Application démarrée avec intégration auth.js');
+            console.log('📋 Fonctions auth.js attendues: authLogin(), authRegister(), authLogout()');
         }, 100);
     }, 'Erreur au démarrage de l\'application');
 });
 </script>
-
-</body>
-</html>
