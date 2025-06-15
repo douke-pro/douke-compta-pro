@@ -1,5 +1,5 @@
 // =============================================================================
-// ENTRIES MANAGEMENT - FONCTION COMPLÈTE RESTAURÉE
+// ENTRIES.JS - Gestion des écritures comptables
 // =============================================================================
 
 function loadEntries() {
@@ -148,7 +148,6 @@ function openNewEntryModal() {
     </tr>
     </thead>
     <tbody id="entryLinesBody">
-    <!-- Les lignes seront ajoutées ici -->
     </tbody>
     </table>
     </div>
@@ -185,13 +184,11 @@ function openNewEntryModal() {
 
     document.getElementById('modalContainer').innerHTML = modal;
 
-    // Initialiser les lignes et événements
     setTimeout(() => {
         addEntryLine();
         addEntryLine();
         generatePieceNumber();
 
-        // Event listeners
         const entryForm = document.getElementById('entryForm');
         if (entryForm) {
             entryForm.addEventListener('submit', function(e) {
@@ -204,8 +201,6 @@ function openNewEntryModal() {
 
 function addEntryLine() {
     const tbody = document.getElementById('entryLinesBody');
-    const lineCount = tbody.children.length;
-
     const row = document.createElement('tr');
     row.innerHTML = `
     <td class="py-2 px-3">
@@ -309,7 +304,6 @@ function generatePieceNumber() {
 }
 
 function saveEntry() {
-    // Vérifier l'équilibre
     const debitInputs = document.querySelectorAll('.debit-input');
     const creditInputs = document.querySelectorAll('.credit-input');
 
@@ -334,7 +328,6 @@ function saveEntry() {
         return;
     }
 
-    // Construire l'écriture
     const entry = {
         id: app.entries.length + 1,
         date: document.getElementById('entryDate').value,
@@ -347,7 +340,6 @@ function saveEntry() {
         userId: app.currentUser.id || 1
     };
 
-    // Ajouter les lignes
     const rows = document.querySelectorAll('#entryLinesBody tr');
     rows.forEach(row => {
         const accountInput = row.querySelector('.account-input, .account-select');
@@ -364,8 +356,8 @@ function saveEntry() {
                 let accountName = '';
 
                 if (app.currentProfile === 'caissier') {
-                    accountName = accountInput.value; // Intitulé libre
-                    accountCode = ''; // Pas de code pour le caissier
+                    accountName = accountInput.value;
+                    accountCode = '';
                 } else {
                     accountCode = accountInput.value;
                     const account = app.accounts.find(acc => acc.code === accountCode);
@@ -388,33 +380,83 @@ function saveEntry() {
         return;
     }
 
-    // Sauvegarder l'écriture
     app.entries.push(entry);
 
     closeModal();
-    loadEntries(); // Recharger la liste
+    loadEntries();
 
     const message = app.currentProfile === 'caissier' ?
-        '✅ Opération enregistrée et envoyée pour validation.' :
-        '✅ Écriture enregistrée avec succès.';
+        'Opération enregistrée et envoyée pour validation.' :
+        'Écriture enregistrée avec succès.';
 
     showSuccessMessage(message);
     console.log('✅ Écriture sauvegardée:', entry);
 }
 
-// Fonctions vides pour éviter les erreurs
+function generateEntriesRows() {
+    let filteredEntries = app.entries;
+
+    if (app.currentProfile === 'user' || app.currentProfile === 'caissier') {
+        filteredEntries = app.entries.filter(e => e.companyId == app.currentCompany);
+    }
+
+    if (filteredEntries.length === 0) {
+        return `
+        <tr>
+        <td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+        <i class="fas fa-inbox text-3xl mb-2"></i>
+        <div>Aucune écriture trouvée</div>
+        <div class="text-sm">Cliquez sur "Nouvelle écriture" pour commencer</div>
+        </td>
+        </tr>
+        `;
+    }
+
+    return filteredEntries.map(entry => `
+    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">${new Date(entry.date).toLocaleDateString('fr-FR')}</td>
+    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">${entry.journal}</td>
+    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-mono text-sm">${entry.piece}</td>
+    <td class="px-6 py-4 text-gray-900 dark:text-white">${entry.libelle}</td>
+    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-mono">${entry.lines.reduce((sum, line) => sum + line.debit, 0).toLocaleString('fr-FR')} FCFA</td>
+    <td class="px-6 py-4 whitespace-nowrap">
+    <span class="px-2 py-1 rounded text-sm ${entry.status === 'Validé' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">${entry.status}</span>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+    <div class="flex space-x-2">
+    <button onclick="viewEntryDetails(${entry.id})" class="text-primary hover:text-primary/80" title="Voir">
+    <i class="fas fa-eye"></i>
+    </button>
+    <button onclick="editEntryModal(${entry.id})" class="text-info hover:text-info/80" title="Modifier">
+    <i class="fas fa-edit"></i>
+    </button>
+    ${entry.status === 'En attente' && app.currentProfile !== 'caissier' ? `
+    <button onclick="validateEntry(${entry.id})" class="text-success hover:text-success/80" title="Valider">
+    <i class="fas fa-check"></i>
+    </button>
+    ` : ''}
+    <button onclick="confirmDeleteEntry(${entry.id})" class="text-danger hover:text-danger/80" title="Supprimer">
+    <i class="fas fa-trash"></i>
+    </button>
+    </div>
+    </td>
+    </tr>
+    `).join('');
+}
+
+// Fonctions pour les actions sur les écritures (stubs pour le moment)
 function viewEntryDetails(id) {
-    showSuccessMessage(`👁️ Visualisation de l'écriture ${id}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Visualisation de l'écriture ${id} - Fonctionnalité en cours de développement.`);
 }
 
 function editEntryModal(id) {
-    showSuccessMessage(`✏️ Modification de l'écriture ${id}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Modification de l'écriture ${id} - Fonctionnalité en cours de développement.`);
 }
 
 function confirmDeleteEntry(id) {
-    showSuccessMessage(`🗑️ Suppression de l'écriture ${id}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Suppression de l'écriture ${id} - Fonctionnalité en cours de développement.`);
 }
 
 function validateEntry(id) {
-    showSuccessMessage(`✅ Validation de l'écriture ${id}\n\nFonctionnalité en cours de développement.`);
+    showSuccessMessage(`Validation de l'écriture ${id} - Fonctionnalité en cours de développement.`);
 }
