@@ -365,6 +365,17 @@ function showMainApp() {
 }
 
 // =============================================================================
+// GESTION DES MODALS
+// =============================================================================
+
+function closeModal() {
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) {
+        modalContainer.innerHTML = '';
+    }
+}
+
+// =============================================================================
 // GESTION MOT DE PASSE OUBLIÉ
 // =============================================================================
 
