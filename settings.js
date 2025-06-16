@@ -35,7 +35,12 @@ function loadSettings() {
     </div>
     <div>
     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-    <input type="tel" id="profilePhone" value="+225 07 XX XX XX XX" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+    <div class="flex space-x-2">
+    <select id="profileCountryCode" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+    ${getOHADACountries()}
+    </select>
+    <input type="tel" id="profilePhone" value="07 XX XX XX XX" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+    </div>
     </div>
     <div>
     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profil</label>
@@ -152,20 +157,23 @@ function saveProfile() {
     const nameElement = document.getElementById('profileName');
     const emailElement = document.getElementById('profileEmail');
     const phoneElement = document.getElementById('profilePhone');
+    const countryCodeElement = document.getElementById('profileCountryCode');
 
     const name = nameElement ? nameElement.value : app.currentUser.name;
     const email = emailElement ? emailElement.value : app.currentUser.email;
     const phone = phoneElement ? phoneElement.value : '';
+    const countryCode = countryCodeElement ? countryCodeElement.value : '+225';
 
     // Mise à jour des données utilisateur
     app.currentUser.name = name;
     app.currentUser.email = email;
+    app.currentUser.phone = countryCode + ' ' + phone;
 
     // Mettre à jour l'affichage
     updateUserInfo();
 
     showSuccessMessage('✅ Profil mis à jour avec succès !');
-    console.log('✅ Profil sauvegardé:', { name, email, phone });
+    console.log('✅ Profil sauvegardé:', { name, email, phone: countryCode + ' ' + phone });
 }
 
 function openChangePasswordModal() {
@@ -328,7 +336,7 @@ function loadCompanies() {
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                     ${app.currentProfile === 'admin' ? 'Gestion des Entreprises' : 'Mes Entreprises'}
                 </h2>
-                ${app.currentProfile === 'admin' ? `
+                ${app.currentProfile === 'admin' || app.currentProfile.includes('collaborateur') ? `
                 <button onclick="openAddCompanyModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-plus mr-2"></i>Nouvelle Entreprise
                 </button>
@@ -338,19 +346,19 @@ function loadCompanies() {
             <!-- Statistiques entreprises -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-primary">${app.companies.length}</div>
+                    <div class="text-3xl font-bold text-primary">${getVisibleCompanies().length}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Total entreprises</div>
                 </div>
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-success">${app.companies.filter(c => c.status === 'Actif').length}</div>
+                    <div class="text-3xl font-bold text-success">${getVisibleCompanies().filter(c => c.status === 'Actif').length}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Actives</div>
                 </div>
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-warning">${app.companies.filter(c => c.status === 'Période d\'essai').length}</div>
+                    <div class="text-3xl font-bold text-warning">${getVisibleCompanies().filter(c => c.status === 'Période d\'essai').length}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">En essai</div>
                 </div>
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-danger">${app.companies.filter(c => c.status === 'Suspendu').length}</div>
+                    <div class="text-3xl font-bold text-danger">${getVisibleCompanies().filter(c => c.status === 'Suspendu').length}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Suspendues</div>
                 </div>
             </div>
@@ -365,6 +373,7 @@ function loadCompanies() {
                         <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Entreprise</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Collaborateur en charge</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Système</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Statut</th>
@@ -425,6 +434,21 @@ function generateUsersRows() {
                     <button onclick="editUser(${user.id})" class="text-primary hover:text-primary/80" title="Modifier">
                         <i class="fas fa-edit"></i>
                     </button>
+                    ${(user.role === 'Collaborateur' || user.role === 'Collaborateur Senior') ? `
+                    <button onclick="openCompanyAssignmentModal(${user.id})" class="text-warning hover:text-warning/80" title="Gérer entreprises">
+                        <i class="fas fa-building"></i>
+                    </button>
+                    ` : ''}
+                    ${user.role === 'Collaborateur Senior' ? `
+                    <button onclick="openCollaboratorAssignmentModal(${user.id})" class="text-info hover:text-info/80" title="Gérer collaborateurs">
+                        <i class="fas fa-users"></i>
+                    </button>
+                    ` : ''}
+                    ${user.role === 'Utilisateur' ? `
+                    <button onclick="convertUserToCollaborator(${user.id})" class="text-purple-600 hover:text-purple-800" title="Convertir en collaborateur">
+                        <i class="fas fa-user-tie"></i>
+                    </button>
+                    ` : ''}
                     <button onclick="deleteUser(${user.id})" class="text-danger hover:text-danger/80" title="Supprimer">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -435,10 +459,12 @@ function generateUsersRows() {
 }
 
 function generateCompaniesRows() {
-    if (app.companies.length === 0) {
+    const visibleCompanies = getVisibleCompanies();
+    
+    if (visibleCompanies.length === 0) {
         return `
             <tr>
-                <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     <i class="fas fa-building text-3xl mb-2"></i>
                     <div>Aucune entreprise trouvée</div>
                 </td>
@@ -446,13 +472,30 @@ function generateCompaniesRows() {
         `;
     }
 
-    return app.companies.map(company => `
+    return visibleCompanies.map(company => {
+        const assignedUser = getCompanyAssignedUser(company.id);
+        const canEdit = canUserEditCompany(company.id);
+        
+        return `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="px-6 py-4">
                 <div>
                     <div class="font-medium text-gray-900 dark:text-white">${company.name || 'Nom non défini'}</div>
                     <div class="text-sm text-gray-500 dark:text-gray-400">${company.phone || 'Téléphone non renseigné'}</div>
                 </div>
+            </td>
+            <td class="px-6 py-4">
+                ${assignedUser ? `
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                            ${assignedUser.name.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">${assignedUser.name}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">${assignedUser.role}</div>
+                        </div>
+                    </div>
+                ` : '<span class="text-gray-400 dark:text-gray-500">Non assigné</span>'}
             </td>
             <td class="px-6 py-4 text-gray-900 dark:text-white">${company.type || 'Type non défini'}</td>
             <td class="px-6 py-4 text-gray-900 dark:text-white">${company.system || 'Système normal'}</td>
@@ -464,9 +507,11 @@ function generateCompaniesRows() {
                     <button onclick="viewCompany(${company.id})" class="text-info hover:text-info/80" title="Voir">
                         <i class="fas fa-eye"></i>
                     </button>
+                    ${canEdit ? `
                     <button onclick="editCompany(${company.id})" class="text-primary hover:text-primary/80" title="Modifier">
                         <i class="fas fa-edit"></i>
                     </button>
+                    ` : ''}
                     ${app.currentProfile === 'admin' ? `
                     <button onclick="deleteCompany(${company.id})" class="text-danger hover:text-danger/80" title="Supprimer">
                         <i class="fas fa-trash"></i>
@@ -475,7 +520,50 @@ function generateCompaniesRows() {
                 </div>
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
+}
+
+// =============================================================================
+// FONCTIONS UTILITAIRES POUR LES PERMISSIONS ET AFFICHAGE
+// =============================================================================
+
+function getVisibleCompanies() {
+    if (app.currentProfile === 'admin') {
+        return app.companies;
+    } else if (app.currentProfile.includes('collaborateur')) {
+        // Les collaborateurs voient toutes les entreprises mais ne peuvent modifier que celles qui leur sont affectées
+        return app.companies;
+    } else if (app.currentProfile === 'user') {
+        // Les utilisateurs ne voient que leur entreprise
+        return app.companies.filter(c => c.id === app.currentUser.companyId);
+    }
+    return [];
+}
+
+function getCompanyAssignedUser(companyId) {
+    return app.users.find(user => 
+        user.assignedCompanies && 
+        user.assignedCompanies.includes(companyId) &&
+        (user.role === 'Collaborateur' || user.role === 'Collaborateur Senior')
+    );
+}
+
+function canUserEditCompany(companyId) {
+    if (app.currentProfile === 'admin') {
+        return true;
+    }
+    
+    if (app.currentProfile.includes('collaborateur')) {
+        return app.currentUser.assignedCompanies && 
+               app.currentUser.assignedCompanies.includes(companyId);
+    }
+    
+    if (app.currentProfile === 'user') {
+        return app.currentUser.companyId === companyId;
+    }
+    
+    return false;
 }
 
 // =============================================================================
@@ -526,11 +614,16 @@ function openAddUserModal() {
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                            <input type="tel" id="newUserPhone" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" placeholder="+225 07 XX XX XX XX">
+                            <div class="flex space-x-2">
+                                <select id="newUserCountryCode" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                    ${getOHADACountries()}
+                                </select>
+                                <input type="tel" id="newUserPhone" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" placeholder="07 XX XX XX XX">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profil *</label>
-                            <select id="newUserRole" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            <select id="newUserRole" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" onchange="toggleCompanySelection()">
                                 <option value="">Sélectionner un profil</option>
                                 <option value="Collaborateur Senior">Collaborateur Senior</option>
                                 <option value="Collaborateur">Collaborateur</option>
@@ -548,6 +641,23 @@ function openAddUserModal() {
                                 <option value="Actif">Actif</option>
                                 <option value="Inactif">Inactif</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- Section d'affectation d'entreprise -->
+                    <div id="companyAssignmentSection" style="display: none;">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Entreprise(s) à affecter *
+                            <span id="assignmentNote" class="text-xs text-gray-500 dark:text-gray-400"></span>
+                        </label>
+                        <div class="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                            ${app.companies.map(company => `
+                                <label class="flex items-center space-x-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded">
+                                    <input type="checkbox" name="assignedCompanies" value="${company.id}" class="company-assignment-checkbox">
+                                    <span class="text-gray-900 dark:text-white">${company.name}</span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">(${company.type})</span>
+                                </label>
+                            `).join('')}
                         </div>
                     </div>
 
@@ -577,9 +687,43 @@ function openAddUserModal() {
     }, 100);
 }
 
+function toggleCompanySelection() {
+    const roleSelect = document.getElementById('newUserRole');
+    const companySection = document.getElementById('companyAssignmentSection');
+    const assignmentNote = document.getElementById('assignmentNote');
+    const checkboxes = document.querySelectorAll('.company-assignment-checkbox');
+    
+    if (roleSelect && companySection) {
+        const selectedRole = roleSelect.value;
+        
+        if (selectedRole === 'Utilisateur') {
+            companySection.style.display = 'block';
+            assignmentNote.textContent = '(Une seule entreprise pour un utilisateur)';
+            
+            // Permettre une seule sélection pour les utilisateurs
+            checkboxes.forEach(checkbox => {
+                checkbox.type = 'radio';
+                checkbox.name = 'userCompany';
+            });
+        } else if (selectedRole === 'Collaborateur' || selectedRole === 'Collaborateur Senior') {
+            companySection.style.display = 'block';
+            assignmentNote.textContent = '(Plusieurs entreprises possibles pour un collaborateur)';
+            
+            // Permettre plusieurs sélections pour les collaborateurs
+            checkboxes.forEach(checkbox => {
+                checkbox.type = 'checkbox';
+                checkbox.name = 'assignedCompanies';
+            });
+        } else {
+            companySection.style.display = 'none';
+        }
+    }
+}
+
 function handleAddUser() {
     const name = document.getElementById('newUserName').value;
     const email = document.getElementById('newUserEmail').value;
+    const countryCode = document.getElementById('newUserCountryCode').value;
     const phone = document.getElementById('newUserPhone').value;
     const role = document.getElementById('newUserRole').value;
     const password = document.getElementById('newUserPassword').value;
@@ -597,18 +741,40 @@ function handleAddUser() {
         return;
     }
 
+    // Gérer l'affectation d'entreprises selon le profil
+    let assignedCompanies = [];
+    let companyId = null;
+
+    if (role === 'Utilisateur') {
+        const selectedCompany = document.querySelector('input[name="userCompany"]:checked');
+        if (!selectedCompany) {
+            alert('❌ Veuillez sélectionner une entreprise pour l\'utilisateur.');
+            return;
+        }
+        companyId = parseInt(selectedCompany.value);
+    } else if (role === 'Collaborateur' || role === 'Collaborateur Senior') {
+        const selectedCompanies = document.querySelectorAll('input[name="assignedCompanies"]:checked');
+        if (selectedCompanies.length === 0) {
+            alert('❌ Veuillez sélectionner au moins une entreprise pour le collaborateur.');
+            return;
+        }
+        assignedCompanies = Array.from(selectedCompanies).map(cb => parseInt(cb.value));
+    }
+
     // Créer le nouvel utilisateur
     const newUser = {
         id: app.users.length > 0 ? Math.max(...app.users.map(u => u.id)) + 1 : 1,
         name: name,
         email: email,
-        phone: phone,
+        phone: countryCode + ' ' + phone,
         role: role,
         status: status,
         password: password, // En production, il faudrait le hasher
         profile: role.toLowerCase().replace(' ', '_'),
         createdAt: new Date().toISOString(),
-        lastLogin: null
+        lastLogin: null,
+        assignedCompanies: assignedCompanies,
+        companyId: companyId
     };
 
     // Ajouter à la liste des utilisateurs
@@ -629,6 +795,13 @@ function viewUser(userId) {
         alert('❌ Utilisateur non trouvé.');
         return;
     }
+
+    const assignedCompaniesInfo = user.assignedCompanies 
+        ? user.assignedCompanies.map(companyId => {
+            const company = app.companies.find(c => c.id === companyId);
+            return company ? company.name : 'Entreprise inconnue';
+        }).join(', ')
+        : 'Aucune entreprise affectée';
 
     const modal = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeModalOnBackground(event)">
@@ -658,6 +831,10 @@ function viewUser(userId) {
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Statut</label>
                             <span class="px-2 py-1 rounded text-sm ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">${user.status}</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Entreprises affectées</label>
+                            <p class="text-gray-900 dark:text-white text-sm">${assignedCompaniesInfo}</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Date de création</label>
@@ -713,7 +890,12 @@ function editUser(userId) {
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                            <input type="tel" id="editUserPhone" value="${user.phone || ''}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            <div class="flex space-x-2">
+                                <select id="editUserCountryCode" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                    ${getOHADACountries()}
+                                </select>
+                                <input type="tel" id="editUserPhone" value="${user.phone ? user.phone.split(' ').slice(1).join(' ') : ''}" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profil *</label>
@@ -760,6 +942,15 @@ function editUser(userId) {
                 handleEditUser();
             });
         }
+        
+        // Pré-sélectionner le code pays
+        if (user.phone) {
+            const countryCode = user.phone.split(' ')[0];
+            const countrySelect = document.getElementById('editUserCountryCode');
+            if (countrySelect) {
+                countrySelect.value = countryCode;
+            }
+        }
     }, 100);
 }
 
@@ -767,6 +958,7 @@ function handleEditUser() {
     const userId = parseInt(document.getElementById('editUserId').value);
     const name = document.getElementById('editUserName').value;
     const email = document.getElementById('editUserEmail').value;
+    const countryCode = document.getElementById('editUserCountryCode').value;
     const phone = document.getElementById('editUserPhone').value;
     const role = document.getElementById('editUserRole').value;
     const status = document.getElementById('editUserStatus').value;
@@ -791,7 +983,7 @@ function handleEditUser() {
             ...app.users[userIndex],
             name: name,
             email: email,
-            phone: phone,
+            phone: countryCode + ' ' + phone,
             role: role,
             status: status,
             profile: role.toLowerCase().replace(' ', '_'),
@@ -860,7 +1052,12 @@ function openAddCompanyModal() {
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                            <input type="tel" id="newCompanyPhone" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" placeholder="+225 XX XX XX XX">
+                            <div class="flex space-x-2">
+                                <select id="newCompanyCountryCode" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                    ${getOHADACountries()}
+                                </select>
+                                <input type="tel" id="newCompanyPhone" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" placeholder="XX XX XX XX">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
@@ -931,6 +1128,7 @@ function openAddCompanyModal() {
 
 function handleAddCompany() {
     const name = document.getElementById('newCompanyName').value;
+    const countryCode = document.getElementById('newCompanyCountryCode').value;
     const phone = document.getElementById('newCompanyPhone').value;
     const email = document.getElementById('newCompanyEmail').value;
     const type = document.getElementById('newCompanyType').value;
@@ -954,14 +1152,16 @@ function handleAddCompany() {
     const newCompany = {
         id: app.companies.length > 0 ? Math.max(...app.companies.map(c => c.id)) + 1 : 1,
         name: name,
-        phone: phone,
+        phone: phone ? countryCode + ' ' + phone : '',
         email: email,
         type: type,
         system: system,
         status: status,
         address: address,
         createdAt: new Date().toISOString(),
-        createdBy: app.currentUser.id
+        createdBy: app.currentUser.id,
+        // Créer un plan comptable spécifique à cette entreprise
+        accountingPlan: generateDefaultAccountingPlan()
     };
 
     // Ajouter à la liste des entreprises
@@ -974,6 +1174,22 @@ function handleAddCompany() {
     loadCompanies();
     
     console.log('✅ Nouvelle entreprise créée:', newCompany);
+}
+
+function generateDefaultAccountingPlan() {
+    // Plan comptable de base OHADA
+    return [
+        { code: '101', label: 'Capital' },
+        { code: '110', label: 'Réserves' },
+        { code: '120', label: 'Report à nouveau' },
+        { code: '130', label: 'Résultat net' },
+        { code: '401', label: 'Fournisseurs' },
+        { code: '411', label: 'Clients' },
+        { code: '512', label: 'Banque' },
+        { code: '531', label: 'Caisse' },
+        { code: '601', label: 'Achats de marchandises' },
+        { code: '701', label: 'Ventes de marchandises' }
+    ];
 }
 
 function viewCompany(companyId) {
@@ -1042,12 +1258,12 @@ function viewCompany(companyId) {
                                 <div class="text-xs text-gray-600 dark:text-gray-400">Écritures</div>
                             </div>
                             <div class="text-center">
-                                <div class="text-2xl font-bold text-success">${app.users.filter(u => u.companyIds && u.companyIds.includes(company.id)).length}</div>
-                                <div class="text-xs text-gray-600 dark:text-gray-400">Utilisateurs</div>
+                                <div class="text-2xl font-bold text-success">${app.users.filter(u => u.assignedCompanies && u.assignedCompanies.includes(company.id)).length}</div>
+                                <div class="text-xs text-gray-600 dark:text-gray-400">Collaborateurs</div>
                             </div>
                             <div class="text-center">
-                                <div class="text-2xl font-bold text-info">0</div>
-                                <div class="text-xs text-gray-600 dark:text-gray-400">Caisses</div>
+                                <div class="text-2xl font-bold text-info">${company.accountingPlan ? company.accountingPlan.length : 0}</div>
+                                <div class="text-xs text-gray-600 dark:text-gray-400">Comptes</div>
                             </div>
                         </div>
                     </div>
@@ -1057,9 +1273,11 @@ function viewCompany(companyId) {
                     <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                         Fermer
                     </button>
+                    ${canUserEditCompany(companyId) ? `
                     <button onclick="closeModal(); editCompany(${companyId})" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                         <i class="fas fa-edit mr-2"></i>Modifier
                     </button>
+                    ` : ''}
                 </div>
             </div>
         </div>
@@ -1072,6 +1290,11 @@ function editCompany(companyId) {
     const company = app.companies.find(c => c.id === companyId);
     if (!company) {
         alert('❌ Entreprise non trouvée.');
+        return;
+    }
+
+    if (!canUserEditCompany(companyId)) {
+        alert('❌ Vous n\'avez pas les permissions pour modifier cette entreprise.');
         return;
     }
 
@@ -1092,7 +1315,12 @@ function editCompany(companyId) {
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                            <input type="tel" id="editCompanyPhone" value="${company.phone || ''}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            <div class="flex space-x-2">
+                                <select id="editCompanyCountryCode" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                    ${getOHADACountries()}
+                                </select>
+                                <input type="tel" id="editCompanyPhone" value="${company.phone ? company.phone.split(' ').slice(1).join(' ') : ''}" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
@@ -1157,12 +1385,22 @@ function editCompany(companyId) {
                 handleEditCompany();
             });
         }
+        
+        // Pré-sélectionner le code pays
+        if (company.phone) {
+            const countryCode = company.phone.split(' ')[0];
+            const countrySelect = document.getElementById('editCompanyCountryCode');
+            if (countrySelect) {
+                countrySelect.value = countryCode;
+            }
+        }
     }, 100);
 }
 
 function handleEditCompany() {
     const companyId = parseInt(document.getElementById('editCompanyId').value);
     const name = document.getElementById('editCompanyName').value;
+    const countryCode = document.getElementById('editCompanyCountryCode').value;
     const phone = document.getElementById('editCompanyPhone').value;
     const email = document.getElementById('editCompanyEmail').value;
     const type = document.getElementById('editCompanyType').value;
@@ -1188,7 +1426,7 @@ function handleEditCompany() {
         app.companies[companyIndex] = {
             ...app.companies[companyIndex],
             name: name,
-            phone: phone,
+            phone: phone ? countryCode + ' ' + phone : '',
             email: email,
             type: type,
             system: system,
@@ -1219,14 +1457,14 @@ function deleteCompany(companyId) {
 
     // Vérifier s'il y a des données liées
     const hasEntries = app.entries.some(e => e.companyId === companyId);
-    const hasUsers = app.users.some(u => u.companyIds && u.companyIds.includes(companyId));
+    const hasUsers = app.users.some(u => u.assignedCompanies && u.assignedCompanies.includes(companyId));
 
     let confirmMessage = `Êtes-vous sûr de vouloir supprimer l'entreprise "${company.name}" ?\n\nCette action est irréversible.`;
     
     if (hasEntries || hasUsers) {
         confirmMessage += `\n\nATTENTION: Cette entreprise a des données associées:`;
         if (hasEntries) confirmMessage += `\n- ${app.entries.filter(e => e.companyId === companyId).length} écriture(s)`;
-        if (hasUsers) confirmMessage += `\n- ${app.users.filter(u => u.companyIds && u.companyIds.includes(companyId)).length} utilisateur(s)`;
+        if (hasUsers) confirmMessage += `\n- ${app.users.filter(u => u.assignedCompanies && u.assignedCompanies.includes(companyId)).length} utilisateur(s)`;
         confirmMessage += `\n\nToutes ces données seront également supprimées.`;
     }
 
@@ -1239,8 +1477,8 @@ function deleteCompany(companyId) {
         
         // Mettre à jour les utilisateurs liés
         app.users.forEach(user => {
-            if (user.companyIds && user.companyIds.includes(companyId)) {
-                user.companyIds = user.companyIds.filter(id => id !== companyId);
+            if (user.assignedCompanies && user.assignedCompanies.includes(companyId)) {
+                user.assignedCompanies = user.assignedCompanies.filter(id => id !== companyId);
             }
         });
         
@@ -1250,6 +1488,407 @@ function deleteCompany(companyId) {
         loadCompanies();
         
         console.log('✅ Entreprise supprimée:', company);
+    }
+}
+
+// =============================================================================
+// FONCTIONS COMPLÉMENTAIRES - GESTION DES AFFECTATIONS
+// =============================================================================
+
+// Pays de l'espace OHADA avec leurs codes téléphoniques
+function getOHADACountries() {
+    const countries = [
+        { code: '+229', name: 'Bénin', flag: '🇧🇯' },
+        { code: '+226', name: 'Burkina Faso', flag: '🇧🇫' },
+        { code: '+237', name: 'Cameroun', flag: '🇨🇲' },
+        { code: '+236', name: 'République Centrafricaine', flag: '🇨🇫' },
+        { code: '+269', name: 'Comores', flag: '🇰🇲' },
+        { code: '+242', name: 'République du Congo', flag: '🇨🇬' },
+        { code: '+243', name: 'République Démocratique du Congo', flag: '🇨🇩' },
+        { code: '+225', name: 'Côte d\'Ivoire', flag: '🇨🇮', selected: true },
+        { code: '+241', name: 'Gabon', flag: '🇬🇦' },
+        { code: '+220', name: 'Gambie', flag: '🇬🇲' },
+        { code: '+224', name: 'Guinée', flag: '🇬🇳' },
+        { code: '+245', name: 'Guinée-Bissau', flag: '🇬🇼' },
+        { code: '+240', name: 'Guinée Équatoriale', flag: '🇬🇶' },
+        { code: '+223', name: 'Mali', flag: '🇲🇱' },
+        { code: '+227', name: 'Niger', flag: '🇳🇪' },
+        { code: '+221', name: 'Sénégal', flag: '🇸🇳' },
+        { code: '+235', name: 'Tchad', flag: '🇹🇩' },
+        { code: '+228', name: 'Togo', flag: '🇹🇬' }
+    ];
+    
+    return countries.map(country => 
+        `<option value="${country.code}" ${country.selected ? 'selected' : ''}>${country.flag} ${country.code} ${country.name}</option>`
+    ).join('');
+}
+
+// Gestion des affectations d'entreprises aux collaborateurs
+function openCompanyAssignmentModal(userId) {
+    const user = app.users.find(u => u.id === userId);
+    if (!user) {
+        alert('❌ Utilisateur non trouvé.');
+        return;
+    }
+
+    // Initialiser les entreprises affectées si nécessaire
+    if (!user.assignedCompanies) {
+        user.assignedCompanies = [];
+    }
+
+    const modal = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeModalOnBackground(event)">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                    <i class="fas fa-building mr-2 text-primary"></i>Gestion des entreprises - ${user.name}
+                </h3>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Entreprises disponibles -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Entreprises disponibles</h4>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-96 overflow-y-auto">
+                            ${app.companies.filter(c => !user.assignedCompanies.includes(c.id)).map(company => `
+                                <div class="flex items-center justify-between p-3 mb-2 bg-white dark:bg-gray-800 rounded-lg">
+                                    <div>
+                                        <div class="font-medium text-gray-900 dark:text-white">${company.name}</div>
+                                        <div class="text-sm text-gray-500 dark:text-gray-400">${company.type} - ${company.status}</div>
+                                    </div>
+                                    <button onclick="assignCompanyToUser(${userId}, ${company.id})" class="bg-success hover:bg-success/90 text-white px-3 py-1 rounded text-sm transition-colors">
+                                        <i class="fas fa-plus mr-1"></i>Affecter
+                                    </button>
+                                </div>
+                            `).join('') || '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Aucune entreprise disponible</p>'}
+                        </div>
+                    </div>
+
+                    <!-- Entreprises affectées -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Entreprises affectées</h4>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-96 overflow-y-auto">
+                            ${user.assignedCompanies.map(companyId => {
+                                const company = app.companies.find(c => c.id === companyId);
+                                return company ? `
+                                    <div class="flex items-center justify-between p-3 mb-2 bg-white dark:bg-gray-800 rounded-lg">
+                                        <div>
+                                            <div class="font-medium text-gray-900 dark:text-white">${company.name}</div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">${company.type} - ${company.status}</div>
+                                        </div>
+                                        <button onclick="unassignCompanyFromUser(${userId}, ${company.id})" class="bg-danger hover:bg-danger/90 text-white px-3 py-1 rounded text-sm transition-colors">
+                                            <i class="fas fa-minus mr-1"></i>Retirer
+                                        </button>
+                                    </div>
+                                ` : '';
+                            }).join('') || '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Aucune entreprise affectée</p>'}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 pt-6">
+                    <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modalContainer').innerHTML = modal;
+}
+
+function assignCompanyToUser(userId, companyId) {
+    const user = app.users.find(u => u.id === userId);
+    const company = app.companies.find(c => c.id === companyId);
+    
+    if (!user || !company) {
+        alert('❌ Utilisateur ou entreprise non trouvé.');
+        return;
+    }
+
+    if (!user.assignedCompanies) {
+        user.assignedCompanies = [];
+    }
+
+    if (!user.assignedCompanies.includes(companyId)) {
+        user.assignedCompanies.push(companyId);
+        showSuccessMessage(`✅ Entreprise "${company.name}" affectée à ${user.name}`);
+        
+        // Recharger le modal
+        openCompanyAssignmentModal(userId);
+        
+        console.log(`✅ Entreprise ${company.name} affectée à ${user.name}`);
+    }
+}
+
+function unassignCompanyFromUser(userId, companyId) {
+    const user = app.users.find(u => u.id === userId);
+    const company = app.companies.find(c => c.id === companyId);
+    
+    if (!user || !company) {
+        alert('❌ Utilisateur ou entreprise non trouvé.');
+        return;
+    }
+
+    if (user.assignedCompanies) {
+        user.assignedCompanies = user.assignedCompanies.filter(id => id !== companyId);
+        showSuccessMessage(`✅ Entreprise "${company.name}" retirée de ${user.name}`);
+        
+        // Recharger le modal
+        openCompanyAssignmentModal(userId);
+        
+        console.log(`✅ Entreprise ${company.name} retirée de ${user.name}`);
+    }
+}
+
+// Gestion des collaborateurs par les collaborateurs seniors
+function openCollaboratorAssignmentModal(seniorUserId) {
+    const seniorUser = app.users.find(u => u.id === seniorUserId);
+    if (!seniorUser || seniorUser.role !== 'Collaborateur Senior') {
+        alert('❌ Collaborateur senior non trouvé.');
+        return;
+    }
+
+    // Initialiser les collaborateurs affectés si nécessaire
+    if (!seniorUser.managedCollaborators) {
+        seniorUser.managedCollaborators = [];
+    }
+
+    const availableCollaborators = app.users.filter(u => 
+        u.role === 'Collaborateur' && 
+        !seniorUser.managedCollaborators.includes(u.id) &&
+        u.id !== seniorUserId
+    );
+
+    const modal = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeModalOnBackground(event)">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                    <i class="fas fa-users mr-2 text-primary"></i>Gestion des collaborateurs - ${seniorUser.name}
+                </h3>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Collaborateurs disponibles -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Collaborateurs disponibles</h4>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-96 overflow-y-auto">
+                            ${availableCollaborators.map(collaborator => `
+                                <div class="flex items-center justify-between p-3 mb-2 bg-white dark:bg-gray-800 rounded-lg">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                                            ${collaborator.name.split(' ').map(n => n[0]).join('')}
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900 dark:text-white">${collaborator.name}</div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">${collaborator.email}</div>
+                                        </div>
+                                    </div>
+                                    <button onclick="assignCollaboratorToSenior(${seniorUserId}, ${collaborator.id})" class="bg-success hover:bg-success/90 text-white px-3 py-1 rounded text-sm transition-colors">
+                                        <i class="fas fa-plus mr-1"></i>Affecter
+                                    </button>
+                                </div>
+                            `).join('') || '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Aucun collaborateur disponible</p>'}
+                        </div>
+                    </div>
+
+                    <!-- Collaborateurs gérés -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Collaborateurs gérés</h4>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-96 overflow-y-auto">
+                            ${seniorUser.managedCollaborators.map(collaboratorId => {
+                                const collaborator = app.users.find(u => u.id === collaboratorId);
+                                return collaborator ? `
+                                    <div class="flex items-center justify-between p-3 mb-2 bg-white dark:bg-gray-800 rounded-lg">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                                                ${collaborator.name.split(' ').map(n => n[0]).join('')}
+                                            </div>
+                                            <div>
+                                                <div class="font-medium text-gray-900 dark:text-white">${collaborator.name}</div>
+                                                <div class="text-sm text-gray-500 dark:text-gray-400">${collaborator.email}</div>
+                                            </div>
+                                        </div>
+                                        <button onclick="unassignCollaboratorFromSenior(${seniorUserId}, ${collaborator.id})" class="bg-danger hover:bg-danger/90 text-white px-3 py-1 rounded text-sm transition-colors">
+                                            <i class="fas fa-minus mr-1"></i>Retirer
+                                        </button>
+                                    </div>
+                                ` : '';
+                            }).join('') || '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Aucun collaborateur géré</p>'}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 pt-6">
+                    <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modalContainer').innerHTML = modal;
+}
+
+function assignCollaboratorToSenior(seniorUserId, collaboratorId) {
+    const seniorUser = app.users.find(u => u.id === seniorUserId);
+    const collaborator = app.users.find(u => u.id === collaboratorId);
+    
+    if (!seniorUser || !collaborator) {
+        alert('❌ Utilisateur non trouvé.');
+        return;
+    }
+
+    if (!seniorUser.managedCollaborators) {
+        seniorUser.managedCollaborators = [];
+    }
+
+    if (!seniorUser.managedCollaborators.includes(collaboratorId)) {
+        seniorUser.managedCollaborators.push(collaboratorId);
+        
+        // Mettre à jour le collaborateur pour indiquer qu'il est géré
+        collaborator.managedBy = seniorUserId;
+        
+        showSuccessMessage(`✅ Collaborateur "${collaborator.name}" affecté à ${seniorUser.name}`);
+        
+        // Recharger le modal
+        openCollaboratorAssignmentModal(seniorUserId);
+        
+        console.log(`✅ Collaborateur ${collaborator.name} affecté à ${seniorUser.name}`);
+    }
+}
+
+function unassignCollaboratorFromSenior(seniorUserId, collaboratorId) {
+    const seniorUser = app.users.find(u => u.id === seniorUserId);
+    const collaborator = app.users.find(u => u.id === collaboratorId);
+    
+    if (!seniorUser || !collaborator) {
+        alert('❌ Utilisateur non trouvé.');
+        return;
+    }
+
+    if (seniorUser.managedCollaborators) {
+        seniorUser.managedCollaborators = seniorUser.managedCollaborators.filter(id => id !== collaboratorId);
+        
+        // Retirer la référence du collaborateur
+        delete collaborator.managedBy;
+        
+        showSuccessMessage(`✅ Collaborateur "${collaborator.name}" retiré de ${seniorUser.name}`);
+        
+        // Recharger le modal
+        openCollaboratorAssignmentModal(seniorUserId);
+        
+        console.log(`✅ Collaborateur ${collaborator.name} retiré de ${seniorUser.name}`);
+    }
+}
+
+// Conversion d'un utilisateur en collaborateur
+function convertUserToCollaborator(userId) {
+    const user = app.users.find(u => u.id === userId);
+    if (!user) {
+        alert('❌ Utilisateur non trouvé.');
+        return;
+    }
+
+    if (user.role !== 'Utilisateur') {
+        alert('❌ Seuls les utilisateurs peuvent être convertis en collaborateurs.');
+        return;
+    }
+
+    const modal = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeModalOnBackground(event)">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-2xl mx-4" onclick="event.stopPropagation()">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                    <i class="fas fa-user-tie mr-2 text-primary"></i>Convertir en collaborateur - ${user.name}
+                </h3>
+
+                <form id="convertUserForm" class="space-y-4">
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                        <p class="text-blue-800 dark:text-blue-200">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            Cette action convertira l'utilisateur "${user.name}" en collaborateur et lui permettra de gérer plusieurs entreprises.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nouveau profil *</label>
+                        <select id="newCollaboratorRole" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            <option value="">Sélectionner un profil</option>
+                            <option value="Collaborateur">Collaborateur</option>
+                            <option value="Collaborateur Senior">Collaborateur Senior</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Entreprises à affecter</label>
+                        <div class="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                            ${app.companies.map(company => `
+                                <label class="flex items-center space-x-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded">
+                                    <input type="checkbox" value="${company.id}" class="company-checkbox" ${company.id === user.companyId ? 'checked' : ''}>
+                                    <span class="text-gray-900 dark:text-white">${company.name}</span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">(${company.type})</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-4 pt-6">
+                        <button type="button" onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            Annuler
+                        </button>
+                        <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-user-tie mr-2"></i>Convertir
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modalContainer').innerHTML = modal;
+
+    setTimeout(() => {
+        const convertUserForm = document.getElementById('convertUserForm');
+        if (convertUserForm) {
+            convertUserForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                handleConvertUser(userId);
+            });
+        }
+    }, 100);
+}
+
+function handleConvertUser(userId) {
+    const newRole = document.getElementById('newCollaboratorRole').value;
+    const selectedCompanies = Array.from(document.querySelectorAll('.company-checkbox:checked')).map(cb => parseInt(cb.value));
+
+    if (!newRole) {
+        alert('❌ Veuillez sélectionner un profil.');
+        return;
+    }
+
+    if (selectedCompanies.length === 0) {
+        alert('❌ Veuillez sélectionner au moins une entreprise.');
+        return;
+    }
+
+    const user = app.users.find(u => u.id === userId);
+    if (user) {
+        // Convertir l'utilisateur
+        user.role = newRole;
+        user.profile = newRole.toLowerCase().replace(' ', '_');
+        user.assignedCompanies = selectedCompanies;
+        user.convertedAt = new Date().toISOString();
+        
+        // Supprimer l'ancienne référence companyId
+        delete user.companyId;
+
+        closeModal();
+        showSuccessMessage(`✅ ${user.name} converti en ${newRole} avec succès !`);
+        
+        // Recharger la page des utilisateurs
+        loadUsersManagement();
+        
+        console.log(`✅ Utilisateur ${user.name} converti en ${newRole}`);
     }
 }
 
