@@ -842,11 +842,170 @@
             }
         });
 
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', function() {
+        // =============================================================================
+        // FONCTION PRINCIPALE : LOADCAISSE - INITIALISATION DU MODULE DE CAISSE
+        // =============================================================================
+        
+        function loadCaisse() {
+            console.log('🔧 Initialisation du module de caisse...');
+            
+            try {
+                // 1. Vérifier la disponibilité des données
+                if (typeof app === 'undefined') {
+                    console.warn('⚠️ Variable app non définie, initialisation avec données par défaut');
+                    window.app = window.app || {
+                        currentUser: { id: 1, name: 'Utilisateur', role: 'Caissier' },
+                        currentProfile: 'caissier',
+                        operations: []
+                    };
+                }
+                
+                // 2. Initialiser les variables globales de caisse si nécessaire
+                if (!window.operations) {
+                    window.operations = [];
+                }
+                
+                // 3. Configurer la date par défaut
+                const today = new Date().toISOString().split('T')[0];
+                const timeNow = new Date().toTimeString().slice(0,5);
+                
+                // 4. Charger les données existantes de la caisse
+                loadExistingCaisseData();
+                
+                // 5. Charger et afficher les opérations
+                loadOperations();
+                
+                // 6. Mettre à jour les totaux et indicateurs
+                updateTotals();
+                
+                // 7. Initialiser les graphiques
+                initCharts();
+                
+                // 8. Configurer les event listeners spécifiques à la caisse
+                setupCaisseEventListeners();
+                
+                // 9. Afficher le statut de la caisse
+                displayCaisseStatus();
+                
+                console.log('✅ Module de caisse initialisé avec succès');
+                showNotification('✅ Caisse chargée et prête à l\'utilisation', 'success');
+                
+            } catch (error) {
+                console.error('❌ Erreur lors du chargement de la caisse:', error);
+                showNotification('❌ Erreur lors du chargement de la caisse', 'error');
+            }
+        }
+        
+        // Fonction pour charger les données existantes de la caisse
+        function loadExistingCaisseData() {
+            try {
+                // Charger les opérations depuis localStorage si disponible
+                const savedOperations = localStorage.getItem('caisseOperations');
+                if (savedOperations) {
+                    const parsedOperations = JSON.parse(savedOperations);
+                    operations.push(...parsedOperations);
+                    console.log(`📊 ${parsedOperations.length} opérations chargées depuis le stockage local`);
+                }
+                
+                // Charger les paramètres de caisse
+                const savedSettings = localStorage.getItem('caisseSettings');
+                if (savedSettings) {
+                    const settings = JSON.parse(savedSettings);
+                    // Appliquer les paramètres sauvegardés
+                    if (settings.soldeDebut) {
+                        document.getElementById('soldeDebut').textContent = formatMontant(settings.soldeDebut);
+                    }
+                }
+                
+            } catch (error) {
+                console.warn('⚠️ Impossible de charger les données existantes:', error);
+            }
+        }
+        
+        // Configuration des event listeners spécifiques à la caisse
+        function setupCaisseEventListeners() {
+            // Sauvegarder automatiquement les opérations
+            window.addEventListener('beforeunload', function() {
+                try {
+                    localStorage.setItem('caisseOperations', JSON.stringify(operations));
+                    localStorage.setItem('caisseSettings', JSON.stringify({
+                        soldeDebut: 450000, // Valeur par défaut
+                        lastUpdate: new Date().toISOString()
+                    }));
+                } catch (error) {
+                    console.warn('⚠️ Impossible de sauvegarder les données:', error);
+                }
+            });
+            
+            // Raccourcis clavier pour la caisse
+            document.addEventListener('keydown', function(e) {
+                // Ctrl + R : Nouvelle recette
+                if (e.ctrlKey && e.key === 'r') {
+                    e.preventDefault();
+                    openOperationModal('recette');
+                }
+                
+                // Ctrl + D : Nouvelle dépense  
+                if (e.ctrlKey && e.key === 'd') {
+                    e.preventDefault();
+                    openOperationModal('depense');
+                }
+                
+                // Ctrl + E : Export
+                if (e.ctrlKey && e.key === 'e') {
+                    e.preventDefault();
+                    exportCSV();
+                }
+                
+                // Échap : Fermer modal
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+            });
+            
+            console.log('⌨️ Raccourcis clavier configurés (Ctrl+R: Recette, Ctrl+D: Dépense, Ctrl+E: Export)');
+        }
+        
+        // Afficher le statut de la caisse
+        function displayCaisseStatus() {
+            const now = new Date();
+            const statusMessage = `
+                📅 Caisse ouverte le ${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR')}
+                👤 Utilisateur: ${app.currentUser ? app.currentUser.name : 'Non défini'}
+                🏪 Profil: ${app.currentProfile || 'Non défini'}
+            `;
+            
+            console.log(statusMessage);
+            
+            // Mettre à jour le titre de la page si possible
+            if (document.title.indexOf('Caisse') === -1) {
+                document.title = `Gestion de Caisse - ${app.currentUser ? app.currentUser.name : 'Utilisateur'}`;
+            }
+        }
+        
+        // Fonction utilitaire pour le formatage des notifications de caisse
+        function showCaisseNotification(message, type = 'info') {
+            const prefix = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            showNotification(`${prefix} [CAISSE] ${message}`, type);
+        }
+        
+        // Fonction pour rafraîchir complètement la caisse
+        function refreshCaisse() {
+            console.log('🔄 Rafraîchissement de la caisse...');
             loadOperations();
             updateTotals();
-            initCharts();
+            updateCharts();
+            showCaisseNotification('Caisse rafraîchie', 'success');
+        }
+        
+        // Exposer la fonction loadCaisse globalement
+        window.loadCaisse = loadCaisse;
+        window.refreshCaisse = refreshCaisse;
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Appeler la nouvelle fonction loadCaisse au lieu de l'ancienne logique
+            loadCaisse();
         });
     </script>
 </body>
