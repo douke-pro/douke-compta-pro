@@ -2107,3 +2107,643 @@ if (typeof updateUserInfo !== 'function') {
         console.log('UpdateUserInfo called from settings.js');
     }
 }
+
+// =============================================================================
+// NOUVELLE FONCTION AJOUTÉE : GESTION GLOBALE DES AFFECTATIONS ENTREPRISES-COLLABORATEURS
+// =============================================================================
+
+function manageCompanyCollaboratorAssignments() {
+    if (app.currentProfile !== 'admin') {
+        alert('❌ Cette fonctionnalité est réservée aux administrateurs.');
+        return;
+    }
+
+    const modal = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeModalOnBackground(event)">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                    <i class="fas fa-sitemap mr-2 text-primary"></i>Gestion globale des affectations Entreprises-Collaborateurs
+                </h3>
+
+                <!-- Onglets -->
+                <div class="flex space-x-4 mb-6 border-b border-gray-200 dark:border-gray-700">
+                    <button onclick="switchAssignmentTab('companies')" id="tab-companies" class="px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary">
+                        Par Entreprises
+                    </button>
+                    <button onclick="switchAssignmentTab('collaborators')" id="tab-collaborators" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        Par Collaborateurs
+                    </button>
+                    <button onclick="switchAssignmentTab('matrix')" id="tab-matrix" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        Vue Matricielle
+                    </button>
+                </div>
+
+                <!-- Contenu des onglets -->
+                <div id="assignment-content">
+                    ${generateCompanyAssignmentView()}
+                </div>
+
+                <div class="flex justify-end space-x-4 pt-6">
+                    <button onclick="exportAssignments()" class="bg-info hover:bg-info/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        <i class="fas fa-download mr-2"></i>Exporter
+                    </button>
+                    <button onclick="saveAllAssignments()" class="bg-success hover:bg-success/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        <i class="fas fa-save mr-2"></i>Sauvegarder tout
+                    </button>
+                    <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modalContainer').innerHTML = modal;
+}
+
+function switchAssignmentTab(tabName) {
+    // Mettre à jour les onglets
+    document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+        tab.className = 'px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
+    });
+    
+    document.getElementById(`tab-${tabName}`).className = 'px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary';
+
+    // Mettre à jour le contenu
+    const content = document.getElementById('assignment-content');
+    switch(tabName) {
+        case 'companies':
+            content.innerHTML = generateCompanyAssignmentView();
+            break;
+        case 'collaborators':
+            content.innerHTML = generateCollaboratorAssignmentView();
+            break;
+        case 'matrix':
+            content.innerHTML = generateMatrixAssignmentView();
+            break;
+    }
+}
+
+function generateCompanyAssignmentView() {
+    return `
+        <div class="space-y-6">
+            <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Affectation par Entreprises</h4>
+            <div class="grid grid-cols-1 gap-4">
+                ${app.companies.map(company => {
+                    const assignedCollaborators = app.users.filter(user => 
+                        user.assignedCompanies && 
+                        user.assignedCompanies.includes(company.id) &&
+                        (user.role === 'Collaborateur' || user.role === 'Collaborateur Senior')
+                    );
+                    
+                    return `
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-building"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="font-medium text-gray-900 dark:text-white">${company.name}</h5>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">${company.type}</p>
+                                    </div>
+                                </div>
+                                <button onclick="openQuickAssignModal(${company.id}, 'company')" class="bg-primary hover:bg-primary/90 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-plus mr-1"></i>Affecter
+                                </button>
+                            </div>
+                            
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Collaborateurs affectés:</label>
+                                <div class="flex flex-wrap gap-2">
+                                    ${assignedCollaborators.length > 0 ? assignedCollaborators.map(collab => `
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-success/20 text-success">
+                                            ${collab.name}
+                                            <button onclick="quickUnassign(${collab.id}, ${company.id})" class="ml-2 text-danger hover:text-danger/80">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </span>
+                                    `).join('') : '<span class="text-gray-500 dark:text-gray-400 text-sm">Aucun collaborateur affecté</span>'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function generateCollaboratorAssignmentView() {
+    const collaborators = app.users.filter(u => u.role === 'Collaborateur' || u.role === 'Collaborateur Senior');
+    
+    return `
+        <div class="space-y-6">
+            <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Affectation par Collaborateurs</h4>
+            <div class="grid grid-cols-1 gap-4">
+                ${collaborators.map(collaborator => {
+                    const assignedCompanies = collaborator.assignedCompanies 
+                        ? app.companies.filter(c => collaborator.assignedCompanies.includes(c.id))
+                        : [];
+                    
+                    return `
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 bg-info text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                                        ${collaborator.name.split(' ').map(n => n[0]).join('')}
+                                    </div>
+                                    <div>
+                                        <h5 class="font-medium text-gray-900 dark:text-white">${collaborator.name}</h5>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">${collaborator.role}</p>
+                                    </div>
+                                </div>
+                                <button onclick="openQuickAssignModal(${collaborator.id}, 'collaborator')" class="bg-info hover:bg-info/90 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-plus mr-1"></i>Affecter
+                                </button>
+                            </div>
+                            
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Entreprises affectées:</label>
+                                <div class="flex flex-wrap gap-2">
+                                    ${assignedCompanies.length > 0 ? assignedCompanies.map(company => `
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-warning/20 text-warning">
+                                            ${company.name}
+                                            <button onclick="quickUnassign(${collaborator.id}, ${company.id})" class="ml-2 text-danger hover:text-danger/80">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </span>
+                                    `).join('') : '<span class="text-gray-500 dark:text-gray-400 text-sm">Aucune entreprise affectée</span>'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function generateMatrixAssignmentView() {
+    const collaborators = app.users.filter(u => u.role === 'Collaborateur' || u.role === 'Collaborateur Senior');
+    
+    return `
+        <div class="space-y-6">
+            <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Vue Matricielle des Affectations</h4>
+            <div class="overflow-x-auto">
+                <table class="min-w-full border border-gray-200 dark:border-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border border-gray-200 dark:border-gray-700">
+                                Collaborateur / Entreprise
+                            </th>
+                            ${app.companies.map(company => `
+                                <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border border-gray-200 dark:border-gray-700" style="writing-mode: vertical-rl; text-orientation: mixed;">
+                                    ${company.name}
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-800">
+                        ${collaborators.map((collaborator, index) => `
+                            <tr class="${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}">
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-6 h-6 bg-info text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                                            ${collaborator.name.split(' ').map(n => n[0]).join('')}
+                                        </div>
+                                        <span>${collaborator.name}</span>
+                                    </div>
+                                </td>
+                                ${app.companies.map(company => {
+                                    const isAssigned = collaborator.assignedCompanies && collaborator.assignedCompanies.includes(company.id);
+                                    return `
+                                        <td class="px-2 py-3 text-center border border-gray-200 dark:border-gray-700">
+                                            <button onclick="toggleAssignment(${collaborator.id}, ${company.id})" 
+                                                    class="w-6 h-6 rounded-full ${isAssigned ? 'bg-success text-white' : 'bg-gray-300 dark:bg-gray-600'} hover:opacity-80 transition-colors">
+                                                ${isAssigned ? '<i class="fas fa-check text-xs"></i>' : ''}
+                                            </button>
+                                        </td>
+                                    `;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <i class="fas fa-info-circle mr-2"></i>
+                Cliquez sur les cases pour activer/désactiver les affectations
+            </div>
+        </div>
+    `;
+}
+
+function openQuickAssignModal(id, type) {
+    let title, items, assignedItems;
+    
+    if (type === 'company') {
+        const company = app.companies.find(c => c.id === id);
+        title = `Affecter des collaborateurs à ${company.name}`;
+        items = app.users.filter(u => u.role === 'Collaborateur' || u.role === 'Collaborateur Senior');
+        assignedItems = items.filter(u => u.assignedCompanies && u.assignedCompanies.includes(id));
+    } else {
+        const collaborator = app.users.find(u => u.id === id);
+        title = `Affecter des entreprises à ${collaborator.name}`;
+        items = app.companies;
+        assignedItems = collaborator.assignedCompanies ? app.companies.filter(c => collaborator.assignedCompanies.includes(c.id)) : [];
+    }
+
+    const modal = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeQuickAssignModal(event)">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4" onclick="event.stopPropagation()">
+                <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4">${title}</h4>
+                
+                <div class="max-h-64 overflow-y-auto space-y-2">
+                    ${items.map(item => {
+                        const isAssigned = type === 'company' 
+                            ? (item.assignedCompanies && item.assignedCompanies.includes(id))
+                            : (app.users.find(u => u.id === id).assignedCompanies && app.users.find(u => u.id === id).assignedCompanies.includes(item.id));
+                        
+                        return `
+                            <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
+                                <input type="checkbox" ${isAssigned ? 'checked' : ''} 
+                                       onchange="quickToggleAssignment(${type === 'company' ? item.id : id}, ${type === 'company' ? id : item.id})">
+                                <span class="text-gray-900 dark:text-white">${item.name}</span>
+                            </label>
+                        `;
+                    }).join('')}
+                </div>
+                
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button onclick="closeQuickAssignModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Créer un modal secondaire
+    const quickModalContainer = document.createElement('div');
+    quickModalContainer.id = 'quickModalContainer';
+    quickModalContainer.innerHTML = modal;
+    document.body.appendChild(quickModalContainer);
+}
+
+function closeQuickAssignModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    
+    const quickModal = document.getElementById('quickModalContainer');
+    if (quickModal) {
+        quickModal.remove();
+    }
+    
+    // Rafraîchir la vue principale
+    manageCompanyCollaboratorAssignments();
+}
+
+function quickToggleAssignment(collaboratorId, companyId) {
+    const collaborator = app.users.find(u => u.id === collaboratorId);
+    const company = app.companies.find(c => c.id === companyId);
+    
+    if (!collaborator || !company) return;
+    
+    if (!collaborator.assignedCompanies) {
+        collaborator.assignedCompanies = [];
+    }
+    
+    const isAssigned = collaborator.assignedCompanies.includes(companyId);
+    
+    if (isAssigned) {
+        collaborator.assignedCompanies = collaborator.assignedCompanies.filter(id => id !== companyId);
+    } else {
+        collaborator.assignedCompanies.push(companyId);
+    }
+}
+
+function toggleAssignment(collaboratorId, companyId) {
+    quickToggleAssignment(collaboratorId, companyId);
+    
+    // Rafraîchir la vue matricielle
+    document.getElementById('assignment-content').innerHTML = generateMatrixAssignmentView();
+}
+
+function quickUnassign(collaboratorId, companyId) {
+    const collaborator = app.users.find(u => u.id === collaboratorId);
+    if (collaborator && collaborator.assignedCompanies) {
+        collaborator.assignedCompanies = collaborator.assignedCompanies.filter(id => id !== companyId);
+        
+        // Rafraîchir la vue actuelle
+        const activeTab = document.querySelector('[id^="tab-"].border-primary').id.replace('tab-', '');
+        switchAssignmentTab(activeTab);
+        
+        showNotification('✅ Affectation supprimée', 'success');
+    }
+}
+
+function saveAllAssignments() {
+    // Les affectations sont déjà sauvegardées dans app.users
+    showNotification('✅ Toutes les affectations ont été sauvegardées', 'success');
+    console.log('✅ Affectations sauvegardées:', app.users.map(u => ({
+        name: u.name,
+        assignedCompanies: u.assignedCompanies
+    })));
+}
+
+function exportAssignments() {
+    const assignmentData = {
+        assignments: app.users.filter(u => u.assignedCompanies && u.assignedCompanies.length > 0).map(user => ({
+            collaboratorId: user.id,
+            collaboratorName: user.name,
+            collaboratorRole: user.role,
+            assignedCompanies: user.assignedCompanies.map(companyId => {
+                const company = app.companies.find(c => c.id === companyId);
+                return {
+                    companyId: companyId,
+                    companyName: company ? company.name : 'Entreprise inconnue'
+                };
+            })
+        })),
+        exportDate: new Date().toISOString(),
+        exportedBy: app.currentUser.name
+    };
+
+    const dataStr = JSON.stringify(assignmentData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `affectations-entreprises-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    
+    showNotification('✅ Affectations exportées avec succès', 'success');
+}
+
+// =============================================================================
+// NOUVELLE FONCTION AJOUTÉE : SYSTÈME DE NOTIFICATIONS AVANCÉ
+// =============================================================================
+
+// Initialiser le système de notifications
+if (!window.notificationSystem) {
+    window.notificationSystem = {
+        notifications: [],
+        maxNotifications: 5,
+        defaultDuration: 5000
+    };
+}
+
+function initNotificationSystem() {
+    // Créer le conteneur de notifications s'il n'existe pas
+    if (!document.getElementById('notificationContainer')) {
+        const container = document.createElement('div');
+        container.id = 'notificationContainer';
+        container.className = 'fixed top-4 right-4 z-50 space-y-2';
+        document.body.appendChild(container);
+    }
+}
+
+function showNotification(message, type = 'info', duration = null, actions = null) {
+    initNotificationSystem();
+    
+    const id = 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const notification = {
+        id: id,
+        message: message,
+        type: type,
+        timestamp: new Date(),
+        duration: duration || window.notificationSystem.defaultDuration,
+        actions: actions
+    };
+    
+    // Ajouter à la liste des notifications
+    window.notificationSystem.notifications.push(notification);
+    
+    // Limiter le nombre de notifications affichées
+    if (window.notificationSystem.notifications.length > window.notificationSystem.maxNotifications) {
+        const oldestNotif = window.notificationSystem.notifications.shift();
+        removeNotificationElement(oldestNotif.id);
+    }
+    
+    // Créer l'élément DOM
+    createNotificationElement(notification);
+    
+    // Programmer la suppression automatique
+    if (notification.duration > 0) {
+        setTimeout(() => {
+            dismissNotification(id);
+        }, notification.duration);
+    }
+    
+    return id;
+}
+
+function createNotificationElement(notification) {
+    const container = document.getElementById('notificationContainer');
+    
+    const colors = {
+        success: 'bg-success border-success/20',
+        error: 'bg-danger border-danger/20',
+        warning: 'bg-warning border-warning/20',
+        info: 'bg-info border-info/20',
+        primary: 'bg-primary border-primary/20'
+    };
+    
+    const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle',
+        warning: 'fas fa-exclamation-triangle',
+        info: 'fas fa-info-circle',
+        primary: 'fas fa-bell'
+    };
+    
+    const element = document.createElement('div');
+    element.id = notification.id;
+    element.className = `notification-item ${colors[notification.type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg border-l-4 transform translate-x-full transition-all duration-300 max-w-sm`;
+    
+    element.innerHTML = `
+        <div class="flex items-start space-x-3">
+            <i class="${icons[notification.type] || icons.info} mt-0.5"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium break-words">${notification.message}</p>
+                <p class="text-xs opacity-75 mt-1">${notification.timestamp.toLocaleTimeString('fr-FR')}</p>
+                ${notification.actions ? `
+                    <div class="flex space-x-2 mt-2">
+                        ${notification.actions.map(action => `
+                            <button onclick="${action.callback}; dismissNotification('${notification.id}')" 
+                                    class="text-xs px-2 py-1 bg-white/20 hover:bg-white/30 rounded transition-colors">
+                                ${action.label}
+                            </button>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+            <button onclick="dismissNotification('${notification.id}')" 
+                    class="text-white/80 hover:text-white transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(element);
+    
+    // Animer l'entrée
+    setTimeout(() => {
+        element.classList.remove('translate-x-full');
+    }, 100);
+}
+
+function dismissNotification(id) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => {
+            removeNotificationElement(id);
+        }, 300);
+    }
+    
+    // Retirer de la liste
+    window.notificationSystem.notifications = window.notificationSystem.notifications.filter(n => n.id !== id);
+}
+
+function removeNotificationElement(id) {
+    const element = document.getElementById(id);
+    if (element && element.parentNode) {
+        element.parentNode.removeChild(element);
+    }
+}
+
+function clearAllNotifications() {
+    window.notificationSystem.notifications.forEach(notification => {
+        dismissNotification(notification.id);
+    });
+}
+
+// Fonction pour afficher une notification avec actions
+function showActionNotification(message, actions, type = 'info', duration = 10000) {
+    return showNotification(message, type, duration, actions);
+}
+
+// Fonction pour afficher une notification persistante (qui ne disparaît pas automatiquement)
+function showPersistentNotification(message, type = 'info', actions = null) {
+    return showNotification(message, type, 0, actions);
+}
+
+// Fonction pour afficher une notification de confirmation
+function showConfirmNotification(message, onConfirm, onCancel = null, type = 'warning') {
+    const actions = [
+        {
+            label: 'Confirmer',
+            callback: typeof onConfirm === 'string' ? onConfirm : `(${onConfirm.toString()})()`
+        }
+    ];
+    
+    if (onCancel) {
+        actions.push({
+            label: 'Annuler',
+            callback: typeof onCancel === 'string' ? onCancel : `(${onCancel.toString()})()`
+        });
+    }
+    
+    return showActionNotification(message, actions, type, 15000);
+}
+
+// Fonction pour afficher les notifications du système
+function showSystemNotification(message, priority = 'normal') {
+    const type = priority === 'high' ? 'error' : priority === 'medium' ? 'warning' : 'info';
+    const duration = priority === 'high' ? 10000 : priority === 'medium' ? 7000 : 5000;
+    
+    return showNotification(`[SYSTÈME] ${message}`, type, duration);
+}
+
+// Fonction pour afficher une notification de mise à jour
+function showUpdateNotification(message, version, onUpdate) {
+    const actions = [
+        {
+            label: 'Mettre à jour',
+            callback: typeof onUpdate === 'string' ? onUpdate : `(${onUpdate.toString()})()`
+        },
+        {
+            label: 'Plus tard',
+            callback: 'console.log("Mise à jour reportée")'
+        }
+    ];
+    
+    return showActionNotification(
+        `${message} (Version ${version})`, 
+        actions, 
+        'primary', 
+        0 // Persistante
+    );
+}
+
+// Remplacer l'ancienne fonction showSuccessMessage pour utiliser le nouveau système
+function showSuccessMessage(message) {
+    showNotification(message, 'success', 3000);
+}
+
+// Fonction pour afficher les erreurs
+function showErrorMessage(message) {
+    showNotification(message, 'error', 5000);
+}
+
+// Fonction pour afficher les avertissements
+function showWarningMessage(message) {
+    showNotification(message, 'warning', 4000);
+}
+
+// Fonction pour afficher les informations
+function showInfoMessage(message) {
+    showNotification(message, 'info', 3000);
+}
+
+// Exemple d'utilisation avancée du système de notifications
+function demonstrateNotificationSystem() {
+    // Notification simple
+    showSuccessMessage('Opération réussie !');
+    
+    // Notification avec actions
+    setTimeout(() => {
+        showActionNotification(
+            'Voulez-vous sauvegarder les modifications ?',
+            [
+                { label: 'Sauvegarder', callback: 'console.log("Sauvegardé")' },
+                { label: 'Ignorer', callback: 'console.log("Ignoré")' }
+            ],
+            'warning',
+            8000
+        );
+    }, 1000);
+    
+    // Notification de confirmation
+    setTimeout(() => {
+        showConfirmNotification(
+            'Êtes-vous sûr de vouloir supprimer cet élément ?',
+            () => console.log('Supprimé'),
+            () => console.log('Annulé'),
+            'error'
+        );
+    }, 2000);
+    
+    // Notification système
+    setTimeout(() => {
+        showSystemNotification('Maintenance programmée dans 30 minutes', 'medium');
+    }, 3000);
+    
+    // Notification de mise à jour
+    setTimeout(() => {
+        showUpdateNotification(
+            'Une nouvelle version est disponible',
+            '2.1.0',
+            () => console.log('Mise à jour lancée')
+        );
+    }, 4000);
+}
+
+// Initialiser le système au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    initNotificationSystem();
+});
