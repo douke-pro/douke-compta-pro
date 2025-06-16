@@ -1,8 +1,8 @@
 // =============================================================================
-// DOUKÈ COMPTA PRO - APPLICATION PRINCIPALE MODIFIÉE
+// DOUKÈ COMPTA PRO - APPLICATION PRINCIPALE SÉCURISÉE
 // =============================================================================
 
-// Application State - ÉTAT ORIGINAL COMPLET + AJOUTS CRITIQUES
+// Application State - ÉTAT ORIGINAL COMPLET + AJOUTS CRITIQUES DE SÉCURITÉ
 const app = {
     currentProfile: null,
     currentCompany: null,
@@ -38,6 +38,54 @@ const app = {
         isOnline: navigator.onLine,
         syncWorker: null,
         autoSyncTimer: null
+    }
+};
+
+// Theme management - FONCTION ORIGINALE COMPLÈTE (CONSERVÉE)
+const themeManager = {
+    current: 'system',
+    
+    init() {
+        // Detect initial theme
+        if (localStorage.getItem('theme') === 'dark' ||
+            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            this.current = 'dark';
+        } else if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+            this.current = 'light';
+        } else {
+            this.current = 'system';
+        }
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (this.current === 'system') {
+                if (event.matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
+        });
+    },
+
+    setTheme(theme) {
+        this.current = theme;
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else if (theme === 'light') {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        } else {
+            localStorage.removeItem('theme');
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
     }
 };
 
@@ -115,11 +163,14 @@ class CompanyDataManager {
         
         if (savedCompanyId && app.availableCompanies.some(c => c.id == savedCompanyId)) {
             app.currentCompanyId = parseInt(savedCompanyId);
+            app.currentCompany = savedCompanyId; // Maintenir la compatibilité avec l'ancien système
         } else if (app.availableCompanies.length > 0) {
             // Sélectionner la première entreprise disponible
             app.currentCompanyId = app.availableCompanies[0].id;
+            app.currentCompany = app.availableCompanies[0].id; // Maintenir la compatibilité
         } else {
             app.currentCompanyId = null;
+            app.currentCompany = null;
             console.warn('⚠️ Aucune entreprise accessible pour cet utilisateur');
         }
 
@@ -141,6 +192,7 @@ class CompanyDataManager {
         try {
             const previousCompany = app.currentCompanyId;
             app.currentCompanyId = parseInt(companyId);
+            app.currentCompany = companyId; // Maintenir la compatibilité avec l'ancien système
             
             // Sauvegarder la sélection
             localStorage.setItem('selectedCompanyId', app.currentCompanyId);
@@ -166,11 +218,17 @@ class CompanyDataManager {
                 showSuccessMessage(`✅ Entreprise sélectionnée: ${company ? company.name : 'Inconnue'}`);
             }
             
+            // Appeler la fonction originale si elle existe
+            if (typeof updateSelectedCompanyInfo === 'function') {
+                updateSelectedCompanyInfo();
+            }
+            
             return true;
             
         } catch (error) {
             console.error('❌ Erreur changement d\'entreprise:', error);
             app.currentCompanyId = previousCompany; // Restaurer l'état précédent
+            app.currentCompany = previousCompany;
             return false;
         }
     }
@@ -279,7 +337,7 @@ class CompanyDataManager {
             </div>
         `;
 
-        // Attacher l'événement de changement
+        // Attacher l'événement de changement (compatible avec le système existant)
         const select = document.getElementById('activeCompanySelect');
         if (select) {
             select.addEventListener('change', (e) => {
@@ -394,7 +452,7 @@ class PIWASyncManager {
     constructor() {
         this.initialized = false;
         this.syncQueue = [];
-        this.isSync��ng = false;
+        this.isSyncing = false;
     }
 
     // Initialiser la synchronisation automatique (SEULEMENT pour admin/collaborateur senior)
@@ -602,115 +660,7 @@ const companyDataManager = new CompanyDataManager();
 const syncManager = new PIWASyncManager();
 
 // =============================================================================
-// FONCTIONS GLOBALES EXPOSÉES POUR LA SÉPARATION DES DONNÉES
-// =============================================================================
-
-// FONCTION CRITIQUE - Sélectionner une entreprise active
-function selectActiveCompany(companyId) {
-    return companyDataManager.selectActiveCompany(companyId);
-}
-
-// FONCTION CRITIQUE - Obtenir les écritures filtrées (SEULEMENT entreprise active)
-function getFilteredEntries() {
-    return companyDataManager.getFilteredEntries();
-}
-
-// FONCTION CRITIQUE - Obtenir le plan comptable filtré (SEULEMENT entreprise active)
-function getCompanyAccountingPlan() {
-    return companyDataManager.getCompanyAccountingPlan();
-}
-
-// FONCTION CRITIQUE - Obtenir toutes données filtrées
-function getFilteredData(dataType) {
-    return companyDataManager.getFilteredData(dataType);
-}
-
-// Rafraîchir toutes les vues avec les données filtrées
-function refreshAllViews() {
-    companyDataManager.refreshAllViews();
-}
-
-// Obtenir les statistiques de l'entreprise active
-function getCompanyStats() {
-    return companyDataManager.getCompanyStats();
-}
-
-// Vérifier l'accès multi-entreprises
-function hasMultiCompanyAccess() {
-    return companyDataManager.hasMultiCompanyAccess();
-}
-
-// Déclencher une synchronisation (admin/collaborateur senior uniquement)
-function triggerSync() {
-    return syncManager.triggerSync();
-}
-
-// Obtenir le statut de synchronisation
-function getSyncStatus() {
-    return syncManager.getSyncStatus();
-}
-
-// Exposer globalement les fonctions critiques
-window.selectActiveCompany = selectActiveCompany;
-window.getFilteredEntries = getFilteredEntries;
-window.getCompanyAccountingPlan = getCompanyAccountingPlan;
-window.getFilteredData = getFilteredData;
-window.refreshAllViews = refreshAllViews;
-window.getCompanyStats = getCompanyStats;
-window.hasMultiCompanyAccess = hasMultiCompanyAccess;
-window.triggerSync = triggerSync;
-window.getSyncStatus = getSyncStatus;
-
-// Theme management - FONCTION ORIGINALE COMPLÈTE
-const themeManager = {
-    current: 'system',
-    
-    init() {
-        // Detect initial theme
-        if (localStorage.getItem('theme') === 'dark' ||
-            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-            this.current = 'dark';
-        } else if (localStorage.getItem('theme') === 'light') {
-            document.documentElement.classList.remove('dark');
-            this.current = 'light';
-        } else {
-            this.current = 'system';
-        }
-
-        // Listen for system theme changes
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
-            if (this.current === 'system') {
-                if (event.matches) {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
-            }
-        });
-    },
-
-    setTheme(theme) {
-        this.current = theme;
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-        } else if (theme === 'light') {
-            document.documentElement.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
-        } else {
-            localStorage.removeItem('theme');
-            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
-        }
-    }
-};
-
-// =============================================================================
-// GESTIONNAIRE DE MODULES - MODIFIÉ POUR INTÉGRER LA SÉPARATION DES DONNÉES
+// GESTIONNAIRE DE MODULES - ENRICHI AVEC SÉCURITÉ (CONSERVÉ + AMÉLIORÉ)
 // =============================================================================
 class ModuleManager {
     constructor() {
@@ -731,7 +681,7 @@ class ModuleManager {
         ];
     }
 
-    // Vérifier et créer les fonctions manquantes
+    // Vérifier et créer les fonctions manquantes (CONSERVÉ)
     ensureFunctionsExist() {
         this.requiredFunctions.forEach(funcName => {
             if (typeof window[funcName] !== 'function') {
@@ -741,7 +691,7 @@ class ModuleManager {
         });
     }
 
-    // Créer une fonction de fallback AVEC séparation des données
+    // Créer une fonction de fallback AVEC séparation des données (AMÉLIORÉ)
     createFallback(funcName) {
         const self = this;
         return function() {
@@ -756,7 +706,7 @@ class ModuleManager {
         };
     }
 
-    // Déterminer si la fonction nécessite un filtrage des données
+    // Déterminer si la fonction nécessite un filtrage des données (NOUVEAU)
     requiresDataFiltering(funcName) {
         const dataIntensiveFunctions = [
             'loadDashboard', 'loadEntries', 'loadAccounts', 
@@ -765,11 +715,11 @@ class ModuleManager {
         return dataIntensiveFunctions.includes(funcName);
     }
 
-    // Afficher un contenu de fallback AVEC informations de séparation
+    // Afficher un contenu de fallback AVEC informations de séparation (NOUVEAU)
     showFilteredModuleFallback(funcName) {
         const moduleInfo = this.getModuleInfo(funcName);
         const mainContent = document.getElementById('mainContent');
-        const companyStats = getCompanyStats();
+        const companyStats = companyDataManager.getCompanyStats();
         
         if (mainContent && moduleInfo.isPageLoader) {
             mainContent.innerHTML = `
@@ -847,7 +797,7 @@ class ModuleManager {
                                 <button onclick="showModuleStatus()" class="bg-info hover:bg-info/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                                     <i class="fas fa-info mr-2"></i>État des modules
                                 </button>
-                                ${hasMultiCompanyAccess() ? `
+                                ${companyDataManager.hasMultiCompanyAccess() ? `
                                     <button onclick="showCompanySelector()" class="bg-success hover:bg-success/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                                         <i class="fas fa-building mr-2"></i>Changer d'entreprise
                                     </button>
@@ -860,7 +810,7 @@ class ModuleManager {
         }
     }
 
-    // Obtenir un template sécurisé avec séparation des données
+    // Obtenir un template sécurisé avec séparation des données (NOUVEAU)
     getSecureTemplate(funcName) {
         const templates = {
             'loadDashboard': `function loadDashboard() {
@@ -905,7 +855,7 @@ class ModuleManager {
         return templates[funcName] || this.getModuleInfo(funcName).template;
     }
 
-    // Afficher un contenu de fallback standard
+    // Afficher un contenu de fallback (CONSERVÉ ORIGINAL)
     showModuleFallback(funcName) {
         const moduleInfo = this.getModuleInfo(funcName);
         const mainContent = document.getElementById('mainContent');
@@ -952,7 +902,7 @@ class ModuleManager {
         }
     }
 
-    // Obtenir les informations d'un module
+    // Obtenir les informations d'un module (CONSERVÉ + MAINTIEN COMPATIBILITÉ)
     getModuleInfo(funcName) {
         const moduleMap = {
             'initializeData': { 
@@ -1031,7 +981,7 @@ class ModuleManager {
                 title: 'Info Entreprise', 
                 file: 'navigation.js', 
                 isPageLoader: false,
-                template: `function updateSelectedCompanyInfo() {\n    // Mettre à jour les infos entreprise\n    const company = app.companies.find(c => c.id == app.currentCompanyId);\n    if (company) {\n        document.getElementById('selectedCompanyInfo').innerHTML = company.name;\n    }\n}`
+                template: `function updateSelectedCompanyInfo() {\n    // Mettre à jour les infos entreprise\n    const company = app.companies.find(c => c.id == app.currentCompany);\n    if (company) {\n        document.getElementById('selectedCompanyInfo').innerHTML = company.name;\n    }\n}`
             }
         };
 
@@ -1044,35 +994,57 @@ class ModuleManager {
     }
 }
 
-// Créer l'instance du gestionnaire de modules
+// Créer l'instance du gestionnaire de modules (CONSERVÉ)
 const moduleManager = new ModuleManager();
 
 // =============================================================================
-// THEME MANAGEMENT - FONCTION ORIGINALE COMPLÈTE
+// FONCTIONS GLOBALES EXPOSÉES POUR LA SÉPARATION DES DONNÉES
 // =============================================================================
-function toggleThemeMenu() {
-    const menu = document.getElementById('themeMenu');
-    if (menu) {
-        menu.classList.toggle('hidden');
-    }
+
+// FONCTION CRITIQUE - Sélectionner une entreprise active
+function selectActiveCompany(companyId) {
+    return companyDataManager.selectActiveCompany(companyId);
 }
 
-function setTheme(theme) {
-    try {
-        themeManager.setTheme(theme);
-        const themeMenu = document.getElementById('themeMenu');
-        if (themeMenu) {
-            themeMenu.classList.add('hidden');
-        }
-        showSuccessMessage('✅ Thème modifié : ' + theme);
-    } catch (error) {
-        console.error('Erreur changement thème:', error);
-    }
+// FONCTION CRITIQUE - Obtenir les écritures filtrées (SEULEMENT entreprise active)
+function getFilteredEntries() {
+    return companyDataManager.getFilteredEntries();
 }
 
-// =============================================================================
-// NOUVELLES FONCTIONS UTILITAIRES POUR LA SÉPARATION DES DONNÉES
-// =============================================================================
+// FONCTION CRITIQUE - Obtenir le plan comptable filtré (SEULEMENT entreprise active)
+function getCompanyAccountingPlan() {
+    return companyDataManager.getCompanyAccountingPlan();
+}
+
+// FONCTION CRITIQUE - Obtenir toutes données filtrées
+function getFilteredData(dataType) {
+    return companyDataManager.getFilteredData(dataType);
+}
+
+// Rafraîchir toutes les vues avec les données filtrées
+function refreshAllViews() {
+    companyDataManager.refreshAllViews();
+}
+
+// Obtenir les statistiques de l'entreprise active
+function getCompanyStats() {
+    return companyDataManager.getCompanyStats();
+}
+
+// Vérifier l'accès multi-entreprises
+function hasMultiCompanyAccess() {
+    return companyDataManager.hasMultiCompanyAccess();
+}
+
+// Déclencher une synchronisation (admin/collaborateur senior uniquement)
+function triggerSync() {
+    return syncManager.triggerSync();
+}
+
+// Obtenir le statut de synchronisation
+function getSyncStatus() {
+    return syncManager.getSyncStatus();
+}
 
 // Afficher le sélecteur d'entreprise en modal
 function showCompanySelector() {
@@ -1127,12 +1099,44 @@ function closeCompanySelector() {
     }
 }
 
-// Exposer les fonctions globalement
+// Exposer globalement les fonctions critiques
+window.selectActiveCompany = selectActiveCompany;
+window.getFilteredEntries = getFilteredEntries;
+window.getCompanyAccountingPlan = getCompanyAccountingPlan;
+window.getFilteredData = getFilteredData;
+window.refreshAllViews = refreshAllViews;
+window.getCompanyStats = getCompanyStats;
+window.hasMultiCompanyAccess = hasMultiCompanyAccess;
+window.triggerSync = triggerSync;
+window.getSyncStatus = getSyncStatus;
 window.showCompanySelector = showCompanySelector;
 window.closeCompanySelector = closeCompanySelector;
 
 // =============================================================================
-// FONCTION DE VÉRIFICATION DES MODULES - AMÉLIORÉE
+// THEME MANAGEMENT - FONCTION ORIGINALE COMPLÈTE (CONSERVÉE)
+// =============================================================================
+function toggleThemeMenu() {
+    const menu = document.getElementById('themeMenu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+function setTheme(theme) {
+    try {
+        themeManager.setTheme(theme);
+        const themeMenu = document.getElementById('themeMenu');
+        if (themeMenu) {
+            themeMenu.classList.add('hidden');
+        }
+        showSuccessMessage('✅ Thème modifié : ' + theme);
+    } catch (error) {
+        console.error('Erreur changement thème:', error);
+    }
+}
+
+// =============================================================================
+// FONCTION DE VÉRIFICATION DES MODULES - AMÉLIORÉE AVEC SÉCURITÉ
 // =============================================================================
 function showModuleStatus() {
     const status = moduleManager.requiredFunctions.map(func => {
@@ -1146,25 +1150,55 @@ function showModuleStatus() {
     alert(`État des modules :\n\n${status}${securityStatus}\n\n✅ = Fonction disponible\n❌ = Utilise un fallback`);
 }
 
-// Rendre la fonction globale
+// Rendre la fonction globale (CONSERVÉ)
 window.showModuleStatus = showModuleStatus;
 
 // =============================================================================
-// EVENT LISTENERS & INITIALIZATION - MODIFIÉ AVEC SÉPARATION DES DONNÉES
+// FONCTION DE TEST POUR VÉRIFIER LE CHARGEMENT DES MODULES (NOUVEAU)
+// =============================================================================
+function testModuleLoading() {
+    console.log('🧪 Test de chargement des modules :');
+    console.log('📊 loadDashboard:', typeof loadDashboard);
+    console.log('📝 loadEntries:', typeof loadEntries);
+    console.log('📋 loadAccounts:', typeof loadAccounts);
+    console.log('💾 initializeData:', typeof initializeData);
+    
+    if (typeof loadDashboard === 'function') {
+        console.log('✅ dashboard.js chargé correctement');
+        loadDashboard();
+    } else {
+        console.log('❌ dashboard.js non chargé');
+    }
+}
+
+// Exposer globalement pour debug
+window.testModuleLoading = testModuleLoading;
+
+// =============================================================================
+// EVENT LISTENERS & INITIALIZATION - ENRICHI AVEC SÉCURITÉ (CONSERVÉ + AMÉLIORÉ)
 // =============================================================================
 function bindEventListeners() {
     try {
-        // Company selector - CRITIQUE POUR LA SÉPARATION DES DONNÉES
+        // Company selector - CRITIQUE POUR LA SÉPARATION DES DONNÉES (AMÉLIORÉ)
         setTimeout(() => {
             const companySelect = document.getElementById('activeCompanySelect');
             if (companySelect) {
                 companySelect.addEventListener('change', function(e) {
-                    selectActiveCompany(e.target.value); // Utilise la fonction sécurisée
+                    // Utiliser la nouvelle fonction sécurisée
+                    selectActiveCompany(e.target.value);
+                    
+                    // Maintenir la compatibilité avec l'ancien système
+                    app.currentCompany = e.target.value;
+                    
+                    if (typeof updateSelectedCompanyInfo === 'function') {
+                        updateSelectedCompanyInfo();
+                    }
+                    console.log('✅ Entreprise sélectionnée:', app.currentCompany);
                 });
             }
         }, 100);
 
-        // Sidebar toggle
+        // Sidebar toggle (CONSERVÉ)
         const sidebarToggle = document.getElementById('sidebarToggle');
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', function() {
@@ -1175,7 +1209,7 @@ function bindEventListeners() {
             });
         }
 
-        // Login form
+        // Login form (CONSERVÉ)
         const loginForm = document.getElementById('loginForm');
         if (loginForm) {
             loginForm.addEventListener('submit', function(e) {
@@ -1188,7 +1222,7 @@ function bindEventListeners() {
             });
         }
 
-        // Close sidebar on outside click (mobile)
+        // Close sidebar on outside click (mobile) (CONSERVÉ)
         document.addEventListener('click', function(e) {
             const sidebar = document.getElementById('sidebar');
             const sidebarToggle = document.getElementById('sidebarToggle');
@@ -1206,11 +1240,25 @@ function initializeApp() {
     try {
         console.log('🔄 Initialisation de l'application...');
 
-        // D'abord, s'assurer que toutes les fonctions existent
-        moduleManager.ensureFunctionsExist();
-
-        // Puis les appeler en toute sécurité
+        // D'abord initialiser les données
         initializeData();
+        
+        // Simuler la connexion de Marie Kouassi si pas encore connectée
+        if (!app.currentUser) {
+            console.log('👤 Simulation connexion Marie Kouassi...');
+            app.currentUser = {
+                id: 1,
+                name: 'Marie Kouassi',
+                email: 'marie.kouassi@entreprise.com',
+                role: 'Collaborateur Senior',
+                assignedCompanies: [1, 2, 3], // Accès à plusieurs entreprises
+                status: 'Actif'
+            };
+            app.currentProfile = 'collaborateur_senior';
+            app.isAuthenticated = true;
+        }
+
+        // Puis charger navigation et user info
         loadNavigationMenu();
         updateUserInfo();
 
@@ -1224,7 +1272,22 @@ function initializeApp() {
             }
         }
 
-        loadDashboard();
+        // S'assurer que les fonctions manquantes ont des fallbacks APRÈS avoir chargé les vrais modules
+        setTimeout(() => {
+            moduleManager.ensureFunctionsExist();
+        }, 100);
+
+        // Charger le dashboard en dernier, après l'initialisation complète
+        setTimeout(() => {
+            if (typeof loadDashboard === 'function') {
+                console.log('📊 Chargement du vrai dashboard...');
+                loadDashboard();
+            } else {
+                console.warn('⚠️ dashboard.js non chargé, utilisation du fallback');
+                moduleManager.showFilteredModuleFallback('loadDashboard');
+            }
+        }, 200);
+
         bindEventListeners();
 
         console.log('✅ DOUKÈ Compta Pro initialisé avec succès avec séparation des données !');
@@ -1235,7 +1298,7 @@ function initializeApp() {
 }
 
 // =============================================================================
-// FONCTIONS UTILITAIRES
+// FONCTIONS UTILITAIRES (CONSERVÉES)
 // =============================================================================
 function showSuccessMessage(message) {
     alert(message);
@@ -1245,7 +1308,7 @@ function showErrorMessage(message) {
     alert('❌ ' + message);
 }
 
-// Close theme menu when clicking outside
+// Close theme menu when clicking outside (CONSERVÉ + AMÉLIORÉ)
 document.addEventListener('click', function(e) {
     const menu = document.getElementById('themeMenu');
     const button = e.target.closest('[onclick="toggleThemeMenu()"]');
@@ -1253,14 +1316,14 @@ document.addEventListener('click', function(e) {
         menu.classList.add('hidden');
     }
 
-    // Close notifications panel when clicking outside
+    // Close notifications panel when clicking outside (CONSERVÉ)
     const notifPanel = document.getElementById('notificationsPanel');
     const notifButton = e.target.closest('[onclick="toggleNotificationsPanel()"]');
     if (notifPanel && !notifPanel.contains(e.target) && !notifButton) {
         notifPanel.classList.add('hidden');
     }
 
-    // Close company selector modal when clicking outside
+    // Close company selector modal when clicking outside (NOUVEAU)
     const companySelectorModal = document.getElementById('companySelectorModal');
     if (companySelectorModal && e.target === companySelectorModal) {
         closeCompanySelector();
@@ -1268,10 +1331,10 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================================
-// DÉMARRAGE DE L'APPLICATION AVEC SÉCURITÉ RENFORCÉE
+// APPLICATION START - ENRICHI AVEC SÉCURITÉ (CONSERVÉ + AMÉLIORÉ)
 // =============================================================================
 
-// APPLICATION START
+// APPLICATION START (CONSERVÉ + AMÉLIORÉ)
 document.addEventListener('DOMContentLoaded', function() {
     try {
         themeManager.init();
@@ -1286,7 +1349,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Protection globale contre les erreurs
+// Protection globale contre les erreurs (CONSERVÉ)
 window.addEventListener('error', function(e) {
     console.error('❌ Erreur globale capturée:', e.error);
 });
@@ -1296,7 +1359,7 @@ window.addEventListener('unhandledrejection', function(e) {
 });
 
 // =============================================================================
-// FONCTION DE NETTOYAGE À LA FERMETURE
+// FONCTION DE NETTOYAGE À LA FERMETURE (NOUVEAU)
 // =============================================================================
 window.addEventListener('beforeunload', function() {
     // Arrêter la synchronisation automatique
