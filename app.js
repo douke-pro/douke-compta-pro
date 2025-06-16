@@ -63,9 +63,6 @@ class CompanyDataManager {
             // Restaurer la dernière entreprise sélectionnée ou sélectionner la première
             this.restoreSelectedCompany();
 
-            // Créer l'interface de sélection
-            this.renderCompanySelector();
-
             // Filtrer toutes les données selon l'entreprise sélectionnée
             this.filterAllData();
 
@@ -129,52 +126,6 @@ class CompanyDataManager {
         }
     }
 
-    // Changer d'entreprise active (FONCTION CRITIQUE)
-    selectActiveCompany(companyId) {
-        // Vérifier l'autorisation d'accès à cette entreprise
-        if (!app.availableCompanies.some(c => c.id == companyId)) {
-            console.error('❌ Accès refusé à l\'entreprise:', companyId);
-            this.showUnauthorizedMessage();
-            return false;
-        }
-
-        try {
-            const previousCompany = app.currentCompanyId;
-            app.currentCompanyId = parseInt(companyId);
-
-            // Sauvegarder la sélection
-            localStorage.setItem('selectedCompanyId', app.currentCompanyId);
-
-            // Filtrer toutes les données selon la nouvelle entreprise
-            this.filterAllData();
-
-            // Mettre à jour l'interface
-            this.updateCompanyUI();
-
-            // Rafraîchir toutes les vues
-            this.refreshAllViews();
-
-            // Déclencher la synchronisation si autorisée
-            if (syncManager.canAccessAutoSync()) {
-                syncManager.triggerSync();
-            }
-
-            const company = app.companies.find(c => c.id === app.currentCompanyId);
-            console.log(`✅ Entreprise changée: ${company ? company.name : 'Inconnue'}`);
-
-            if (typeof showSuccessMessage === 'function') {
-                showSuccessMessage(`✅ Entreprise sélectionnée: ${company ? company.name : 'Inconnue'}`);
-            }
-
-            return true;
-
-        } catch (error) {
-            console.error('❌ Erreur changement d\'entreprise:', error);
-            app.currentCompanyId = previousCompany; // Restaurer l'état précédent
-            return false;
-        }
-    }
-
     // FILTRAGE CRITIQUE - Obtenir les écritures de l'entreprise sélectionnée UNIQUEMENT
     getFilteredEntries() {
         if (!app.currentCompanyId) {
@@ -198,25 +149,6 @@ class CompanyDataManager {
         return company && company.accountingPlan ? company.accountingPlan : [];
     }
 
-    // FILTRAGE CRITIQUE - Obtenir toutes les données filtrées
-    getFilteredData(dataType) {
-        if (!app.currentCompanyId) return [];
-
-        switch (dataType) {
-            case 'entries':
-                return this.getFilteredEntries();
-            case 'accounts':
-                return this.getCompanyAccountingPlan();
-            case 'cashRegisters':
-                return app.cashRegisters.filter(cr => cr.companyId === app.currentCompanyId);
-            case 'reports':
-                return app.reports ? app.reports.filter(r => r.companyId === app.currentCompanyId) : [];
-            default:
-                console.warn(`⚠️ Type de données non reconnu: ${dataType}`);
-                return [];
-        }
-    }
-
     // Filtrer toutes les données selon l'entreprise sélectionnée
     filterAllData() {
         if (!app.currentCompanyId) {
@@ -227,7 +159,7 @@ class CompanyDataManager {
         app.filteredData = {
             entries: this.getFilteredEntries(),
             accounts: this.getCompanyAccountingPlan(),
-            reports: this.getFilteredData('reports')
+            reports: []
         };
 
         console.log(`🔍 Données filtrées pour entreprise ${app.currentCompanyId}:`, {
@@ -235,133 +167,6 @@ class CompanyDataManager {
             accounts: app.filteredData.accounts.length,
             reports: app.filteredData.reports.length
         });
-    }
-
-    // Créer l'interface de sélection d'entreprise
-    renderCompanySelector() {
-        const headerRight = document.querySelector('.header-right') || document.querySelector('header .flex');
-
-        if (!headerRight || app.availableCompanies.length <= 1) {
-            return; // Pas besoin de sélecteur s'il n'y a qu'une entreprise
-        }
-
-        // Créer le conteneur du sélecteur s'il n'existe pas
-        let companySelector = document.getElementById('companySelectorContainer');
-        if (!companySelector) {
-            companySelector = document.createElement('div');
-            companySelector.id = 'companySelectorContainer';
-            companySelector.className = 'flex items-center space-x-3 mr-4';
-
-            // Insérer avant les autres éléments du header
-            headerRight.insertBefore(companySelector, headerRight.firstChild);
-        }
-
-        const currentCompany = app.companies.find(c => c.id === app.currentCompanyId);
-
-        companySelector.innerHTML = `
-            <div class="relative">
-                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Entreprise active
-                </label>
-                <select id="activeCompanySelect"
-                        class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent min-w-[200px]">
-                    ${app.availableCompanies.map(company => `
-                        <option value="${company.id}" ${company.id === app.currentCompanyId ? 'selected' : ''}>
-                            ${company.name} (${company.type || 'N/A'})
-                        </option>
-                    `).join('')}
-                </select>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    <i class="fas fa-building mr-1"></i>
-                    ${currentCompany ? currentCompany.name : 'Aucune'}
-                </div>
-            </div>
-        `;
-
-        // Attacher l'événement de changement
-        const select = document.getElementById('activeCompanySelect');
-        if (select) {
-            select.addEventListener('change', (e) => {
-                this.selectActiveCompany(e.target.value);
-            });
-        }
-    }
-
-    // Mettre à jour l'interface après changement d'entreprise
-    updateCompanyUI() {
-        // Mettre à jour le sélecteur
-        const select = document.getElementById('activeCompanySelect');
-        if (select) {
-            select.value = app.currentCompanyId;
-        }
-
-        // Mettre à jour les informations affichées
-        if (typeof updateSelectedCompanyInfo === 'function') {
-            updateSelectedCompanyInfo();
-        }
-
-        // Mettre à jour le titre de la page
-        const company = app.companies.find(c => c.id === app.currentCompanyId);
-        if (company) {
-            document.title = `DOUKÈ Compta Pro - ${company.name}`;
-        }
-    }
-
-    // Rafraîchir toutes les vues avec les données filtrées
-    refreshAllViews() {
-        try {
-            // Recharger la vue actuelle (si c'est une fonction de chargement de page)
-            const currentView = this.getCurrentView();
-            if (currentView && typeof window[currentView] === 'function') {
-                window[currentView]();
-            }
-
-            // Mettre à jour le dashboard s'il est affiché
-            if (typeof loadDashboard === 'function' && this.isDashboardActive()) {
-                loadDashboard();
-            }
-
-            console.log('🔄 Toutes les vues rafraîchies avec les données filtrées');
-
-        } catch (error) {
-            console.error('❌ Erreur lors du rafraîchissement des vues:', error);
-        }
-    }
-
-    // Déterminer la vue actuelle
-    getCurrentView() {
-        const mainContent = document.getElementById('mainContent');
-        if (!mainContent) return null;
-
-        // Analyser le contenu pour déterminer quelle vue est active
-        const content = mainContent.innerHTML;
-        if (content.includes('Écritures Comptables') || content.includes('loadEntries')) return 'loadEntries';
-        if (content.includes('Plan Comptable') || content.includes('loadAccounts')) return 'loadAccounts';
-        if (content.includes('Tableau de Bord') || content.includes('loadDashboard')) return 'loadDashboard';
-        if (content.includes('Gestion de Caisse') || content.includes('loadCaisse')) return 'loadCaisse';
-        if (content.includes('Rapports') || content.includes('loadReports')) return 'loadReports';
-
-        return null;
-    }
-
-    // Vérifier si le dashboard est actif
-    isDashboardActive() {
-        const mainContent = document.getElementById('mainContent');
-        return mainContent && mainContent.innerHTML.includes('Tableau de Bord');
-    }
-
-    // Afficher message d'accès non autorisé
-    showUnauthorizedMessage() {
-        if (typeof showErrorMessage === 'function') {
-            showErrorMessage('❌ Vous n\'avez pas l\'autorisation d\'accéder à cette entreprise');
-        } else {
-            alert('❌ Accès non autorisé à cette entreprise');
-        }
-    }
-
-    // Vérifier si l'utilisateur a accès aux données multi-entreprises
-    hasMultiCompanyAccess() {
-        return ['admin', 'collaborateur_senior', 'collaborateur'].includes(app.currentProfile);
     }
 
     // Obtenir les statistiques de l'entreprise active
@@ -396,6 +201,12 @@ class PIWASyncManager {
         this.isSyncing = false;
     }
 
+    // Vérifier l'autorisation d'accès à la synchronisation automatique
+    canAccessAutoSync() {
+        return app.currentProfile === 'admin' ||
+               app.currentProfile === 'collaborateur_senior';
+    }
+
     // Initialiser la synchronisation automatique (SEULEMENT pour admin/collaborateur senior)
     initializePIWASync() {
         if (!this.canAccessAutoSync()) {
@@ -408,85 +219,12 @@ class PIWASyncManager {
             app.syncSettings.enabled = true;
             app.syncSettings.lastSync = new Date();
 
-            // Enregistrer le Service Worker pour la sync en arrière-plan
-            this.registerSyncService();
-
-            // Démarrer la synchronisation automatique
-            this.startAutoSync();
-
-            // Écouter les changements de connectivité
-            this.setupConnectivityListeners();
-
-            // Synchronisation initiale
-            this.triggerSync();
-
             this.initialized = true;
             console.log('✅ Synchronisation PIWA initialisée pour', app.currentProfile);
 
         } catch (error) {
             console.error('❌ Erreur initialisation synchronisation PIWA:', error);
         }
-    }
-
-    // Vérifier l'autorisation d'accès à la synchronisation automatique
-    canAccessAutoSync() {
-        return app.currentProfile === 'admin' ||
-               app.currentProfile === 'collaborateur_senior';
-    }
-
-    // Enregistrer le Service Worker
-    async registerSyncService() {
-        if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
-            try {
-                const registration = await navigator.serviceWorker.register('/sw.js');
-                console.log('✅ Service Worker enregistré pour la synchronisation');
-
-                // Enregistrer la synchronisation en arrière-plan
-                await registration.sync.register('background-sync');
-
-            } catch (error) {
-                console.warn('⚠️ Service Worker non disponible:', error);
-            }
-        }
-    }
-
-    // Démarrer la synchronisation automatique
-    startAutoSync() {
-        if (app.syncSettings.autoSyncTimer) {
-            clearInterval(app.syncSettings.autoSyncTimer);
-        }
-
-        app.syncSettings.autoSyncTimer = setInterval(() => {
-            if (this.canAccessAutoSync() && app.syncSettings.enabled && navigator.onLine) {
-                this.backgroundSync();
-            }
-        }, app.syncSettings.interval);
-
-        console.log(`🔄 Synchronisation automatique démarrée (${app.syncSettings.interval / 1000}s)`);
-    }
-
-    // Arrêter la synchronisation automatique
-    stopAutoSync() {
-        if (app.syncSettings.autoSyncTimer) {
-            clearInterval(app.syncSettings.autoSyncTimer);
-            app.syncSettings.autoSyncTimer = null;
-        }
-        app.syncSettings.enabled = false;
-        console.log('⏹️ Synchronisation automatique arrêtée');
-    }
-
-    // Écouter les changements de connectivité
-    setupConnectivityListeners() {
-        window.addEventListener('online', () => {
-            app.syncSettings.isOnline = true;
-            console.log('🌐 Connexion rétablie - synchronisation automatique');
-            this.triggerSync();
-        });
-
-        window.addEventListener('offline', () => {
-            app.syncSettings.isOnline = false;
-            console.log('📶 Connexion perdue - mode hors ligne');
-        });
     }
 
     // Déclencher une synchronisation immédiate
@@ -496,88 +234,9 @@ class PIWASyncManager {
         }
 
         try {
-            await this.backgroundSync();
+            console.log('🔄 Synchronisation PIWA déclenchée');
         } catch (error) {
             console.error('❌ Erreur synchronisation immédiate:', error);
-        }
-    }
-
-    // Synchronisation en arrière-plan
-    async backgroundSync() {
-        if (!this.canAccessAutoSync() || !navigator.onLine || this.isSyncing) {
-            return;
-        }
-
-        this.isSyncing = true;
-
-        try {
-            // Synchroniser les données de l'entreprise active
-            if (app.currentCompanyId) {
-                await this.syncCompanyData(app.currentCompanyId);
-            }
-
-            // Synchroniser les données utilisateur
-            await this.syncUserData();
-
-            // Mettre à jour le timestamp
-            app.syncSettings.lastSync = new Date();
-
-            // Notification discrète de succès
-            this.showSyncNotification('✅ Données synchronisées', 'success');
-
-            console.log('✅ Synchronisation PIWA terminée:', new Date().toLocaleTimeString());
-
-        } catch (error) {
-            console.error('❌ Erreur synchronisation:', error);
-            this.showSyncNotification('❌ Erreur de synchronisation', 'error');
-        } finally {
-            this.isSyncing = false;
-        }
-    }
-
-    // Synchroniser les données d'une entreprise spécifique
-    async syncCompanyData(companyId) {
-        // Simulation de la synchronisation des données entreprise
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                console.log(`🔄 Données de l'entreprise ${companyId} synchronisées`);
-                resolve();
-            }, 1000);
-        });
-    }
-
-    // Synchroniser les données utilisateur
-    async syncUserData() {
-        // Simulation de la synchronisation des données utilisateur
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                console.log('🔄 Données utilisateur synchronisées');
-                resolve();
-            }, 500);
-        });
-    }
-
-    // Afficher une notification de synchronisation
-    showSyncNotification(message, type) {
-        // Notification discrète qui ne perturbe pas l'utilisateur
-        if (typeof showNotification === 'function') {
-            showNotification(message, type, 2000); // 2 secondes seulement
-        } else {
-            console.log(`🔔 ${message}`);
-        }
-    }
-
-    // Ajouter des données à la queue de synchronisation
-    queueForSync(data) {
-        this.syncQueue.push({
-            ...data,
-            timestamp: new Date(),
-            companyId: app.currentCompanyId
-        });
-
-        // Déclencher une synchronisation si en ligne
-        if (navigator.onLine && this.canAccessAutoSync()) {
-            setTimeout(() => this.triggerSync(), 1000);
         }
     }
 
@@ -604,11 +263,6 @@ const syncManager = new PIWASyncManager();
 // FONCTIONS GLOBALES EXPOSÉES POUR LA SÉPARATION DES DONNÉES
 // =============================================================================
 
-// FONCTION CRITIQUE - Sélectionner une entreprise active
-function selectActiveCompany(companyId) {
-    return companyDataManager.selectActiveCompany(companyId);
-}
-
 // FONCTION CRITIQUE - Obtenir les écritures filtrées (SEULEMENT entreprise active)
 function getFilteredEntries() {
     return companyDataManager.getFilteredEntries();
@@ -619,24 +273,9 @@ function getCompanyAccountingPlan() {
     return companyDataManager.getCompanyAccountingPlan();
 }
 
-// FONCTION CRITIQUE - Obtenir toutes données filtrées
-function getFilteredData(dataType) {
-    return companyDataManager.getFilteredData(dataType);
-}
-
-// Rafraîchir toutes les vues avec les données filtrées
-function refreshAllViews() {
-    companyDataManager.refreshAllViews();
-}
-
 // Obtenir les statistiques de l'entreprise active
 function getCompanyStats() {
     return companyDataManager.getCompanyStats();
-}
-
-// Vérifier l'accès multi-entreprises
-function hasMultiCompanyAccess() {
-    return companyDataManager.hasMultiCompanyAccess();
 }
 
 // Déclencher une synchronisation (admin/collaborateur senior uniquement)
@@ -655,7 +294,6 @@ function getSyncStatus() {
 function loadDashboard() {
     console.log('📊 Chargement du dashboard pour le profil:', app.currentProfile);
     
-    const stats = getCompanyStats();
     const mainContent = document.getElementById('mainContent');
     
     if (!mainContent) {
@@ -663,31 +301,28 @@ function loadDashboard() {
         return;
     }
 
-    if (!stats) {
-        mainContent.innerHTML = `
-            <div class="space-y-6">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Tableau de Bord</h2>
-                <div class="bg-warning/10 text-warning p-4 rounded-lg">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                    Aucune entreprise sélectionnée ou données non disponibles
-                </div>
-            </div>
-        `;
-        return;
-    }
+    // Données de base pour les statistiques
+    const totalEntries = app.entries.length;
+    const totalAccounts = app.accounts.length;
+    const totalCompanies = app.companies.length;
+    const totalUsers = app.users.length;
 
     // Calculer des statistiques additionnelles
-    const entries = getFilteredEntries();
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
     
-    const todayEntries = entries.filter(e => {
+    const monthlyEntries = app.entries.filter(e => {
+        const entryDate = new Date(e.date);
+        return entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
+    }).length;
+
+    const todayEntries = app.entries.filter(e => {
         const entryDate = new Date(e.date);
         return entryDate.toDateString() === currentDate.toDateString();
     }).length;
 
-    const weekEntries = entries.filter(e => {
+    const weekEntries = app.entries.filter(e => {
         const entryDate = new Date(e.date);
         const daysDiff = Math.floor((currentDate - entryDate) / (1000 * 60 * 60 * 24));
         return daysDiff >= 0 && daysDiff < 7;
@@ -699,11 +334,11 @@ function loadDashboard() {
             <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                     <i class="fas fa-tachometer-alt mr-2 text-primary"></i>
-                    Tableau de Bord - ${stats.company.name}
+                    Tableau de Bord
                 </h2>
                 <div class="bg-primary/10 text-primary px-4 py-2 rounded-lg">
                     <i class="fas fa-user mr-2"></i>
-                    ${app.currentProfile.charAt(0).toUpperCase() + app.currentProfile.slice(1).replace('_', ' ')}
+                    ${app.currentProfile ? app.currentProfile.charAt(0).toUpperCase() + app.currentProfile.slice(1).replace('_', ' ') : 'Utilisateur'}
                 </div>
             </div>
     `;
@@ -723,7 +358,7 @@ function loadDashboard() {
                             </div>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Écritures</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${stats.totalEntries}</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${totalEntries}</p>
                             </div>
                         </div>
                     </div>
@@ -737,7 +372,7 @@ function loadDashboard() {
                             </div>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Comptes Actifs</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${stats.totalAccounts}</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${totalAccounts}</p>
                             </div>
                         </div>
                     </div>
@@ -746,12 +381,12 @@ function loadDashboard() {
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 <div class="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-calendar-alt text-white"></i>
+                                    <i class="fas fa-building text-white"></i>
                                 </div>
                             </div>
                             <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Ce Mois</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${stats.monthlyEntries}</p>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Entreprises</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${totalCompanies}</p>
                             </div>
                         </div>
                     </div>
@@ -760,12 +395,12 @@ function loadDashboard() {
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 <div class="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-building text-white"></i>
+                                    <i class="fas fa-users text-white"></i>
                                 </div>
                             </div>
                             <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Entreprises</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${app.availableCompanies.length}</p>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Utilisateurs</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${totalUsers}</p>
                             </div>
                         </div>
                     </div>
@@ -804,7 +439,7 @@ function loadDashboard() {
                             </div>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Écritures Total</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${stats.totalEntries}</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${totalEntries}</p>
                             </div>
                         </div>
                     </div>
@@ -832,7 +467,7 @@ function loadDashboard() {
                             </div>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Ce Mois</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${stats.monthlyEntries}</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${monthlyEntries}</p>
                             </div>
                         </div>
                     </div>
@@ -874,7 +509,7 @@ function loadDashboard() {
                             </div>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Écritures</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${stats.totalEntries}</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${totalEntries}</p>
                             </div>
                         </div>
                     </div>
@@ -888,7 +523,7 @@ function loadDashboard() {
                             </div>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Ce Mois</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${stats.monthlyEntries}</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${monthlyEntries}</p>
                             </div>
                         </div>
                     </div>
@@ -922,7 +557,7 @@ function loadDashboard() {
                                     <i class="fas fa-file-alt text-white text-2xl"></i>
                                 </div>
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Écritures Consultables</p>
-                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${stats.totalEntries}</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${totalEntries}</p>
                             </div>
                         </div>
                     </div>
@@ -992,29 +627,84 @@ function loadDashboard() {
 
         default:
             content += `
-                <div class="bg-warning/10 text-warning p-6 rounded-lg">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                    Profil non reconnu. Veuillez contacter l'administrateur.
+                <!-- Dashboard par défaut -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-file-alt text-white"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Écritures</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${totalEntries}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-list text-white"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Comptes</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${totalAccounts}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-calendar-alt text-white"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Ce Mois</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${monthlyEntries}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions de base -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-tools mr-2"></i>Actions Disponibles
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onclick="loadEntries()" class="bg-primary hover:bg-primary/90 text-white px-4 py-3 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-file-alt mr-2"></i>Écritures Comptables
+                        </button>
+                        <button onclick="loadAccounts()" class="bg-success hover:bg-success/90 text-white px-4 py-3 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-list mr-2"></i>Plan Comptable
+                        </button>
+                    </div>
                 </div>
             `;
     }
 
-    // Informations entreprise en bas pour tous les profils
+    // Informations utilisateur en bas pour tous les profils
     content += `
-            <!-- Informations entreprise -->
+            <!-- Informations utilisateur -->
             <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6">
                 <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
-                    <i class="fas fa-info-circle mr-2"></i>Entreprise Active
+                    <i class="fas fa-info-circle mr-2"></i>Informations Système
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div class="text-blue-800 dark:text-blue-200">
-                        <strong>Nom:</strong> ${stats.company.name}
+                        <strong>Profil:</strong> ${app.currentProfile || 'Non défini'}
                     </div>
                     <div class="text-blue-800 dark:text-blue-200">
-                        <strong>Type:</strong> ${stats.company.type || 'Non défini'}
+                        <strong>Dernière sync:</strong> ${app.syncSettings.lastSync ? new Date(app.syncSettings.lastSync).toLocaleString() : 'Jamais'}
                     </div>
                     <div class="text-blue-800 dark:text-blue-200">
-                        <strong>Dernière écriture:</strong> ${stats.lastEntryDate ? new Date(stats.lastEntryDate).toLocaleDateString() : 'Aucune'}
+                        <strong>Statut:</strong> ${app.isAuthenticated ? 'Connecté' : 'Déconnecté'}
                     </div>
                 </div>
             </div>
@@ -1026,13 +716,9 @@ function loadDashboard() {
 }
 
 // Exposer globalement les fonctions critiques
-window.selectActiveCompany = selectActiveCompany;
 window.getFilteredEntries = getFilteredEntries;
 window.getCompanyAccountingPlan = getCompanyAccountingPlan;
-window.getFilteredData = getFilteredData;
-window.refreshAllViews = refreshAllViews;
 window.getCompanyStats = getCompanyStats;
-window.hasMultiCompanyAccess = hasMultiCompanyAccess;
 window.triggerSync = triggerSync;
 window.getSyncStatus = getSyncStatus;
 
@@ -1085,7 +771,7 @@ const themeManager = {
 };
 
 // =============================================================================
-// GESTIONNAIRE DE MODULES - MODIFIÉ POUR INTÉGRER LA SÉPARATION DES DONNÉES
+// GESTIONNAIRE DE MODULES - NOUVEAU
 // =============================================================================
 class ModuleManager {
     constructor() {
@@ -1116,176 +802,20 @@ class ModuleManager {
         });
     }
 
-    // Créer une fonction de fallback AVEC séparation des données
+    // Créer une fonction de fallback
     createFallback(funcName) {
         const self = this;
         return function() {
             console.log(`📄 Chargement fallback pour ${funcName}`);
-
-            // Vérifier si les données doivent être filtrées
-            if (self.requiresDataFiltering(funcName)) {
-                self.showFilteredModuleFallback(funcName);
-            } else {
-                self.showModuleFallback(funcName);
-            }
+            self.showModuleFallback(funcName);
         };
     }
 
-    // Déterminer si la fonction nécessite un filtrage des données
-    requiresDataFiltering(funcName) {
-        const dataIntensiveFunctions = [
-            'loadDashboard', 'loadEntries', 'loadAccounts',
-            'loadCaisse', 'loadReports'
-        ];
-        return dataIntensiveFunctions.includes(funcName);
-    }
-
-    // Afficher un contenu de fallback AVEC informations de séparation
-    showFilteredModuleFallback(funcName) {
-        const moduleInfo = this.getModuleInfo(funcName);
-        const mainContent = document.getElementById('mainContent');
-        const companyStats = getCompanyStats();
-
-        if (mainContent && moduleInfo.isPageLoader) {
-            mainContent.innerHTML = `
-                <div class="space-y-6">
-                    <div class="flex justify-between items-center">
-                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">${moduleInfo.title}</h2>
-                        ${app.currentCompanyId ? `
-                            <div class="bg-primary/10 text-primary px-4 py-2 rounded-lg">
-                                <i class="fas fa-building mr-2"></i>
-                                ${companyStats ? companyStats.company.name : 'Entreprise inconnue'}
-                            </div>
-                        ` : `
-                            <div class="bg-warning/10 text-warning px-4 py-2 rounded-lg">
-                                <i class="fas fa-exclamation-triangle mr-2"></i>
-                                Aucune entreprise sélectionnée
-                            </div>
-                        `}
-                    </div>
-
-                    ${app.currentCompanyId ? `
-                        <!-- Informations entreprise active -->
-                        <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                            <h4 class="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                                <i class="fas fa-info-circle mr-2"></i>Données filtrées pour cette entreprise
-                            </h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                <div class="text-blue-800 dark:text-blue-200">
-                                    📊 ${companyStats ? companyStats.totalEntries : 0} écritures
-                                </div>
-                                <div class="text-blue-800 dark:text-blue-200">
-                                    📋 ${companyStats ? companyStats.totalAccounts : 0} comptes
-                                </div>
-                                <div class="text-blue-800 dark:text-blue-200">
-                                    📅 ${companyStats ? companyStats.monthlyEntries : 0} ce mois
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
-
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-                        <div class="text-center">
-                            <div class="w-16 h-16 bg-info text-white rounded-full flex items-center justify-center mx-auto mb-4">
-                                <i class="fas fa-code text-2xl"></i>
-                            </div>
-                            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Module en développement</h3>
-                            <p class="text-gray-600 dark:text-gray-400 mb-6">
-                                La fonction <code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${funcName}</code>
-                                n'est pas encore implémentée dans <strong>${moduleInfo.file}</strong>.
-                            </p>
-
-                            <div class="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg mb-6">
-                                <h4 class="font-medium text-orange-900 dark:text-orange-100 mb-3">
-                                    <i class="fas fa-shield-alt mr-2"></i>Séparation des données activée
-                                </h4>
-                                <p class="text-orange-800 dark:text-orange-200 text-sm">
-                                    Cette fonction utilisera automatiquement <code>getFilteredEntries()</code> et
-                                    <code>getCompanyAccountingPlan()</code> pour afficher uniquement les données
-                                    de l'entreprise sélectionnée.
-                                </p>
-                            </div>
-
-                            <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg mb-6">
-                                <h4 class="font-medium text-blue-900 dark:text-blue-100 mb-3">
-                                    <i class="fas fa-lightbulb mr-2"></i>Template sécurisé :
-                                </h4>
-                                <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded text-left overflow-x-auto">
-                                    <pre class="text-sm"><code>${this.getSecureTemplate(funcName)}</code></pre>
-                                </div>
-                            </div>
-
-                            <div class="flex justify-center space-x-4">
-                                <button onclick="location.reload()" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                                    <i class="fas fa-sync mr-2"></i>Recharger
-                                </button>
-                                <button onclick="showModuleStatus()" class="bg-info hover:bg-info/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                                    <i class="fas fa-info mr-2"></i>État des modules
-                                </button>
-                                ${hasMultiCompanyAccess() ? `
-                                    <button onclick="showCompanySelector()" class="bg-success hover:bg-success/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                                        <i class="fas fa-building mr-2"></i>Changer d'entreprise
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-    }
-
-    // Obtenir un template sécurisé avec séparation des données
-    getSecureTemplate(funcName) {
-        const templates = {
-            'loadDashboard': `function loadDashboard() {
-    const entries = getFilteredEntries(); // SEULEMENT entreprise active
-    const accounts = getCompanyAccountingPlan(); // SEULEMENT entreprise active
-    const stats = getCompanyStats();
-
-    const content = \`
-        <h2>Tableau de Bord - \${stats.company.name}</h2>
-        <div class="grid grid-cols-3 gap-4">
-            <div class="card">\${entries.length} écritures</div>
-            <div class="card">\${accounts.length} comptes</div>
-            <div class="card">\${stats.monthlyEntries} ce mois</div>
-        </div>
-    \`;
-
-    document.getElementById('mainContent').innerHTML = content;
-}`,
-
-            'loadEntries': `function loadEntries() {
-    const entries = getFilteredEntries(); // SEULEMENT entreprise active
-    const content = \`
-        <h2>Écritures Comptables - Entreprise \${app.currentCompanyId}</h2>
-        <div class="entries-table">
-            <!-- Afficher uniquement les écritures de l'entreprise active -->
-        </div>
-    \`;
-    document.getElementById('mainContent').innerHTML = content;
-}`,
-
-            'loadAccounts': `function loadAccounts() {
-    const accounts = getCompanyAccountingPlan(); // SEULEMENT entreprise active
-    const content = \`
-        <h2>Plan Comptable - Entreprise \${app.currentCompanyId}</h2>
-        <div class="accounts-list">
-            <!-- Afficher uniquement les comptes de l'entreprise active -->
-        </div>
-    \`;
-    document.getElementById('mainContent').innerHTML = content;
-}`
-        };
-
-        return templates[funcName] || this.getModuleInfo(funcName).template;
-    }
-
-    // Afficher un contenu de fallback standard
+    // Afficher un contenu de fallback
     showModuleFallback(funcName) {
         const moduleInfo = this.getModuleInfo(funcName);
         const mainContent = document.getElementById('mainContent');
-
+        
         if (mainContent && moduleInfo.isPageLoader) {
             mainContent.innerHTML = `
                 <div class="space-y-6">
@@ -1300,10 +830,10 @@ class ModuleManager {
                             </div>
                             <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Module en développement</h3>
                             <p class="text-gray-600 dark:text-gray-400 mb-6">
-                                La fonction <code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${funcName}</code>
+                                La fonction <code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${funcName}</code> 
                                 n'est pas encore implémentée dans <strong>${moduleInfo.file}</strong>.
                             </p>
-
+                            
                             <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg mb-6">
                                 <h4 class="font-medium text-blue-900 dark:text-blue-100 mb-3">
                                     <i class="fas fa-lightbulb mr-2"></i>Template de base :
@@ -1331,89 +861,89 @@ class ModuleManager {
     // Obtenir les informations d'un module
     getModuleInfo(funcName) {
         const moduleMap = {
-            'initializeData': {
-                title: 'Initialisation',
-                file: 'data.js',
+            'initializeData': { 
+                title: 'Initialisation', 
+                file: 'data.js', 
                 isPageLoader: false,
                 template: `function initializeData() {\n    // Initialiser les données de l'app\n    app.accounts = [...]; // Plan comptable\n    app.companies = [...]; // Entreprises\n    app.users = [...]; // Utilisateurs\n    console.log('✅ Données initialisées');\n}`
             },
-            'loadNavigationMenu': {
-                title: 'Navigation',
-                file: 'navigation.js',
+            'loadNavigationMenu': { 
+                title: 'Navigation', 
+                file: 'navigation.js', 
                 isPageLoader: false,
                 template: `function loadNavigationMenu() {\n    // Charger le menu selon le profil\n    const menuElement = document.getElementById('navigationMenu');\n    menuElement.innerHTML = '...';\n}`
             },
-            'updateUserInfo': {
-                title: 'Information Utilisateur',
-                file: 'auth.js',
+            'updateUserInfo': { 
+                title: 'Information Utilisateur', 
+                file: 'auth.js', 
                 isPageLoader: false,
                 template: `function updateUserInfo() {\n    // Mettre à jour les infos utilisateur\n    document.getElementById('currentUser').textContent = app.currentUser.name;\n}`
             },
-            'loadDashboard': {
-                title: 'Tableau de Bord',
-                file: 'dashboard.js',
+            'loadDashboard': { 
+                title: 'Tableau de Bord', 
+                file: 'dashboard.js', 
                 isPageLoader: true,
                 template: `function loadDashboard() {\n    const content = \`\n        <h2>Tableau de Bord</h2>\n        <div class="grid grid-cols-3 gap-4">\n            <!-- KPI Cards -->\n        </div>\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'loadEntries': {
-                title: 'Écritures Comptables',
-                file: 'entries.js',
+            'loadEntries': { 
+                title: 'Écritures Comptables', 
+                file: 'entries.js', 
                 isPageLoader: true,
                 template: `function loadEntries() {\n    const content = \`\n        <h2>Écritures Comptables</h2>\n        <!-- Formulaires et listes -->\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'loadAccounts': {
-                title: 'Plan Comptable',
-                file: 'accounts.js',
+            'loadAccounts': { 
+                title: 'Plan Comptable', 
+                file: 'accounts.js', 
                 isPageLoader: true,
                 template: `function loadAccounts() {\n    const content = \`\n        <h2>Plan Comptable SYSCOHADA</h2>\n        <!-- Liste des comptes -->\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'loadCaisse': {
-                title: 'Gestion des Caisses',
-                file: 'caisse.js',
+            'loadCaisse': { 
+                title: 'Gestion des Caisses', 
+                file: 'caisse.js', 
                 isPageLoader: true,
                 template: `function loadCaisse() {\n    const content = \`\n        <h2>Gestion des Caisses</h2>\n        <!-- Interface caisse -->\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'loadReports': {
-                title: 'Rapports & États',
-                file: 'reports.js',
+            'loadReports': { 
+                title: 'Rapports & États', 
+                file: 'reports.js', 
                 isPageLoader: true,
                 template: `function loadReports() {\n    const content = \`\n        <h2>Rapports & États</h2>\n        <!-- Génération rapports -->\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'loadImport': {
-                title: 'Import de Balances',
-                file: 'import.js',
+            'loadImport': { 
+                title: 'Import de Balances', 
+                file: 'import.js', 
                 isPageLoader: true,
                 template: `function loadImport() {\n    const content = \`\n        <h2>Import de Balances</h2>\n        <!-- Interface import -->\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'loadSettings': {
-                title: 'Mon Profil',
-                file: 'settings.js',
+            'loadSettings': { 
+                title: 'Mon Profil', 
+                file: 'settings.js', 
                 isPageLoader: true,
                 template: `function loadSettings() {\n    const content = \`\n        <h2>Mon Profil</h2>\n        <!-- Paramètres utilisateur -->\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'loadUsersManagement': {
-                title: 'Gestion Collaborateurs',
-                file: 'settings.js',
+            'loadUsersManagement': { 
+                title: 'Gestion Collaborateurs', 
+                file: 'settings.js', 
                 isPageLoader: true,
                 template: `function loadUsersManagement() {\n    const content = \`\n        <h2>Gestion des Collaborateurs</h2>\n        <!-- Interface admin utilisateurs -->\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'loadCompanies': {
-                title: 'Gestion Entreprises',
-                file: 'settings.js',
+            'loadCompanies': { 
+                title: 'Gestion Entreprises', 
+                file: 'settings.js', 
                 isPageLoader: true,
                 template: `function loadCompanies() {\n    const content = \`\n        <h2>Gestion des Entreprises</h2>\n        <!-- Interface admin entreprises -->\n    \`;\n    document.getElementById('mainContent').innerHTML = content;\n}`
             },
-            'updateSelectedCompanyInfo': {
-                title: 'Info Entreprise',
-                file: 'navigation.js',
+            'updateSelectedCompanyInfo': { 
+                title: 'Info Entreprise', 
+                file: 'navigation.js', 
                 isPageLoader: false,
-                template: `function updateSelectedCompanyInfo() {\n    // Mettre à jour les infos entreprise\n    const company = app.companies.find(c => c.id == app.currentCompanyId);\n    if (company) {\n        document.getElementById('selectedCompanyInfo').innerHTML = company.name;\n    }\n}`
+                template: `function updateSelectedCompanyInfo() {\n    // Mettre à jour les infos entreprise\n    const company = app.companies.find(c => c.id == app.currentCompany);\n    if (company) {\n        document.getElementById('selectedCompanyInfo').innerHTML = company.name;\n    }\n}`
             }
         };
 
-        return moduleMap[funcName] || {
-            title: 'Module Inconnu',
-            file: 'unknown.js',
+        return moduleMap[funcName] || { 
+            title: 'Module Inconnu', 
+            file: 'unknown.js', 
             isPageLoader: true,
             template: `function ${funcName}() {\n    // À implémenter\n}`
         };
@@ -1447,66 +977,7 @@ function setTheme(theme) {
 }
 
 // =============================================================================
-// NOUVELLES FONCTIONS UTILITAIRES POUR LA SÉPARATION DES DONNÉES
-// =============================================================================
-
-// Afficher le sélecteur d'entreprise en modal
-function showCompanySelector() {
-    if (!hasMultiCompanyAccess()) {
-        showErrorMessage('❌ Accès non autorisé au changement d\'entreprise');
-        return;
-    }
-
-    const modal = `
-        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 w-full max-w-md mx-4">
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                    <i class="fas fa-building mr-2 text-primary"></i>Sélectionner une entreprise
-                </h3>
-                <div class="space-y-4">
-                    ${app.availableCompanies.map(company => `
-                        <button onclick="selectActiveCompany(${company.id}); closeCompanySelector()"
-                                class="w-full p-4 text-left border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${company.id === app.currentCompanyId ? 'bg-primary/10 border-primary' : ''}">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <div class="font-medium text-gray-900 dark:text-white">${company.name}</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">${company.type || 'N/A'}</div>
-                                </div>
-                                ${company.id === app.currentCompanyId ? '<i class="fas fa-check text-primary"></i>' : ''}
-                            </div>
-                        </button>
-                    `).join('')}
-                </div>
-                <div class="flex justify-end mt-6">
-                    <button onclick="closeCompanySelector()"
-                            class="bg-gray-500 hover:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                        Fermer
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    const modalContainer = document.createElement('div');
-    modalContainer.id = 'companySelectorModal';
-    modalContainer.innerHTML = modal;
-    document.body.appendChild(modalContainer);
-}
-
-// Fermer le sélecteur d'entreprise
-function closeCompanySelector() {
-    const modal = document.getElementById('companySelectorModal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
-// Exposer les fonctions globalement
-window.showCompanySelector = showCompanySelector;
-window.closeCompanySelector = closeCompanySelector;
-
-// =============================================================================
-// FONCTION DE VÉRIFICATION DES MODULES - AMÉLIORÉE
+// FONCTION DE VÉRIFICATION DES MODULES
 // =============================================================================
 function showModuleStatus() {
     const status = moduleManager.requiredFunctions.map(func => {
@@ -1524,16 +995,19 @@ function showModuleStatus() {
 window.showModuleStatus = showModuleStatus;
 
 // =============================================================================
-// EVENT LISTENERS & INITIALIZATION - MODIFIÉ AVEC SÉPARATION DES DONNÉES
+// EVENT LISTENERS & INITIALIZATION - MODIFIÉ
 // =============================================================================
 function bindEventListeners() {
     try {
-        // Company selector - CRITIQUE POUR LA SÉPARATION DES DONNÉES
+        // Company selector
         setTimeout(() => {
             const companySelect = document.getElementById('activeCompanySelect');
             if (companySelect) {
                 companySelect.addEventListener('change', function(e) {
-                    selectActiveCompany(e.target.value); // Utilise la fonction sécurisée
+                    app.currentCompany = e.target.value;
+                    app.currentCompanyId = parseInt(e.target.value); // CRITIQUE : synchroniser les deux variables
+                    updateSelectedCompanyInfo(); // Cette fonction sera créée par le moduleManager si nécessaire
+                    console.log('✅ Entreprise sélectionnée:', app.currentCompany);
                 });
             }
         }, 100);
@@ -1633,17 +1107,7 @@ document.addEventListener('click', function(e) {
     if (notifPanel && !notifPanel.contains(e.target) && !notifButton) {
         notifPanel.classList.add('hidden');
     }
-
-    // Close company selector modal when clicking outside
-    const companySelectorModal = document.getElementById('companySelectorModal');
-    if (companySelectorModal && e.target === companySelectorModal) {
-        closeCompanySelector();
-    }
 });
-
-// =============================================================================
-// DÉMARRAGE DE L'APPLICATION AVEC SÉCURITÉ RENFORCÉE
-// =============================================================================
 
 // APPLICATION START
 document.addEventListener('DOMContentLoaded', function() {
@@ -1651,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', function() {
         themeManager.init();
         setTimeout(() => {
             bindEventListeners();
-            console.log('🚀 DOUKÈ Compta Pro - Application démarrée avec gestion sécurisée des modules');
+            console.log('🚀 DOUKÈ Compta Pro - Application démarrée avec gestion des modules');
             console.log('🔒 Séparation des données par entreprise: ACTIVÉE');
             console.log('🔄 Synchronisation PIWA:', syncManager.canAccessAutoSync() ? 'AUTORISÉE' : 'NON AUTORISÉE');
         }, 100);
@@ -1667,21 +1131,4 @@ window.addEventListener('error', function(e) {
 
 window.addEventListener('unhandledrejection', function(e) {
     console.error('❌ Promesse rejetée:', e.reason);
-});
-
-// =============================================================================
-// FONCTION DE NETTOYAGE À LA FERMETURE
-// =============================================================================
-window.addEventListener('beforeunload', function() {
-    // Arrêter la synchronisation automatique
-    if (syncManager.initialized) {
-        syncManager.stopAutoSync();
-    }
-
-    // Sauvegarder l'état actuel
-    if (app.currentCompanyId) {
-        localStorage.setItem('selectedCompanyId', app.currentCompanyId);
-    }
-
-    console.log('🔄 Application fermée proprement');
 });
