@@ -73,7 +73,11 @@ function initializeData() {
         { code: '920000', name: 'Centres d\'analyse', category: 'Comptabilité analytique' }
     ];
 
-    // Entreprises avec données réalistes - ORIGINAL COMPLET
+    // =============================================================================
+    // ENTREPRISES AVEC PLANS COMPTABLES SPÉCIFIQUES - CRITIQUE POUR LA SÉPARATION
+    // =============================================================================
+    
+    // Entreprises avec données réalistes - ORIGINAL COMPLET + PLAN COMPTABLE SPÉCIFIQUE
     app.companies = [
         {
             id: 1,
@@ -86,7 +90,9 @@ function initializeData() {
             address: 'Abidjan, Cocody - Riviera 3',
             cashRegisters: 3,
             createdAt: '2024-01-01T00:00:00.000Z',
-            createdBy: 1
+            createdBy: 1,
+            // PLAN COMPTABLE SPÉCIFIQUE À CETTE ENTREPRISE
+            accountingPlan: generateCompanyAccountingPlan('SARL')
         },
         {
             id: 2,
@@ -99,7 +105,9 @@ function initializeData() {
             address: 'Abidjan, Plateau - Boulevard de la République',
             cashRegisters: 5,
             createdAt: '2024-01-15T00:00:00.000Z',
-            createdBy: 1
+            createdBy: 1,
+            // PLAN COMPTABLE SPÉCIFIQUE À CETTE ENTREPRISE
+            accountingPlan: generateCompanyAccountingPlan('SA')
         },
         {
             id: 3,
@@ -112,7 +120,9 @@ function initializeData() {
             address: 'Bouaké Centre - Quartier Ahouatta',
             cashRegisters: 2,
             createdAt: '2024-02-01T00:00:00.000Z',
-            createdBy: 1
+            createdBy: 1,
+            // PLAN COMPTABLE SPÉCIFIQUE À CETTE ENTREPRISE
+            accountingPlan: generateCompanyAccountingPlan('EURL')
         },
         {
             id: 4,
@@ -125,11 +135,13 @@ function initializeData() {
             address: 'San-Pédro - Zone Industrielle',
             cashRegisters: 1,
             createdAt: '2024-03-01T00:00:00.000Z',
-            createdBy: 1
+            createdBy: 1,
+            // PLAN COMPTABLE SPÉCIFIQUE À CETTE ENTREPRISE
+            accountingPlan: generateCompanyAccountingPlan('SAS')
         }
     ];
 
-    // Utilisateurs avec profils détaillés - CORRIGÉ ET COMPLÉTÉ
+    // Utilisateurs avec profils détaillés - CORRIGÉ ET COMPLÉTÉ AVEC ENTREPRISES ASSIGNÉES
     app.users = [
         {
             id: 1,
@@ -138,6 +150,7 @@ function initializeData() {
             role: 'Administrateur',
             profile: 'admin',
             phone: '+225 07 00 00 00 00',
+            assignedCompanies: [1, 2, 3, 4], // CRITIQUE - Entreprises assignées
             companyIds: [1, 2, 3, 4],
             companies: [1, 2, 3, 4], // Maintenir la compatibilité
             status: 'Actif',
@@ -150,8 +163,9 @@ function initializeData() {
             name: 'Marie Kouassi',
             email: 'marie.kouassi@cabinet.com',
             role: 'Collaborateur Senior',
-            profile: 'collaborateur-senior',
+            profile: 'collaborateur_senior',
             phone: '+225 07 11 11 11 11',
+            assignedCompanies: [1, 2, 3], // CRITIQUE - Entreprises assignées
             companyIds: [1, 2, 3],
             companies: [1, 2, 3], // Maintenir la compatibilité
             status: 'Actif',
@@ -166,6 +180,7 @@ function initializeData() {
             role: 'Collaborateur',
             profile: 'collaborateur',
             phone: '+225 07 22 22 22 22',
+            assignedCompanies: [2, 4], // CRITIQUE - Entreprises assignées
             companyIds: [2, 4],
             companies: [2, 4], // Maintenir la compatibilité
             status: 'Actif',
@@ -180,6 +195,8 @@ function initializeData() {
             role: 'Utilisateur',
             profile: 'user',
             phone: '+225 07 33 33 33 33',
+            companyId: 1, // CRITIQUE - Entreprise unique pour utilisateur
+            assignedCompanies: [1], // CRITIQUE - Pour compatibilité
             companyIds: [1],
             companies: [1], // Maintenir la compatibilité
             status: 'Actif',
@@ -194,6 +211,8 @@ function initializeData() {
             role: 'Caissier',
             profile: 'caissier',
             phone: '+225 07 44 44 44 44',
+            companyId: 2, // CRITIQUE - Entreprise de la caisse assignée
+            assignedCompanies: [2], // CRITIQUE - Pour compatibilité
             companyIds: [2],
             companies: [2], // Maintenir la compatibilité
             status: 'Actif',
@@ -319,9 +338,512 @@ function initializeData() {
     // Initialiser le logo de l'entreprise
     app.companyLogo = null;
 
+    // =============================================================================
+    // INITIALISATION DU CACHE DES DONNÉES FILTRÉES - CRITIQUE
+    // =============================================================================
+    initializeFilteredDataCache();
+
     console.log('✅ Données initialisées avec succès');
     console.log(`📊 Statistiques: ${app.accounts.length} comptes, ${app.companies.length} entreprises, ${app.users.length} utilisateurs, ${app.entries.length} écritures, ${app.cashRegisters.length} caisses`);
 }
+
+// =============================================================================
+// GÉNÉRATION DU PLAN COMPTABLE SPÉCIFIQUE PAR ENTREPRISE - CRITIQUE
+// =============================================================================
+
+function generateCompanyAccountingPlan(companyType) {
+    // Plan comptable de base SYSCOHADA adapté selon le type d'entreprise
+    let basePlan = [
+        { code: '101000', name: 'Capital social', category: 'Capitaux propres', mandatory: true },
+        { code: '106000', name: 'Réserves', category: 'Capitaux propres', mandatory: true },
+        { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres', mandatory: true },
+        { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres', mandatory: true },
+        { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs', mandatory: true },
+        { code: '411000', name: 'Clients', category: 'Clients', mandatory: true },
+        { code: '512000', name: 'Banques', category: 'Comptes bancaires', mandatory: true },
+        { code: '571000', name: 'Caisse', category: 'Caisse', mandatory: true },
+        { code: '601000', name: 'Achats de marchandises', category: 'Achats', mandatory: true },
+        { code: '701000', name: 'Ventes de marchandises', category: 'Ventes', mandatory: true },
+        { code: '441000', name: 'État et collectivités', category: 'État', mandatory: true }
+    ];
+
+    // Comptes spécifiques selon le type d'entreprise
+    switch (companyType) {
+        case 'SARL':
+        case 'EURL':
+            basePlan.push(
+                { code: '455000', name: 'Associés - Comptes courants', category: 'Associés', mandatory: false },
+                { code: '108000', name: 'Compte de l\'exploitant', category: 'Capitaux propres', mandatory: false }
+            );
+            break;
+        case 'SA':
+        case 'SAS':
+            basePlan.push(
+                { code: '103000', name: 'Primes liées au capital', category: 'Capitaux propres', mandatory: false },
+                { code: '457000', name: 'Actionnaires - Capital souscrit non appelé', category: 'Actionnaires', mandatory: false },
+                { code: '465000', name: 'Administrateurs et commissaires', category: 'Dirigeants', mandatory: false }
+            );
+            break;
+        case 'Auto-entreprise':
+            basePlan = basePlan.filter(account => 
+                !['106000', '455000', '103000'].includes(account.code)
+            );
+            basePlan.push(
+                { code: '108000', name: 'Compte de l\'exploitant', category: 'Capitaux propres', mandatory: true }
+            );
+            break;
+    }
+
+    // Ajouter la date de création et l'ID unique pour chaque compte
+    return basePlan.map((account, index) => ({
+        ...account,
+        id: `${companyType}_${account.code}_${Date.now()}_${index}`,
+        createdAt: new Date().toISOString(),
+        isActive: true,
+        balance: 0
+    }));
+}
+
+// =============================================================================
+// GESTION DU CACHE DES DONNÉES FILTRÉES - CRITIQUE POUR LA PERFORMANCE
+// =============================================================================
+
+function initializeFilteredDataCache() {
+    if (!app.filteredData) {
+        app.filteredData = {
+            entries: [],
+            accounts: [],
+            reports: [],
+            cashRegisters: [],
+            users: [],
+            lastUpdate: null,
+            companyId: null
+        };
+    }
+}
+
+function updateFilteredDataCache() {
+    if (!app.currentCompanyId) {
+        clearFilteredDataCache();
+        return;
+    }
+
+    try {
+        app.filteredData = {
+            entries: getEntriesByCompanySecure(app.currentCompanyId),
+            accounts: getCompanyAccountingPlanSecure(app.currentCompanyId),
+            cashRegisters: getCashRegistersByCompanySecure(app.currentCompanyId),
+            users: getUsersByCompanySecure(app.currentCompanyId),
+            reports: getReportsByCompanySecure(app.currentCompanyId),
+            lastUpdate: new Date().toISOString(),
+            companyId: app.currentCompanyId
+        };
+
+        console.log(`🔄 Cache mis à jour pour entreprise ${app.currentCompanyId}:`, {
+            entries: app.filteredData.entries.length,
+            accounts: app.filteredData.accounts.length,
+            cashRegisters: app.filteredData.cashRegisters.length,
+            users: app.filteredData.users.length
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur mise à jour cache:', error);
+        clearFilteredDataCache();
+    }
+}
+
+function clearFilteredDataCache() {
+    app.filteredData = {
+        entries: [],
+        accounts: [],
+        reports: [],
+        cashRegisters: [],
+        users: [],
+        lastUpdate: null,
+        companyId: null
+    };
+    console.log('🗑️ Cache des données filtrées vidé');
+}
+
+function isFilteredDataCacheValid() {
+    if (!app.filteredData || !app.filteredData.lastUpdate) return false;
+    if (app.filteredData.companyId !== app.currentCompanyId) return false;
+    
+    // Cache valide pendant 5 minutes
+    const cacheAge = Date.now() - new Date(app.filteredData.lastUpdate).getTime();
+    return cacheAge < 300000; // 5 minutes
+}
+
+// =============================================================================
+// FONCTIONS DE FILTRAGE SÉCURISÉ PAR ENTREPRISE - CRITIQUES
+// =============================================================================
+
+// FONCTION CRITIQUE - Obtenir les écritures de l'entreprise sélectionnée UNIQUEMENT
+function getEntriesByCompanySecure(companyId) {
+    if (!companyId) {
+        console.warn('⚠️ getEntriesByCompanySecure: Aucune entreprise spécifiée');
+        return [];
+    }
+
+    // Vérifier l'autorisation d'accès à cette entreprise
+    if (!hasAccessToCompany(companyId)) {
+        console.error('❌ Accès refusé aux écritures de l\'entreprise:', companyId);
+        return [];
+    }
+
+    return app.entries.filter(entry => entry.companyId === companyId);
+}
+
+// FONCTION CRITIQUE - Obtenir le plan comptable de l'entreprise sélectionnée UNIQUEMENT
+function getCompanyAccountingPlanSecure(companyId) {
+    if (!companyId) {
+        console.warn('⚠️ getCompanyAccountingPlanSecure: Aucune entreprise spécifiée');
+        return [];
+    }
+
+    // Vérifier l'autorisation d'accès à cette entreprise
+    if (!hasAccessToCompany(companyId)) {
+        console.error('❌ Accès refusé au plan comptable de l\'entreprise:', companyId);
+        return [];
+    }
+
+    const company = app.companies.find(c => c.id === companyId);
+    if (!company) {
+        console.error('❌ Entreprise non trouvée:', companyId);
+        return [];
+    }
+
+    return company.accountingPlan || [];
+}
+
+// FONCTION CRITIQUE - Obtenir les caisses de l'entreprise sélectionnée UNIQUEMENT
+function getCashRegistersByCompanySecure(companyId) {
+    if (!companyId) {
+        console.warn('⚠️ getCashRegistersByCompanySecure: Aucune entreprise spécifiée');
+        return [];
+    }
+
+    // Vérifier l'autorisation d'accès à cette entreprise
+    if (!hasAccessToCompany(companyId)) {
+        console.error('❌ Accès refusé aux caisses de l\'entreprise:', companyId);
+        return [];
+    }
+
+    return app.cashRegisters.filter(cashRegister => cashRegister.companyId === companyId);
+}
+
+// FONCTION CRITIQUE - Obtenir les utilisateurs de l'entreprise sélectionnée UNIQUEMENT
+function getUsersByCompanySecure(companyId) {
+    if (!companyId) {
+        console.warn('⚠️ getUsersByCompanySecure: Aucune entreprise spécifiée');
+        return [];
+    }
+
+    // Vérifier l'autorisation d'accès à cette entreprise
+    if (!hasAccessToCompany(companyId)) {
+        console.error('❌ Accès refusé aux utilisateurs de l\'entreprise:', companyId);
+        return [];
+    }
+
+    return app.users.filter(user => 
+        (user.assignedCompanies && user.assignedCompanies.includes(companyId)) ||
+        user.companyId === companyId ||
+        (user.companyIds && user.companyIds.includes(companyId))
+    );
+}
+
+// FONCTION CRITIQUE - Obtenir les rapports de l'entreprise sélectionnée UNIQUEMENT
+function getReportsByCompanySecure(companyId) {
+    if (!companyId) {
+        console.warn('⚠️ getReportsByCompanySecure: Aucune entreprise spécifiée');
+        return [];
+    }
+
+    // Vérifier l'autorisation d'accès à cette entreprise
+    if (!hasAccessToCompany(companyId)) {
+        console.error('❌ Accès refusé aux rapports de l\'entreprise:', companyId);
+        return [];
+    }
+
+    return app.reports ? app.reports.filter(report => report.companyId === companyId) : [];
+}
+
+// FONCTION CRITIQUE - Vérifier l'accès à une entreprise
+function hasAccessToCompany(companyId) {
+    if (!app.currentUser || !app.currentProfile) {
+        return false;
+    }
+
+    // Admin a accès à tout
+    if (app.currentProfile === 'admin') {
+        return true;
+    }
+
+    // Collaborateurs : vérifier les entreprises assignées
+    if (app.currentProfile === 'collaborateur_senior' || app.currentProfile === 'collaborateur') {
+        return app.currentUser.assignedCompanies && 
+               app.currentUser.assignedCompanies.includes(companyId);
+    }
+
+    // Utilisateur simple : seulement son entreprise
+    if (app.currentProfile === 'user') {
+        return app.currentUser.companyId === companyId;
+    }
+
+    // Caissier : seulement l'entreprise de sa caisse
+    if (app.currentProfile === 'caissier') {
+        const cashRegister = app.cashRegisters.find(cr => cr.userId === app.currentUser.id);
+        return cashRegister && cashRegister.companyId === companyId;
+    }
+
+    return false;
+}
+
+// =============================================================================
+// FONCTIONS PUBLIQUES SÉCURISÉES EXPOSÉES GLOBALEMENT - CRITIQUES
+// =============================================================================
+
+// Ces fonctions utilisent automatiquement l'entreprise active et le cache
+function getSecureFilteredEntries() {
+    if (!app.currentCompanyId) {
+        console.warn('⚠️ Aucune entreprise sélectionnée');
+        return [];
+    }
+
+    // Utiliser le cache si disponible et valide
+    if (isFilteredDataCacheValid()) {
+        return app.filteredData.entries;
+    }
+
+    // Sinon, mettre à jour le cache et retourner les données
+    updateFilteredDataCache();
+    return app.filteredData.entries;
+}
+
+function getSecureCompanyAccountingPlan() {
+    if (!app.currentCompanyId) {
+        console.warn('⚠️ Aucune entreprise sélectionnée');
+        return [];
+    }
+
+    // Utiliser le cache si disponible et valide
+    if (isFilteredDataCacheValid()) {
+        return app.filteredData.accounts;
+    }
+
+    // Sinon, mettre à jour le cache et retourner les données
+    updateFilteredDataCache();
+    return app.filteredData.accounts;
+}
+
+function getSecureFilteredCashRegisters() {
+    if (!app.currentCompanyId) {
+        console.warn('⚠️ Aucune entreprise sélectionnée');
+        return [];
+    }
+
+    // Utiliser le cache si disponible et valide
+    if (isFilteredDataCacheValid()) {
+        return app.filteredData.cashRegisters;
+    }
+
+    // Sinon, mettre à jour le cache et retourner les données
+    updateFilteredDataCache();
+    return app.filteredData.cashRegisters;
+}
+
+function getSecureFilteredUsers() {
+    if (!app.currentCompanyId) {
+        console.warn('⚠️ Aucune entreprise sélectionnée');
+        return [];
+    }
+
+    // Utiliser le cache si disponible et valide
+    if (isFilteredDataCacheValid()) {
+        return app.filteredData.users;
+    }
+
+    // Sinon, mettre à jour le cache et retourner les données
+    updateFilteredDataCache();
+    return app.filteredData.users;
+}
+
+// =============================================================================
+// GESTION DE LA SYNCHRONISATION DES DONNÉES - PIWA
+// =============================================================================
+
+// Classe pour gérer la synchronisation des données
+class DataSyncManager {
+    constructor() {
+        this.syncInProgress = false;
+        this.lastSyncTimestamp = null;
+        this.syncQueue = [];
+        this.retryAttempts = 3;
+    }
+
+    // Ajouter des données à synchroniser à la queue
+    queueDataForSync(dataType, operation, data, companyId) {
+        if (!this.canSyncData()) {
+            console.log('ℹ️ Synchronisation non autorisée pour ce profil');
+            return;
+        }
+
+        const syncItem = {
+            id: `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            dataType: dataType, // 'entries', 'accounts', 'companies', etc.
+            operation: operation, // 'create', 'update', 'delete'
+            data: data,
+            companyId: companyId || app.currentCompanyId,
+            timestamp: new Date().toISOString(),
+            retries: 0,
+            status: 'pending'
+        };
+
+        this.syncQueue.push(syncItem);
+        console.log(`📤 Données ajoutées à la queue de sync: ${dataType} (${operation})`);
+
+        // Déclencher la synchronisation automatique si en ligne
+        if (navigator.onLine && !this.syncInProgress) {
+            setTimeout(() => this.processSyncQueue(), 1000);
+        }
+    }
+
+    // Vérifier si l'utilisateur peut synchroniser les données
+    canSyncData() {
+        return app.currentProfile === 'admin' || 
+               app.currentProfile === 'collaborateur_senior';
+    }
+
+    // Traiter la queue de synchronisation
+    async processSyncQueue() {
+        if (this.syncInProgress || !this.canSyncData() || !navigator.onLine) {
+            return;
+        }
+
+        if (this.syncQueue.length === 0) {
+            return;
+        }
+
+        this.syncInProgress = true;
+        console.log(`🔄 Traitement de ${this.syncQueue.length} éléments dans la queue de sync`);
+
+        try {
+            const pendingItems = this.syncQueue.filter(item => item.status === 'pending');
+            
+            for (const item of pendingItems) {
+                try {
+                    await this.syncSingleItem(item);
+                    item.status = 'completed';
+                    item.completedAt = new Date().toISOString();
+                } catch (error) {
+                    console.error(`❌ Erreur sync item ${item.id}:`, error);
+                    item.retries++;
+                    
+                    if (item.retries >= this.retryAttempts) {
+                        item.status = 'failed';
+                        item.error = error.message;
+                    }
+                }
+            }
+
+            // Nettoyer la queue des éléments terminés
+            this.syncQueue = this.syncQueue.filter(item => 
+                item.status === 'pending' && item.retries < this.retryAttempts
+            );
+
+            this.lastSyncTimestamp = new Date().toISOString();
+            console.log('✅ Synchronisation des données terminée');
+
+        } catch (error) {
+            console.error('❌ Erreur lors du traitement de la queue de sync:', error);
+        } finally {
+            this.syncInProgress = false;
+        }
+    }
+
+    // Synchroniser un élément spécifique
+    async syncSingleItem(item) {
+        // Simulation de la synchronisation avec un serveur
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                // Simuler une réponse du serveur
+                if (Math.random() > 0.1) { // 90% de succès
+                    resolve({
+                        success: true,
+                        item: item,
+                        serverTimestamp: new Date().toISOString()
+                    });
+                } else {
+                    reject(new Error('Erreur de synchronisation simulée'));
+                }
+            }, Math.random() * 1000 + 500); // 500ms - 1.5s
+        });
+    }
+
+    // Forcer une synchronisation complète des données d'une entreprise
+    async forceSyncCompanyData(companyId) {
+        if (!this.canSyncData()) {
+            throw new Error('Synchronisation non autorisée');
+        }
+
+        if (!companyId) {
+            throw new Error('ID d\'entreprise requis');
+        }
+
+        console.log(`🔄 Synchronisation forcée pour entreprise ${companyId}`);
+
+        try {
+            // Synchroniser toutes les données de l'entreprise
+            const entries = getEntriesByCompanySecure(companyId);
+            const accounts = getCompanyAccountingPlanSecure(companyId);
+            const cashRegisters = getCashRegistersByCompanySecure(companyId);
+
+            // Ajouter tout à la queue de sync
+            entries.forEach(entry => {
+                this.queueDataForSync('entries', 'sync', entry, companyId);
+            });
+
+            accounts.forEach(account => {
+                this.queueDataForSync('accounts', 'sync', account, companyId);
+            });
+
+            cashRegisters.forEach(cashRegister => {
+                this.queueDataForSync('cashRegisters', 'sync', cashRegister, companyId);
+            });
+
+            // Traiter la queue
+            await this.processSyncQueue();
+
+            console.log(`✅ Synchronisation forcée terminée pour entreprise ${companyId}`);
+            return true;
+
+        } catch (error) {
+            console.error('❌ Erreur synchronisation forcée:', error);
+            throw error;
+        }
+    }
+
+    // Obtenir le statut de la synchronisation
+    getSyncStatus() {
+        return {
+            inProgress: this.syncInProgress,
+            queueLength: this.syncQueue.length,
+            lastSync: this.lastSyncTimestamp,
+            canSync: this.canSyncData(),
+            pendingItems: this.syncQueue.filter(item => item.status === 'pending').length,
+            failedItems: this.syncQueue.filter(item => item.status === 'failed').length
+        };
+    }
+
+    // Nettoyer la queue de synchronisation
+    clearSyncQueue() {
+        this.syncQueue = [];
+        console.log('🗑️ Queue de synchronisation vidée');
+    }
+}
+
+// Instance globale du gestionnaire de synchronisation
+const dataSyncManager = new DataSyncManager();
 
 // =============================================================================
 // SYSCOHADA RÉVISÉ JOURNALS MANAGEMENT - FONCTION ORIGINALE COMPLÈTE
@@ -388,6 +910,11 @@ function showAdminDataMenu() {
     <div class="text-xs mt-1 opacity-80">Pour démonstration</div>
     </button>
 
+    <button onclick="syncAllCompaniesData()" class="w-full bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg font-medium transition-colors text-left">
+    <i class="fas fa-sync mr-3"></i>Synchroniser toutes les données
+    <div class="text-xs mt-1 opacity-80">Synchronisation PIWA complète</div>
+    </button>
+
     <button onclick="resetDatabase()" class="w-full bg-danger hover:bg-danger/90 text-white px-4 py-3 rounded-lg font-medium transition-colors text-left">
     <i class="fas fa-exclamation-triangle mr-3"></i>Réinitialiser la base
     <div class="text-xs mt-1 opacity-80">Supprime TOUT - Attention!</div>
@@ -414,6 +941,17 @@ function showAdminDataMenu() {
     </div>
     </div>
 
+    <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+    <div class="text-sm text-blue-600 dark:text-blue-400">
+    <div class="flex justify-between">
+    <span>Sync Queue:</span><span class="font-medium">${dataSyncManager.getSyncStatus().queueLength}</span>
+    </div>
+    <div class="flex justify-between">
+    <span>Dernière sync:</span><span class="font-medium">${dataSyncManager.getSyncStatus().lastSync ? new Date(dataSyncManager.getSyncStatus().lastSync).toLocaleTimeString('fr-FR') : 'Jamais'}</span>
+    </div>
+    </div>
+    </div>
+
     <div class="mt-6 flex justify-end space-x-3">
     <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors">
     Fermer
@@ -423,6 +961,33 @@ function showAdminDataMenu() {
     </div>
     `;
     document.getElementById('modalContainer').innerHTML = modal;
+}
+
+// Nouvelle fonction pour synchroniser toutes les données des entreprises
+async function syncAllCompaniesData() {
+    if (!dataSyncManager.canSyncData()) {
+        alert('❌ Synchronisation non autorisée pour ce profil');
+        return;
+    }
+
+    if (confirm('Synchroniser toutes les données de toutes les entreprises ?\n\nCela peut prendre plusieurs minutes selon la quantité de données.')) {
+        try {
+            let totalSynced = 0;
+            
+            for (const company of app.companies) {
+                console.log(`🔄 Synchronisation de ${company.name}...`);
+                await dataSyncManager.forceSyncCompanyData(company.id);
+                totalSynced++;
+            }
+
+            alert(`✅ Synchronisation terminée pour ${totalSynced} entreprise(s)`);
+            closeModal();
+            
+        } catch (error) {
+            alert(`❌ Erreur lors de la synchronisation: ${error.message}`);
+            console.error('❌ Erreur sync globale:', error);
+        }
+    }
 }
 
 function clearTestData() {
@@ -435,6 +1000,12 @@ function clearTestData() {
         app.companies = [];
         app.users = adminUser ? [adminUser] : [];
         
+        // Vider le cache des données filtrées
+        clearFilteredDataCache();
+        
+        // Vider la queue de synchronisation
+        dataSyncManager.clearSyncQueue();
+        
         showDataSuccessMessage('✅ Données de test supprimées avec succès !');
         
         // Fermer le modal et recharger si on est sur une page impactée
@@ -446,11 +1017,14 @@ function clearTestData() {
 
 function exportAllData() {
     try {
+        const syncStatus = dataSyncManager.getSyncStatus();
+        
         const exportData = {
-            version: '2.0',
+            version: '2.1',
             exportDate: new Date().toISOString(),
             exportedBy: app.currentUser.id,
             exportedByName: app.currentUser.name,
+            syncStatus: syncStatus,
             data: {
                 accounts: app.accounts,
                 companies: app.companies,
@@ -531,6 +1105,10 @@ function importData() {
                     app.cashRegisters = data.cashRegisters;
                     app.companyLogo = data.companyLogo;
                     
+                    // Réinitialiser le cache et la synchronisation
+                    clearFilteredDataCache();
+                    dataSyncManager.clearSyncQueue();
+                    
                     showDataSuccessMessage('✅ Import terminé avec succès !');
                     
                     // Fermer le modal et recharger l'interface
@@ -553,7 +1131,7 @@ function generateTestData() {
     if (confirm('Générer des données de test supplémentaires ?\n\nCela ajoutera:\n- 5 nouvelles entreprises\n- 10 nouveaux utilisateurs\n- 50 nouvelles écritures\n- 8 nouvelles caisses')) {
         
         try {
-            // Nouvelles entreprises
+            // Nouvelles entreprises avec plans comptables
             const newCompanies = [
                 {
                     id: app.companies.length + 1,
@@ -565,7 +1143,8 @@ function generateTestData() {
                     email: 'contact@exempletrading.ci',
                     address: 'Yamoussoukro - Quartier Résidentiel',
                     createdAt: new Date().toISOString(),
-                    createdBy: app.currentUser.id
+                    createdBy: app.currentUser.id,
+                    accountingPlan: generateCompanyAccountingPlan('SARL')
                 },
                 {
                     id: app.companies.length + 2,
@@ -577,11 +1156,12 @@ function generateTestData() {
                     email: 'hello@webdesign.ci',
                     address: 'Korhogo - Centre-ville',
                     createdAt: new Date().toISOString(),
-                    createdBy: app.currentUser.id
+                    createdBy: app.currentUser.id,
+                    accountingPlan: generateCompanyAccountingPlan('Auto-entreprise')
                 }
             ];
 
-            // Nouveaux utilisateurs
+            // Nouveaux utilisateurs avec entreprises assignées
             const newUsers = [
                 {
                     id: app.users.length + 1,
@@ -590,6 +1170,7 @@ function generateTestData() {
                     role: 'Collaborateur',
                     profile: 'collaborateur',
                     phone: '+225 07 77 77 77 77',
+                    assignedCompanies: [newCompanies[0].id],
                     companyIds: [newCompanies[0].id],
                     companies: [newCompanies[0].id],
                     status: 'Actif',
@@ -603,6 +1184,8 @@ function generateTestData() {
                     role: 'Caissier',
                     profile: 'caissier',
                     phone: '+225 05 88 88 88 88',
+                    companyId: newCompanies[1].id,
+                    assignedCompanies: [newCompanies[1].id],
                     companyIds: [newCompanies[1].id],
                     companies: [newCompanies[1].id],
                     status: 'Actif',
@@ -654,6 +1237,9 @@ function generateTestData() {
             app.entries.push(...newEntries);
             app.cashRegisters.push(...newCashRegisters);
 
+            // Vider le cache pour forcer la mise à jour
+            clearFilteredDataCache();
+
             showDataSuccessMessage('✅ Données de test générées avec succès !');
             closeModal();
             
@@ -688,6 +1274,10 @@ function resetDatabase() {
                     adminUser.id = 1;
                     adminUser.lastLogin = new Date().toISOString();
                 }
+
+                // Vider le cache et la synchronisation
+                clearFilteredDataCache();
+                dataSyncManager.clearSyncQueue();
 
                 showDataSuccessMessage('✅ Base de données réinitialisée avec succès !');
                 closeModal();
@@ -739,7 +1329,7 @@ function closeModalOnBackground(event) {
 }
 
 // =============================================================================
-// FONCTIONS DE RECHERCHE ET FILTRAGE
+// FONCTIONS DE RECHERCHE ET FILTRAGE - ÉTENDUES AVEC SÉCURITÉ
 // =============================================================================
 
 function searchAccounts(query) {
@@ -753,12 +1343,38 @@ function searchAccounts(query) {
     );
 }
 
+// FONCTION SÉCURISÉE - Rechercher dans les comptes de l'entreprise active
+function searchCompanyAccounts(query) {
+    const companyAccounts = getSecureCompanyAccountingPlan();
+    
+    if (!query) return companyAccounts;
+    
+    const searchTerm = query.toLowerCase();
+    return companyAccounts.filter(account => 
+        account.code.toLowerCase().includes(searchTerm) ||
+        account.name.toLowerCase().includes(searchTerm) ||
+        account.category.toLowerCase().includes(searchTerm)
+    );
+}
+
 function getAccountByCode(code) {
     return app.accounts.find(account => account.code === code);
 }
 
+// FONCTION SÉCURISÉE - Obtenir un compte de l'entreprise active
+function getCompanyAccountByCode(code) {
+    const companyAccounts = getSecureCompanyAccountingPlan();
+    return companyAccounts.find(account => account.code === code);
+}
+
 function getAccountsByCategory(category) {
     return app.accounts.filter(account => account.category === category);
+}
+
+// FONCTION SÉCURISÉE - Obtenir les comptes par catégorie de l'entreprise active
+function getCompanyAccountsByCategory(category) {
+    const companyAccounts = getSecureCompanyAccountingPlan();
+    return companyAccounts.filter(account => account.category === category);
 }
 
 function getUsersByCompany(companyId) {
@@ -775,12 +1391,18 @@ function getEntriesByUser(userId) {
     return app.entries.filter(entry => entry.userId === userId);
 }
 
+// FONCTION SÉCURISÉE - Obtenir les écritures de l'utilisateur pour l'entreprise active
+function getSecureEntriesByUser(userId) {
+    const companyEntries = getSecureFilteredEntries();
+    return companyEntries.filter(entry => entry.userId === userId);
+}
+
 function getCashRegistersByCompany(companyId) {
     return app.cashRegisters.filter(cashRegister => cashRegister.companyId === companyId);
 }
 
 // =============================================================================
-// FONCTIONS DE VALIDATION
+// FONCTIONS DE VALIDATION - ÉTENDUES AVEC CONTRÔLES DE SÉCURITÉ
 // =============================================================================
 
 function validateEntry(entry) {
@@ -792,6 +1414,11 @@ function validateEntry(entry) {
     if (!entry.companyId) errors.push('Entreprise manquante');
     if (!entry.lines || entry.lines.length === 0) errors.push('Aucune ligne comptable');
     
+    // CONTRÔLE DE SÉCURITÉ - Vérifier l'accès à l'entreprise
+    if (entry.companyId && !hasAccessToCompany(entry.companyId)) {
+        errors.push('Accès non autorisé à cette entreprise');
+    }
+    
     if (entry.lines && entry.lines.length > 0) {
         const totalDebit = entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
         const totalCredit = entry.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
@@ -799,6 +1426,15 @@ function validateEntry(entry) {
         if (Math.abs(totalDebit - totalCredit) > 0.01) {
             errors.push('Déséquilibre débit/crédit');
         }
+
+        // Valider que les comptes existent dans le plan comptable de l'entreprise
+        const companyAccounts = getCompanyAccountingPlanSecure(entry.companyId);
+        entry.lines.forEach((line, index) => {
+            const accountExists = companyAccounts.some(account => account.code === line.account);
+            if (!accountExists) {
+                errors.push(`Ligne ${index + 1}: Compte ${line.account} non trouvé dans le plan comptable`);
+            }
+        });
     }
     
     return {
@@ -818,6 +1454,16 @@ function validateUser(user) {
     const existingUser = app.users.find(u => u.email === user.email && u.id !== user.id);
     if (existingUser) errors.push('Email déjà utilisé');
     
+    // CONTRÔLE DE SÉCURITÉ - Vérifier les entreprises assignées
+    if (user.assignedCompanies && user.assignedCompanies.length > 0) {
+        user.assignedCompanies.forEach(companyId => {
+            const companyExists = app.companies.some(c => c.id === companyId);
+            if (!companyExists) {
+                errors.push(`Entreprise ${companyId} n'existe pas`);
+            }
+        });
+    }
+    
     return {
         isValid: errors.length === 0,
         errors: errors
@@ -836,6 +1482,15 @@ function validateCompany(company) {
     );
     if (existingCompany) errors.push('Nom d\'entreprise déjà utilisé');
     
+    // Valider le plan comptable si fourni
+    if (company.accountingPlan && company.accountingPlan.length > 0) {
+        const codes = company.accountingPlan.map(account => account.code);
+        const uniqueCodes = [...new Set(codes)];
+        if (codes.length !== uniqueCodes.length) {
+            errors.push('Codes de comptes dupliqués dans le plan comptable');
+        }
+    }
+    
     return {
         isValid: errors.length === 0,
         errors: errors
@@ -848,7 +1503,7 @@ function isValidEmail(email) {
 }
 
 // =============================================================================
-// FONCTIONS STATISTIQUES
+// FONCTIONS STATISTIQUES - ÉTENDUES AVEC DONNÉES FILTRÉES
 // =============================================================================
 
 function getAppStatistics() {
@@ -888,8 +1543,162 @@ function getAppStatistics() {
             open: app.cashRegisters.filter(c => c.status === 'Ouvert').length,
             closed: app.cashRegisters.filter(c => c.status === 'Fermé').length,
             totalBalance: app.cashRegisters.reduce((sum, cash) => sum + (cash.balance || 0), 0)
-        }
+        },
+        sync: dataSyncManager.getSyncStatus()
     };
 }
 
-console.log('✅ Module data.js chargé avec succès');
+// FONCTION NOUVELLE - Statistiques de l'entreprise active uniquement
+function getCompanyStatistics() {
+    if (!app.currentCompanyId) {
+        return null;
+    }
+
+    const companyEntries = getSecureFilteredEntries();
+    const companyAccounts = getSecureCompanyAccountingPlan();
+    const companyCashRegisters = getSecureFilteredCashRegisters();
+    const companyUsers = getSecureFilteredUsers();
+
+    return {
+        companyId: app.currentCompanyId,
+        companyName: app.companies.find(c => c.id === app.currentCompanyId)?.name || 'Inconnue',
+        entries: {
+            total: companyEntries.length,
+            validated: companyEntries.filter(e => e.status === 'Validé').length,
+            pending: companyEntries.filter(e => e.status === 'En attente').length,
+            thisMonth: companyEntries.filter(e => {
+                const entryDate = new Date(e.date);
+                const now = new Date();
+                return entryDate.getMonth() === now.getMonth() && 
+                       entryDate.getFullYear() === now.getFullYear();
+            }).length,
+            byJournal: companyEntries.reduce((acc, entry) => {
+                acc[entry.journal] = (acc[entry.journal] || 0) + 1;
+                return acc;
+            }, {})
+        },
+        accounts: {
+            total: companyAccounts.length,
+            active: companyAccounts.filter(a => a.isActive !== false).length,
+            byCategory: companyAccounts.reduce((acc, account) => {
+                acc[account.category] = (acc[account.category] || 0) + 1;
+                return acc;
+            }, {})
+        },
+        cashRegisters: {
+            total: companyCashRegisters.length,
+            open: companyCashRegisters.filter(c => c.status === 'Ouvert').length,
+            totalBalance: companyCashRegisters.reduce((sum, cash) => sum + (cash.balance || 0), 0)
+        },
+        users: {
+            total: companyUsers.length,
+            active: companyUsers.filter(u => u.status === 'Actif').length,
+            byRole: companyUsers.reduce((acc, user) => {
+                acc[user.role] = (acc[user.role] || 0) + 1;
+                return acc;
+            }, {})
+        },
+        lastUpdate: new Date().toISOString()
+    };
+}
+
+// =============================================================================
+// FONCTIONS DE MAINTENANCE ET NETTOYAGE
+// =============================================================================
+
+function cleanupData() {
+    console.log('🧹 Nettoyage des données...');
+    
+    try {
+        // Nettoyer les références cassées
+        let cleaned = 0;
+        
+        // Supprimer les écritures d'entreprises inexistantes
+        const initialEntriesCount = app.entries.length;
+        app.entries = app.entries.filter(entry => {
+            const companyExists = app.companies.some(c => c.id === entry.companyId);
+            if (!companyExists) {
+                console.warn(`⚠️ Écriture ${entry.id} supprimée (entreprise ${entry.companyId} inexistante)`);
+                cleaned++;
+            }
+            return companyExists;
+        });
+        
+        // Supprimer les caisses d'entreprises inexistantes
+        const initialCashCount = app.cashRegisters.length;
+        app.cashRegisters = app.cashRegisters.filter(cash => {
+            const companyExists = app.companies.some(c => c.id === cash.companyId);
+            if (!companyExists) {
+                console.warn(`⚠️ Caisse ${cash.id} supprimée (entreprise ${cash.companyId} inexistante)`);
+                cleaned++;
+            }
+            return companyExists;
+        });
+        
+        // Nettoyer les assignations d'entreprises des utilisateurs
+        app.users.forEach(user => {
+            if (user.assignedCompanies) {
+                const validCompanies = user.assignedCompanies.filter(companyId => {
+                    const exists = app.companies.some(c => c.id === companyId);
+                    if (!exists) {
+                        console.warn(`⚠️ Entreprise ${companyId} supprimée des assignations de ${user.name}`);
+                        cleaned++;
+                    }
+                    return exists;
+                });
+                user.assignedCompanies = validCompanies;
+            }
+        });
+
+        // Vider le cache pour forcer la mise à jour
+        clearFilteredDataCache();
+        
+        console.log(`✅ Nettoyage terminé: ${cleaned} éléments supprimés`);
+        return cleaned;
+        
+    } catch (error) {
+        console.error('❌ Erreur lors du nettoyage:', error);
+        return 0;
+    }
+}
+
+// =============================================================================
+// EXPOSER LES FONCTIONS CRITIQUES GLOBALEMENT
+// =============================================================================
+
+// Exposer les fonctions de filtrage sécurisé
+window.getSecureFilteredEntries = getSecureFilteredEntries;
+window.getSecureCompanyAccountingPlan = getSecureCompanyAccountingPlan;
+window.getSecureFilteredCashRegisters = getSecureFilteredCashRegisters;
+window.getSecureFilteredUsers = getSecureFilteredUsers;
+
+// Exposer les fonctions de validation sécurisée
+window.hasAccessToCompany = hasAccessToCompany;
+window.validateEntry = validateEntry;
+window.validateUser = validateUser;
+window.validateCompany = validateCompany;
+
+// Exposer les fonctions de cache
+window.updateFilteredDataCache = updateFilteredDataCache;
+window.clearFilteredDataCache = clearFilteredDataCache;
+
+// Exposer les fonctions de statistiques
+window.getCompanyStatistics = getCompanyStatistics;
+
+// Exposer les fonctions de synchronisation
+window.dataSyncManager = dataSyncManager;
+window.syncAllCompaniesData = syncAllCompaniesData;
+
+// Exposer les fonctions de recherche sécurisée
+window.searchCompanyAccounts = searchCompanyAccounts;
+window.getCompanyAccountByCode = getCompanyAccountByCode;
+window.getCompanyAccountsByCategory = getCompanyAccountsByCategory;
+window.getSecureEntriesByUser = getSecureEntriesByUser;
+
+// Exposer les fonctions de nettoyage
+window.cleanupData = cleanupData;
+
+console.log('✅ Module data.js chargé avec succès avec sécurité renforcée');
+console.log('🔒 Fonctions de filtrage sécurisé par entreprise: DISPONIBLES');
+console.log('🔄 Gestionnaire de synchronisation PIWA: INITIALISÉ');
+console.log('💾 Système de cache des données filtrées: ACTIF');
