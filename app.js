@@ -5434,6 +5434,26 @@ console.log('🛡️ Système de correction automatique de l\'interface activé'
   
 }
 
+ function fixDashboardLoading() {
+    // Correction automatique de l'état selon le profil
+    if (!app.currentCompany && app.currentUser) {
+        const userCompanies = SecurityManager.getUserCompanies(app.currentUser.id);
+        
+        if (app.currentProfile === 'user' && userCompanies.includes(1)) {
+            app.currentCompany = '1';
+        } else if (app.currentProfile === 'caissier' && userCompanies.includes(2)) {
+            app.currentCompany = '2';
+        } else if (app.currentProfile.includes('collaborateur') && userCompanies.length === 1) {
+            app.currentCompany = userCompanies[0].toString();
+        }
+        
+        if (app.currentCompany) {
+            updateSelectedCompanyInfo();
+            loadDashboard();
+        }
+    }
+}
+
 </script>
 </body>
 </html>
