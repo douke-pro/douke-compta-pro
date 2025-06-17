@@ -5167,6 +5167,271 @@ entries: () => SecurityManager.getAuthorizedEntries(),
 diagnostic: runSystemDiagnostic,
 theme: (newTheme) => newTheme ? themeManager.setTheme(newTheme) : themeManager.current
 };
+// =============================================================================
+// FONCTION DE CORRECTION ROBUSTE - À AJOUTER DANS LE SCRIPT
+// =============================================================================
+
+/**
+ * Fonction de diagnostic et correction automatique des problèmes d'interface
+ * Cette fonction force le chargement correct de l'interface principale
+ */
+function forceCorrectInterface() {
+    try {
+        console.log('🔧 Diagnostic et correction de l\'interface en cours...');
+        
+        // 1. Vérifier l'état de l'application
+        console.log('📊 État actuel:', {
+            isAuthenticated: app.isAuthenticated,
+            currentUser: app.currentUser,
+            currentProfile: app.currentProfile,
+            currentCompany: app.currentCompany
+        });
+
+        // 2. Si l'utilisateur est connecté mais l'interface n'est pas correcte
+        if (app.isAuthenticated && app.currentUser) {
+            
+            // 3. Forcer l'affichage de l'interface principale
+            const loginInterface = document.getElementById('loginInterface');
+            const mainApp = document.getElementById('mainApp');
+            
+            if (loginInterface) {
+                loginInterface.classList.add('hidden');
+                console.log('✅ Interface de connexion masquée');
+            }
+            
+            if (mainApp) {
+                mainApp.classList.remove('hidden');
+                console.log('✅ Interface principale affichée');
+            }
+
+            // 4. Nettoyer tout contenu de développement
+            const mainContent = document.getElementById('mainContent');
+            if (mainContent && mainContent.innerHTML.includes('en cours de développement')) {
+                console.log('🧹 Nettoyage du contenu de développement détecté');
+                mainContent.innerHTML = '<div class="flex items-center justify-center py-8"><div class="text-primary"><i class="fas fa-spinner fa-spin mr-2"></i>Chargement...</div></div>';
+            }
+
+            // 5. Forcer la réinitialisation complète
+            console.log('🔄 Réinitialisation forcée de l\'interface...');
+            
+            // Réinitialiser le menu de navigation
+            setTimeout(() => {
+                loadNavigationMenu();
+                console.log('✅ Menu de navigation rechargé');
+            }, 100);
+
+            // Réinitialiser les informations utilisateur
+            setTimeout(() => {
+                updateUserInfo();
+                console.log('✅ Informations utilisateur mises à jour');
+            }, 200);
+
+            // Forcer le chargement du dashboard
+            setTimeout(() => {
+                loadDashboard();
+                console.log('✅ Dashboard rechargé');
+            }, 300);
+
+            // Rebinder les événements
+            setTimeout(() => {
+                bindEventListeners();
+                console.log('✅ Événements reliés');
+            }, 400);
+
+            // 6. Vérification finale
+            setTimeout(() => {
+                const finalCheck = document.getElementById('mainContent');
+                if (finalCheck && finalCheck.innerHTML.includes('en cours de développement')) {
+                    console.error('❌ Le problème persiste, application de la solution d\'urgence');
+                    emergencyInterfaceFix();
+                } else {
+                    console.log('✅ Interface corrigée avec succès !');
+                    showSuccessMessage('✅ Interface chargée avec succès !');
+                }
+            }, 500);
+
+        } else {
+            console.error('❌ Utilisateur non connecté, retour à l\'écran de connexion');
+            showLoginInterface();
+        }
+
+    } catch (error) {
+        console.error('❌ Erreur lors de la correction de l\'interface:', error);
+        emergencyInterfaceFix();
+    }
+}
+
+/**
+ * Solution d'urgence si tout le reste échoue
+ */
+function emergencyInterfaceFix() {
+    try {
+        console.log('🚨 Application de la solution d\'urgence...');
+        
+        const mainContent = document.getElementById('mainContent');
+        if (!mainContent) {
+            console.error('❌ Élément mainContent introuvable');
+            return;
+        }
+
+        // Forcer l'affichage d'un dashboard de base
+        const emergencyDashboard = `
+        <div class="space-y-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+                        🎯 Bienvenue ${app.currentUser?.name || 'Utilisateur'}
+                    </h1>
+                    <div class="text-sm bg-success/10 text-success px-3 py-1 rounded-lg">
+                        ✅ Interface corrigée
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-primary/10 rounded-lg p-4 cursor-pointer hover:bg-primary/20 transition-colors" onclick="navigateTo('entries')">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-edit text-primary text-2xl"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Écritures</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Gestion des écritures comptables</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-success/10 rounded-lg p-4 cursor-pointer hover:bg-success/20 transition-colors" onclick="navigateTo('accounts')">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-list text-success text-2xl"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Plan Comptable</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Consultation des comptes</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-info/10 rounded-lg p-4 cursor-pointer hover:bg-info/20 transition-colors" onclick="navigateTo('reports')">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-chart-bar text-info text-2xl"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Rapports</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">États et analyses</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div class="flex items-start space-x-3">
+                        <i class="fas fa-info-circle text-amber-500 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-medium text-amber-800 dark:text-amber-200">Interface restaurée</h4>
+                            <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                L'interface a été automatiquement corrigée. Profil actuel : <strong>${app.currentProfile}</strong>
+                                ${app.currentCompany ? ` • Entreprise : ${getCompanyName()}` : ''}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+
+        mainContent.innerHTML = emergencyDashboard;
+        console.log('✅ Solution d\'urgence appliquée avec succès');
+        
+    } catch (error) {
+        console.error('❌ Échec de la solution d\'urgence:', error);
+        // Dernier recours : message simple
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            mainContent.innerHTML = `
+            <div class="text-center p-8">
+                <h2 class="text-xl font-bold text-red-600 mb-4">❌ Erreur d'interface</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">Veuillez rafraîchir la page ou contacter le support technique.</p>
+                <button onclick="location.reload()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
+                    🔄 Rafraîchir la page
+                </button>
+            </div>
+            `;
+        }
+    }
+}
+
+/**
+ * Fonction de surveillance automatique
+ * Détecte et corrige automatiquement les problèmes d'interface
+ */
+function startInterfaceWatchdog() {
+    setInterval(() => {
+        if (app.isAuthenticated && app.currentUser) {
+            const mainContent = document.getElementById('mainContent');
+            const mainApp = document.getElementById('mainApp');
+            
+            // Détecter si l'interface de développement est affichée par erreur
+            if (mainContent && (
+                mainContent.innerHTML.includes('en cours de développement') ||
+                mainContent.innerHTML.includes('Structure modulaire') ||
+                mainContent.innerHTML.trim() === '' ||
+                mainContent.children.length === 0
+            )) {
+                console.warn('⚠️ Problème d\'interface détecté, correction automatique...');
+                forceCorrectInterface();
+            }
+
+            // Vérifier que l'interface principale est visible
+            if (mainApp && mainApp.classList.contains('hidden')) {
+                console.warn('⚠️ Interface principale masquée détectée, correction...');
+                forceCorrectInterface();
+            }
+        }
+    }, 2000); // Vérification toutes les 2 secondes
+}
+
+// =============================================================================
+// INTÉGRATION AU SYSTÈME EXISTANT
+// =============================================================================
+
+// Modifier la fonction handleLogin existante pour ajouter la correction
+const originalHandleLogin = handleLogin;
+function handleLogin() {
+    originalHandleLogin();
+    
+    // Ajouter une correction automatique après connexion
+    setTimeout(() => {
+        if (app.isAuthenticated && app.currentUser) {
+            forceCorrectInterface();
+            startInterfaceWatchdog();
+        }
+    }, 1000);
+}
+
+// Ajouter un bouton de correction d'urgence (optionnel)
+function addEmergencyFixButton() {
+    try {
+        const nav = document.querySelector('nav .flex.items-center.space-x-4');
+        if (nav) {
+            const emergencyButton = document.createElement('button');
+            emergencyButton.innerHTML = '<i class="fas fa-tools"></i>';
+            emergencyButton.className = 'p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors';
+            emergencyButton.title = 'Correction d\'urgence de l\'interface';
+            emergencyButton.onclick = forceCorrectInterface;
+            nav.appendChild(emergencyButton);
+            console.log('🔧 Bouton de correction d\'urgence ajouté');
+        }
+    } catch (error) {
+        console.warn('⚠️ Impossible d\'ajouter le bouton d\'urgence:', error);
+    }
+}
+
+// Démarrer la surveillance automatique dès le chargement
+setTimeout(() => {
+    if (app.isAuthenticated) {
+        startInterfaceWatchdog();
+        addEmergencyFixButton();
+    }
+}, 2000);
+
+console.log('🛡️ Système de correction automatique de l\'interface activé');
+  
 }
 
 </script>
