@@ -1,5 +1,5 @@
 // =============================================================================
-// DOUKÈ Compta Pro - Application Principal (Version Corrigée)
+// DOUKÈ Compta Pro - Application Principal (Version Corrigée et Compatible)
 // =============================================================================
 
 class DoukèComptaPro {
@@ -22,9 +22,9 @@ class DoukèComptaPro {
             currentCompany: null,
             isAuthenticated: false,
             
-            // Collections avec IDs uniques
-            companies: new Map(),
-            users: new Map(),
+            // Collections (maintien tableaux pour compatibilité)
+            companies: [],
+            users: [],
             accounts: [],
             entries: [],
             cashRegisters: [],
@@ -76,7 +76,7 @@ class DoukèComptaPro {
     }
 
     canAccessCompany(companyId) {
-        const user = this.state.users.get(this.state.currentUser?.id);
+        const user = this.state.users.find(u => u.id === this.state.currentUser?.id);
         
         switch (this.state.currentProfile) {
             case 'admin':
@@ -123,81 +123,87 @@ class DoukèComptaPro {
             this.createDefaultUsers();
             this.initializeSyscohadaAccounts();
             this.createSampleEntries();
+            this.createSampleCashRegisters();
+            
+            // Synchroniser avec les variables globales pour compatibilité
+            this.syncWithGlobalApp();
             
             this.logAuditEvent('DATA_INITIALIZATION_SUCCESS');
             console.log('✅ Données initialisées avec IDs uniques');
             
         } catch (error) {
             this.logAuditEvent('DATA_INITIALIZATION_ERROR', { error: error.message });
+            console.error('❌ Erreur initialisation données:', error);
             throw error;
         }
     }
 
     createDefaultCompanies() {
-        const companies = [
+        const companiesData = [
             {
                 name: 'SARL TECH INNOVATION',
                 type: 'SARL',
                 system: 'Normal',
                 phone: '+225 07 12 34 56 78',
-                address: 'Abidjan, Cocody'
+                address: 'Abidjan, Cocody',
+                status: 'Actif',
+                cashRegisters: 3
             },
             {
                 name: 'SA COMMERCE PLUS',
                 type: 'SA',
                 system: 'Normal',
                 phone: '+225 05 98 76 54 32',
-                address: 'Abidjan, Plateau'
+                address: 'Abidjan, Plateau',
+                status: 'Actif',
+                cashRegisters: 5
             },
             {
                 name: 'EURL SERVICES PRO',
                 type: 'EURL',
                 system: 'Minimal',
                 phone: '+225 01 23 45 67 89',
-                address: 'Bouaké Centre'
+                address: 'Bouaké Centre',
+                status: 'Période d\'essai',
+                cashRegisters: 2
             },
             {
                 name: 'SAS DIGITAL WORLD',
                 type: 'SAS',
                 system: 'Normal',
                 phone: '+225 07 11 22 33 44',
-                address: 'San-Pédro'
+                address: 'San-Pédro',
+                status: 'Suspendu',
+                cashRegisters: 1
             }
         ];
 
-        companies.forEach((companyData, index) => {
-            const companyId = this.idGenerator.company();
-            const company = {
+        this.state.companies = companiesData.map((companyData, index) => {
+            const companyId = index + 1; // ID numérique pour compatibilité
+            return {
                 id: companyId,
-                uniqueId: companyId,
+                uniqueId: this.idGenerator.company(),
                 ...companyData,
-                status: index === 3 ? 'Suspendu' : (index === 2 ? 'Période d\'essai' : 'Actif'),
                 createdAt: new Date(),
-                cashRegisters: Math.floor(Math.random() * 5) + 1,
                 settings: {
                     currency: 'FCFA',
                     fiscalYear: new Date().getFullYear(),
                     accountingSystem: 'SYSCOHADA_REVISED'
-                },
-                accounts: new Map(),
-                entries: new Map(),
-                cashRegisters_data: new Map(),
-                users: new Set()
+                }
             };
-            
-            this.state.companies.set(companyId, company);
         });
     }
 
     createDefaultUsers() {
-        const users = [
+        const usersData = [
             {
                 name: 'Admin Système',
                 email: 'admin@doukecompta.ci',
                 password: 'admin123',
                 profile: 'admin',
                 role: 'Administrateur',
-                phone: '+225 07 00 00 00 00'
+                phone: '+225 07 00 00 00 00',
+                companies: [1, 2, 3, 4]
             },
             {
                 name: 'Marie Kouassi',
@@ -205,7 +211,8 @@ class DoukèComptaPro {
                 password: 'collab123',
                 profile: 'collaborateur-senior',
                 role: 'Collaborateur Senior',
-                phone: '+225 07 11 11 11 11'
+                phone: '+225 07 11 11 11 11',
+                companies: [1, 2, 3]
             },
             {
                 name: 'Jean Diabaté',
@@ -213,7 +220,8 @@ class DoukèComptaPro {
                 password: 'collab123',
                 profile: 'collaborateur',
                 role: 'Collaborateur',
-                phone: '+225 07 22 22 22 22'
+                phone: '+225 07 22 22 22 22',
+                companies: [2, 4]
             },
             {
                 name: 'Amadou Traoré',
@@ -221,7 +229,9 @@ class DoukèComptaPro {
                 password: 'user123',
                 profile: 'user',
                 role: 'Utilisateur',
-                phone: '+225 07 33 33 33 33'
+                phone: '+225 07 33 33 33 33',
+                companies: [1],
+                companyId: 1
             },
             {
                 name: 'Ibrahim Koné',
@@ -229,57 +239,31 @@ class DoukèComptaPro {
                 password: 'caisse123',
                 profile: 'caissier',
                 role: 'Caissier',
-                phone: '+225 07 44 44 44 44'
+                phone: '+225 07 44 44 44 44',
+                companies: [2],
+                companyId: 2
             }
         ];
 
-        const companyIds = Array.from(this.state.companies.keys());
-
-        users.forEach((userData, index) => {
-            const userId = this.idGenerator.user();
+        this.state.users = usersData.map((userData, index) => {
+            const userId = index + 1; // ID numérique pour compatibilité
             const user = {
                 id: userId,
-                uniqueId: userId,
+                uniqueId: this.idGenerator.user(),
                 ...userData,
                 passwordHash: this.hashPassword(userData.password),
                 status: 'Actif',
                 createdAt: new Date(),
                 lastLogin: null,
-                assignedCompanies: this.assignCompaniesToUser(userData.profile, index, companyIds),
-                companyId: userData.profile === 'user' || userData.profile === 'caissier' ? 
-                          companyIds[index % companyIds.length] : null,
+                assignedCompanies: userData.companies || [],
                 supervisorId: null,
                 maxCompaniesAllowed: this.getMaxCompanies(userData.profile),
                 securityClearance: this.getSecurityClearance(userData.profile)
             };
             
             delete user.password;
-            this.state.users.set(userId, user);
-            
-            // Associer l'utilisateur à ses entreprises
-            user.assignedCompanies.forEach(companyId => {
-                const company = this.state.companies.get(companyId);
-                if (company) {
-                    company.users.add(userId);
-                }
-            });
+            return user;
         });
-    }
-
-    assignCompaniesToUser(profile, index, companyIds) {
-        switch (profile) {
-            case 'admin':
-                return companyIds; // Toutes les entreprises
-            case 'collaborateur-senior':
-                return companyIds.slice(0, 3);
-            case 'collaborateur':
-                return companyIds.slice(1, 3);
-            case 'user':
-            case 'caissier':
-                return [companyIds[index % companyIds.length]];
-            default:
-                return [];
-        }
     }
 
     getMaxCompanies(profile) {
@@ -320,73 +304,183 @@ class DoukèComptaPro {
             { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres' },
             { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres' },
             { code: '161000', name: 'Emprunts et dettes', category: 'Dettes financières' },
-            
+            { code: '171000', name: 'Dettes de crédit-bail', category: 'Dettes financières' },
+
             // Classe 2 - Comptes d'actif immobilisé
             { code: '211000', name: 'Terrains', category: 'Immobilisations corporelles' },
             { code: '213000', name: 'Constructions', category: 'Immobilisations corporelles' },
             { code: '218000', name: 'Matériel de transport', category: 'Immobilisations corporelles' },
+            { code: '221000', name: 'Logiciels', category: 'Immobilisations incorporelles' },
             { code: '244000', name: 'Matériel et outillage', category: 'Immobilisations corporelles' },
-            
+            { code: '241000', name: 'Matériel et mobilier', category: 'Immobilisations corporelles' },
+
             // Classe 3 - Comptes de stocks
             { code: '311000', name: 'Marchandises', category: 'Stocks' },
             { code: '321000', name: 'Matières premières', category: 'Stocks' },
-            
+            { code: '371000', name: 'Stock en cours', category: 'Stocks' },
+            { code: '381000', name: 'Stocks de produits finis', category: 'Stocks' },
+
             // Classe 4 - Comptes de tiers
             { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs' },
             { code: '411000', name: 'Clients', category: 'Clients' },
             { code: '421000', name: 'Personnel', category: 'Personnel' },
+            { code: '431000', name: 'Sécurité sociale', category: 'Organismes sociaux' },
             { code: '441000', name: 'État et collectivités', category: 'État' },
-            
+            { code: '471000', name: 'Comptes d\'attente', category: 'Comptes transitoires' },
+
             // Classe 5 - Comptes financiers
             { code: '512000', name: 'Banques', category: 'Comptes bancaires' },
+            { code: '531000', name: 'Chèques postaux', category: 'Comptes postaux' },
             { code: '571000', name: 'Caisse', category: 'Caisse' },
-            
+            { code: '581000', name: 'Virements internes', category: 'Virements' },
+
             // Classe 6 - Comptes de charges
             { code: '601000', name: 'Achats de marchandises', category: 'Achats' },
+            { code: '605000', name: 'Autres achats', category: 'Achats' },
             { code: '621000', name: 'Transports', category: 'Services extérieurs' },
+            { code: '622000', name: 'Rémunérations intermédiaires', category: 'Services extérieurs' },
+            { code: '631000', name: 'Impôts et taxes', category: 'Impôts et taxes' },
             { code: '641000', name: 'Rémunérations du personnel', category: 'Charges de personnel' },
-            
+            { code: '646000', name: 'Charges sociales', category: 'Charges de personnel' },
+            { code: '681000', name: 'Dotations aux amortissements', category: 'Dotations' },
+
             // Classe 7 - Comptes de produits
             { code: '701000', name: 'Ventes de marchandises', category: 'Ventes' },
-            { code: '706000', name: 'Services vendus', category: 'Ventes' }
+            { code: '706000', name: 'Services vendus', category: 'Ventes' },
+            { code: '771000', name: 'Revenus financiers', category: 'Produits financiers' },
+            { code: '781000', name: 'Reprises d\'amortissements', category: 'Reprises' },
+
+            // Classe 8 - Comptes de résultats
+            { code: '801000', name: 'Résultat en instance d\'affectation', category: 'Résultats' },
+            { code: '810000', name: 'Résultat net: bénéfice', category: 'Résultats' },
+            { code: '820000', name: 'Résultat net: perte', category: 'Résultats' },
+
+            // Classe 9 - Comptes analytiques
+            { code: '901000', name: 'Coûts de revient', category: 'Comptabilité analytique' },
+            { code: '905000', name: 'Coûts de production', category: 'Comptabilité analytique' },
+            { code: '910000', name: 'Charges indirectes', category: 'Comptabilité analytique' },
+            { code: '920000', name: 'Centres d\'analyse', category: 'Comptabilité analytique' }
         ];
     }
 
     createSampleEntries() {
-        const companyIds = Array.from(this.state.companies.keys());
-        
         this.state.entries = [
             {
-                id: this.idGenerator.entry(),
+                id: 1,
+                uniqueId: this.idGenerator.entry(),
                 date: '2024-12-15',
                 journal: 'JV',
                 piece: 'JV-2024-001-0156',
                 libelle: 'Vente marchandises Client ABC',
-                companyId: companyIds[0],
+                companyId: 1,
                 lines: [
                     { account: '411000', accountName: 'Clients', libelle: 'Vente Client ABC', debit: 1800000, credit: 0 },
                     { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente marchandises', debit: 0, credit: 1500000 },
                     { account: '441000', accountName: 'État et collectivités', libelle: 'TVA sur ventes', debit: 0, credit: 300000 }
                 ],
                 status: 'Validé',
-                userId: Array.from(this.state.users.values())[1].id
+                userId: 2
             },
             {
-                id: this.idGenerator.entry(),
+                id: 2,
+                uniqueId: this.idGenerator.entry(),
                 date: '2024-12-14',
                 journal: 'JA',
                 piece: 'JA-2024-001-0157',
                 libelle: 'Achat marchandises Fournisseur XYZ',
-                companyId: companyIds[0],
+                companyId: 1,
                 lines: [
                     { account: '601000', accountName: 'Achats de marchandises', libelle: 'Achat marchandises', debit: 850000, credit: 0 },
                     { account: '441000', accountName: 'État et collectivités', libelle: 'TVA déductible', debit: 170000, credit: 0 },
                     { account: '401000', accountName: 'Fournisseurs', libelle: 'Fournisseur XYZ', debit: 0, credit: 1020000 }
                 ],
                 status: 'En attente',
-                userId: Array.from(this.state.users.values())[2].id
+                userId: 3
+            },
+            {
+                id: 3,
+                uniqueId: this.idGenerator.entry(),
+                date: '2024-12-13',
+                journal: 'JC',
+                piece: 'JC-2024-002-0034',
+                libelle: 'Recette caisse vente comptant',
+                companyId: 2,
+                lines: [
+                    { account: '571000', accountName: 'Caisse', libelle: 'Encaissement espèces', debit: 150000, credit: 0 },
+                    { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente comptant', debit: 0, credit: 150000 }
+                ],
+                status: 'Validé',
+                userId: 5
             }
         ];
+    }
+
+    createSampleCashRegisters() {
+        this.state.cashRegisters = [
+            {
+                id: 1,
+                uniqueId: this.idGenerator.cash(),
+                name: 'Caisse Principale',
+                companyId: 2,
+                responsibleId: 5,
+                responsibleName: 'Ibrahim Koné',
+                balance: 210000,
+                status: 'Ouvert',
+                openingBalance: 150000,
+                dailyReceipts: 85000,
+                dailyExpenses: 25000
+            },
+            {
+                id: 2,
+                uniqueId: this.idGenerator.cash(),
+                name: 'Caisse Ventes',
+                companyId: 2,
+                responsibleId: null,
+                responsibleName: 'Fatou Diallo',
+                balance: 85000,
+                status: 'Ouvert',
+                openingBalance: 100000,
+                dailyReceipts: 35000,
+                dailyExpenses: 50000
+            },
+            {
+                id: 3,
+                uniqueId: this.idGenerator.cash(),
+                name: 'Caisse Réception',
+                companyId: 1,
+                responsibleId: null,
+                responsibleName: 'Non assigné',
+                balance: 0,
+                status: 'Fermé',
+                openingBalance: 0,
+                dailyReceipts: 0,
+                dailyExpenses: 0
+            }
+        ];
+    }
+
+    // =============================================================================
+    // SYNCHRONISATION AVEC VARIABLES GLOBALES
+    // =============================================================================
+    
+    syncWithGlobalApp() {
+        // Maintenir la compatibilité avec le code HTML original
+        if (typeof window !== 'undefined') {
+            window.app = {
+                currentProfile: this.state.currentProfile,
+                currentCompany: this.state.currentCompany,
+                currentUser: this.state.currentUser,
+                isAuthenticated: this.state.isAuthenticated,
+                accounts: this.state.accounts,
+                entries: this.state.entries,
+                companies: this.state.companies,
+                users: this.state.users,
+                cashRegisters: this.state.cashRegisters,
+                companyLogo: this.state.companyLogo,
+                notifications: this.state.notifications,
+                deadlines: []
+            };
+        }
     }
 
     // =============================================================================
@@ -395,21 +489,21 @@ class DoukèComptaPro {
     
     getCompaniesForUser(userId = null) {
         userId = userId || this.state.currentUser?.id;
-        const user = this.state.users.get(userId);
+        const user = this.state.users.find(u => u.id === userId);
         
         if (!user) return [];
         
         switch (user.profile) {
             case 'admin':
-                return Array.from(this.state.companies.values());
+                return this.state.companies;
                 
             case 'collaborateur-senior':
             case 'collaborateur':
-                return user.assignedCompanies.map(id => this.state.companies.get(id)).filter(Boolean);
+                return this.state.companies.filter(c => user.assignedCompanies?.includes(c.id));
                 
             case 'user':
             case 'caissier':
-                return user.companyId ? [this.state.companies.get(user.companyId)] : [];
+                return this.state.companies.filter(c => c.id === user.companyId);
                 
             default:
                 return [];
@@ -417,15 +511,20 @@ class DoukèComptaPro {
     }
 
     selectCompany(companyId) {
-        if (!this.canAccessCompany(companyId)) {
+        const companyIdNum = parseInt(companyId);
+        
+        if (!this.canAccessCompany(companyIdNum)) {
             throw new Error('Accès à cette entreprise refusé');
         }
         
-        this.state.currentCompany = companyId;
-        this.logAuditEvent('COMPANY_SELECTED', { companyId });
+        this.state.currentCompany = companyIdNum;
+        this.logAuditEvent('COMPANY_SELECTED', { companyId: companyIdNum });
         
+        // Synchroniser
+        this.syncWithGlobalApp();
         this.uiManager.updateCompanyInfo();
-        return this.state.companies.get(companyId);
+        
+        return this.state.companies.find(c => c.id === companyIdNum);
     }
 
     // =============================================================================
@@ -436,8 +535,7 @@ class DoukèComptaPro {
         try {
             this.logAuditEvent('LOGIN_ATTEMPT', { email });
             
-            const user = Array.from(this.state.users.values())
-                .find(u => u.email === email);
+            const user = this.state.users.find(u => u.email === email);
             
             if (!user) {
                 this.logAuditEvent('LOGIN_FAILED', { email, reason: 'USER_NOT_FOUND' });
@@ -472,6 +570,9 @@ class DoukèComptaPro {
             user.lastLogin = new Date();
             this.logAuditEvent('LOGIN_SUCCESS', { userId: user.id });
             
+            // Synchroniser avec les variables globales
+            this.syncWithGlobalApp();
+            
             return {
                 success: true,
                 user: this.state.currentUser,
@@ -493,6 +594,9 @@ class DoukèComptaPro {
         this.state.currentProfile = null;
         this.state.currentCompany = null;
         
+        // Synchroniser
+        this.syncWithGlobalApp();
+        
         return true;
     }
 
@@ -502,7 +606,7 @@ class DoukèComptaPro {
     
     getCompanyName() {
         if (!this.state.currentCompany) return 'Aucune entreprise sélectionnée';
-        const company = this.state.companies.get(this.state.currentCompany);
+        const company = this.state.companies.find(c => c.id === this.state.currentCompany);
         return company ? company.name : 'Entreprise inconnue';
     }
 }
@@ -557,7 +661,7 @@ class UIManager {
         const currentCompanyElement = document.getElementById('currentCompany');
         
         if (this.app.state.currentCompany) {
-            const company = this.app.state.companies.get(this.app.state.currentCompany);
+            const company = this.app.state.companies.find(c => c.id === this.app.state.currentCompany);
             if (company) {
                 if (infoElement) {
                     infoElement.innerHTML = `${company.system} • ${company.status}`;
@@ -598,11 +702,18 @@ document.addEventListener('DOMContentLoaded', function() {
         app.initializeDefaultData();
         
         console.log('✅ DOUKÈ Compta Pro - Application initialisée avec succès');
+        console.log('📊 Données chargées:', {
+            companies: app.state.companies.length,
+            users: app.state.users.length,
+            accounts: app.state.accounts.length,
+            entries: app.state.entries.length
+        });
+        
         initializeUIEvents();
         
     } catch (error) {
         console.error('❌ Erreur lors de l\'initialisation:', error);
-        alert('Erreur lors du démarrage de l\'application. Veuillez recharger la page.');
+        alert('Erreur lors du démarrage de l\'application. Détails dans la console.');
     }
 });
 
@@ -654,52 +765,64 @@ function initializeUIEvents() {
 }
 
 function initializeMainApp() {
-    // Charger la navigation
-    if (typeof loadNavigationMenu === 'function') {
-        loadNavigationMenu();
+    try {
+        // Charger la navigation
+        if (typeof loadNavigationMenu === 'function') {
+            loadNavigationMenu();
+        }
+        
+        // Mettre à jour les informations utilisateur
+        updateUserInfo();
+        
+        // Charger le tableau de bord
+        if (typeof loadDashboard === 'function') {
+            loadDashboard();
+        }
+        
+        // Mettre à jour les sélecteurs
+        app.uiManager.updateCompanySelector();
+        app.uiManager.updateCompanyInfo();
+        
+        console.log('✅ Interface principale initialisée');
+        
+    } catch (error) {
+        console.error('❌ Erreur initialisation interface:', error);
     }
-    
-    // Mettre à jour les informations utilisateur
-    updateUserInfo();
-    
-    // Charger le tableau de bord
-    if (typeof loadDashboard === 'function') {
-        loadDashboard();
-    }
-    
-    // Mettre à jour les sélecteurs
-    app.uiManager.updateCompanySelector();
-    app.uiManager.updateCompanyInfo();
 }
 
 function updateUserInfo() {
     const user = app.state.currentUser;
     if (!user) return;
     
-    // Mettre à jour les éléments de l'interface
-    const elements = {
-        'currentUser': user.name,
-        'sidebarUserName': user.name,
-        'sidebarUserRole': user.role
-    };
-    
-    Object.entries(elements).forEach(([id, value]) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
-    });
-    
-    // Afficher/masquer les éléments selon le profil
-    const profile = app.state.currentProfile;
-    const companySelector = document.getElementById('companySelector');
-    const adminActions = document.getElementById('adminActions');
-    
-    if (companySelector) {
-        const shouldShow = ['admin', 'collaborateur-senior', 'collaborateur'].includes(profile);
-        companySelector.style.display = shouldShow ? 'block' : 'none';
-    }
-    
-    if (adminActions) {
-        adminActions.style.display = profile === 'admin' ? 'block' : 'none';
+    try {
+        // Mettre à jour les éléments de l'interface
+        const elements = {
+            'currentUser': user.name,
+            'sidebarUserName': user.name,
+            'sidebarUserRole': user.role
+        };
+        
+        Object.entries(elements).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = value;
+        });
+        
+        // Afficher/masquer les éléments selon le profil
+        const profile = app.state.currentProfile;
+        const companySelector = document.getElementById('companySelector');
+        const adminActions = document.getElementById('adminActions');
+        
+        if (companySelector) {
+            const shouldShow = ['admin', 'collaborateur-senior', 'collaborateur'].includes(profile);
+            companySelector.style.display = shouldShow ? 'block' : 'none';
+        }
+        
+        if (adminActions) {
+            adminActions.style.display = profile === 'admin' ? 'block' : 'none';
+        }
+        
+    } catch (error) {
+        console.error('❌ Erreur mise à jour infos utilisateur:', error);
     }
 }
 
@@ -720,29 +843,11 @@ function loginAs(profile) {
     }
 }
 
-// Maintenir la compatibilité avec les variables globales existantes
-window.app = {
-    currentProfile: null,
-    currentCompany: null,
-    currentUser: null,
-    isAuthenticated: false,
-    accounts: [],
-    entries: [],
-    companies: [],
-    users: [],
-    cashRegisters: []
-};
+// Gestionnaire d'erreurs global
+window.addEventListener('error', function(e) {
+    console.error('❌ Erreur JavaScript:', e.error);
+});
 
-// Synchroniser avec la nouvelle structure
-function syncLegacyData() {
-    if (window.app && app) {
-        window.app.currentProfile = app.state.currentProfile;
-        window.app.currentCompany = app.state.currentCompany;
-        window.app.currentUser = app.state.currentUser;
-        window.app.isAuthenticated = app.state.isAuthenticated;
-        window.app.accounts = app.state.accounts;
-        window.app.entries = app.state.entries;
-        window.app.companies = Array.from(app.state.companies.values());
-        window.app.users = Array.from(app.state.users.values());
-    }
-}
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('❌ Promesse rejetée:', e.reason);
+});
