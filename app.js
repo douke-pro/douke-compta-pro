@@ -1,58 +1,46 @@
 // =============================================================================
-// DOUKÈ Compta Pro - Fichier Principal App.js
-// Système Comptable SYSCOHADA Révisé - Version Restructurée
+// DOUKÈ Compta Pro - Application Principal (Version Corrigée)
 // =============================================================================
 
 class DoukèComptaPro {
     constructor() {
         this.version = "2.0.0";
         this.initializeState();
-        this.initializeEventListeners();
-        this.securityManager = new SecurityManager();
-        this.dataManager = new DataManager();
-        this.uiManager = new UIManager();
-        
+        this.uiManager = new UIManager(this);
         console.log(`🚀 DOUKÈ Compta Pro v${this.version} - Initialisation...`);
     }
 
     // =============================================================================
-    // STATE MANAGEMENT - ÉTAT GLOBAL SÉCURISÉ
+    // ÉTAT DE L'APPLICATION
     // =============================================================================
     
     initializeState() {
         this.state = {
-            // Utilisateur actuel avec validation renforcée
+            // Utilisateur actuel
             currentUser: null,
             currentProfile: null,
             currentCompany: null,
             isAuthenticated: false,
             
-            // Collections de données avec IDs uniques
+            // Collections avec IDs uniques
             companies: new Map(),
             users: new Map(),
-            accounts: new Map(),
-            entries: new Map(),
-            cashRegisters: new Map(),
+            accounts: [],
+            entries: [],
+            cashRegisters: [],
             
-            // Métadonnées système
+            // Métadonnées
             lastUpdate: new Date(),
             sessionStart: new Date(),
-            securityLevel: 'HIGH',
             
-            // Configuration UI
+            // Configuration
             theme: 'system',
-            language: 'fr',
             companyLogo: null,
-            
-            // Notifications et alertes
             notifications: [],
-            deadlines: [],
-            
-            // Logs d'audit
             auditLog: []
         };
         
-        // Générateur d'IDs uniques sécurisé
+        // Générateur d'IDs uniques
         this.idGenerator = {
             company: () => `COMP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             user: () => `USER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -62,12 +50,12 @@ class DoukèComptaPro {
     }
 
     // =============================================================================
-    // SECURITY MANAGER - GESTIONNAIRE DE SÉCURITÉ
+    // GESTION DE SÉCURITÉ
     // =============================================================================
     
     validateAccess(requiredProfile, targetCompanyId = null) {
         if (!this.state.isAuthenticated || !this.state.currentUser) {
-            throw new SecurityError('UNAUTHORIZED', 'Utilisateur non authentifié');
+            throw new Error('Utilisateur non authentifié');
         }
 
         const userProfile = this.state.currentProfile;
@@ -79,14 +67,8 @@ class DoukèComptaPro {
             'caissier': 0
         };
 
-        // Vérification hiérarchie
         if (profileHierarchy[userProfile] < profileHierarchy[requiredProfile]) {
-            throw new SecurityError('INSUFFICIENT_PRIVILEGES', 'Privilèges insuffisants');
-        }
-
-        // Vérification accès entreprise
-        if (targetCompanyId && !this.canAccessCompany(targetCompanyId)) {
-            throw new SecurityError('COMPANY_ACCESS_DENIED', 'Accès entreprise refusé');
+            throw new Error('Privilèges insuffisants');
         }
 
         this.logAuditEvent('ACCESS_GRANTED', { requiredProfile, targetCompanyId });
@@ -94,39 +76,25 @@ class DoukèComptaPro {
     }
 
     canAccessCompany(companyId) {
-        const user = this.state.users.get(this.state.currentUser.id);
+        const user = this.state.users.get(this.state.currentUser?.id);
         
         switch (this.state.currentProfile) {
             case 'admin':
-                return true; // Accès total
+                return true;
                 
             case 'collaborateur-senior':
-                // Ses entreprises + celles de ses collaborateurs
-                return user.assignedCompanies.includes(companyId) || 
-                       this.getSubordinateCompanies(user.id).includes(companyId);
-                       
+                return user?.assignedCompanies?.includes(companyId) || false;
+                
             case 'collaborateur':
-                // Seulement ses entreprises assignées
-                return user.assignedCompanies.includes(companyId);
+                return user?.assignedCompanies?.includes(companyId) || false;
                 
             case 'user':
-                // Seulement son entreprise
-                return user.companyId === companyId;
-                
             case 'caissier':
-                // Seulement l'entreprise de sa caisse
-                return user.companyId === companyId;
+                return user?.companyId === companyId;
                 
             default:
                 return false;
         }
-    }
-
-    getSubordinateCompanies(seniorId) {
-        const subordinates = Array.from(this.state.users.values())
-            .filter(user => user.supervisorId === seniorId);
-        
-        return subordinates.flatMap(user => user.assignedCompanies || []);
     }
 
     logAuditEvent(action, details = {}) {
@@ -136,7 +104,6 @@ class DoukèComptaPro {
             userId: this.state.currentUser?.id,
             action,
             details,
-            ip: this.getClientIP(),
             userAgent: navigator.userAgent
         };
         
@@ -144,64 +111,26 @@ class DoukèComptaPro {
         console.log(`🔒 AUDIT: ${action}`, auditEntry);
     }
 
-    getClientIP() {
-        // Simulation - en production, récupérer la vraie IP
-        return '192.168.1.' + Math.floor(Math.random() * 255);
-    }
-
     // =============================================================================
-    // DATA MANAGER - GESTIONNAIRE DE DONNÉES
+    // INITIALISATION DES DONNÉES
     // =============================================================================
     
     initializeDefaultData() {
         this.logAuditEvent('DATA_INITIALIZATION_START');
         
         try {
-            // Créer l'administrateur principal
-            this.createSystemAdmin();
-            
-            // Créer les entreprises par défaut avec IDs uniques
             this.createDefaultCompanies();
-            
-            // Créer les utilisateurs par défaut
             this.createDefaultUsers();
-            
-            // Initialiser le plan comptable SYSCOHADA
             this.initializeSyscohadaAccounts();
-            
-            // Créer quelques écritures d'exemple
             this.createSampleEntries();
             
             this.logAuditEvent('DATA_INITIALIZATION_SUCCESS');
-            console.log('✅ Données par défaut initialisées avec IDs uniques');
+            console.log('✅ Données initialisées avec IDs uniques');
             
         } catch (error) {
             this.logAuditEvent('DATA_INITIALIZATION_ERROR', { error: error.message });
             throw error;
         }
-    }
-
-    createSystemAdmin() {
-        const adminId = this.idGenerator.user();
-        const admin = {
-            id: adminId,
-            uniqueId: adminId,
-            name: 'Admin Système',
-            email: 'admin@doukecompta.ci',
-            passwordHash: this.hashPassword('admin123'), // En production: hasher vraiment
-            profile: 'admin',
-            role: 'Administrateur',
-            phone: '+225 07 00 00 00 00',
-            status: 'Actif',
-            createdAt: new Date(),
-            lastLogin: null,
-            assignedCompanies: [], // Admin a accès à tout
-            supervisorId: null,
-            securityClearance: 'LEVEL_5'
-        };
-        
-        this.state.users.set(adminId, admin);
-        return admin;
     }
 
     createDefaultCompanies() {
@@ -236,26 +165,24 @@ class DoukèComptaPro {
             }
         ];
 
-        companies.forEach(companyData => {
+        companies.forEach((companyData, index) => {
             const companyId = this.idGenerator.company();
             const company = {
                 id: companyId,
                 uniqueId: companyId,
                 ...companyData,
-                status: 'Actif',
+                status: index === 3 ? 'Suspendu' : (index === 2 ? 'Période d\'essai' : 'Actif'),
                 createdAt: new Date(),
-                maxCashRegisters: 5,
-                currentCashRegisters: 0,
+                cashRegisters: Math.floor(Math.random() * 5) + 1,
                 settings: {
                     currency: 'FCFA',
                     fiscalYear: new Date().getFullYear(),
                     accountingSystem: 'SYSCOHADA_REVISED'
                 },
-                // Données isolées par entreprise
                 accounts: new Map(),
                 entries: new Map(),
-                cashRegisters: new Map(),
-                users: new Set() // IDs des utilisateurs de cette entreprise
+                cashRegisters_data: new Map(),
+                users: new Set()
             };
             
             this.state.companies.set(companyId, company);
@@ -264,6 +191,14 @@ class DoukèComptaPro {
 
     createDefaultUsers() {
         const users = [
+            {
+                name: 'Admin Système',
+                email: 'admin@doukecompta.ci',
+                password: 'admin123',
+                profile: 'admin',
+                role: 'Administrateur',
+                phone: '+225 07 00 00 00 00'
+            },
             {
                 name: 'Marie Kouassi',
                 email: 'marie.kouassi@cabinet.com',
@@ -313,12 +248,12 @@ class DoukèComptaPro {
                 assignedCompanies: this.assignCompaniesToUser(userData.profile, index, companyIds),
                 companyId: userData.profile === 'user' || userData.profile === 'caissier' ? 
                           companyIds[index % companyIds.length] : null,
-                supervisorId: this.assignSupervisor(userData.profile, index),
+                supervisorId: null,
                 maxCompaniesAllowed: this.getMaxCompanies(userData.profile),
                 securityClearance: this.getSecurityClearance(userData.profile)
             };
             
-            delete user.password; // Supprimer le mot de passe en clair
+            delete user.password;
             this.state.users.set(userId, user);
             
             // Associer l'utilisateur à ses entreprises
@@ -333,31 +268,23 @@ class DoukèComptaPro {
 
     assignCompaniesToUser(profile, index, companyIds) {
         switch (profile) {
+            case 'admin':
+                return companyIds; // Toutes les entreprises
             case 'collaborateur-senior':
-                return companyIds.slice(0, 3); // 3 entreprises
+                return companyIds.slice(0, 3);
             case 'collaborateur':
-                return companyIds.slice(1, 3); // 2 entreprises
+                return companyIds.slice(1, 3);
             case 'user':
             case 'caissier':
-                return [companyIds[index % companyIds.length]]; // 1 entreprise
+                return [companyIds[index % companyIds.length]];
             default:
                 return [];
         }
     }
 
-    assignSupervisor(profile, index) {
-        if (profile === 'collaborateur') {
-            // Les collaborateurs sont assignés aux collaborateurs senior
-            const seniors = Array.from(this.state.users.values())
-                .filter(u => u.profile === 'collaborateur-senior');
-            return seniors.length > 0 ? seniors[0].id : null;
-        }
-        return null;
-    }
-
     getMaxCompanies(profile) {
         const limits = {
-            'admin': -1, // Illimité
+            'admin': -1,
             'collaborateur-senior': 10,
             'collaborateur': 5,
             'user': 1,
@@ -378,7 +305,6 @@ class DoukèComptaPro {
     }
 
     hashPassword(password) {
-        // En production, utiliser une vraie fonction de hachage sécurisée
         return btoa(password + 'DOUKE_SALT_2024');
     }
 
@@ -386,47 +312,89 @@ class DoukèComptaPro {
         return this.hashPassword(password) === hash;
     }
 
-    // =============================================================================
-    // COMPANY MANAGEMENT - GESTION DES ENTREPRISES
-    // =============================================================================
-    
-    createCompany(companyData) {
-        this.validateAccess('admin');
-        
-        const companyId = this.idGenerator.company();
-        const company = {
-            id: companyId,
-            uniqueId: companyId,
-            name: companyData.name,
-            type: companyData.type,
-            status: 'Période d\'essai',
-            system: companyData.system || 'Normal',
-            phone: companyData.phone,
-            address: companyData.address,
-            createdAt: new Date(),
-            createdBy: this.state.currentUser.id,
-            maxCashRegisters: companyData.maxCashRegisters || 5,
-            currentCashRegisters: 0,
-            settings: {
-                currency: 'FCFA',
-                fiscalYear: new Date().getFullYear(),
-                accountingSystem: 'SYSCOHADA_REVISED'
-            },
-            // Collections isolées par entreprise
-            accounts: new Map(),
-            entries: new Map(),
-            cashRegisters: new Map(),
-            users: new Set()
-        };
-        
-        this.state.companies.set(companyId, company);
-        this.logAuditEvent('COMPANY_CREATED', { companyId, name: company.name });
-        
-        return company;
+    initializeSyscohadaAccounts() {
+        this.state.accounts = [
+            // Classe 1 - Comptes de ressources durables
+            { code: '101000', name: 'Capital social', category: 'Capitaux propres' },
+            { code: '106000', name: 'Réserves', category: 'Capitaux propres' },
+            { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres' },
+            { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres' },
+            { code: '161000', name: 'Emprunts et dettes', category: 'Dettes financières' },
+            
+            // Classe 2 - Comptes d'actif immobilisé
+            { code: '211000', name: 'Terrains', category: 'Immobilisations corporelles' },
+            { code: '213000', name: 'Constructions', category: 'Immobilisations corporelles' },
+            { code: '218000', name: 'Matériel de transport', category: 'Immobilisations corporelles' },
+            { code: '244000', name: 'Matériel et outillage', category: 'Immobilisations corporelles' },
+            
+            // Classe 3 - Comptes de stocks
+            { code: '311000', name: 'Marchandises', category: 'Stocks' },
+            { code: '321000', name: 'Matières premières', category: 'Stocks' },
+            
+            // Classe 4 - Comptes de tiers
+            { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs' },
+            { code: '411000', name: 'Clients', category: 'Clients' },
+            { code: '421000', name: 'Personnel', category: 'Personnel' },
+            { code: '441000', name: 'État et collectivités', category: 'État' },
+            
+            // Classe 5 - Comptes financiers
+            { code: '512000', name: 'Banques', category: 'Comptes bancaires' },
+            { code: '571000', name: 'Caisse', category: 'Caisse' },
+            
+            // Classe 6 - Comptes de charges
+            { code: '601000', name: 'Achats de marchandises', category: 'Achats' },
+            { code: '621000', name: 'Transports', category: 'Services extérieurs' },
+            { code: '641000', name: 'Rémunérations du personnel', category: 'Charges de personnel' },
+            
+            // Classe 7 - Comptes de produits
+            { code: '701000', name: 'Ventes de marchandises', category: 'Ventes' },
+            { code: '706000', name: 'Services vendus', category: 'Ventes' }
+        ];
     }
 
+    createSampleEntries() {
+        const companyIds = Array.from(this.state.companies.keys());
+        
+        this.state.entries = [
+            {
+                id: this.idGenerator.entry(),
+                date: '2024-12-15',
+                journal: 'JV',
+                piece: 'JV-2024-001-0156',
+                libelle: 'Vente marchandises Client ABC',
+                companyId: companyIds[0],
+                lines: [
+                    { account: '411000', accountName: 'Clients', libelle: 'Vente Client ABC', debit: 1800000, credit: 0 },
+                    { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente marchandises', debit: 0, credit: 1500000 },
+                    { account: '441000', accountName: 'État et collectivités', libelle: 'TVA sur ventes', debit: 0, credit: 300000 }
+                ],
+                status: 'Validé',
+                userId: Array.from(this.state.users.values())[1].id
+            },
+            {
+                id: this.idGenerator.entry(),
+                date: '2024-12-14',
+                journal: 'JA',
+                piece: 'JA-2024-001-0157',
+                libelle: 'Achat marchandises Fournisseur XYZ',
+                companyId: companyIds[0],
+                lines: [
+                    { account: '601000', accountName: 'Achats de marchandises', libelle: 'Achat marchandises', debit: 850000, credit: 0 },
+                    { account: '441000', accountName: 'État et collectivités', libelle: 'TVA déductible', debit: 170000, credit: 0 },
+                    { account: '401000', accountName: 'Fournisseurs', libelle: 'Fournisseur XYZ', debit: 0, credit: 1020000 }
+                ],
+                status: 'En attente',
+                userId: Array.from(this.state.users.values())[2].id
+            }
+        ];
+    }
+
+    // =============================================================================
+    // GESTION DES ENTREPRISES
+    // =============================================================================
+    
     getCompaniesForUser(userId = null) {
-        userId = userId || this.state.currentUser.id;
+        userId = userId || this.state.currentUser?.id;
         const user = this.state.users.get(userId);
         
         if (!user) return [];
@@ -436,11 +404,6 @@ class DoukèComptaPro {
                 return Array.from(this.state.companies.values());
                 
             case 'collaborateur-senior':
-                const ownCompanies = user.assignedCompanies.map(id => this.state.companies.get(id)).filter(Boolean);
-                const subordinateCompanies = this.getSubordinateCompanies(userId)
-                    .map(id => this.state.companies.get(id)).filter(Boolean);
-                return [...ownCompanies, ...subordinateCompanies];
-                
             case 'collaborateur':
                 return user.assignedCompanies.map(id => this.state.companies.get(id)).filter(Boolean);
                 
@@ -455,89 +418,18 @@ class DoukèComptaPro {
 
     selectCompany(companyId) {
         if (!this.canAccessCompany(companyId)) {
-            throw new SecurityError('COMPANY_ACCESS_DENIED', 'Accès à cette entreprise refusé');
+            throw new Error('Accès à cette entreprise refusé');
         }
         
         this.state.currentCompany = companyId;
         this.logAuditEvent('COMPANY_SELECTED', { companyId });
         
-        // Mettre à jour l'UI
-        this.uiManager.updateCompanySelector();
         this.uiManager.updateCompanyInfo();
-        
         return this.state.companies.get(companyId);
     }
 
     // =============================================================================
-    // USER MANAGEMENT - GESTION DES UTILISATEURS
-    // =============================================================================
-    
-    createUser(userData) {
-        this.validateAccess('admin');
-        
-        // Vérifier que l'email n'existe pas déjà
-        const existingUser = Array.from(this.state.users.values())
-            .find(user => user.email === userData.email);
-        
-        if (existingUser) {
-            throw new ValidationError('EMAIL_EXISTS', 'Cet email est déjà utilisé');
-        }
-        
-        const userId = this.idGenerator.user();
-        const user = {
-            id: userId,
-            uniqueId: userId,
-            name: userData.name,
-            email: userData.email,
-            passwordHash: this.hashPassword(userData.password),
-            profile: userData.profile,
-            role: userData.role,
-            phone: userData.phone,
-            status: 'Actif',
-            createdAt: new Date(),
-            createdBy: this.state.currentUser.id,
-            lastLogin: null,
-            assignedCompanies: userData.assignedCompanies || [],
-            companyId: userData.companyId || null,
-            supervisorId: userData.supervisorId || null,
-            maxCompaniesAllowed: this.getMaxCompanies(userData.profile),
-            securityClearance: this.getSecurityClearance(userData.profile)
-        };
-        
-        this.state.users.set(userId, user);
-        this.logAuditEvent('USER_CREATED', { userId, email: user.email, profile: user.profile });
-        
-        return user;
-    }
-
-    assignUserToCompany(userId, companyId) {
-        this.validateAccess('collaborateur-senior');
-        
-        const user = this.state.users.get(userId);
-        const company = this.state.companies.get(companyId);
-        
-        if (!user || !company) {
-            throw new ValidationError('INVALID_IDS', 'Utilisateur ou entreprise introuvable');
-        }
-        
-        // Vérifier les limites
-        if (user.assignedCompanies.length >= user.maxCompaniesAllowed && user.maxCompaniesAllowed !== -1) {
-            throw new ValidationError('COMPANY_LIMIT_REACHED', 'Limite d\'entreprises atteinte');
-        }
-        
-        // Ajouter l'assignation
-        if (!user.assignedCompanies.includes(companyId)) {
-            user.assignedCompanies.push(companyId);
-            company.users.add(userId);
-            
-            this.logAuditEvent('USER_ASSIGNED_TO_COMPANY', { userId, companyId });
-        }
-        
-        return true;
-    }
-
-    // =============================================================================
-    // AUTHENTICATION - AUTHENTIFICATION
+    // AUTHENTIFICATION
     // =============================================================================
     
     async authenticate(email, password) {
@@ -549,17 +441,17 @@ class DoukèComptaPro {
             
             if (!user) {
                 this.logAuditEvent('LOGIN_FAILED', { email, reason: 'USER_NOT_FOUND' });
-                throw new AuthenticationError('INVALID_CREDENTIALS', 'Identifiants incorrects');
+                throw new Error('Identifiants incorrects');
             }
             
             if (user.status !== 'Actif') {
                 this.logAuditEvent('LOGIN_FAILED', { email, reason: 'USER_INACTIVE' });
-                throw new AuthenticationError('USER_INACTIVE', 'Compte désactivé');
+                throw new Error('Compte désactivé');
             }
             
             if (!this.verifyPassword(password, user.passwordHash)) {
                 this.logAuditEvent('LOGIN_FAILED', { email, reason: 'WRONG_PASSWORD' });
-                throw new AuthenticationError('INVALID_CREDENTIALS', 'Identifiants incorrects');
+                throw new Error('Identifiants incorrects');
             }
             
             // Connexion réussie
@@ -577,9 +469,7 @@ class DoukèComptaPro {
                 this.state.currentCompany = user.companyId;
             }
             
-            // Mettre à jour la dernière connexion
             user.lastLogin = new Date();
-            
             this.logAuditEvent('LOGIN_SUCCESS', { userId: user.id });
             
             return {
@@ -607,37 +497,18 @@ class DoukèComptaPro {
     }
 
     // =============================================================================
-    // ERROR CLASSES - CLASSES D'ERREURS
+    // UTILITAIRES
     // =============================================================================
-}
-
-// Classes d'erreurs personnalisées
-class SecurityError extends Error {
-    constructor(code, message) {
-        super(message);
-        this.name = 'SecurityError';
-        this.code = code;
-    }
-}
-
-class ValidationError extends Error {
-    constructor(code, message) {
-        super(message);
-        this.name = 'ValidationError';
-        this.code = code;
-    }
-}
-
-class AuthenticationError extends Error {
-    constructor(code, message) {
-        super(message);
-        this.name = 'AuthenticationError';
-        this.code = code;
+    
+    getCompanyName() {
+        if (!this.state.currentCompany) return 'Aucune entreprise sélectionnée';
+        const company = this.state.companies.get(this.state.currentCompany);
+        return company ? company.name : 'Entreprise inconnue';
     }
 }
 
 // =============================================================================
-// GESTIONNAIRE UI - INTERFACE UTILISATEUR
+// GESTIONNAIRE UI
 // =============================================================================
 
 class UIManager {
@@ -647,7 +518,6 @@ class UIManager {
     }
 
     initializeTheme() {
-        // Détection et gestion du thème
         if (localStorage.getItem('theme') === 'dark' ||
             (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
@@ -704,69 +574,15 @@ class UIManager {
         }
     }
 
-    showNotification(type, message, duration = 5000) {
-        const notification = {
-            id: Date.now(),
-            type,
-            message,
-            timestamp: new Date()
-        };
-        
-        this.app.state.notifications.unshift(notification);
-        
-        // Afficher la notification
-        this.displayNotification(notification);
-        
-        // Supprimer après la durée spécifiée
-        setTimeout(() => {
-            this.removeNotification(notification.id);
-        }, duration);
-    }
-
-    displayNotification(notification) {
-        const container = document.getElementById('notificationContainer') || this.createNotificationContainer();
-        
-        const element = document.createElement('div');
-        element.className = `notification notification-${notification.type}`;
-        element.setAttribute('data-id', notification.id);
-        element.innerHTML = `
-            <div class="notification-content">
-                <i class="fas ${this.getNotificationIcon(notification.type)}"></i>
-                <span>${notification.message}</span>
-                <button onclick="app.uiManager.removeNotification(${notification.id})" class="notification-close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-        
-        container.appendChild(element);
-    }
-
-    createNotificationContainer() {
-        const container = document.createElement('div');
-        container.id = 'notificationContainer';
-        container.className = 'notification-container';
-        document.body.appendChild(container);
-        return container;
-    }
-
-    getNotificationIcon(type) {
+    showNotification(type, message) {
+        // Utiliser alert pour la simplicité
         const icons = {
-            'success': 'fa-check-circle',
-            'error': 'fa-exclamation-triangle',
-            'warning': 'fa-exclamation-circle',
-            'info': 'fa-info-circle'
+            'success': '✅',
+            'error': '❌',
+            'warning': '⚠️',
+            'info': 'ℹ️'
         };
-        return icons[type] || 'fa-info-circle';
-    }
-
-    removeNotification(id) {
-        const element = document.querySelector(`[data-id="${id}"]`);
-        if (element) {
-            element.remove();
-        }
-        
-        this.app.state.notifications = this.app.state.notifications.filter(n => n.id !== id);
+        alert(`${icons[type] || 'ℹ️'} ${message}`);
     }
 }
 
@@ -774,7 +590,6 @@ class UIManager {
 // INITIALISATION GLOBALE
 // =============================================================================
 
-// Instance globale de l'application
 let app;
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -782,34 +597,16 @@ document.addEventListener('DOMContentLoaded', function() {
         app = new DoukèComptaPro();
         app.initializeDefaultData();
         
-        console.log('✅ DOUKÈ Compta Pro - Application restructurée initialisée avec succès');
-        
-        // Initialiser les événements de l'interface
+        console.log('✅ DOUKÈ Compta Pro - Application initialisée avec succès');
         initializeUIEvents();
         
     } catch (error) {
-        console.error('❌ Erreur lors de l\'initialisation de l\'application:', error);
+        console.error('❌ Erreur lors de l\'initialisation:', error);
         alert('Erreur lors du démarrage de l\'application. Veuillez recharger la page.');
     }
 });
 
 function initializeUIEvents() {
-    // Gestionnaire de sélection d'entreprise
-    const companySelect = document.getElementById('activeCompanySelect');
-    if (companySelect) {
-        companySelect.addEventListener('change', function(e) {
-            if (e.target.value) {
-                try {
-                    app.selectCompany(e.target.value);
-                    app.uiManager.showNotification('success', `Entreprise sélectionnée: ${app.state.companies.get(e.target.value).name}`);
-                } catch (error) {
-                    app.uiManager.showNotification('error', error.message);
-                    e.target.value = '';
-                }
-            }
-        });
-    }
-
     // Gestionnaire de connexion
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
@@ -836,6 +633,24 @@ function initializeUIEvents() {
             }
         });
     }
+
+    // Gestionnaire de sélection d'entreprise
+    setTimeout(() => {
+        const companySelect = document.getElementById('activeCompanySelect');
+        if (companySelect) {
+            companySelect.addEventListener('change', function(e) {
+                if (e.target.value) {
+                    try {
+                        app.selectCompany(e.target.value);
+                        app.uiManager.showNotification('success', `Entreprise sélectionnée: ${app.getCompanyName()}`);
+                    } catch (error) {
+                        app.uiManager.showNotification('error', error.message);
+                        e.target.value = '';
+                    }
+                }
+            });
+        }
+    }, 1000);
 }
 
 function initializeMainApp() {
@@ -888,7 +703,7 @@ function updateUserInfo() {
     }
 }
 
-// Fonctions d'assistance pour la compatibilité
+// Fonctions de compatibilité avec l'interface existante
 function loginAs(profile) {
     const credentials = {
         'admin': { email: 'admin@doukecompta.ci', password: 'admin123' },
@@ -905,7 +720,29 @@ function loginAs(profile) {
     }
 }
 
-// Export pour utilisation dans d'autres modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { DoukèComptaPro, SecurityError, ValidationError, AuthenticationError };
+// Maintenir la compatibilité avec les variables globales existantes
+window.app = {
+    currentProfile: null,
+    currentCompany: null,
+    currentUser: null,
+    isAuthenticated: false,
+    accounts: [],
+    entries: [],
+    companies: [],
+    users: [],
+    cashRegisters: []
+};
+
+// Synchroniser avec la nouvelle structure
+function syncLegacyData() {
+    if (window.app && app) {
+        window.app.currentProfile = app.state.currentProfile;
+        window.app.currentCompany = app.state.currentCompany;
+        window.app.currentUser = app.state.currentUser;
+        window.app.isAuthenticated = app.state.isAuthenticated;
+        window.app.accounts = app.state.accounts;
+        window.app.entries = app.state.entries;
+        window.app.companies = Array.from(app.state.companies.values());
+        window.app.users = Array.from(app.state.users.values());
+    }
 }
