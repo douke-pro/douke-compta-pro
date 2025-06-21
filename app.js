@@ -1,5 +1,5 @@
 // =============================================================================
-// DOUKÈ Compta Pro - Application Principal (Version Corrigée avec Connexion)
+// DOUKÈ Compta Pro - Application Principal (Interface & Authentification)
 // =============================================================================
 
 class DoukèComptaPro {
@@ -18,9 +18,6 @@ class DoukèComptaPro {
             isAuthenticated: false,
             companies: [],
             users: [],
-            accounts: [],
-            entries: [],
-            cashRegisters: [],
             lastUpdate: new Date(),
             theme: 'system',
             companyLogo: null,
@@ -180,11 +177,6 @@ class DoukèComptaPro {
             }
         ];
 
-        // Initialiser le gestionnaire de données sécurisées
-        if (window.dataSecurityManager) {
-            window.dataSecurityManager.initializeCompanyData();
-        }
-
         this.syncWithGlobalApp();
         console.log('✅ Données initialisées :', {
             companies: this.state.companies.length,
@@ -199,10 +191,7 @@ class DoukèComptaPro {
             currentCompany: this.state.currentCompany,
             isAuthenticated: this.state.isAuthenticated,
             companies: this.state.companies,
-            users: this.state.users,
-            accounts: this.state.accounts,
-            entries: this.state.entries,
-            cashRegisters: this.state.cashRegisters
+            users: this.state.users
         };
         console.log('🔄 window.app synchronisé avec', window.app.companies.length, 'entreprises');
     }
@@ -329,7 +318,7 @@ class UIManager {
 }
 
 // =============================================================================
-// FONCTION DE CONNEXION (CORRIGÉE)
+// FONCTION DE CONNEXION
 // =============================================================================
 
 async function handleLogin() {
@@ -344,7 +333,6 @@ async function handleLogin() {
 
         console.log('🔄 Tentative de connexion pour:', email);
 
-        // Appeler la fonction d'authentification
         const result = await app.authenticate(email, password);
 
         if (result.success) {
@@ -369,7 +357,7 @@ async function handleLogin() {
 }
 
 // =============================================================================
-// FONCTIONS D'AFFICHAGE (Interface utilisateur)
+// FONCTIONS DE NAVIGATION ET INTERFACE
 // =============================================================================
 
 function loadNavigationMenu() {
@@ -431,7 +419,7 @@ function loadNavigationMenu() {
     const items = menuItems[window.app.currentProfile] || menuItems.user;
 
     const menuHtml = items.map(item => `
-        <a href="#" onclick="navigateTo('${item.id}'); return false;" 
+        <a href="#" onclick="AppRouter.navigateTo('${item.id}'); return false;" 
            class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${item.active ? 'bg-primary text-white' : ''}">
             <i class="${item.icon} w-5 h-5 mr-3"></i>
             <span>${item.text}</span>
@@ -444,449 +432,401 @@ function loadNavigationMenu() {
     }
 }
 
-function navigateTo(page) {
-    console.log('🔄 Navigation vers:', page);
+// =============================================================================
+// ROUTEUR PRINCIPAL (évite les conflits de noms)
+// =============================================================================
 
-    if (!window.app) {
-        console.error('❌ window.app non défini dans navigateTo');
-        alert('❌ Erreur : Application non initialisée');
-        return;
-    }
+const AppRouter = {
+    navigateTo(page) {
+        console.log('🔄 Navigation vers:', page);
 
-    // Supprimer la classe active de tous les éléments de menu
-    document.querySelectorAll('#navigationMenu a').forEach(item => {
-        item.classList.remove('bg-primary', 'text-white');
-        item.classList.add('text-gray-700', 'dark:text-gray-300');
-    });
-
-    // Ajouter la classe active à l'élément cliqué
-    try {
-        const clickedElement = event.target.closest('a');
-        if (clickedElement && clickedElement.parentElement.id === 'navigationMenu') {
-            clickedElement.classList.add('bg-primary', 'text-white');
-            clickedElement.classList.remove('text-gray-700', 'dark:text-gray-300');
+        if (!window.app) {
+            console.error('❌ window.app non défini dans navigateTo');
+            alert('❌ Erreur : Application non initialisée');
+            return;
         }
-    } catch (e) {
-        // Ignorer si l'événement n'est pas disponible
-    }
 
-    // Charger le contenu de la page
-    try {
-        switch(page) {
-            case 'dashboard':
-                loadDashboard();
-                break;
-            case 'users':
-                loadUsersManagement();
-                break;
-            case 'companies':
-                loadCompanies();
-                break;
-            case 'entries':
-                loadEntries();
-                break;
-            case 'accounts':
-                loadAccounts();
-                break;
-            case 'caisse':
-                loadCaisse();
-                break;
-            case 'reports':
-                loadReports();
-                break;
-            case 'import':
-                loadImport();
-                break;
-            case 'settings':
-                loadSettings();
-                break;
-            default:
-                console.log('⚠️ Page inconnue, chargement du tableau de bord');
-                loadDashboard();
+        // Supprimer la classe active de tous les éléments de menu
+        document.querySelectorAll('#navigationMenu a').forEach(item => {
+            item.classList.remove('bg-primary', 'text-white');
+            item.classList.add('text-gray-700', 'dark:text-gray-300');
+        });
+
+        // Ajouter la classe active à l'élément cliqué
+        try {
+            const clickedElement = event.target.closest('a');
+            if (clickedElement && clickedElement.parentElement.id === 'navigationMenu') {
+                clickedElement.classList.add('bg-primary', 'text-white');
+                clickedElement.classList.remove('text-gray-700', 'dark:text-gray-300');
+            }
+        } catch (e) {
+            // Ignorer si l'événement n'est pas disponible
         }
-    } catch (error) {
-        console.error('❌ Erreur lors du chargement de la page :', error);
-        alert('Erreur lors du chargement de la page : ' + page + '\nDétails : ' + error.message);
-    }
-}
 
-function loadDashboard() {
-    console.log('📊 Chargement du tableau de bord pour:', window.app.currentProfile);
-    
-    if (!window.app || !window.app.currentProfile) {
-        console.error('❌ window.app ou currentProfile non défini');
-        document.getElementById('mainContent').innerHTML = `
-            <div class="text-center p-8">
-                <div class="text-red-500 text-xl mb-4">⚠️ Erreur de chargement</div>
-                <p>Données d'authentification manquantes. Veuillez vous reconnecter.</p>
+        // Router vers la bonne fonction de chargement
+        try {
+            switch(page) {
+                case 'dashboard':
+                    this.loadDashboard();
+                    break;
+                case 'users':
+                    // Rediriger vers le gestionnaire de sécurité
+                    if (window.SecureDataManager) {
+                        window.SecureDataManager.loadUsersPage();
+                    }
+                    break;
+                case 'companies':
+                    if (window.SecureDataManager) {
+                        window.SecureDataManager.loadCompaniesPage();
+                    }
+                    break;
+                case 'entries':
+                    if (window.SecureDataManager) {
+                        window.SecureDataManager.loadEntriesPage();
+                    }
+                    break;
+                case 'accounts':
+                    if (window.SecureDataManager) {
+                        window.SecureDataManager.loadAccountsPage();
+                    }
+                    break;
+                case 'caisse':
+                    if (window.SecureDataManager) {
+                        window.SecureDataManager.loadCaissePage();
+                    }
+                    break;
+                case 'reports':
+                    if (window.SecureDataManager) {
+                        window.SecureDataManager.loadReportsPage();
+                    }
+                    break;
+                case 'import':
+                    if (window.SecureDataManager) {
+                        window.SecureDataManager.loadImportPage();
+                    }
+                    break;
+                case 'settings':
+                    this.loadSettings();
+                    break;
+                default:
+                    console.log('⚠️ Page inconnue, chargement du tableau de bord');
+                    this.loadDashboard();
+            }
+        } catch (error) {
+            console.error('❌ Erreur lors du chargement de la page :', error);
+            alert('Erreur lors du chargement de la page : ' + page + '\nDétails : ' + error.message);
+        }
+    },
+
+    loadDashboard() {
+        console.log('📊 Chargement du tableau de bord pour:', window.app.currentProfile);
+        
+        if (!window.app || !window.app.currentProfile) {
+            console.error('❌ window.app ou currentProfile non défini');
+            document.getElementById('mainContent').innerHTML = `
+                <div class="text-center p-8">
+                    <div class="text-red-500 text-xl mb-4">⚠️ Erreur de chargement</div>
+                    <p>Données d'authentification manquantes. Veuillez vous reconnecter.</p>
+                </div>
+            `;
+            return;
+        }
+
+        if (window.app.currentProfile === 'admin') {
+            this.loadAdminDashboard();
+        } else {
+            this.loadStandardDashboard();
+        }
+    },
+
+    loadAdminDashboard() {
+        const content = `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Tableau de Bord Administrateur</h2>
+                    <div class="text-sm text-primary-light font-medium">
+                        <i class="fas fa-clock mr-1"></i>Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}
+                    </div>
+                </div>
+
+                <!-- KPI Cards Admin -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-primary">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Entreprises Actives</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.companies.filter(c => c.status === 'Actif').length}</p>
+                            </div>
+                            <div class="bg-primary/10 p-3 rounded-lg">
+                                <i class="fas fa-building text-primary text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Collaborateurs Actifs</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.users.filter(u => u.profile.includes('collaborateur')).length}</p>
+                            </div>
+                            <div class="bg-info/10 p-3 rounded-lg">
+                                <i class="fas fa-users text-info text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Entreprises</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.companies.length}</p>
+                            </div>
+                            <div class="bg-warning/10 p-3 rounded-lg">
+                                <i class="fas fa-chart-line text-warning text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Utilisateurs Actifs</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.users.filter(u => u.status === 'Actif').length}</p>
+                            </div>
+                            <div class="bg-success/10 p-3 rounded-lg">
+                                <i class="fas fa-users text-success text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sélecteur d'entreprise pour Admin -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-building mr-2 text-primary"></i>Sélection d'entreprise
+                    </h3>
+                    <div class="flex items-center space-x-4">
+                        <select id="activeCompanySelect" onchange="AppRouter.changeCompany(this.value)" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            <option value="">-- Sélectionner une entreprise --</option>
+                            ${window.app.companies.map(company => `
+                                <option value="${company.id}" ${company.id === window.app.currentCompany ? 'selected' : ''}>
+                                    ${company.name} (${company.status})
+                                </option>
+                            `).join('')}
+                        </select>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Sélectionnez une entreprise pour accéder à ses données
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-chart-bar mr-2 text-primary"></i>Vue d'ensemble du système
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="text-center p-4 bg-primary/10 rounded-lg">
+                            <div class="text-2xl font-bold text-primary">${window.app.companies.length}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Entreprises gérées</div>
+                        </div>
+                        <div class="text-center p-4 bg-success/10 rounded-lg">
+                            <div class="text-2xl font-bold text-success">${window.app.users.length}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs actifs</div>
+                        </div>
+                        <div class="text-center p-4 bg-info/10 rounded-lg">
+                            <div class="text-2xl font-bold text-info">98%</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Performance globale</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
-        return;
-    }
 
-    if (window.app.currentProfile === 'admin') {
-        loadAdminDashboard();
-    } else {
-        loadStandardDashboard();
-    }
-}
-
-function loadAdminDashboard() {
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Tableau de Bord Administrateur</h2>
-                <div class="text-sm text-primary-light font-medium">
-                    <i class="fas fa-clock mr-1"></i>Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}
-                </div>
-            </div>
-
-            <!-- KPI Cards Admin -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-primary">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Entreprises Actives</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.companies.filter(c => c.status === 'Actif').length}</p>
-                        </div>
-                        <div class="bg-primary/10 p-3 rounded-lg">
-                            <i class="fas fa-building text-primary text-xl"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Collaborateurs Actifs</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.users.filter(u => u.profile.includes('collaborateur')).length}</p>
-                        </div>
-                        <div class="bg-info/10 p-3 rounded-lg">
-                            <i class="fas fa-users text-info text-xl"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures en Attente</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.dataSecurityManager ? window.dataSecurityManager.getTotalPendingEntries() : 0}</p>
-                        </div>
-                        <div class="bg-warning/10 p-3 rounded-lg">
-                            <i class="fas fa-exclamation-triangle text-warning text-xl"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Entreprises</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.companies.length}</p>
-                        </div>
-                        <div class="bg-success/10 p-3 rounded-lg">
-                            <i class="fas fa-check text-success text-xl"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sélecteur d'entreprise pour Admin/Collaborateurs -->
-            ${(window.app.currentProfile === 'admin' || window.app.currentProfile.includes('collaborateur')) ? `
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-building mr-2 text-primary"></i>Sélection d'entreprise
-                </h3>
-                <div class="flex items-center space-x-4">
-                    <select id="activeCompanySelect" onchange="changeCompany(this.value)" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                        <option value="">-- Sélectionner une entreprise --</option>
-                        ${window.app.companies.map(company => `
-                            <option value="${company.id}" ${company.id === window.app.currentCompany ? 'selected' : ''}>
-                                ${company.name} (${company.status})
-                            </option>
-                        `).join('')}
-                    </select>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Sélectionnez une entreprise pour voir ses données spécifiques
-                    </div>
-                </div>
-            </div>
-            ` : ''}
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-briefcase mr-2 text-primary"></i>Vue d'ensemble du système
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="text-center p-4 bg-primary/10 rounded-lg">
-                        <div class="text-2xl font-bold text-primary">${window.app.companies.length}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Entreprises gérées</div>
-                    </div>
-                    <div class="text-center p-4 bg-success/10 rounded-lg">
-                        <div class="text-2xl font-bold text-success">${window.app.users.length}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs actifs</div>
-                    </div>
-                    <div class="text-center p-4 bg-info/10 rounded-lg">
-                        <div class="text-2xl font-bold text-info">98%</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Performance globale</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    const mainContent = document.getElementById('mainContent');
-    if (mainContent) {
-        mainContent.innerHTML = content;
+        document.getElementById('mainContent').innerHTML = content;
         console.log('✅ Tableau de bord admin chargé');
-    }
-}
+    },
 
-function loadStandardDashboard() {
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${window.app.currentProfile === 'user' ? 'Mon Entreprise' : 
-                      window.app.currentProfile === 'caissier' ? 'Ma Caisse' : 'Tableau de Bord'}
-                </h2>
-                <div class="text-sm text-primary-light font-medium">
-                    <i class="fas fa-clock mr-1"></i>Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-primary">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Mon entreprise</p>
-                            <p class="text-xl font-bold text-gray-900 dark:text-white">${app.getCompanyName()}</p>
-                        </div>
-                        <div class="bg-primary/10 p-3 rounded-lg">
-                            <i class="fas fa-building text-primary text-xl"></i>
-                        </div>
+    loadStandardDashboard() {
+        const content = `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                        ${window.app.currentProfile === 'user' ? 'Mon Entreprise' : 
+                          window.app.currentProfile === 'caissier' ? 'Ma Caisse' : 'Tableau de Bord'}
+                    </h2>
+                    <div class="text-sm text-primary-light font-medium">
+                        <i class="fas fa-clock mr-1"></i>Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Statut</p>
-                            <p class="text-xl font-bold text-success">Actif</p>
-                        </div>
-                        <div class="bg-success/10 p-3 rounded-lg">
-                            <i class="fas fa-check text-success text-xl"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Mon rôle</p>
-                            <p class="text-xl font-bold text-gray-900 dark:text-white">${window.app.currentUser.role}</p>
-                        </div>
-                        <div class="bg-info/10 p-3 rounded-lg">
-                            <i class="fas fa-user text-info text-xl"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Accès</p>
-                            <p class="text-xl font-bold text-gray-900 dark:text-white">Standard</p>
-                        </div>
-                        <div class="bg-warning/10 p-3 rounded-lg">
-                            <i class="fas fa-key text-warning text-xl"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    Accès rapide
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button onclick="navigateTo('entries')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-edit text-primary text-xl"></i>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-primary">
+                        <div class="flex items-center justify-between">
                             <div>
-                                <div class="font-medium text-gray-900 dark:text-white">Mes Écritures</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">Gérer les opérations</div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Mon entreprise</p>
+                                <p class="text-xl font-bold text-gray-900 dark:text-white">${app.getCompanyName()}</p>
+                            </div>
+                            <div class="bg-primary/10 p-3 rounded-lg">
+                                <i class="fas fa-building text-primary text-xl"></i>
                             </div>
                         </div>
-                    </button>
-                    <button onclick="navigateTo('accounts')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-list text-success text-xl"></i>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
+                        <div class="flex items-center justify-between">
                             <div>
-                                <div class="font-medium text-gray-900 dark:text-white">Plan Comptable</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">Consulter les comptes</div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Statut</p>
+                                <p class="text-xl font-bold text-success">Actif</p>
+                            </div>
+                            <div class="bg-success/10 p-3 rounded-lg">
+                                <i class="fas fa-check text-success text-xl"></i>
                             </div>
                         </div>
-                    </button>
-                    <button onclick="navigateTo('reports')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-chart-bar text-info text-xl"></i>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
+                        <div class="flex items-center justify-between">
                             <div>
-                                <div class="font-medium text-gray-900 dark:text-white">Rapports</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">États financiers</div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Mon rôle</p>
+                                <p class="text-xl font-bold text-gray-900 dark:text-white">${window.app.currentUser.role}</p>
+                            </div>
+                            <div class="bg-info/10 p-3 rounded-lg">
+                                <i class="fas fa-user text-info text-xl"></i>
                             </div>
                         </div>
-                    </button>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Accès</p>
+                                <p class="text-xl font-bold text-gray-900 dark:text-white">Standard</p>
+                            </div>
+                            <div class="bg-warning/10 p-3 rounded-lg">
+                                <i class="fas fa-key text-warning text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Accès rapide</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button onclick="AppRouter.navigateTo('entries')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-edit text-primary text-xl"></i>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Mes Écritures</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Gérer les opérations</div>
+                                </div>
+                            </div>
+                        </button>
+                        <button onclick="AppRouter.navigateTo('accounts')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-list text-success text-xl"></i>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Plan Comptable</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Consulter les comptes</div>
+                                </div>
+                            </div>
+                        </button>
+                        <button onclick="AppRouter.navigateTo('reports')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-chart-bar text-info text-xl"></i>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">Rapports</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">États financiers</div>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
+        `;
 
-    const mainContent = document.getElementById('mainContent');
-    if (mainContent) {
-        mainContent.innerHTML = content;
+        document.getElementById('mainContent').innerHTML = content;
         console.log('✅ Dashboard standard chargé');
-    }
-}
+    },
 
-// Fonction pour changer d'entreprise (Admin/Collaborateurs)
-function changeCompany(companyId) {
-    if (!companyId) {
-        window.app.currentCompany = null;
-        app.state.currentCompany = null;
-    } else {
-        window.app.currentCompany = parseInt(companyId);
-        app.state.currentCompany = parseInt(companyId);
-    }
-    
-    console.log('🏢 Entreprise sélectionnée:', companyId);
-    
-    // Rafraîchir l'affichage
-    const currentPage = getCurrentPage();
-    if (currentPage) {
-        navigateTo(currentPage);
-    }
-}
+    loadSettings() {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mon Profil</h2>
 
-function getCurrentPage() {
-    // Déterminer la page actuelle basée sur les éléments actifs du menu
-    const activeMenuItem = document.querySelector('#navigationMenu a.bg-primary');
-    if (activeMenuItem) {
-        const onclick = activeMenuItem.getAttribute('onclick');
-        const match = onclick.match(/navigateTo\('(.+?)'\)/);
-        return match ? match[1] : 'dashboard';
-    }
-    return 'dashboard';
-}
-
-// Autres fonctions de page simplifiées (sécurisées dans data-security.js)
-function loadUsersManagement() {
-    if (window.app.currentProfile !== 'admin') {
-        showAccessDenied();
-        return;
-    }
-    // Le contenu sera généré par data-security.js
-    if (window.dataSecurityManager) {
-        window.dataSecurityManager.loadUsersManagement();
-    }
-}
-
-function loadCompanies() {
-    if (window.dataSecurityManager) {
-        window.dataSecurityManager.loadCompanies();
-    }
-}
-
-function loadEntries() {
-    if (window.dataSecurityManager) {
-        window.dataSecurityManager.loadEntries();
-    }
-}
-
-function loadAccounts() {
-    if (window.dataSecurityManager) {
-        window.dataSecurityManager.loadAccounts();
-    }
-}
-
-function loadCaisse() {
-    if (window.dataSecurityManager) {
-        window.dataSecurityManager.loadCaisse();
-    }
-}
-
-function loadReports() {
-    if (window.dataSecurityManager) {
-        window.dataSecurityManager.loadReports();
-    }
-}
-
-function loadImport() {
-    if (window.dataSecurityManager) {
-        window.dataSecurityManager.loadImport();
-    }
-}
-
-function loadSettings() {
-    const content = `
-        <div class="space-y-6">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mon Profil</h2>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <div class="flex items-center space-x-6 mb-6">
-                    <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center text-2xl font-bold">
-                        ${window.app.currentUser.name.split(' ').map(n => n[0]).join('')}
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <div class="flex items-center space-x-6 mb-6">
+                        <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center text-2xl font-bold">
+                            ${window.app.currentUser.name.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${window.app.currentUser.name}</h3>
+                            <p class="text-gray-600 dark:text-gray-400">${window.app.currentUser.email}</p>
+                            <span class="inline-block mt-2 px-3 py-1 rounded-full text-sm bg-primary/20 text-primary">${window.app.currentUser.role}</span>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${window.app.currentUser.name}</h3>
-                        <p class="text-gray-600 dark:text-gray-400">${window.app.currentUser.email}</p>
-                        <span class="inline-block mt-2 px-3 py-1 rounded-full text-sm bg-primary/20 text-primary">${window.app.currentUser.role}</span>
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
-                        <input type="text" value="${window.app.currentUser.name}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
+                            <input type="text" value="${window.app.currentUser.name}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">E-mail</label>
+                            <input type="email" value="${window.app.currentUser.email}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">E-mail</label>
-                        <input type="email" value="${window.app.currentUser.email}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                    </div>
-                </div>
 
-                <div class="mt-6 flex justify-between">
-                    <button class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                        <i class="fas fa-save mr-2"></i>Sauvegarder
-                    </button>
-                    <button onclick="logout()" class="bg-danger hover:bg-danger/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
-                    </button>
+                    <div class="mt-6 flex justify-between">
+                        <button class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-save mr-2"></i>Sauvegarder
+                        </button>
+                        <button onclick="logout()" class="bg-danger hover:bg-danger/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
+        `;
 
-    document.getElementById('mainContent').innerHTML = content;
-    console.log('✅ Page paramètres chargée');
-}
+        document.getElementById('mainContent').innerHTML = content;
+        console.log('✅ Page paramètres chargée');
+    },
 
-function showAccessDenied() {
-    document.getElementById('mainContent').innerHTML = `
-        <div class="text-center p-8">
-            <div class="w-16 h-16 bg-danger text-white rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-ban text-2xl"></i>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Accès refusé</h3>
-            <p class="text-gray-600 dark:text-gray-400 mt-2">Vous n'avez pas les autorisations nécessaires pour accéder à cette page.</p>
-        </div>
-    `;
-}
+    changeCompany(companyId) {
+        if (!companyId) {
+            window.app.currentCompany = null;
+            app.state.currentCompany = null;
+        } else {
+            window.app.currentCompany = parseInt(companyId);
+            app.state.currentCompany = parseInt(companyId);
+        }
+        
+        console.log('🏢 Entreprise sélectionnée:', companyId);
+        
+        // Rafraîchir l'affichage
+        const currentPage = this.getCurrentPage();
+        if (currentPage) {
+            this.navigateTo(currentPage);
+        }
+    },
+
+    getCurrentPage() {
+        const activeMenuItem = document.querySelector('#navigationMenu a.bg-primary');
+        if (activeMenuItem) {
+            const onclick = activeMenuItem.getAttribute('onclick');
+            const match = onclick.match(/AppRouter\.navigateTo\('(.+?)'\)/);
+            return match ? match[1] : 'dashboard';
+        }
+        return 'dashboard';
+    }
+};
+
+// =============================================================================
+// FONCTIONS UTILITAIRES
+// =============================================================================
 
 function logout() {
-    // Réinitialiser l'état
     app.state.isAuthenticated = false;
     app.state.currentUser = null;
     app.state.currentProfile = null;
@@ -894,20 +834,15 @@ function logout() {
     
     window.app = null;
     
-    // Masquer l'interface principale
     document.getElementById('mainApp').style.display = 'none';
-    
-    // Afficher la page de connexion
     document.getElementById('loginPage').style.display = 'block';
     
-    // Réinitialiser les champs
     document.getElementById('loginEmail').value = '';
     document.getElementById('loginPassword').value = '';
     
     console.log('👋 Déconnexion réussie');
 }
 
-// Fonctions utilitaires
 function initializeMainApp() {
     try {
         console.log('🔄 Initialisation de l\'interface principale...');
@@ -924,7 +859,7 @@ function initializeMainApp() {
         app.uiManager.updateCompanyInfo();
 
         setTimeout(() => {
-            loadDashboard();
+            AppRouter.loadDashboard();
         }, 100);
 
         console.log('✅ Interface principale initialisée avec succès');
@@ -945,7 +880,6 @@ function updateUserInfo() {
     if (userRoleElement) userRoleElement.textContent = window.app.currentUser.role;
 }
 
-// Fonction pour pré-remplir les identifiants (aide au développement)
 function fillCredentials(profile) {
     const credentials = {
         admin: { email: 'admin@doukecompta.ci', password: 'admin123' },
@@ -973,19 +907,10 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         app = new DoukèComptaPro();
         app.initializeDefaultData();
-        console.log('✅ Application initialisée avec succès');
+        console.log('✅ Application principale initialisée avec succès');
     } catch (error) {
         console.error('❌ Erreur lors de l\'initialisation:', error);
     }
-});
-
-// Gestionnaire d'erreurs global
-window.addEventListener('error', function(e) {
-    console.error('❌ Erreur JavaScript:', e.error);
-});
-
-window.addEventListener('unhandledrejection', function(e) {
-    console.error('❌ Promesse rejetée:', e.reason);
 });
 
 console.log('🔧 Fichier app.js principal chargé avec succès');
