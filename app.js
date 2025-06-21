@@ -1,247 +1,260 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOUKÈ Compta Pro - Gestionnaire Comptable Avancé</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Configuration Tailwind personnalisée -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        'primary-light': '#8B7EDE',
+                        'primary-dark': '#4338CA',
+                        secondary: '#64748B',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                        info: '#3B82F6'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        .app-loading {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .logo-text {
+            background: linear-gradient(135deg, #5D5CDE, #8B7EDE);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+
+<!-- ============================================================================ -->
+<!-- PAGE DE CONNEXION -->
+<!-- ============================================================================ -->
+<div id="loginPage" class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <!-- En-tête de connexion -->
+        <div class="text-center">
+            <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-calculator text-white text-2xl"></i>
+                </div>
+            </div>
+            <h2 class="text-3xl font-bold logo-text">DOUKÈ Compta Pro</h2>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">Gestionnaire Comptable Professionnel</p>
+        </div>
+
+        <!-- Formulaire de connexion -->
+        <form class="mt-8 space-y-6" onsubmit="handleLogin(); return false;">
+            <div class="space-y-4">
+                <div>
+                    <label for="loginEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Adresse e-mail
+                    </label>
+                    <input id="loginEmail" 
+                           name="email" 
+                           type="email" 
+                           required 
+                           class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base"
+                           placeholder="Votre adresse e-mail">
+                </div>
+                
+                <div>
+                    <label for="loginPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Mot de passe
+                    </label>
+                    <input id="loginPassword" 
+                           name="password" 
+                           type="password" 
+                           required 
+                           class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base"
+                           placeholder="Votre mot de passe">
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" 
+                        class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    Se connecter
+                </button>
+            </div>
+        </form>
+
+        <!-- Comptes de test -->
+        <div class="mt-6">
+            <div class="text-center text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Comptes de démonstration disponibles :
+            </div>
+            <div class="grid grid-cols-1 gap-2">
+                <button onclick="fillCredentials('admin')" 
+                        class="text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-2 rounded text-gray-700 dark:text-gray-300 transition-colors">
+                    👑 Admin : admin@doukecompta.ci / admin123
+                </button>
+                <button onclick="fillCredentials('collaborateur_senior')" 
+                        class="text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-2 rounded text-gray-700 dark:text-gray-300 transition-colors">
+                    🎯 Senior : marie.kouassi@cabinet.com / marie123
+                </button>
+                <button onclick="fillCredentials('collaborateur')" 
+                        class="text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-2 rounded text-gray-700 dark:text-gray-300 transition-colors">
+                    👤 Collaborateur : jean.diabate@cabinet.com / jean123
+                </button>
+                <button onclick="fillCredentials('user')" 
+                        class="text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-2 rounded text-gray-700 dark:text-gray-300 transition-colors">
+                    🏢 Utilisateur : atraore@sarltech.ci / amadou123
+                </button>
+                <button onclick="fillCredentials('caissier')" 
+                        class="text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-2 rounded text-gray-700 dark:text-gray-300 transition-colors">
+                    💰 Caissier : ikone@caisse.ci / ibrahim123
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================================ -->
+<!-- INTERFACE PRINCIPALE -->
+<!-- ============================================================================ -->
+<div id="mainApp" style="display: none;" class="flex h-screen bg-gray-50 dark:bg-gray-900">
+    
+    <!-- Sidebar Navigation -->
+    <div class="w-64 bg-white dark:bg-gray-800 shadow-lg">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-calculator text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg logo-text">DOUKÈ</h1>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Compta Pro</p>
+                </div>
+            </div>
+        </div>
+        
+        <nav id="navigationMenu" class="mt-6 space-y-1">
+            <!-- Le menu sera généré dynamiquement -->
+        </nav>
+    </div>
+
+    <!-- Contenu Principal -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        <span id="currentCompany">Tableau de Bord</span>
+                    </h1>
+                    <span id="selectedCompanyInfo" class="text-sm text-gray-500 dark:text-gray-400"></span>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <div id="userName" class="text-sm font-medium text-gray-900 dark:text-white">Utilisateur</div>
+                        <div id="userRole" class="text-xs text-gray-500 dark:text-gray-400">Rôle</div>
+                    </div>
+                    <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-sm"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Zone de contenu principal -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">
+            <div class="container mx-auto px-6 py-8">
+                <div id="mainContent">
+                    <!-- Le contenu sera chargé dynamiquement -->
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ============================================================================ -->
+<!-- Scripts JavaScript -->
+<!-- ============================================================================ -->
+
+<!-- Chargement du gestionnaire unifié en premier -->
+<script>
 // =============================================================================
-// DOUKÈ Compta Pro - Application Principal (Interface & Authentification)
+// DOUKÈ Compta Pro - Application Principale (Version Intégrée)
+// Fonctionne avec UnifiedDataManager
 // =============================================================================
 
 class DoukèComptaPro {
     constructor() {
         this.version = "2.0.0";
-        this.initializeState();
         this.uiManager = new UIManager(this);
-        console.log(`🚀 DOUKÈ Compta Pro v${this.version} - Initialisation...`);
+        this.waitForUnifiedManager();
+        console.log(`🚀 DOUKÈ Compta Pro v${this.version} - En attente de UnifiedManager...`);
     }
 
-    initializeState() {
-        this.state = {
-            currentUser: null,
-            currentProfile: null,
-            currentCompany: null,
-            isAuthenticated: false,
-            companies: [],
-            users: [],
-            lastUpdate: new Date(),
-            theme: 'system',
-            companyLogo: null,
-            notifications: [],
-            auditLog: []
-        };
-
-        this.idGenerator = {
-            company: () => `COMP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            user: () => `USER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            entry: () => `ENTRY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            cash: () => `CASH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        };
+    waitForUnifiedManager() {
+        if (window.UnifiedManager) {
+            console.log('✅ UnifiedManager détecté, initialisation complète...');
+            this.initializeWithUnifiedManager();
+        } else {
+            console.log('⏳ En attente de UnifiedManager...');
+            setTimeout(() => this.waitForUnifiedManager(), 100);
+        }
     }
 
-    logAuditEvent(action, details = {}) {
-        const auditEntry = {
-            id: this.idGenerator.entry(),
-            timestamp: new Date(),
-            userId: this.state.currentUser?.id,
-            action,
-            details,
-            userAgent: navigator.userAgent
-        };
-
-        this.state.auditLog.push(auditEntry);
-        console.log(`🔒 AUDIT: ${action}`, auditEntry);
+    initializeWithUnifiedManager() {
+        console.log('🔗 Intégration avec UnifiedManager réussie');
+        console.log('📊 Statistiques système:', window.UnifiedManager.getAppStatistics());
     }
 
-    hashPassword(password) {
-        return btoa(password + 'DOUKE_SALT_2024');
-    }
-
-    verifyPassword(password, hash) {
-        return this.hashPassword(password) === hash;
-    }
-
-    initializeDefaultData() {
-        console.log('🔄 Initialisation des données par défaut...');
-
-        // Entreprises
-        this.state.companies = [
-            {
-                id: 1,
-                uniqueId: this.idGenerator.company(),
-                name: 'SARL TECH INNOVATION',
-                type: 'SARL',
-                system: 'Normal',
-                phone: '+225 07 12 34 56 78',
-                address: 'Abidjan, Cocody',
-                status: 'Actif',
-                cashRegisters: 3
-            },
-            {
-                id: 2,
-                uniqueId: this.idGenerator.company(),
-                name: 'SA COMMERCE PLUS',
-                type: 'SA',
-                system: 'Normal',
-                phone: '+225 05 98 76 54 32',
-                address: 'Abidjan, Plateau',
-                status: 'Actif',
-                cashRegisters: 5
-            },
-            {
-                id: 3,
-                uniqueId: this.idGenerator.company(),
-                name: 'EURL SERVICES PRO',
-                type: 'EURL',
-                system: 'Minimal',
-                phone: '+225 01 23 45 67 89',
-                address: 'Bouaké Centre',
-                status: 'Période d\'essai',
-                cashRegisters: 2
-            },
-            {
-                id: 4,
-                uniqueId: this.idGenerator.company(),
-                name: 'SAS DIGITAL WORLD',
-                type: 'SAS',
-                system: 'Normal',
-                phone: '+225 07 11 22 33 44',
-                address: 'San-Pédro',
-                status: 'Suspendu',
-                cashRegisters: 1
-            }
-        ];
-
-        // Utilisateurs
-        this.state.users = [
-            {
-                id: 1,
-                uniqueId: this.idGenerator.user(),
-                name: 'Admin Système',
-                email: 'admin@doukecompta.ci',
-                passwordHash: this.hashPassword('admin123'),
-                profile: 'admin',
-                role: 'Administrateur',
-                phone: '+225 07 00 00 00 00',
-                status: 'Actif',
-                companies: [1, 2, 3, 4],
-                assignedCompanies: [1, 2, 3, 4]
-            },
-            {
-                id: 2,
-                uniqueId: this.idGenerator.user(),
-                name: 'Marie Kouassi',
-                email: 'marie.kouassi@cabinet.com',
-                passwordHash: this.hashPassword('collab123'),
-                profile: 'collaborateur-senior',
-                role: 'Collaborateur Senior',
-                phone: '+225 07 11 11 11 11',
-                status: 'Actif',
-                companies: [1, 2, 3],
-                assignedCompanies: [1, 2, 3]
-            },
-            {
-                id: 3,
-                uniqueId: this.idGenerator.user(),
-                name: 'Jean Diabaté',
-                email: 'jean.diabate@cabinet.com',
-                passwordHash: this.hashPassword('collab123'),
-                profile: 'collaborateur',
-                role: 'Collaborateur',
-                phone: '+225 07 22 22 22 22',
-                status: 'Actif',
-                companies: [2, 4],
-                assignedCompanies: [2, 4]
-            },
-            {
-                id: 4,
-                uniqueId: this.idGenerator.user(),
-                name: 'Amadou Traoré',
-                email: 'atraore@sarltech.ci',
-                passwordHash: this.hashPassword('user123'),
-                profile: 'user',
-                role: 'Utilisateur',
-                phone: '+225 07 33 33 33 33',
-                status: 'Actif',
-                companies: [1],
-                assignedCompanies: [1],
-                companyId: 1
-            },
-            {
-                id: 5,
-                uniqueId: this.idGenerator.user(),
-                name: 'Ibrahim Koné',
-                email: 'ikone@caisse.ci',
-                passwordHash: this.hashPassword('caisse123'),
-                profile: 'caissier',
-                role: 'Caissier',
-                phone: '+225 07 44 44 44 44',
-                status: 'Actif',
-                companies: [2],
-                assignedCompanies: [2],
-                companyId: 2
-            }
-        ];
-
-        this.syncWithGlobalApp();
-        console.log('✅ Données initialisées :', {
-            companies: this.state.companies.length,
-            users: this.state.users.length
-        });
-    }
-
-    syncWithGlobalApp() {
-        window.app = {
-            currentUser: this.state.currentUser,
-            currentProfile: this.state.currentProfile,
-            currentCompany: this.state.currentCompany,
-            isAuthenticated: this.state.isAuthenticated,
-            companies: this.state.companies,
-            users: this.state.users
-        };
-        console.log('🔄 window.app synchronisé avec', window.app.companies.length, 'entreprises');
-    }
-
+    // Utilise l'authentification du UnifiedManager
     async authenticate(email, password) {
         try {
-            this.logAuditEvent('LOGIN_ATTEMPT', { email });
-
-            const user = this.state.users.find(u => u.email === email);
-
-            if (!user || !this.verifyPassword(password, user.passwordHash)) {
-                throw new Error('Identifiants incorrects');
+            console.log('🔄 Tentative d\'authentification via UnifiedManager...');
+            
+            if (!window.UnifiedManager) {
+                throw new Error('UnifiedManager non disponible');
             }
 
-            if (user.status !== 'Actif') {
-                throw new Error('Compte désactivé');
+            const result = window.UnifiedManager.authenticateUser(email, password);
+            
+            if (result.success) {
+                console.log('✅ Authentification réussie:', result);
+                
+                // Synchroniser l'état local
+                this.state = {
+                    currentUser: result.user,
+                    currentProfile: window.app.currentProfile,
+                    currentCompany: window.app.currentCompanyId,
+                    isAuthenticated: true
+                };
+
+                return result;
+            } else {
+                throw new Error(result.message || 'Échec de l\'authentification');
             }
-
-            // Connexion réussie
-            this.state.isAuthenticated = true;
-            this.state.currentUser = {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            };
-            this.state.currentProfile = user.profile;
-
-            // Auto-sélection d'entreprise pour utilisateur/caissier
-            if (user.profile === 'user' || user.profile === 'caissier') {
-                this.state.currentCompany = user.companyId;
-            }
-
-            user.lastLogin = new Date();
-            this.logAuditEvent('LOGIN_SUCCESS', { userId: user.id });
-
-            // Synchroniser OBLIGATOIREMENT
-            this.syncWithGlobalApp();
-
-            console.log('✅ Authentification réussie, window.app synchronisé:', {
-                currentUser: this.state.currentUser,
-                currentProfile: this.state.currentProfile,
-                currentCompany: this.state.currentCompany
-            });
-
-            return {
-                success: true,
-                user: this.state.currentUser,
-                profile: this.state.currentProfile
-            };
 
         } catch (error) {
             console.error('❌ Erreur authentification:', error);
@@ -250,15 +263,15 @@ class DoukèComptaPro {
     }
 
     getCompanyName() {
-        if (!this.state.currentCompany) return 'Aucune entreprise sélectionnée';
-        const company = this.state.companies.find(c => c.id === this.state.currentCompany);
+        if (!window.app?.currentCompanyId) return 'Aucune entreprise sélectionnée';
+        const company = window.app.companies.find(c => c.id === window.app.currentCompanyId);
         return company ? company.name : 'Entreprise inconnue';
     }
 }
 
-// ================================================================================
+// =============================================================================
 // GESTIONNAIRE UI
-// ================================================================================
+// =============================================================================
 
 class UIManager {
     constructor(app) {
@@ -293,7 +306,7 @@ class UIManager {
             const option = document.createElement('option');
             option.value = company.id;
             option.textContent = company.name;
-            if (company.id === window.app?.currentCompany) {
+            if (company.id === window.app?.currentCompanyId) {
                 option.selected = true;
             }
             selector.appendChild(option);
@@ -304,10 +317,10 @@ class UIManager {
         const infoElement = document.getElementById('selectedCompanyInfo');
         const currentCompanyElement = document.getElementById('currentCompany');
 
-        if (window.app?.currentCompany) {
-            const company = window.app.companies.find(c => c.id === window.app.currentCompany);
+        if (window.app?.currentCompanyId) {
+            const company = window.app.companies.find(c => c.id === window.app.currentCompanyId);
             if (company) {
-                if (infoElement) infoElement.innerHTML = `${company.system} • ${company.status}`;
+                if (infoElement) infoElement.innerHTML = `${company.type} • ${company.status}`;
                 if (currentCompanyElement) currentCompanyElement.textContent = company.name;
             }
         } else {
@@ -318,7 +331,7 @@ class UIManager {
 }
 
 // =============================================================================
-// FONCTION DE CONNEXION
+// FONCTION DE CONNEXION CORRIGÉE
 // =============================================================================
 
 async function handleLogin() {
@@ -378,7 +391,7 @@ function loadNavigationMenu() {
             { id: 'import', icon: 'fas fa-upload', text: 'Import Balances' },
             { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil' }
         ],
-        'collaborateur-senior': [
+        'collaborateur_senior': [
             { id: 'dashboard', icon: 'fas fa-chart-pie', text: 'Tableau de Bord', active: true },
             { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises' },
             { id: 'entries', icon: 'fas fa-edit', text: 'Écritures Comptables' },
@@ -433,7 +446,7 @@ function loadNavigationMenu() {
 }
 
 // =============================================================================
-// ROUTEUR PRINCIPAL (évite les conflits de noms)
+// ROUTEUR PRINCIPAL CORRIGÉ
 // =============================================================================
 
 const AppRouter = {
@@ -463,47 +476,39 @@ const AppRouter = {
             // Ignorer si l'événement n'est pas disponible
         }
 
-        // Router vers la bonne fonction de chargement
+        // Router vers la bonne fonction de chargement (CORRIGÉ)
         try {
             switch(page) {
                 case 'dashboard':
                     this.loadDashboard();
                     break;
                 case 'users':
-                    // Rediriger vers le gestionnaire de sécurité
-                    if (window.SecureDataManager) {
-                        window.SecureDataManager.loadUsersPage();
+                    // Utiliser le gestionnaire unifié
+                    if (window.UnifiedManager) {
+                        window.UnifiedManager.loadUsersPage();
                     }
                     break;
                 case 'companies':
-                    if (window.SecureDataManager) {
-                        window.SecureDataManager.loadCompaniesPage();
+                    if (window.UnifiedManager) {
+                        window.UnifiedManager.loadCompaniesPage();
                     }
                     break;
                 case 'entries':
-                    if (window.SecureDataManager) {
-                        window.SecureDataManager.loadEntriesPage();
+                    if (window.UnifiedManager) {
+                        window.UnifiedManager.loadEntriesPage();
                     }
                     break;
                 case 'accounts':
-                    if (window.SecureDataManager) {
-                        window.SecureDataManager.loadAccountsPage();
-                    }
+                    this.loadAccountsPage();
                     break;
                 case 'caisse':
-                    if (window.SecureDataManager) {
-                        window.SecureDataManager.loadCaissePage();
-                    }
+                    this.loadCaissePage();
                     break;
                 case 'reports':
-                    if (window.SecureDataManager) {
-                        window.SecureDataManager.loadReportsPage();
-                    }
+                    this.loadReportsPage();
                     break;
                 case 'import':
-                    if (window.SecureDataManager) {
-                        window.SecureDataManager.loadImportPage();
-                    }
+                    this.loadImportPage();
                     break;
                 case 'settings':
                     this.loadSettings();
@@ -544,7 +549,7 @@ const AppRouter = {
             <div class="space-y-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Tableau de Bord Administrateur</h2>
-                    <div class="text-sm text-primary-light font-medium">
+                    <div class="text-sm text-primary font-medium">
                         <i class="fas fa-clock mr-1"></i>Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}
                     </div>
                 </div>
@@ -609,7 +614,7 @@ const AppRouter = {
                         <select id="activeCompanySelect" onchange="AppRouter.changeCompany(this.value)" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
                             <option value="">-- Sélectionner une entreprise --</option>
                             ${window.app.companies.map(company => `
-                                <option value="${company.id}" ${company.id === window.app.currentCompany ? 'selected' : ''}>
+                                <option value="${company.id}" ${company.id === window.app.currentCompanyId ? 'selected' : ''}>
                                     ${company.name} (${company.status})
                                 </option>
                             `).join('')}
@@ -655,7 +660,7 @@ const AppRouter = {
                         ${window.app.currentProfile === 'user' ? 'Mon Entreprise' : 
                           window.app.currentProfile === 'caissier' ? 'Ma Caisse' : 'Tableau de Bord'}
                     </h2>
-                    <div class="text-sm text-primary-light font-medium">
+                    <div class="text-sm text-primary font-medium">
                         <i class="fas fa-clock mr-1"></i>Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}
                     </div>
                 </div>
@@ -749,6 +754,54 @@ const AppRouter = {
         console.log('✅ Dashboard standard chargé');
     },
 
+    loadAccountsPage() {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Plan Comptable SYSCOHADA</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <p class="text-gray-600 dark:text-gray-400">Plan comptable en cours de développement...</p>
+                </div>
+            </div>
+        `;
+        document.getElementById('mainContent').innerHTML = content;
+    },
+
+    loadCaissePage() {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Caisses</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <p class="text-gray-600 dark:text-gray-400">Module caisse en cours de développement...</p>
+                </div>
+            </div>
+        `;
+        document.getElementById('mainContent').innerHTML = content;
+    },
+
+    loadReportsPage() {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Rapports et États Financiers</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <p class="text-gray-600 dark:text-gray-400">Module rapports en cours de développement...</p>
+                </div>
+            </div>
+        `;
+        document.getElementById('mainContent').innerHTML = content;
+    },
+
+    loadImportPage() {
+        const content = `
+            <div class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Import de Balances</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <p class="text-gray-600 dark:text-gray-400">Module import en cours de développement...</p>
+                </div>
+            </div>
+        `;
+        document.getElementById('mainContent').innerHTML = content;
+    },
+
     loadSettings() {
         const content = `
             <div class="space-y-6">
@@ -795,16 +848,25 @@ const AppRouter = {
 
     changeCompany(companyId) {
         if (!companyId) {
-            window.app.currentCompany = null;
-            app.state.currentCompany = null;
+            window.app.currentCompanyId = null;
         } else {
-            window.app.currentCompany = parseInt(companyId);
-            app.state.currentCompany = parseInt(companyId);
+            window.app.currentCompanyId = parseInt(companyId);
         }
         
         console.log('🏢 Entreprise sélectionnée:', companyId);
         
+        // Utiliser le gestionnaire unifié pour changer d'entreprise
+        if (window.UnifiedManager && companyId) {
+            try {
+                window.UnifiedManager.selectCompany(parseInt(companyId));
+            } catch (error) {
+                console.error('❌ Erreur sélection entreprise:', error);
+                app.uiManager.showNotification('error', error.message);
+            }
+        }
+        
         // Rafraîchir l'affichage
+        app.uiManager.updateCompanyInfo();
         const currentPage = this.getCurrentPage();
         if (currentPage) {
             this.navigateTo(currentPage);
@@ -827,19 +889,27 @@ const AppRouter = {
 // =============================================================================
 
 function logout() {
-    app.state.isAuthenticated = false;
-    app.state.currentUser = null;
-    app.state.currentProfile = null;
-    app.state.currentCompany = null;
-    
-    window.app = null;
-    
+    // Utiliser la déconnexion du gestionnaire unifié
+    if (window.UnifiedManager) {
+        window.UnifiedManager.logout();
+    }
+
+    // Réinitialiser l'état local
+    if (app) {
+        app.state = {
+            isAuthenticated: false,
+            currentUser: null,
+            currentProfile: null,
+            currentCompany: null
+        };
+    }
+
     document.getElementById('mainApp').style.display = 'none';
     document.getElementById('loginPage').style.display = 'block';
-    
+
     document.getElementById('loginEmail').value = '';
     document.getElementById('loginPassword').value = '';
-    
+
     console.log('👋 Déconnexion réussie');
 }
 
@@ -883,10 +953,10 @@ function updateUserInfo() {
 function fillCredentials(profile) {
     const credentials = {
         admin: { email: 'admin@doukecompta.ci', password: 'admin123' },
-        'collaborateur-senior': { email: 'marie.kouassi@cabinet.com', password: 'collab123' },
-        collaborateur: { email: 'jean.diabate@cabinet.com', password: 'collab123' },
-        user: { email: 'atraore@sarltech.ci', password: 'user123' },
-        caissier: { email: 'ikone@caisse.ci', password: 'caisse123' }
+        'collaborateur_senior': { email: 'marie.kouassi@cabinet.com', password: 'marie123' },
+        collaborateur: { email: 'jean.diabate@cabinet.com', password: 'jean123' },
+        user: { email: 'atraore@sarltech.ci', password: 'amadou123' },
+        caissier: { email: 'ikone@caisse.ci', password: 'ibrahim123' }
     };
 
     const cred = credentials[profile];
@@ -903,10 +973,9 @@ let app;
 // Initialisation automatique au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Initialisation de DOUKÈ Compta Pro...');
-    
+
     try {
         app = new DoukèComptaPro();
-        app.initializeDefaultData();
         console.log('✅ Application principale initialisée avec succès');
     } catch (error) {
         console.error('❌ Erreur lors de l\'initialisation:', error);
@@ -914,3 +983,22 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('🔧 Fichier app.js principal chargé avec succès');
+
+// Support du mode sombre automatique
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.classList.add('dark');
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+    if (event.matches) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+});
+</script>
+
+<!-- Chargement du gestionnaire unifié APRÈS l'interface -->
+<script src="unified-data-manager.js"></script>
+
+</body>
+</html>
