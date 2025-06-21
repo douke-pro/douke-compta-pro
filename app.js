@@ -1,5 +1,5 @@
 // =============================================================================
-// DOUKÈ Compta Pro - Application Principal (Version Complète et Corrigée)
+// DOUKÈ Compta Pro - Application Principal (Version Corrigée avec Connexion)
 // =============================================================================
 
 class DoukèComptaPro {
@@ -180,113 +180,15 @@ class DoukèComptaPro {
             }
         ];
 
-        // Plan comptable SYSCOHADA complet
-        this.state.accounts = [
-            // Classe 1
-            { code: '101000', name: 'Capital social', category: 'Capitaux propres' },
-            { code: '106000', name: 'Réserves', category: 'Capitaux propres' },
-            { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres' },
-            { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres' },
-            { code: '161000', name: 'Emprunts et dettes', category: 'Dettes financières' },
-            // Classe 2
-            { code: '211000', name: 'Terrains', category: 'Immobilisations corporelles' },
-            { code: '213000', name: 'Constructions', category: 'Immobilisations corporelles' },
-            { code: '218000', name: 'Matériel de transport', category: 'Immobilisations corporelles' },
-            { code: '244000', name: 'Matériel et outillage', category: 'Immobilisations corporelles' },
-            // Classe 3
-            { code: '311000', name: 'Marchandises', category: 'Stocks' },
-            { code: '321000', name: 'Matières premières', category: 'Stocks' },
-            // Classe 4
-            { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs' },
-            { code: '411000', name: 'Clients', category: 'Clients' },
-            { code: '421000', name: 'Personnel', category: 'Personnel' },
-            { code: '441000', name: 'État et collectivités', category: 'État' },
-            // Classe 5
-            { code: '512000', name: 'Banques', category: 'Comptes bancaires' },
-            { code: '571000', name: 'Caisse', category: 'Caisse' },
-            // Classe 6
-            { code: '601000', name: 'Achats de marchandises', category: 'Achats' },
-            { code: '621000', name: 'Transports', category: 'Services extérieurs' },
-            { code: '641000', name: 'Rémunérations du personnel', category: 'Charges de personnel' },
-            // Classe 7
-            { code: '701000', name: 'Ventes de marchandises', category: 'Ventes' },
-            { code: '706000', name: 'Services vendus', category: 'Ventes' }
-        ];
+        // Initialiser le gestionnaire de données sécurisées
+        if (window.dataSecurityManager) {
+            window.dataSecurityManager.initializeCompanyData();
+        }
 
-        // Écritures d'exemple
-        this.state.entries = [
-            {
-                id: 1,
-                uniqueId: this.idGenerator.entry(),
-                date: '2024-12-15',
-                journal: 'JV',
-                piece: 'JV-2024-001-0156',
-                libelle: 'Vente marchandises Client ABC',
-                companyId: 1,
-                lines: [
-                    { account: '411000', accountName: 'Clients', libelle: 'Vente Client ABC', debit: 1800000, credit: 0 },
-                    { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente marchandises', debit: 0, credit: 1500000 },
-                    { account: '441000', accountName: 'État et collectivités', libelle: 'TVA sur ventes', debit: 0, credit: 300000 }
-                ],
-                status: 'Validé',
-                userId: 2
-            },
-            {
-                id: 2,
-                uniqueId: this.idGenerator.entry(),
-                date: '2024-12-14',
-                journal: 'JA',
-                piece: 'JA-2024-001-0157',
-                libelle: 'Achat marchandises Fournisseur XYZ',
-                companyId: 1,
-                lines: [
-                    { account: '601000', accountName: 'Achats de marchandises', libelle: 'Achat marchandises', debit: 850000, credit: 0 },
-                    { account: '441000', accountName: 'État et collectivités', libelle: 'TVA déductible', debit: 170000, credit: 0 },
-                    { account: '401000', accountName: 'Fournisseurs', libelle: 'Fournisseur XYZ', debit: 0, credit: 1020000 }
-                ],
-                status: 'En attente',
-                userId: 3
-            }
-        ];
-
-        // Caisses d'exemple
-        this.state.cashRegisters = [
-            {
-                id: 1,
-                uniqueId: this.idGenerator.cash(),
-                name: 'Caisse Principale',
-                companyId: 2,
-                responsibleId: 5,
-                responsibleName: 'Ibrahim Koné',
-                balance: 210000,
-                status: 'Ouvert',
-                openingBalance: 150000,
-                dailyReceipts: 85000,
-                dailyExpenses: 25000
-            },
-            {
-                id: 2,
-                uniqueId: this.idGenerator.cash(),
-                name: 'Caisse Ventes',
-                companyId: 2,
-                responsibleId: null,
-                responsibleName: 'Fatou Diallo',
-                balance: 85000,
-                status: 'Ouvert',
-                openingBalance: 100000,
-                dailyReceipts: 35000,
-                dailyExpenses: 50000
-            }
-        ];
-
-        // Synchroniser immédiatement
         this.syncWithGlobalApp();
         console.log('✅ Données initialisées :', {
             companies: this.state.companies.length,
-            users: this.state.users.length,
-            accounts: this.state.accounts.length,
-            entries: this.state.entries.length,
-            cashRegisters: this.state.cashRegisters.length
+            users: this.state.users.length
         });
     }
 
@@ -427,7 +329,47 @@ class UIManager {
 }
 
 // =============================================================================
-// FONCTIONS D'AFFICHAGE (Complètes et Fonctionnelles)
+// FONCTION DE CONNEXION (CORRIGÉE)
+// =============================================================================
+
+async function handleLogin() {
+    try {
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+
+        if (!email || !password) {
+            app.uiManager.showNotification('error', 'Veuillez saisir email et mot de passe');
+            return;
+        }
+
+        console.log('🔄 Tentative de connexion pour:', email);
+
+        // Appeler la fonction d'authentification
+        const result = await app.authenticate(email, password);
+
+        if (result.success) {
+            console.log('✅ Connexion réussie');
+            
+            // Masquer la page de connexion
+            document.getElementById('loginPage').style.display = 'none';
+            
+            // Afficher l'interface principale
+            document.getElementById('mainApp').style.display = 'block';
+            
+            // Initialiser l'interface principale
+            initializeMainApp();
+            
+            app.uiManager.showNotification('success', `Bienvenue ${result.user.name} !`);
+        }
+
+    } catch (error) {
+        console.error('❌ Erreur de connexion:', error);
+        app.uiManager.showNotification('error', error.message);
+    }
+}
+
+// =============================================================================
+// FONCTIONS D'AFFICHAGE (Interface utilisateur)
 // =============================================================================
 
 function loadNavigationMenu() {
@@ -611,10 +553,6 @@ function loadAdminDashboard() {
                             <i class="fas fa-building text-primary text-xl"></i>
                         </div>
                     </div>
-                    <div class="mt-2 flex items-center text-sm">
-                        <span class="text-success">+2</span>
-                        <span class="text-gray-500 dark:text-gray-400 ml-1">ce mois</span>
-                    </div>
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
@@ -633,7 +571,7 @@ function loadAdminDashboard() {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures en Attente</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.entries.filter(e => e.status === 'En attente').length}</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.dataSecurityManager ? window.dataSecurityManager.getTotalPendingEntries() : 0}</p>
                         </div>
                         <div class="bg-warning/10 p-3 rounded-lg">
                             <i class="fas fa-exclamation-triangle text-warning text-xl"></i>
@@ -644,8 +582,8 @@ function loadAdminDashboard() {
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures Validées</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.entries.filter(e => e.status === 'Validé').length}</p>
+                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Entreprises</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${window.app.companies.length}</p>
                         </div>
                         <div class="bg-success/10 p-3 rounded-lg">
                             <i class="fas fa-check text-success text-xl"></i>
@@ -654,37 +592,45 @@ function loadAdminDashboard() {
                 </div>
             </div>
 
-            <!-- Portefeuille Collaborateurs -->
+            <!-- Sélecteur d'entreprise pour Admin/Collaborateurs -->
+            ${(window.app.currentProfile === 'admin' || window.app.currentProfile.includes('collaborateur')) ? `
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-briefcase mr-2 text-primary"></i>Portefeuille des Collaborateurs
+                    <i class="fas fa-building mr-2 text-primary"></i>Sélection d'entreprise
                 </h3>
-                <div class="space-y-4">
-                    ${generateCollaboratorPortfolio()}
-                </div>
-            </div>
-
-            <!-- Charts Admin -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Évolution du Portefeuille</h3>
-                    <div class="h-64 flex items-center justify-center text-gray-500">
-                        <div class="text-center">
-                            <i class="fas fa-chart-line text-4xl mb-2"></i>
-                            <p>Graphique Chart.js</p>
-                            <p class="text-sm">(Nécessite la librairie Chart.js)</p>
-                        </div>
+                <div class="flex items-center space-x-4">
+                    <select id="activeCompanySelect" onchange="changeCompany(this.value)" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="">-- Sélectionner une entreprise --</option>
+                        ${window.app.companies.map(company => `
+                            <option value="${company.id}" ${company.id === window.app.currentCompany ? 'selected' : ''}>
+                                ${company.name} (${company.status})
+                            </option>
+                        `).join('')}
+                    </select>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Sélectionnez une entreprise pour voir ses données spécifiques
                     </div>
                 </div>
+            </div>
+            ` : ''}
 
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Performance par Secteur</h3>
-                    <div class="h-64 flex items-center justify-center text-gray-500">
-                        <div class="text-center">
-                            <i class="fas fa-chart-bar text-4xl mb-2"></i>
-                            <p>Graphique Chart.js</p>
-                            <p class="text-sm">(Nécessite la librairie Chart.js)</p>
-                        </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-briefcase mr-2 text-primary"></i>Vue d'ensemble du système
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="text-center p-4 bg-primary/10 rounded-lg">
+                        <div class="text-2xl font-bold text-primary">${window.app.companies.length}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">Entreprises gérées</div>
+                    </div>
+                    <div class="text-center p-4 bg-success/10 rounded-lg">
+                        <div class="text-2xl font-bold text-success">${window.app.users.length}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs actifs</div>
+                    </div>
+                    <div class="text-center p-4 bg-info/10 rounded-lg">
+                        <div class="text-2xl font-bold text-info">98%</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">Performance globale</div>
                     </div>
                 </div>
             </div>
@@ -699,75 +645,39 @@ function loadAdminDashboard() {
 }
 
 function loadStandardDashboard() {
-    const userCompany = window.app.companies.find(c => c.id == window.app.currentCompany);
-    let cashCount = userCompany ? userCompany.cashRegisters : 1;
-    let dashboardTitle = 'Tableau de Bord';
-
-    if (window.app.currentProfile === 'user') {
-        dashboardTitle = 'Mon Entreprise';
-    } else if (window.app.currentProfile === 'caissier') {
-        dashboardTitle = 'Ma Caisse';
-        cashCount = '→';
-    }
-
     const content = `
         <div class="space-y-6">
             <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">${dashboardTitle}</h2>
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                    ${window.app.currentProfile === 'user' ? 'Mon Entreprise' : 
+                      window.app.currentProfile === 'caissier' ? 'Ma Caisse' : 'Tableau de Bord'}
+                </h2>
                 <div class="text-sm text-primary-light font-medium">
                     <i class="fas fa-clock mr-1"></i>Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}
                 </div>
             </div>
 
-            <!-- Cartes KPI Standard -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-primary">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                ${window.app.currentProfile === 'user' ? 'Caisses disponibles' : 
-                                  window.app.currentProfile === 'caissier' ? 'Accès rapide écritures' : 'Entreprises'}
-                            </p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${cashCount}</p>
+                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Mon entreprise</p>
+                            <p class="text-xl font-bold text-gray-900 dark:text-white">${app.getCompanyName()}</p>
                         </div>
                         <div class="bg-primary/10 p-3 rounded-lg">
-                            <i class="fas ${window.app.currentProfile === 'caissier' ? 'fa-plus-circle' : 
-                                         window.app.currentProfile === 'user' ? 'fa-cash-register' : 'fa-building'} text-primary text-xl"></i>
+                            <i class="fas fa-building text-primary text-xl"></i>
                         </div>
                     </div>
-                    ${window.app.currentProfile === 'caissier' ? `
-                    <div class="mt-3">
-                        <button onclick="navigateTo('entries')" class="w-full bg-primary text-white py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
-                            Nouvelle opération
-                        </button>
-                    </div>
-                    ` : ''}
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Écritures ce mois</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">
-                                ${window.app.currentProfile === 'caissier' ? '45' : window.app.entries.length}
-                            </p>
+                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Statut</p>
+                            <p class="text-xl font-bold text-success">Actif</p>
                         </div>
                         <div class="bg-success/10 p-3 rounded-lg">
-                            <i class="fas fa-edit text-success text-xl"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">En attente de validation</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">
-                                ${window.app.entries.filter(e => e.status === 'En attente').length}
-                            </p>
-                        </div>
-                        <div class="bg-warning/10 p-3 rounded-lg">
-                            <i class="fas fa-clock text-warning text-xl"></i>
+                            <i class="fas fa-check text-success text-xl"></i>
                         </div>
                     </div>
                 </div>
@@ -775,38 +685,60 @@ function loadStandardDashboard() {
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Performances</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">98%</p>
+                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Mon rôle</p>
+                            <p class="text-xl font-bold text-gray-900 dark:text-white">${window.app.currentUser.role}</p>
                         </div>
                         <div class="bg-info/10 p-3 rounded-lg">
-                            <i class="fas fa-chart-line text-info text-xl"></i>
+                            <i class="fas fa-user text-info text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Accès</p>
+                            <p class="text-xl font-bold text-gray-900 dark:text-white">Standard</p>
+                        </div>
+                        <div class="bg-warning/10 p-3 rounded-lg">
+                            <i class="fas fa-key text-warning text-xl"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Charts Standard -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Évolution Mensuelle</h3>
-                    <div class="h-64 flex items-center justify-center text-gray-500">
-                        <div class="text-center">
-                            <i class="fas fa-chart-line text-4xl mb-2"></i>
-                            <p>Graphique Chart.js</p>
-                            <p class="text-sm">(${window.app.entries.length} écritures ce mois)</p>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Accès rapide
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button onclick="navigateTo('entries')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-edit text-primary text-xl"></i>
+                            <div>
+                                <div class="font-medium text-gray-900 dark:text-white">Mes Écritures</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">Gérer les opérations</div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Répartition par Journal</h3>
-                    <div class="h-64 flex items-center justify-center text-gray-500">
-                        <div class="text-center">
-                            <i class="fas fa-chart-pie text-4xl mb-2"></i>
-                            <p>Graphique Chart.js</p>
-                            <p class="text-sm">(JV: ${window.app.entries.filter(e => e.journal === 'JV').length}, JA: ${window.app.entries.filter(e => e.journal === 'JA').length})</p>
+                    </button>
+                    <button onclick="navigateTo('accounts')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-list text-success text-xl"></i>
+                            <div>
+                                <div class="font-medium text-gray-900 dark:text-white">Plan Comptable</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">Consulter les comptes</div>
+                            </div>
                         </div>
-                    </div>
+                    </button>
+                    <button onclick="navigateTo('reports')" class="p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-chart-bar text-info text-xl"></i>
+                            <div>
+                                <div class="font-medium text-gray-900 dark:text-white">Rapports</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">États financiers</div>
+                            </div>
+                        </div>
+                    </button>
                 </div>
             </div>
         </div>
@@ -819,536 +751,82 @@ function loadStandardDashboard() {
     }
 }
 
-function generateCollaboratorPortfolio() {
-    const collaborators = window.app.users.filter(u => u.profile.includes('collaborateur'));
-    
-    if (collaborators.length === 0) {
-        return '<div class="text-center text-gray-500 dark:text-gray-400 py-4">Aucun collaborateur trouvé</div>';
+// Fonction pour changer d'entreprise (Admin/Collaborateurs)
+function changeCompany(companyId) {
+    if (!companyId) {
+        window.app.currentCompany = null;
+        app.state.currentCompany = null;
+    } else {
+        window.app.currentCompany = parseInt(companyId);
+        app.state.currentCompany = parseInt(companyId);
     }
-
-    return collaborators.map(collab => `
-        <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:shadow-md transition-shadow">
-            <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-semibold">
-                    ${collab.name.split(' ').map(n => n[0]).join('')}
-                </div>
-                <div>
-                    <div class="font-medium text-gray-900 dark:text-white">${collab.name}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">${collab.role}</div>
-                </div>
-            </div>
-            <div class="text-right">
-                <div class="text-lg font-bold text-gray-900 dark:text-white">${collab.companies?.length || 0}</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">entreprises</div>
-                <div class="flex items-center space-x-2 mt-1">
-                    <div class="w-16 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                        <div class="h-full bg-success" style="width: 95%"></div>
-                    </div>
-                    <span class="text-xs font-medium text-success">95%</span>
-                </div>
-            </div>
-        </div>
-    `).join('');
+    
+    console.log('🏢 Entreprise sélectionnée:', companyId);
+    
+    // Rafraîchir l'affichage
+    const currentPage = getCurrentPage();
+    if (currentPage) {
+        navigateTo(currentPage);
+    }
 }
 
-// Autres fonctions de page (simplifiées pour l'exemple)
+function getCurrentPage() {
+    // Déterminer la page actuelle basée sur les éléments actifs du menu
+    const activeMenuItem = document.querySelector('#navigationMenu a.bg-primary');
+    if (activeMenuItem) {
+        const onclick = activeMenuItem.getAttribute('onclick');
+        const match = onclick.match(/navigateTo\('(.+?)'\)/);
+        return match ? match[1] : 'dashboard';
+    }
+    return 'dashboard';
+}
+
+// Autres fonctions de page simplifiées (sécurisées dans data-security.js)
 function loadUsersManagement() {
     if (window.app.currentProfile !== 'admin') {
         showAccessDenied();
         return;
     }
-
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Collaborateurs</h2>
-                <button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    <i class="fas fa-user-plus mr-2"></i>Nouveau Collaborateur
-                </button>
-            </div>
-
-            <!-- Statistiques utilisateurs -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-primary">${window.app.users.filter(u => u.profile.includes('collaborateur')).length}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Collaborateurs</div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-info">${window.app.users.filter(u => u.profile === 'user').length}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs</div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-warning">${window.app.users.filter(u => u.profile === 'caissier').length}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Caissiers</div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-success">${window.app.users.filter(u => u.status === 'Actif').length}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Actifs</div>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Liste des Utilisateurs</h3>
-                <div class="space-y-4">
-                    ${window.app.users.map(user => `
-                        <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <div class="flex items-center space-x-4">
-                                <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">
-                                    ${user.name.split(' ').map(n => n[0]).join('')}
-                                </div>
-                                <div>
-                                    <div class="font-medium text-gray-900 dark:text-white">${user.name}</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">${user.email} • ${user.role}</div>
-                                </div>
-                            </div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
-                                ${user.assignedCompanies?.length || 0} entreprise(s)
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-    console.log('✅ Page utilisateurs chargée');
+    // Le contenu sera généré par data-security.js
+    if (window.dataSecurityManager) {
+        window.dataSecurityManager.loadUsersManagement();
+    }
 }
 
 function loadCompanies() {
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${window.app.currentProfile === 'admin' ? 'Gestion des Entreprises' : 'Mes Entreprises'}
-                </h2>
-                ${window.app.currentProfile === 'admin' ? `
-                <button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    <i class="fas fa-plus mr-2"></i>Nouvelle Entreprise
-                </button>
-                ` : ''}
-            </div>
-
-            <!-- Statistiques entreprises -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-primary">${window.app.companies.length}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Total entreprises</div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-success">${window.app.companies.filter(c => c.status === 'Actif').length}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Actifs</div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-warning">${window.app.companies.filter(c => c.status === 'Période d\'essai').length}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">En essai</div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <div class="text-3xl font-bold text-danger">${window.app.companies.filter(c => c.status === 'Suspendu').length}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Suspendues</div>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Liste des entreprises</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${window.app.companies.map(company => `
-                        <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                            <div class="font-medium text-gray-900 dark:text-white">${company.name}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">${company.type} • ${company.system}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">${company.phone}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">${company.address}</div>
-                            <div class="mt-2">
-                                <span class="px-2 py-1 rounded text-xs ${company.status === 'Actif' ? 'bg-success/20 text-success' : 
-                                                                      company.status === 'Période d\'essai' ? 'bg-warning/20 text-warning' : 
-                                                                      'bg-danger/20 text-danger'}">${company.status}</span>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-    console.log('✅ Page entreprises chargée');
+    if (window.dataSecurityManager) {
+        window.dataSecurityManager.loadCompanies();
+    }
 }
 
 function loadEntries() {
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${window.app.currentProfile === 'caissier' ? 'Opérations Caisse' : 'Écritures Comptables'}
-                </h2>
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
-                        <i class="fas fa-book mr-2"></i>Journal SYSCOHADA
-                    </div>
-                    <button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Nouvelle écriture
-                    </button>
-                </div>
-            </div>
-
-            <!-- Filtres et recherche -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <input type="text" placeholder="Rechercher..." class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                    <select class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                        <option>Tous les journaux</option>
-                        <option>Journal Général (JG)</option>
-                        <option>Journal des Achats (JA)</option>
-                        <option>Journal des Ventes (JV)</option>
-                        <option>Journal de Banque (JB)</option>
-                        <option>Journal de Caisse (JC)</option>
-                        <option>Journal des Opérations Diverses (JOD)</option>
-                    </select>
-                    <select class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                        <option>Tous les statuts</option>
-                        <option>Validé</option>
-                        <option>En attente</option>
-                        <option>Brouillon</option>
-                    </select>
-                    <input type="date" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Liste des écritures</h3>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-700">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Journal</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">N° Pièce</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Libellé</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Montant</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Statut</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            ${window.app.entries.map(entry => `
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">${new Date(entry.date).toLocaleDateString('fr-FR')}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">${entry.journal}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-mono text-sm">${entry.piece}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">${entry.libelle}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-mono">${entry.lines.reduce((sum, line) => sum + line.debit, 0).toLocaleString('fr-FR')} FCFA</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 py-1 rounded text-sm ${entry.status === 'Validé' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">${entry.status}</span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex space-x-2">
-                                            <button class="text-primary hover:text-primary/80" title="Voir">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            <button class="text-info hover:text-info/80" title="Modifier">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="text-danger hover:text-danger/80" title="Supprimer">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-    console.log('✅ Page écritures chargée');
+    if (window.dataSecurityManager) {
+        window.dataSecurityManager.loadEntries();
+    }
 }
 
 function loadAccounts() {
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Plan Comptable SYSCOHADA Révisé</h2>
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
-                        <i class="fas fa-calculator mr-2"></i>${window.app.accounts.length} comptes
-                    </div>
-                    ${window.app.currentProfile !== 'caissier' ? `
-                    <button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Nouveau Compte
-                    </button>
-                    ` : ''}
-                </div>
-            </div>
-
-            <!-- Filtres -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <input type="text" placeholder="Rechercher un compte..." class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                    <select class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                        <option value="">Toutes les catégories</option>
-                        <option value="Capitaux propres">Capitaux propres</option>
-                        <option value="Immobilisations">Immobilisations</option>
-                        <option value="Stocks">Stocks</option>
-                        <option value="Tiers">Tiers</option>
-                        <option value="Financiers">Financiers</option>
-                        <option value="Charges">Charges</option>
-                        <option value="Produits">Produits</option>
-                    </select>
-                    <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
-                        <i class="fas fa-sync mr-2"></i>Réinitialiser
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Comptes disponibles</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    ${window.app.accounts.map(account => `
-                        <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow">
-                            <div class="font-mono text-sm text-primary font-semibold">${account.code}</div>
-                            <div class="font-medium text-gray-900 dark:text-white text-sm mt-1">${account.name}</div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${account.category}</div>
-                            ${window.app.currentProfile !== 'caissier' ? `
-                            <div class="mt-2 flex space-x-2">
-                                <button class="text-primary hover:text-primary/80 text-xs" title="Modifier">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="text-danger hover:text-danger/80 text-xs" title="Supprimer">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                            ` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-    console.log('✅ Page comptes chargée');
+    if (window.dataSecurityManager) {
+        window.dataSecurityManager.loadAccounts();
+    }
 }
 
 function loadCaisse() {
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${window.app.currentProfile === 'caissier' ? 'Ma Caisse' : 'Gestion des Caisses'}
-                </h2>
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
-                        <i class="fas fa-cash-register mr-2"></i>${window.app.cashRegisters.length} caisses
-                    </div>
-                    ${window.app.currentProfile !== 'caissier' ? `
-                    <button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Nouvelle Caisse
-                    </button>
-                    ` : ''}
-                </div>
-            </div>
-
-            ${window.app.currentProfile === 'caissier' ? `
-            <!-- Interface Caissier -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        <i class="fas fa-cash-register mr-2 text-primary"></i>État de ma Caisse
-                    </h3>
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center p-4 bg-success/10 rounded-lg">
-                            <span class="text-success font-medium">Solde d'ouverture</span>
-                            <span class="text-2xl font-bold text-success">150 000 FCFA</span>
-                        </div>
-                        <div class="flex justify-between items-center p-4 bg-info/10 rounded-lg">
-                            <span class="text-info font-medium">Recettes du jour</span>
-                            <span class="text-2xl font-bold text-info">+85 000 FCFA</span>
-                        </div>
-                        <div class="flex justify-between items-center p-4 bg-warning/10 rounded-lg">
-                            <span class="text-warning font-medium">Dépenses du jour</span>
-                            <span class="text-2xl font-bold text-warning">-25 000 FCFA</span>
-                        </div>
-                        <div class="flex justify-between items-center p-4 bg-primary/10 rounded-lg border-t-2 border-primary">
-                            <span class="text-primary font-medium">Solde actuel</span>
-                            <span class="text-3xl font-bold text-primary">210 000 FCFA</span>
-                        </div>
-                    </div>
-                    <div class="mt-6 grid grid-cols-2 gap-4">
-                        <button onclick="navigateTo('entries')" class="bg-success hover:bg-success/90 text-white px-4 py-3 rounded-lg font-medium transition-colors">
-                            <i class="fas fa-plus-circle mr-2"></i>Nouvelle opération
-                        </button>
-                        <button class="bg-info hover:bg-info/90 text-white px-4 py-3 rounded-lg font-medium transition-colors">
-                            <i class="fas fa-print mr-2"></i>État de caisse
-                        </button>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        <i class="fas fa-history mr-2 text-info"></i>Dernières opérations
-                    </h3>
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-success text-white rounded-full flex items-center justify-center">
-                                    <i class="fas fa-arrow-down text-sm"></i>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-gray-900 dark:text-white">Vente comptant</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">14:30</div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <div class="font-bold text-success">+15,000 FCFA</div>
-                                <div class="text-xs text-success">Validé</div>
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-warning text-white rounded-full flex items-center justify-center">
-                                    <i class="fas fa-arrow-up text-sm"></i>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-gray-900 dark:text-white">Achat fournitures</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">13:15</div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <div class="font-bold text-warning">-5 000 FCFA</div>
-                                <div class="text-xs text-warning">En attente</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            ` : `
-            <!-- Interface Admin/Collaborateur -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Liste des Caisses</h3>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-700">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nom de la Caisse</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Responsable</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Solde</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Statut</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            ${window.app.cashRegisters.map(cash => `
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${cash.name}</td>
-                                    <td class="px-6 py-4 text-gray-900 dark:text-white">${cash.responsibleName}</td>
-                                    <td class="px-6 py-4 font-mono text-gray-900 dark:text-white">${cash.balance.toLocaleString('fr-FR')} FCFA</td>
-                                    <td class="px-6 py-4">
-                                        <span class="px-2 py-1 text-sm rounded ${cash.status === 'Ouvert' ? 'bg-success/20 text-success' : 'bg-gray-500/20 text-gray-500'}">${cash.status}</span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex space-x-2">
-                                            <button class="text-primary hover:text-primary/80" title="Voir">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            <button class="text-info hover:text-info/80" title="Modifier">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="text-danger hover:text-danger/80" title="Supprimer">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            `}
-        </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-    console.log('✅ Page caisses chargée');
+    if (window.dataSecurityManager) {
+        window.dataSecurityManager.loadCaisse();
+    }
 }
 
 function loadReports() {
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Rapports et États Financiers</h2>
-                <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
-                    <i class="fas fa-building mr-2"></i>SYSCOHADA Révisé
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">États financiers disponibles</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center hover:shadow-md transition-shadow">
-                        <i class="fas fa-file-alt text-3xl text-primary mb-3"></i>
-                        <h4 class="font-medium text-gray-900 dark:text-white mb-2">Journal Général</h4>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Chronologique des écritures</p>
-                        <button class="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
-                            Générer
-                        </button>
-                    </div>
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center hover:shadow-md transition-shadow">
-                        <i class="fas fa-book text-3xl text-success mb-3"></i>
-                        <h4 class="font-medium text-gray-900 dark:text-white mb-2">Grand Livre</h4>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Par compte</p>
-                        <button class="bg-success text-white px-4 py-2 rounded-lg text-sm hover:bg-success/90 transition-colors">
-                            Générer
-                        </button>
-                    </div>
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center hover:shadow-md transition-shadow">
-                        <i class="fas fa-balance-scale text-3xl text-info mb-3"></i>
-                        <h4 class="font-medium text-gray-900 dark:text-white mb-2">Balance Générale</h4>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Tous les comptes</p>
-                        <button class="bg-info text-white px-4 py-2 rounded-lg text-sm hover:bg-info/90 transition-colors">
-                            Générer
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-    console.log('✅ Page rapports chargée');
+    if (window.dataSecurityManager) {
+        window.dataSecurityManager.loadReports();
+    }
 }
 
 function loadImport() {
-    const content = `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Import de Balances</h2>
-                <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
-                    <i class="fas fa-upload mr-2"></i>Compatible SYSCOHADA
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-upload mr-2 text-primary"></i>Importer un fichier
-                </h3>
-                <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
-                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
-                    <p class="text-lg font-medium text-gray-900 dark:text-white mb-2">Glissez votre fichier ici ou cliquez pour le sélectionner</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Formats pris en charge : Excel, CSV (max. 10 Mo)</p>
-                    <button class="mt-4 bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
-                        Sélectionner un fichier
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-    console.log('✅ Page import chargée');
+    if (window.dataSecurityManager) {
+        window.dataSecurityManager.loadImport();
+    }
 }
 
 function loadSettings() {
@@ -1383,8 +861,8 @@ function loadSettings() {
                     <button class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                         <i class="fas fa-save mr-2"></i>Sauvegarder
                     </button>
-                    <button class="bg-warning hover:bg-warning/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                        <i class="fas fa-key mr-2"></i>Changer le mot de passe
+                    <button onclick="logout()" class="bg-danger hover:bg-danger/90 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
                     </button>
                 </div>
             </div>
@@ -1407,37 +885,45 @@ function showAccessDenied() {
     `;
 }
 
-// Fonctions utilitaires supplémentaires
+function logout() {
+    // Réinitialiser l'état
+    app.state.isAuthenticated = false;
+    app.state.currentUser = null;
+    app.state.currentProfile = null;
+    app.state.currentCompany = null;
+    
+    window.app = null;
+    
+    // Masquer l'interface principale
+    document.getElementById('mainApp').style.display = 'none';
+    
+    // Afficher la page de connexion
+    document.getElementById('loginPage').style.display = 'block';
+    
+    // Réinitialiser les champs
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+    
+    console.log('👋 Déconnexion réussie');
+}
+
+// Fonctions utilitaires
 function initializeMainApp() {
     try {
         console.log('🔄 Initialisation de l\'interface principale...');
-        console.log('📊 État de window.app:', {
-            currentUser: window.app?.currentUser,
-            currentProfile: window.app?.currentProfile,
-            currentCompany: window.app?.currentCompany,
-            isAuthenticated: window.app?.isAuthenticated
-        });
 
-        // Vérifier que window.app est bien défini
         if (!window.app || !window.app.currentUser || !window.app.currentProfile) {
             console.error('❌ window.app non défini ou incomplet');
             app.uiManager.showNotification('error', 'Erreur: Données d\'authentification manquantes');
             return;
         }
 
-        // Charger la navigation
         loadNavigationMenu();
-
-        // Mettre à jour les informations utilisateur
         updateUserInfo();
-
-        // Mettre à jour les sélecteurs d'abord
         app.uiManager.updateCompanySelector();
         app.uiManager.updateCompanyInfo();
 
-        // Charger le tableau de bord avec un petit délai pour s'assurer que tout est prêt
         setTimeout(() => {
-            console.log('🔄 Chargement du dashboard...');
             loadDashboard();
         }, 100);
 
@@ -1459,6 +945,24 @@ function updateUserInfo() {
     if (userRoleElement) userRoleElement.textContent = window.app.currentUser.role;
 }
 
+// Fonction pour pré-remplir les identifiants (aide au développement)
+function fillCredentials(profile) {
+    const credentials = {
+        admin: { email: 'admin@doukecompta.ci', password: 'admin123' },
+        'collaborateur-senior': { email: 'marie.kouassi@cabinet.com', password: 'collab123' },
+        collaborateur: { email: 'jean.diabate@cabinet.com', password: 'collab123' },
+        user: { email: 'atraore@sarltech.ci', password: 'user123' },
+        caissier: { email: 'ikone@caisse.ci', password: 'caisse123' }
+    };
+
+    const cred = credentials[profile];
+    if (cred) {
+        document.getElementById('loginEmail').value = cred.email;
+        document.getElementById('loginPassword').value = cred.password;
+        console.log('✅ Identifiants pré-remplis pour le profil:', profile);
+    }
+}
+
 // Instance globale de l'application
 let app;
 
@@ -1475,4 +979,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-console.log('🔧 Fichier app.js chargé avec succès');
+// Gestionnaire d'erreurs global
+window.addEventListener('error', function(e) {
+    console.error('❌ Erreur JavaScript:', e.error);
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('❌ Promesse rejetée:', e.reason);
+});
+
+console.log('🔧 Fichier app.js principal chargé avec succès');
