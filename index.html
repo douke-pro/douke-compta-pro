@@ -3036,7 +3036,7 @@ function showSecurityAudit() {
 // =============================================================================
 
 /**
- * Édition d'un utilisateur avec validation de sécurité
+ * Édition d'un utilisateur avec validation de sécurité — Version stable et corrigée
  */
 function editUser(id) {
     const user = window.app.users.find(u => u.id === id);
@@ -3053,57 +3053,61 @@ function editUser(id) {
     const availableRoles = window.unifiedManager.getAvailableRoles();
     const accessibleCompanies = window.unifiedManager.getAccessibleCompanies();
 
+    // Fonction d’échappement pour sécuriser l’injection HTML
+    const escapeHTML = (str) => str.replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+    }[tag]));
+
     const modalContent = `
         <form id="editUserForm" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet*</label>
-                    <input type="text" id="editUserName" value="${user.name}" required 
+                    <input type="text" id="editUserName" value="${escapeHTML(user.name)}" required 
                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
                 </div>
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email*</label>
-                    <input type="email" id="editUserEmail" value="${user.email}" required 
+                    <input type="email" id="editUserEmail" value="${escapeHTML(user.email)}" required 
                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
                 </div>
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                    <input type="tel" id="editUserPhone" value="${user.phone || ''}"
+                    <input type="tel" id="editUserPhone" value="${escapeHTML(user.phone || '')}"
                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
                 </div>
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Statut</label>
                     <select id="editUserStatus" 
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-                        <option value="Actif" ${user.status === 'Actif' ? 'selected' : ''}>Actif</option>
-                        <option value="Inactif" ${user.status === 'Inactif' ? 'selected' : ''}>Inactif</option>
-                        <option value="Suspendu" ${user.status === 'Suspendu' ? 'selected' : ''}>Suspendu</option>
+                        ${['Actif', 'Inactif', 'Suspendu'].map(status =>
+                            `<option value="${status}" ${user.status === status ? 'selected' : ''}>${status}</option>`
+                        ).join('')}
                     </select>
                 </div>
             </div>
-            
+
             ${window.app.currentUser.profile === 'admin' ? `
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rôle</label>
                 <select id="editUserRole" 
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-                    <option value="${user.profile}">${user.role}</option>
+                    <option value="${escapeHTML(user.profile)}">${escapeHTML(user.role)}</option>
                     ${availableRoles.map(role => 
-                        role.profile !== user.profile ? `<option value="${role.profile}">${role.name}</option>` : ''
+                        role.profile !== user.profile ? `<option value="${role.profile}">${escapeHTML(role.name)}</option>` : ''
                     ).join('')}
                 </select>
-            </div>
-            ` : `
+            </div>` : `
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rôle actuel</label>
-                <input type="text" value="${user.role}" readonly 
+                <input type="text" value="${escapeHTML(user.role)}" readonly 
                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
-            </div>
-            `}
-            
+            </div>`}
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Entreprises assignées</label>
                 <div class="space-y-2 max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
@@ -3112,12 +3116,12 @@ function editUser(id) {
                             <input type="checkbox" name="companies" value="${company.id}" 
                                    ${user.companies && user.companies.includes(company.id) ? 'checked' : ''}
                                    class="rounded border-gray-300 text-primary focus:ring-primary">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">${company.name}</span>
+                            <span class="text-sm text-gray-700 dark:text-gray-300">${escapeHTML(company.name)}</span>
                         </label>
                     `).join('')}
                 </div>
             </div>
-            
+
             <div class="flex justify-end space-x-3 pt-4">
                 <button type="button" onclick="window.unifiedManager.modalManager.hide()" 
                         class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
@@ -3131,35 +3135,31 @@ function editUser(id) {
         </form>
     `;
 
-    window.unifiedManager.modalManager.show(`Modifier ${user.name}`, modalContent);
-    
+    window.unifiedManager.modalManager.show(`Modifier ${escapeHTML(user.name)}`, modalContent);
+
     document.getElementById('editUserForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        
-        const name = document.getElementById('editUserName').value;
-        const email = document.getElementById('editUserEmail').value;
-        const phone = document.getElementById('editUserPhone').value;
+
+        const name = document.getElementById('editUserName').value.trim();
+        const email = document.getElementById('editUserEmail').value.trim();
+        const phone = document.getElementById('editUserPhone').value.trim();
         const status = document.getElementById('editUserStatus').value;
         const roleElement = document.getElementById('editUserRole');
         const newRole = roleElement ? roleElement.value : user.profile;
-        
         const selectedCompanies = Array.from(document.querySelectorAll('input[name="companies"]:checked'))
             .map(input => parseInt(input.value));
 
-        // Validation
-        if (!name.trim() || !email.trim()) {
+        if (!name || !email) {
             window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le nom et l\'email sont obligatoires');
             return;
         }
 
-        // Vérifier si l'email existe déjà
-        const existingUser = window.app.users.find(u => u.email === email && u.id !== id);
+        const existingUser = window.app.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.id !== id);
         if (existingUser) {
             window.unifiedManager.notificationManager.show('error', 'Erreur', 'Cet email est déjà utilisé');
             return;
         }
 
-        // Mise à jour
         user.name = name;
         user.email = email;
         user.phone = phone;
@@ -3167,7 +3167,6 @@ function editUser(id) {
         user.companies = selectedCompanies;
         user.assignedCompanies = selectedCompanies;
 
-        // Mise à jour du rôle si changé par admin
         if (newRole !== user.profile && window.app.currentUser.profile === 'admin') {
             const roleInfo = availableRoles.find(r => r.profile === newRole) || 
                            { name: user.role, profile: user.profile };
@@ -3177,9 +3176,8 @@ function editUser(id) {
         }
 
         window.unifiedManager.modalManager.hide();
-        window.unifiedManager.notificationManager.show('success', 'Utilisateur modifié', `${name} a été mis à jour avec succès`);
-        
-        // Recharger si on est sur la page de gestion d'équipe
+        window.unifiedManager.notificationManager.show('success', 'Utilisateur modifié', `${escapeHTML(name)} a été mis à jour avec succès`);
+
         if (document.getElementById('mainContent').innerHTML.includes('Gestion d\'Équipe')) {
             window.unifiedManager.showTeamManagement();
         }
