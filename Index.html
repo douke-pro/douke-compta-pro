@@ -2927,5 +2927,29 @@ console.log('💾 Isolation des données par entreprise');
 console.log('🚀 Interface moderne et responsive');
 console.log('✅ Prêt pour la production');
 </script>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    // Exemple : comptes de démo en dur
+    const demoAccounts = {
+        'admin@doukecompta.ci': 'admin123',
+        'marie.kouassi@cabinet.com': 'marie123',
+        'jean.diabate@cabinet.com': 'jean123',
+        'atraore@sarltech.ci': 'user123',
+        'ikone@caisse.ci': 'caisse123'
+    };
+
+    if (demoAccounts[email] && demoAccounts[email] === password) {
+        document.getElementById('loginInterface').style.display = 'none';
+        document.getElementById('mainApp').classList.remove('hidden');
+    } else {
+        alert('Identifiants incorrects !');
+    }
+});
+</script>
 </body>
 </html>
