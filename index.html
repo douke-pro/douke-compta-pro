@@ -3619,85 +3619,92 @@ function editEntry(id) {
     setTimeout(() => updateTotals(), 100);
 }
     
-    // Calculer les totaux initiaux
-    setTimeout(() => {
-        calculateTotals();
-        
-        // Ajouter les événements pour recalculer les totaux
-        document.querySelectorAll('input[name="debit"], input[name="credit"]').forEach(input => {
-            input.addEventListener('input', calculateTotals);
-        });
-    }, 100);
+    function calculateTotals() {
+    let totalDebit = 0;
+    let totalCredit = 0;
 
-    // Gestionnaire de soumission
-    document.getElementById('editEntryForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(e.target);
-        const date = document.getElementById('editEntryDate').value;
-        const journal = document.getElementById('editEntryJournal').value;
-        const piece = document.getElementById('editEntryPiece').value;
-        const libelle = document.getElementById('editEntryLibelle').value;
-        
-        const lines = [];
-        document.querySelectorAll('.entry-line').forEach(lineDiv => {
-            const account = lineDiv.querySelector('select[name="account"]').value;
-            const lineLibelle = lineDiv.querySelector('input[name="libelle"]').value;
-            const debit = parseFloat(lineDiv.querySelector('input[name="debit"]').value) || 0;
-            const credit = parseFloat(lineDiv.querySelector('input[name="credit"]').value) || 0;
-            
-            if (account && lineLibelle && (debit > 0 || credit > 0)) {
-                const accountInfo = accounts.find(a => a.code === account);
-                lines.push({
-                    account: account,
-                    accountName: accountInfo ? accountInfo.name : 'Compte inconnu',
-                    libelle: lineLibelle,
-                    debit: debit,
-                    credit: credit
-                });
-            }
-        });
+    document.querySelectorAll('.entry-line').forEach(line => {
+        const debit = parseFloat(line.querySelector('input[name="debit"]').value) || 0;
+        const credit = parseFloat(line.querySelector('input[name="credit"]').value) || 0;
+        totalDebit += debit;
+        totalCredit += credit;
+    });
 
-        // Validations
-        if (!date || !journal || !piece || !libelle) {
-            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Tous les champs obligatoires doivent être remplis');
-            return;
-        }
+    document.getElementById('totalDebit').textContent = totalDebit.toFixed(2);
+    document.getElementById('totalCredit').textContent = totalCredit.toFixed(2);
+    document.getElementById('balance').textContent = (totalDebit - totalCredit).toFixed(2);
+}
 
-        if (lines.length < 2) {
-            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Une écriture doit avoir au moins 2 lignes');
-            return;
-        }
-
-        const totalDebit = lines.reduce((sum, line) => sum + line.debit, 0);
-        const totalCredit = lines.reduce((sum, line) => sum + line.credit, 0);
-
-        if (Math.abs(totalDebit - totalCredit) > 0.01) {
-            window.unifiedManager.notificationManager.show('error', 'Erreur', 'L\'écriture doit être équilibrée (Total Débit = Total Crédit)');
-            return;
-        }
-
-        // Mise à jour de l'écriture
-        entry.date = date;
-        entry.journal = journal;
-        entry.piece = piece;
-        entry.libelle = libelle;
-        entry.lines = lines;
-        entry.status = 'En attente'; // Remettre en attente après modification
-
-        window.unifiedManager.modalManager.hide();
-        window.unifiedManager.notificationManager.show('success', 'Écriture modifiée', 'L\'écriture a été mise à jour avec succès');
-        
-        // Recharger la page des écritures si ouverte
-        if (document.getElementById('mainContent').innerHTML.includes('Écritures Comptables')) {
-            window.unifiedManager.loadEntriesPage();
-        }
+// Fonction pour rattacher les événements après ajout de lignes
+function attachTotalEvents() {
+    document.querySelectorAll('input[name="debit"], input[name="credit"]').forEach(input => {
+        input.removeEventListener('input', calculateTotals);
+        input.addEventListener('input', calculateTotals);
     });
 }
 
-/**
- * Validation d'une écriture avec vérifications
- */
+    // Gestionnaire de soumission
+  document.getElementById('editEntryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const date = document.getElementById('editEntryDate').value;
+    const journal = document.getElementById('editEntryJournal').value;
+    const piece = document.getElementById('editEntryPiece').value;
+    const libelle = document.getElementById('editEntryLibelle').value;
+
+    const lines = [];
+    document.querySelectorAll('.entry-line').forEach(lineDiv => {
+        const account = lineDiv.querySelector('select[name="account"]').value;
+        const lineLibelle = lineDiv.querySelector('input[name="libelle"]').value;
+        const debit = parseFloat(lineDiv.querySelector('input[name="debit"]').value) || 0;
+        const credit = parseFloat(lineDiv.querySelector('input[name="credit"]').value) || 0;
+
+        if (account && lineLibelle && (debit > 0 || credit > 0)) {
+            const accountInfo = window.app.accounts.find(a => a.code === account);
+            lines.push({
+                account: account,
+                accountName: accountInfo ? accountInfo.name : 'Compte inconnu',
+                libelle: lineLibelle,
+                debit: debit,
+                credit: credit
+            });
+        }
+    });
+
+    if (!date || !journal || !piece || !libelle) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Tous les champs obligatoires doivent être remplis');
+        return;
+    }
+
+    if (lines.length < 2) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Une écriture doit avoir au moins 2 lignes');
+        return;
+    }
+
+    const totalDebit = lines.reduce((sum, line) => sum + line.debit, 0);
+    const totalCredit = lines.reduce((sum, line) => sum + line.credit, 0);
+
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'L\'écriture doit être équilibrée (Total Débit = Total Crédit)');
+        return;
+    }
+
+    entry.date = date;
+    entry.journal = journal;
+    entry.piece = piece;
+    entry.libelle = libelle;
+    entry.lines = lines;
+    entry.status = 'En attente'; 
+
+    window.unifiedManager.modalManager.hide();
+    window.unifiedManager.notificationManager.show('success', 'Écriture modifiée', 'L\'écriture a été mise à jour avec succès');
+
+    if (document.getElementById('mainContent').innerHTML.includes('Écritures Comptables')) {
+        window.unifiedManager.loadEntriesPage();
+    }
+});
+
+
 function validateEntry(id) {
     const entry = window.app.entries.find(e => e.id === id);
     if (!entry) {
@@ -3705,7 +3712,6 @@ function validateEntry(id) {
         return;
     }
 
-    // Vérifications de sécurité
     if (!window.unifiedManager.security.hasAccessToCompany(window.app.currentUser.id, entry.companyId)) {
         window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas accès à cette écriture');
         return;
@@ -3721,7 +3727,6 @@ function validateEntry(id) {
         return;
     }
 
-    // Vérifications métier
     const totalDebit = entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
     const totalCredit = entry.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
 
@@ -3735,19 +3740,18 @@ function validateEntry(id) {
         return;
     }
 
-    // Confirmation de validation
+    const safeLibelle = entry.libelle.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
     window.unifiedManager.modalManager.confirm(
         'Valider l\'écriture',
-        `Êtes-vous sûr de vouloir valider l'écriture "${entry.libelle}" ? Cette action est définitive.`,
+        `Êtes-vous sûr de vouloir valider l'écriture "${safeLibelle}" ? Cette action est définitive.`,
         () => {
-            // Validation
             entry.status = 'Validé';
             entry.validatedBy = window.app.currentUser.id;
-            entry.validatedAt = new Date();
+            entry.validatedAt = new Date().toISOString();
 
             window.unifiedManager.notificationManager.show('success', 'Écriture validée', `Écriture #${id} validée avec succès`);
-            
-            // Recharger la page si nécessaire
+
             if (document.getElementById('mainContent').innerHTML.includes('Écritures Comptables') || 
                 document.getElementById('mainContent').innerHTML.includes('En attente')) {
                 window.unifiedManager.loadEntriesPage();
