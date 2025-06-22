@@ -3254,7 +3254,36 @@ function populateSecureCompanySelector() {
 }
 
 function bindSecureEventListeners() {
-    // Company selector
+    // ✅ IMMÉDIAT : Gestion du formulaire de connexion → NE PAS ATTENDRE
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleSecureLogin();
+        });
+    }
+
+    // ✅ IMMÉDIAT : Gestion du bouton de la sidebar
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                sidebar.classList.toggle('-translate-x-full');
+            }
+        });
+    }
+
+    // ✅ IMMÉDIAT : Gestion fermeture menu thème
+    document.addEventListener('click', function(e) {
+        const themeMenu = document.getElementById('themeMenu');
+        const themeButton = e.target.closest('[onclick="toggleThemeMenu()"]');
+        if (themeMenu && !themeMenu.contains(e.target) && !themeButton) {
+            themeMenu.classList.add('hidden');
+        }
+    });
+
+    // ⚠️ SPECIFIQUE : Gestion du changement d’entreprise → Peut rester avec setTimeout() si nécessaire
     setTimeout(() => {
         const companySelect = document.getElementById('activeCompanySelect');
         if (companySelect) {
@@ -3266,37 +3295,8 @@ function bindSecureEventListeners() {
             });
         }
     }, 100);
-
-    // Sidebar toggle
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', function() {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) {
-                sidebar.classList.toggle('-translate-x-full');
-            }
-        });
-    }
-
-    // Login form
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            handleSecureLogin();
-        });
-    }
-
-    // Close dropdowns when clicking outside
-    document.addEventListener('click', function(e) {
-        const themeMenu = document.getElementById('themeMenu');
-        const themeButton = e.target.closest('[onclick="toggleThemeMenu()"]');
-        if (themeMenu && !themeMenu.contains(e.target) && !themeButton) {
-            themeMenu.classList.add('hidden');
-        }
-    });
 }
-
+    
 // Fonctions utilitaires
 function setActiveMenuItem(element) {
     // Remove active class from all menu items
