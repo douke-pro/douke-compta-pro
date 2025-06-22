@@ -3461,6 +3461,21 @@ function viewEntry(id) {
 }
 
 /**
+ * Fonction utilitaire pour échapper les caractères HTML (protection XSS)
+ */
+const escapeHTML = (str) => str ? str.toString().replace(/[&<>'"]/g, (tag) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[tag])) : '';
+
+/**
+ * Formate une date au format YYYY-MM-DD pour les inputs HTML
+ */
+const formatDateForInput = (dateStr) => {
+    const d = new Date(dateStr);
+    return d.toISOString().slice(0, 10);
+};
+
+/**
  * Édition d'une écriture avec validation complète
  */
 function editEntry(id) {
@@ -3491,41 +3506,36 @@ function editEntry(id) {
 
     const modalContent = `
         <form id="editEntryForm" class="space-y-4">
-            <!-- Informations générales -->
             <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                 <h4 class="font-medium text-gray-900 dark:text-white mb-3">Informations générales</h4>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date*</label>
-                        <input type="date" id="editEntryDate" value="${entry.date}" required
+                        <input type="date" id="editEntryDate" value="${formatDateForInput(entry.date)}" required
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Journal*</label>
                         <select id="editEntryJournal" required
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-                            <option value="JG" ${entry.journal === 'JG' ? 'selected' : ''}>JG - Journal Général</option>
-                            <option value="JA" ${entry.journal === 'JA' ? 'selected' : ''}>JA - Journal des Achats</option>
-                            <option value="JV" ${entry.journal === 'JV' ? 'selected' : ''}>JV - Journal des Ventes</option>
-                            <option value="JB" ${entry.journal === 'JB' ? 'selected' : ''}>JB - Journal de Banque</option>
-                            <option value="JC" ${entry.journal === 'JC' ? 'selected' : ''}>JC - Journal de Caisse</option>
-                            <option value="JOD" ${entry.journal === 'JOD' ? 'selected' : ''}>JOD - Journal des Opérations Diverses</option>
+                            ${['JG','JA','JV','JB','JC','JOD'].map(j => `
+                                <option value="${j}" ${entry.journal === j ? 'selected' : ''}>${j}</option>
+                            `).join('')}
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">N° Pièce*</label>
-                        <input type="text" id="editEntryPiece" value="${entry.piece}" required
+                        <input type="text" id="editEntryPiece" value="${escapeHTML(entry.piece)}" required
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
                     </div>
                 </div>
                 <div class="mt-4">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Libellé général*</label>
-                    <input type="text" id="editEntryLibelle" value="${entry.libelle}" required
+                    <input type="text" id="editEntryLibelle" value="${escapeHTML(entry.libelle)}" required
                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
                 </div>
             </div>
 
-            <!-- Lignes d'écriture -->
             <div class="bg-white dark:bg-gray-800">
                 <div class="flex justify-between items-center mb-3">
                     <h4 class="font-medium text-gray-900 dark:text-white">Lignes d'écriture</h4>
@@ -3544,25 +3554,25 @@ function editEntry(id) {
                                     <option value="">Sélectionner</option>
                                     ${accounts.map(account => `
                                         <option value="${account.code}" ${line.account === account.code ? 'selected' : ''}>
-                                            ${account.code} - ${account.name}
+                                            ${account.code} - ${escapeHTML(account.name)}
                                         </option>
                                     `).join('')}
                                 </select>
                             </div>
                             <div class="col-span-4">
                                 <label class="block text-xs text-gray-500 mb-1">Libellé</label>
-                                <input type="text" name="libelle" value="${line.libelle}" required
+                                <input type="text" name="libelle" value="${escapeHTML(line.libelle)}" required
                                        class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
                             </div>
                             <div class="col-span-2">
                                 <label class="block text-xs text-gray-500 mb-1">Débit</label>
                                 <input type="number" name="debit" value="${line.debit || ''}" min="0" step="0.01"
-                                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white" oninput="updateTotals()">
                             </div>
                             <div class="col-span-2">
                                 <label class="block text-xs text-gray-500 mb-1">Crédit</label>
                                 <input type="number" name="credit" value="${line.credit || ''}" min="0" step="0.01"
-                                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white" oninput="updateTotals()">
                             </div>
                             <div class="col-span-1">
                                 <button type="button" onclick="removeEntryLine(${index})" 
@@ -3573,8 +3583,7 @@ function editEntry(id) {
                         </div>
                     `).join('')}
                 </div>
-                
-                <!-- Totaux -->
+
                 <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded">
                     <div class="grid grid-cols-3 gap-4 text-sm">
                         <div>
@@ -3607,7 +3616,9 @@ function editEntry(id) {
     `;
 
     window.unifiedManager.modalManager.show(`Modifier Écriture #${entry.id}`, modalContent);
-
+    setTimeout(() => updateTotals(), 100);
+}
+    
     // Calculer les totaux initiaux
     setTimeout(() => {
         calculateTotals();
