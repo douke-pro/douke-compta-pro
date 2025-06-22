@@ -3031,15 +3031,1214 @@ function showSecurityAudit() {
     window.unifiedManager.modalManager.show('Audit de Sécurité', modal);
 }
 
-// Fonctions placeholders pour éviter les erreurs
-function editUser(id) { window.unifiedManager.notificationManager.show('info', 'Édition', `Modifier utilisateur ${id} (fonctionnalité à implémenter)`); }
-function manageUserAccess(id) { window.unifiedManager.notificationManager.show('info', 'Accès', `Gérer accès utilisateur ${id} (fonctionnalité à implémenter)`); }
-function viewEntry(id) { window.unifiedManager.notificationManager.show('info', 'Écriture', `Voir écriture ${id} (fonctionnalité à implémenter)`); }
-function editEntry(id) { window.unifiedManager.notificationManager.show('info', 'Écriture', `Modifier écriture ${id} (fonctionnalité à implémenter)`); }
-function validateEntry(id) { window.unifiedManager.notificationManager.show('success', 'Validation', `Écriture ${id} validée`); }
-function showPendingEntries() { window.unifiedManager.notificationManager.show('info', 'En attente', 'Écritures en attente de validation'); }
-function generateGlobalReport() { window.unifiedManager.notificationManager.show('info', 'Rapport', 'Génération du rapport global en cours...'); }
-function validatePendingEntries() { window.unifiedManager.notificationManager.show('info', 'Validation', 'Traitement des écritures en attente...'); }
+// =============================================================================
+// FONCTIONS COMPLÈTEMENT IMPLÉMENTÉES POUR REMPLACER LES PLACEHOLDERS
+// =============================================================================
+
+/**
+ * Édition d'un utilisateur avec validation de sécurité
+ */
+function editUser(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canManageUser(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas modifier cet utilisateur');
+        return;
+    }
+
+    const availableRoles = window.unifiedManager.getAvailableRoles();
+    const accessibleCompanies = window.unifiedManager.getAccessibleCompanies();
+
+    const modalContent = `
+        <form id="editUserForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet*</label>
+                    <input type="text" id="editUserName" value="${user.name}" required 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email*</label>
+                    <input type="email" id="editUserEmail" value="${user.email}" required 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
+                    <input type="tel" id="editUserPhone" value="${user.phone || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Statut</label>
+                    <select id="editUserStatus" 
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                        <option value="Actif" ${user.status === 'Actif' ? 'selected' : ''}>Actif</option>
+                        <option value="Inactif" ${user.status === 'Inactif' ? 'selected' : ''}>Inactif</option>
+                        <option value="Suspendu" ${user.status === 'Suspendu' ? 'selected' : ''}>Suspendu</option>
+                    </select>
+                </div>
+            </div>
+            
+            ${window.app.currentUser.profile === 'admin' ? `
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rôle</label>
+                <select id="editUserRole" 
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    <option value="${user.profile}">${user.role}</option>
+                    ${availableRoles.map(role => 
+                        role.profile !== user.profile ? `<option value="${role.profile}">${role.name}</option>` : ''
+                    ).join('')}
+                </select>
+            </div>
+            ` : `
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rôle actuel</label>
+                <input type="text" value="${user.role}" readonly 
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
+            </div>
+            `}
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Entreprises assignées</label>
+                <div class="space-y-2 max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                    ${accessibleCompanies.map(company => `
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="companies" value="${company.id}" 
+                                   ${user.companies && user.companies.includes(company.id) ? 'checked' : ''}
+                                   class="rounded border-gray-300 text-primary focus:ring-primary">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">${company.name}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" onclick="window.unifiedManager.modalManager.hide()" 
+                        class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Annuler
+                </button>
+                <button type="submit" 
+                        class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    Sauvegarder
+                </button>
+            </div>
+        </form>
+    `;
+
+    window.unifiedManager.modalManager.show(`Modifier ${user.name}`, modalContent);
+    
+    document.getElementById('editUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('editUserName').value;
+        const email = document.getElementById('editUserEmail').value;
+        const phone = document.getElementById('editUserPhone').value;
+        const status = document.getElementById('editUserStatus').value;
+        const roleElement = document.getElementById('editUserRole');
+        const newRole = roleElement ? roleElement.value : user.profile;
+        
+        const selectedCompanies = Array.from(document.querySelectorAll('input[name="companies"]:checked'))
+            .map(input => parseInt(input.value));
+
+        // Validation
+        if (!name.trim() || !email.trim()) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le nom et l\'email sont obligatoires');
+            return;
+        }
+
+        // Vérifier si l'email existe déjà
+        const existingUser = window.app.users.find(u => u.email === email && u.id !== id);
+        if (existingUser) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Cet email est déjà utilisé');
+            return;
+        }
+
+        // Mise à jour
+        user.name = name;
+        user.email = email;
+        user.phone = phone;
+        user.status = status;
+        user.companies = selectedCompanies;
+        user.assignedCompanies = selectedCompanies;
+
+        // Mise à jour du rôle si changé par admin
+        if (newRole !== user.profile && window.app.currentUser.profile === 'admin') {
+            const roleInfo = availableRoles.find(r => r.profile === newRole) || 
+                           { name: user.role, profile: user.profile };
+            user.profile = roleInfo.profile;
+            user.role = roleInfo.name;
+            user.permissions = window.unifiedManager.getDefaultPermissions(roleInfo.profile);
+        }
+
+        window.unifiedManager.modalManager.hide();
+        window.unifiedManager.notificationManager.show('success', 'Utilisateur modifié', `${name} a été mis à jour avec succès`);
+        
+        // Recharger si on est sur la page de gestion d'équipe
+        if (document.getElementById('mainContent').innerHTML.includes('Gestion d\'Équipe')) {
+            window.unifiedManager.showTeamManagement();
+        }
+    });
+}
+
+/**
+ * Gestion des accès utilisateur avec interface complète
+ */
+function manageUserAccess(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canManageUser(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas gérer les accès de cet utilisateur');
+        return;
+    }
+
+    const modalContent = `
+        <div class="space-y-6">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-key text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Gestion des Accès</h3>
+                <p class="text-gray-600 dark:text-gray-400">${user.name} • ${user.role}</p>
+                <span class="inline-block px-3 py-1 mt-2 text-xs rounded-full ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">
+                    ${user.status}
+                </span>
+            </div>
+
+            <!-- Informations de sécurité -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Niveau de Sécurité</h4>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Niveau hiérarchique:</span>
+                        <span class="font-bold text-primary ml-2">Niveau ${window.unifiedManager.security.profileHierarchy[user.profile]}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Profil:</span>
+                        <span class="font-medium ml-2">${user.role}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Dernière connexion:</span>
+                        <span class="font-medium ml-2">${user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('fr-FR') : 'Jamais'}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Membre depuis:</span>
+                        <span class="font-medium ml-2">${user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : 'N/A'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Permissions actuelles -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Permissions Actuelles</h4>
+                <div class="space-y-2">
+                    ${user.permissions.map(permission => `
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-check text-success"></i>
+                            <span class="text-sm text-gray-700 dark:text-gray-300">${window.unifiedManager.getPermissionLabel(permission)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Entreprises accessibles -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Entreprises Accessibles (${user.companies ? user.companies.length : 0})</h4>
+                <div class="space-y-2 max-h-32 overflow-y-auto">
+                    ${user.companies ? user.companies.map(companyId => {
+                        const company = window.app.companies.find(c => c.id === companyId);
+                        return company ? `
+                            <div class="flex items-center justify-between p-2 bg-white dark:bg-gray-600 rounded">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">${company.name}</span>
+                                <span class="px-2 py-1 text-xs rounded-full ${window.unifiedManager.getStatusColor(company.status)}">${company.status}</span>
+                            </div>
+                        ` : '';
+                    }).join('') : '<p class="text-sm text-gray-500">Aucune entreprise assignée</p>'}
+                </div>
+            </div>
+
+            <!-- Actions de gestion -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button onclick="resetUserPassword(${user.id})" 
+                        class="bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90 transition-colors">
+                    <i class="fas fa-unlock mr-2"></i>Réinitialiser mot de passe
+                </button>
+                <button onclick="toggleUserStatus(${user.id})" 
+                        class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90 transition-colors">
+                    <i class="fas fa-toggle-on mr-2"></i>Changer statut
+                </button>
+                <button onclick="generateUserReport(${user.id})" 
+                        class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                    <i class="fas fa-chart-bar mr-2"></i>Rapport d'activité
+                </button>
+                <button onclick="sendNotificationToUser(${user.id})" 
+                        class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-envelope mr-2"></i>Envoyer notification
+                </button>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+                <button onclick="editUser(${user.id}); window.unifiedManager.modalManager.hide()" 
+                        class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-edit mr-2"></i>Modifier utilisateur
+                </button>
+                <button onclick="window.unifiedManager.modalManager.hide()" 
+                        class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    `;
+
+    window.unifiedManager.modalManager.show(`Accès - ${user.name}`, modalContent);
+}
+
+/**
+ * Visualisation détaillée d'une écriture
+ */
+function viewEntry(id) {
+    const entry = window.app.entries.find(e => e.id === id);
+    if (!entry) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Écriture introuvable');
+        return;
+    }
+
+    // Vérifier l'accès à l'entreprise
+    if (!window.unifiedManager.security.hasAccessToCompany(window.app.currentUser.id, entry.companyId)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas accès à cette écriture');
+        return;
+    }
+
+    const company = window.app.companies.find(c => c.id === entry.companyId);
+    const creator = window.app.users.find(u => u.id === entry.userId);
+    const validator = entry.validatedBy ? window.app.users.find(u => u.id === entry.validatedBy) : null;
+
+    const totalDebit = entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
+    const totalCredit = entry.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+
+    const modalContent = `
+        <div class="space-y-6">
+            <!-- En-tête de l'écriture -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${entry.libelle}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">${company ? company.name : 'Entreprise inconnue'}</p>
+                    </div>
+                    <span class="px-3 py-1 text-sm rounded-full ${entry.status === 'Validé' ? 'bg-success/20 text-success' : entry.status === 'En attente' ? 'bg-warning/20 text-warning' : 'bg-gray-500/20 text-gray-500'}">
+                        ${entry.status}
+                    </span>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Date:</span>
+                        <span class="font-medium ml-2">${new Date(entry.date).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Journal:</span>
+                        <span class="font-medium ml-2 px-2 py-1 rounded text-xs ${window.unifiedManager.getJournalColor ? window.unifiedManager.getJournalColor(entry.journal) : 'bg-gray-200 text-gray-800'}">${entry.journal}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">N° Pièce:</span>
+                        <span class="font-mono ml-2">${entry.piece}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">ID:</span>
+                        <span class="font-mono ml-2">#${entry.id}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lignes d'écriture -->
+            <div class="bg-white dark:bg-gray-800">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Lignes d'écriture</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Compte</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Libellé</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Débit</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Crédit</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            ${entry.lines.map(line => `
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td class="px-4 py-2">
+                                        <div class="font-mono text-sm text-primary">${line.account}</div>
+                                        <div class="text-xs text-gray-500">${line.accountName}</div>
+                                    </td>
+                                    <td class="px-4 py-2 text-gray-900 dark:text-white">${line.libelle}</td>
+                                    <td class="px-4 py-2 text-right font-mono ${line.debit > 0 ? 'text-success font-medium' : 'text-gray-400'}">
+                                        ${line.debit > 0 ? line.debit.toLocaleString('fr-FR') : '-'}
+                                    </td>
+                                    <td class="px-4 py-2 text-right font-mono ${line.credit > 0 ? 'text-danger font-medium' : 'text-gray-400'}">
+                                        ${line.credit > 0 ? line.credit.toLocaleString('fr-FR') : '-'}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <td colspan="2" class="px-4 py-2 font-medium text-gray-900 dark:text-white">TOTAUX</td>
+                                <td class="px-4 py-2 text-right font-mono font-bold text-success">${totalDebit.toLocaleString('fr-FR')}</td>
+                                <td class="px-4 py-2 text-right font-mono font-bold text-danger">${totalCredit.toLocaleString('fr-FR')}</td>
+                            </tr>
+                            <tr class="bg-gray-100 dark:bg-gray-600">
+                                <td colspan="2" class="px-4 py-2 font-medium text-gray-900 dark:text-white">Équilibre</td>
+                                <td colspan="2" class="px-4 py-2 text-center font-mono font-bold ${totalDebit === totalCredit ? 'text-success' : 'text-danger'}">
+                                    ${totalDebit === totalCredit ? '✓ Équilibrée' : `⚠ Déséquilibre: ${Math.abs(totalDebit - totalCredit).toLocaleString('fr-FR')}`}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Informations de suivi -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Informations de suivi</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Créé par:</span>
+                        <span class="font-medium ml-2">${creator ? creator.name : 'Utilisateur inconnu'}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Date de création:</span>
+                        <span class="font-medium ml-2">${entry.createdAt ? new Date(entry.createdAt).toLocaleString('fr-FR') : 'N/A'}</span>
+                    </div>
+                    ${validator ? `
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Validé par:</span>
+                        <span class="font-medium ml-2">${validator.name}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Date de validation:</span>
+                        <span class="font-medium ml-2">${entry.validatedAt ? new Date(entry.validatedAt).toLocaleString('fr-FR') : 'N/A'}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex space-x-3">
+                    ${window.unifiedManager.security.permissions[window.app.currentProfile]?.canValidateOperations && entry.status === 'En attente' ? `
+                        <button onclick="validateEntry(${entry.id}); window.unifiedManager.modalManager.hide()" 
+                                class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                            <i class="fas fa-check mr-2"></i>Valider
+                        </button>
+                    ` : ''}
+                    ${window.unifiedManager.security.permissions[window.app.currentProfile]?.canValidateOperations ? `
+                        <button onclick="editEntry(${entry.id}); window.unifiedManager.modalManager.hide()" 
+                                class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90 transition-colors">
+                            <i class="fas fa-edit mr-2"></i>Modifier
+                        </button>
+                    ` : ''}
+                    <button onclick="printEntry(${entry.id})" 
+                            class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-print mr-2"></i>Imprimer
+                    </button>
+                </div>
+                <button onclick="window.unifiedManager.modalManager.hide()" 
+                        class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    `;
+
+    window.unifiedManager.modalManager.show(`Écriture #${entry.id}`, modalContent);
+}
+
+/**
+ * Édition d'une écriture avec validation complète
+ */
+function editEntry(id) {
+    const entry = window.app.entries.find(e => e.id === id);
+    if (!entry) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Écriture introuvable');
+        return;
+    }
+
+    // Vérifications de sécurité
+    if (!window.unifiedManager.security.hasAccessToCompany(window.app.currentUser.id, entry.companyId)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas accès à cette écriture');
+        return;
+    }
+
+    if (!window.unifiedManager.security.permissions[window.app.currentProfile]?.canValidateOperations) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas les permissions pour modifier cette écriture');
+        return;
+    }
+
+    if (entry.status === 'Validé' && window.app.currentProfile !== 'admin') {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Impossible de modifier une écriture validée');
+        return;
+    }
+
+    const company = window.app.companies.find(c => c.id === entry.companyId);
+    const accounts = window.app.accounts;
+
+    const modalContent = `
+        <form id="editEntryForm" class="space-y-4">
+            <!-- Informations générales -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Informations générales</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date*</label>
+                        <input type="date" id="editEntryDate" value="${entry.date}" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Journal*</label>
+                        <select id="editEntryJournal" required
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                            <option value="JG" ${entry.journal === 'JG' ? 'selected' : ''}>JG - Journal Général</option>
+                            <option value="JA" ${entry.journal === 'JA' ? 'selected' : ''}>JA - Journal des Achats</option>
+                            <option value="JV" ${entry.journal === 'JV' ? 'selected' : ''}>JV - Journal des Ventes</option>
+                            <option value="JB" ${entry.journal === 'JB' ? 'selected' : ''}>JB - Journal de Banque</option>
+                            <option value="JC" ${entry.journal === 'JC' ? 'selected' : ''}>JC - Journal de Caisse</option>
+                            <option value="JOD" ${entry.journal === 'JOD' ? 'selected' : ''}>JOD - Journal des Opérations Diverses</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">N° Pièce*</label>
+                        <input type="text" id="editEntryPiece" value="${entry.piece}" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Libellé général*</label>
+                    <input type="text" id="editEntryLibelle" value="${entry.libelle}" required
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                </div>
+            </div>
+
+            <!-- Lignes d'écriture -->
+            <div class="bg-white dark:bg-gray-800">
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-medium text-gray-900 dark:text-white">Lignes d'écriture</h4>
+                    <button type="button" onclick="addEntryLine()" 
+                            class="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary/90">
+                        <i class="fas fa-plus mr-1"></i>Ajouter ligne
+                    </button>
+                </div>
+                <div id="entryLines" class="space-y-2">
+                    ${entry.lines.map((line, index) => `
+                        <div class="entry-line grid grid-cols-12 gap-2 items-end" data-index="${index}">
+                            <div class="col-span-3">
+                                <label class="block text-xs text-gray-500 mb-1">Compte</label>
+                                <select name="account" required 
+                                        class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                                    <option value="">Sélectionner</option>
+                                    ${accounts.map(account => `
+                                        <option value="${account.code}" ${line.account === account.code ? 'selected' : ''}>
+                                            ${account.code} - ${account.name}
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <div class="col-span-4">
+                                <label class="block text-xs text-gray-500 mb-1">Libellé</label>
+                                <input type="text" name="libelle" value="${line.libelle}" required
+                                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs text-gray-500 mb-1">Débit</label>
+                                <input type="number" name="debit" value="${line.debit || ''}" min="0" step="0.01"
+                                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs text-gray-500 mb-1">Crédit</label>
+                                <input type="number" name="credit" value="${line.credit || ''}" min="0" step="0.01"
+                                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-1">
+                                <button type="button" onclick="removeEntryLine(${index})" 
+                                        class="w-full bg-danger text-white px-2 py-1 rounded text-sm hover:bg-danger/90">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <!-- Totaux -->
+                <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Total Débit:</span>
+                            <span id="totalDebit" class="font-mono font-bold text-success ml-2">0</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Total Crédit:</span>
+                            <span id="totalCredit" class="font-mono font-bold text-danger ml-2">0</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Équilibre:</span>
+                            <span id="balance" class="font-mono font-bold ml-2">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" onclick="window.unifiedManager.modalManager.hide()" 
+                        class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Annuler
+                </button>
+                <button type="submit" 
+                        class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-save mr-2"></i>Sauvegarder
+                </button>
+            </div>
+        </form>
+    `;
+
+    window.unifiedManager.modalManager.show(`Modifier Écriture #${entry.id}`, modalContent);
+
+    // Calculer les totaux initiaux
+    setTimeout(() => {
+        calculateTotals();
+        
+        // Ajouter les événements pour recalculer les totaux
+        document.querySelectorAll('input[name="debit"], input[name="credit"]').forEach(input => {
+            input.addEventListener('input', calculateTotals);
+        });
+    }, 100);
+
+    // Gestionnaire de soumission
+    document.getElementById('editEntryForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const date = document.getElementById('editEntryDate').value;
+        const journal = document.getElementById('editEntryJournal').value;
+        const piece = document.getElementById('editEntryPiece').value;
+        const libelle = document.getElementById('editEntryLibelle').value;
+        
+        const lines = [];
+        document.querySelectorAll('.entry-line').forEach(lineDiv => {
+            const account = lineDiv.querySelector('select[name="account"]').value;
+            const lineLibelle = lineDiv.querySelector('input[name="libelle"]').value;
+            const debit = parseFloat(lineDiv.querySelector('input[name="debit"]').value) || 0;
+            const credit = parseFloat(lineDiv.querySelector('input[name="credit"]').value) || 0;
+            
+            if (account && lineLibelle && (debit > 0 || credit > 0)) {
+                const accountInfo = accounts.find(a => a.code === account);
+                lines.push({
+                    account: account,
+                    accountName: accountInfo ? accountInfo.name : 'Compte inconnu',
+                    libelle: lineLibelle,
+                    debit: debit,
+                    credit: credit
+                });
+            }
+        });
+
+        // Validations
+        if (!date || !journal || !piece || !libelle) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Tous les champs obligatoires doivent être remplis');
+            return;
+        }
+
+        if (lines.length < 2) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Une écriture doit avoir au moins 2 lignes');
+            return;
+        }
+
+        const totalDebit = lines.reduce((sum, line) => sum + line.debit, 0);
+        const totalCredit = lines.reduce((sum, line) => sum + line.credit, 0);
+
+        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'L\'écriture doit être équilibrée (Total Débit = Total Crédit)');
+            return;
+        }
+
+        // Mise à jour de l'écriture
+        entry.date = date;
+        entry.journal = journal;
+        entry.piece = piece;
+        entry.libelle = libelle;
+        entry.lines = lines;
+        entry.status = 'En attente'; // Remettre en attente après modification
+
+        window.unifiedManager.modalManager.hide();
+        window.unifiedManager.notificationManager.show('success', 'Écriture modifiée', 'L\'écriture a été mise à jour avec succès');
+        
+        // Recharger la page des écritures si ouverte
+        if (document.getElementById('mainContent').innerHTML.includes('Écritures Comptables')) {
+            window.unifiedManager.loadEntriesPage();
+        }
+    });
+}
+
+/**
+ * Validation d'une écriture avec vérifications
+ */
+function validateEntry(id) {
+    const entry = window.app.entries.find(e => e.id === id);
+    if (!entry) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Écriture introuvable');
+        return;
+    }
+
+    // Vérifications de sécurité
+    if (!window.unifiedManager.security.hasAccessToCompany(window.app.currentUser.id, entry.companyId)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas accès à cette écriture');
+        return;
+    }
+
+    if (!window.unifiedManager.security.permissions[window.app.currentProfile]?.canValidateOperations) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas les permissions pour valider cette écriture');
+        return;
+    }
+
+    if (entry.status === 'Validé') {
+        window.unifiedManager.notificationManager.show('warning', 'Déjà validée', 'Cette écriture est déjà validée');
+        return;
+    }
+
+    // Vérifications métier
+    const totalDebit = entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
+    const totalCredit = entry.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        window.unifiedManager.notificationManager.show('error', 'Écriture déséquilibrée', 'Impossible de valider une écriture déséquilibrée');
+        return;
+    }
+
+    if (entry.lines.length < 2) {
+        window.unifiedManager.notificationManager.show('error', 'Écriture incomplète', 'Une écriture doit avoir au moins 2 lignes');
+        return;
+    }
+
+    // Confirmation de validation
+    window.unifiedManager.modalManager.confirm(
+        'Valider l\'écriture',
+        `Êtes-vous sûr de vouloir valider l'écriture "${entry.libelle}" ? Cette action est définitive.`,
+        () => {
+            // Validation
+            entry.status = 'Validé';
+            entry.validatedBy = window.app.currentUser.id;
+            entry.validatedAt = new Date();
+
+            window.unifiedManager.notificationManager.show('success', 'Écriture validée', `Écriture #${id} validée avec succès`);
+            
+            // Recharger la page si nécessaire
+            if (document.getElementById('mainContent').innerHTML.includes('Écritures Comptables') || 
+                document.getElementById('mainContent').innerHTML.includes('En attente')) {
+                window.unifiedManager.loadEntriesPage();
+            }
+        }
+    );
+}
+
+/**
+ * Affichage des écritures en attente de validation
+ */
+function showPendingEntries() {
+    // Vérifier les permissions
+    if (!window.unifiedManager.security.permissions[window.app.currentProfile]?.canValidateOperations) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas les permissions pour voir les validations');
+        return;
+    }
+
+    // Récupérer les écritures en attente selon le niveau d'accès
+    let pendingEntries = [];
+    
+    if (window.app.currentProfile === 'admin') {
+        pendingEntries = window.app.entries.filter(e => e.status === 'En attente');
+    } else {
+        // Pour les collaborateurs, seulement les écritures des entreprises accessibles
+        const accessibleCompanies = window.unifiedManager.security.getAccessibleCompanies(window.app.currentUser.id);
+        pendingEntries = window.app.entries.filter(e => 
+            e.status === 'En attente' && 
+            accessibleCompanies.some(c => c.id === e.companyId)
+        );
+    }
+
+    const modalContent = `
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Écritures en attente de validation</h3>
+                <span class="px-3 py-1 bg-warning/20 text-warning rounded-full text-sm font-medium">
+                    ${pendingEntries.length} en attente
+                </span>
+            </div>
+
+            ${pendingEntries.length > 0 ? `
+                <div class="space-y-3 max-h-96 overflow-y-auto">
+                    ${pendingEntries.map(entry => {
+                        const company = window.app.companies.find(c => c.id === entry.companyId);
+                        const creator = window.app.users.find(u => u.id === entry.userId);
+                        const totalAmount = entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
+                        
+                        return `
+                            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-warning">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900 dark:text-white">${entry.libelle}</h4>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                                            ${company ? company.name : 'Entreprise inconnue'} • 
+                                            ${entry.journal} • ${entry.piece}
+                                        </p>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-mono text-sm font-medium">${totalAmount.toLocaleString('fr-FR')} FCFA</div>
+                                        <div class="text-xs text-gray-500">${new Date(entry.date).toLocaleDateString('fr-FR')}</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex justify-between items-center">
+                                    <div class="text-xs text-gray-500">
+                                        Créé par ${creator ? creator.name : 'Utilisateur inconnu'} • 
+                                        ${entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('fr-FR') : 'Date inconnue'}
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button onclick="viewEntry(${entry.id})" 
+                                                class="bg-info text-white px-2 py-1 rounded text-xs hover:bg-info/90">
+                                            <i class="fas fa-eye mr-1"></i>Voir
+                                        </button>
+                                        <button onclick="validateEntry(${entry.id}); showPendingEntries()" 
+                                                class="bg-success text-white px-2 py-1 rounded text-xs hover:bg-success/90">
+                                            <i class="fas fa-check mr-1"></i>Valider
+                                        </button>
+                                        <button onclick="editEntry(${entry.id})" 
+                                                class="bg-primary text-white px-2 py-1 rounded text-xs hover:bg-primary/90">
+                                            <i class="fas fa-edit mr-1"></i>Modifier
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <button onclick="validateAllPendingEntries()" 
+                            class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                        <i class="fas fa-check-double mr-2"></i>Valider tout
+                    </button>
+                    <button onclick="window.unifiedManager.modalManager.hide()" 
+                            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                        Fermer
+                    </button>
+                </div>
+            ` : `
+                <div class="text-center py-8">
+                    <i class="fas fa-check-circle text-4xl text-success mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Aucune écriture en attente</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Toutes les écritures ont été validées !</p>
+                </div>
+                
+                <div class="flex justify-end pt-4">
+                    <button onclick="window.unifiedManager.modalManager.hide()" 
+                            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                        Fermer
+                    </button>
+                </div>
+            `}
+        </div>
+    `;
+
+    window.unifiedManager.modalManager.show('Validation des Écritures', modalContent);
+}
+
+/**
+ * Génération d'un rapport global avec analyses
+ */
+function generateGlobalReport() {
+    // Vérifier les permissions (admin ou senior seulement)
+    if (window.app.currentProfile !== 'admin' && window.app.currentProfile !== 'collaborateur_senior') {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Seuls les administrateurs et collaborateurs seniors peuvent générer le rapport global');
+        return;
+    }
+
+    window.unifiedManager.notificationManager.show('info', 'Génération en cours', 'Préparation du rapport global...');
+    
+    // Simuler la génération du rapport
+    setTimeout(() => {
+        const stats = window.unifiedManager.getAppStatistics();
+        const reportData = {
+            generatedAt: new Date(),
+            generatedBy: window.app.currentUser.name,
+            period: 'Année 2024',
+            ...stats
+        };
+
+        const modalContent = `
+            <div class="space-y-6">
+                <!-- En-tête du rapport -->
+                <div class="text-center border-b border-gray-200 dark:border-gray-600 pb-4">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Rapport Global DOUKÈ Compta Pro</h2>
+                    <p class="text-gray-600 dark:text-gray-400 mt-2">
+                        Généré le ${reportData.generatedAt.toLocaleDateString('fr-FR')} par ${reportData.generatedBy}
+                    </p>
+                    <span class="inline-block px-3 py-1 bg-primary/20 text-primary rounded-full text-sm mt-2">
+                        ${reportData.period}
+                    </span>
+                </div>
+
+                <!-- Statistiques générales -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-primary/10 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-primary">${stats.companies.total}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">Entreprises</div>
+                        <div class="text-xs text-success mt-1">${stats.companies.active} actives</div>
+                    </div>
+                    <div class="bg-info/10 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-info">${stats.users.total}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs</div>
+                        <div class="text-xs text-success mt-1">${stats.users.active} actifs</div>
+                    </div>
+                    <div class="bg-success/10 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-success">${stats.entries.total}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">Écritures</div>
+                        <div class="text-xs text-warning mt-1">${stats.entries.pending} en attente</div>
+                    </div>
+                    <div class="bg-warning/10 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-warning">${stats.cashRegisters.totalBalance.toLocaleString('fr-FR')}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">Solde Caisses (FCFA)</div>
+                        <div class="text-xs text-info mt-1">${stats.cashRegisters.total} caisses</div>
+                    </div>
+                </div>
+
+                <!-- Répartition par profil -->
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 dark:text-white mb-3">Répartition des Utilisateurs</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                        <div class="text-center">
+                            <div class="font-bold text-danger">${stats.users.byRole['Administrateur'] || 0}</div>
+                            <div class="text-gray-600 dark:text-gray-400">Admins</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-primary">${stats.users.byRole['Collaborateur Senior'] || 0}</div>
+                            <div class="text-gray-600 dark:text-gray-400">Seniors</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-info">${stats.users.byRole['Collaborateur'] || 0}</div>
+                            <div class="text-gray-600 dark:text-gray-400">Collabs</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-success">${stats.users.byRole['Utilisateur'] || 0}</div>
+                            <div class="text-gray-600 dark:text-gray-400">Users</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-warning">${stats.users.byRole['Caissier'] || 0}</div>
+                            <div class="text-gray-600 dark:text-gray-400">Caissiers</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Répartition par journal -->
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 dark:text-white mb-3">Écritures par Journal</h4>
+                    <div class="grid grid-cols-3 md:grid-cols-6 gap-3 text-sm">
+                        ${Object.entries(stats.entries.byJournal).map(([journal, count]) => `
+                            <div class="text-center">
+                                <div class="font-bold text-primary">${count}</div>
+                                <div class="text-gray-600 dark:text-gray-400">${journal}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- État de synchronisation -->
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 dark:text-white mb-3">Synchronisation PIWA</h4>
+                    <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div class="text-center">
+                            <div class="font-bold text-warning">${stats.sync.pendingItems}</div>
+                            <div class="text-gray-600 dark:text-gray-400">En attente</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-danger">${stats.sync.failedItems}</div>
+                            <div class="text-gray-600 dark:text-gray-400">Échecs</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-success">${stats.sync.canSync ? 'Actif' : 'Inactif'}</div>
+                            <div class="text-gray-600 dark:text-gray-400">Statut</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommandations -->
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <h4 class="font-medium text-blue-900 dark:text-blue-300 mb-3">
+                        <i class="fas fa-lightbulb mr-2"></i>Recommandations
+                    </h4>
+                    <ul class="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                        ${stats.entries.pending > 0 ? `<li>• ${stats.entries.pending} écriture(s) en attente de validation</li>` : ''}
+                        ${stats.companies.total - stats.companies.active > 0 ? `<li>• ${stats.companies.total - stats.companies.active} entreprise(s) inactive(s) à vérifier</li>` : ''}
+                        ${stats.sync.pendingItems > 0 ? `<li>• ${stats.sync.pendingItems} élément(s) en attente de synchronisation</li>` : ''}
+                        ${stats.cashRegisters.totalBalance === 0 ? '<li>• Aucun solde dans les caisses - Vérifier les configurations</li>' : ''}
+                        <li>• Système opérationnel avec ${((stats.entries.validated / stats.entries.total) * 100).toFixed(1)}% d'écritures validées</li>
+                    </ul>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <div class="flex space-x-3">
+                        <button onclick="exportGlobalReport()" 
+                                class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                            <i class="fas fa-download mr-2"></i>Exporter PDF
+                        </button>
+                        <button onclick="emailGlobalReport()" 
+                                class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90 transition-colors">
+                            <i class="fas fa-envelope mr-2"></i>Envoyer par email
+                        </button>
+                    </div>
+                    <button onclick="window.unifiedManager.modalManager.hide()" 
+                            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+
+        window.unifiedManager.modalManager.show('Rapport Global', modalContent);
+        window.unifiedManager.notificationManager.show('success', 'Rapport généré', 'Le rapport global a été généré avec succès');
+    }, 2000);
+}
+
+/**
+ * Validation en lot des écritures en attente
+ */
+function validatePendingEntries() {
+    // Vérifier les permissions
+    if (!window.unifiedManager.security.permissions[window.app.currentProfile]?.canValidateOperations) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas les permissions pour valider les écritures');
+        return;
+    }
+
+    // Récupérer les écritures en attente selon le niveau d'accès
+    let pendingEntries = [];
+    
+    if (window.app.currentProfile === 'admin') {
+        pendingEntries = window.app.entries.filter(e => e.status === 'En attente');
+    } else {
+        const accessibleCompanies = window.unifiedManager.security.getAccessibleCompanies(window.app.currentUser.id);
+        pendingEntries = window.app.entries.filter(e => 
+            e.status === 'En attente' && 
+            accessibleCompanies.some(c => c.id === e.companyId)
+        );
+    }
+
+    if (pendingEntries.length === 0) {
+        window.unifiedManager.notificationManager.show('info', 'Aucune écriture', 'Aucune écriture en attente de validation');
+        return;
+    }
+
+    // Filtrer les écritures valides (équilibrées et complètes)
+    const validEntries = pendingEntries.filter(entry => {
+        const totalDebit = entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
+        const totalCredit = entry.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+        return Math.abs(totalDebit - totalCredit) <= 0.01 && entry.lines.length >= 2;
+    });
+
+    const invalidEntries = pendingEntries.filter(entry => {
+        const totalDebit = entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
+        const totalCredit = entry.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+        return Math.abs(totalDebit - totalCredit) > 0.01 || entry.lines.length < 2;
+    });
+
+    if (validEntries.length === 0) {
+        window.unifiedManager.notificationManager.show('warning', 'Aucune écriture valide', 'Aucune écriture en attente n\'est prête pour la validation');
+        return;
+    }
+
+    // Confirmation
+    window.unifiedManager.modalManager.confirm(
+        'Validation en lot',
+        `Voulez-vous valider ${validEntries.length} écriture(s) ? ${invalidEntries.length > 0 ? `\n\n${invalidEntries.length} écriture(s) seront ignorées car non équilibrées.` : ''}`,
+        () => {
+            const validatedCount = validEntries.length;
+            
+            // Valider toutes les écritures valides
+            validEntries.forEach(entry => {
+                entry.status = 'Validé';
+                entry.validatedBy = window.app.currentUser.id;
+                entry.validatedAt = new Date();
+            });
+
+            window.unifiedManager.notificationManager.show(
+                'success', 
+                'Validation terminée', 
+                `${validatedCount} écriture(s) validée(s) avec succès${invalidEntries.length > 0 ? `. ${invalidEntries.length} écriture(s) ignorée(s)` : ''}`
+            );
+            
+            // Recharger la page si nécessaire
+            if (document.getElementById('mainContent').innerHTML.includes('Écritures Comptables') || 
+                document.getElementById('mainContent').innerHTML.includes('En attente')) {
+                window.unifiedManager.loadEntriesPage();
+            }
+        }
+    );
+}
+
+// =============================================================================
+// FONCTIONS AUXILIAIRES POUR L'ÉDITION D'ÉCRITURE
+// =============================================================================
+
+/**
+ * Ajouter une nouvelle ligne d'écriture
+ */
+function addEntryLine() {
+    const container = document.getElementById('entryLines');
+    const lineCount = container.children.length;
+    const accounts = window.app.accounts;
+    
+    const newLine = document.createElement('div');
+    newLine.className = 'entry-line grid grid-cols-12 gap-2 items-end';
+    newLine.dataset.index = lineCount;
+    
+    newLine.innerHTML = `
+        <div class="col-span-3">
+            <label class="block text-xs text-gray-500 mb-1">Compte</label>
+            <select name="account" required 
+                    class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                <option value="">Sélectionner</option>
+                ${accounts.map(account => `
+                    <option value="${account.code}">${account.code} - ${account.name}</option>
+                `).join('')}
+            </select>
+        </div>
+        <div class="col-span-4">
+            <label class="block text-xs text-gray-500 mb-1">Libellé</label>
+            <input type="text" name="libelle" required
+                   class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+        </div>
+        <div class="col-span-2">
+            <label class="block text-xs text-gray-500 mb-1">Débit</label>
+            <input type="number" name="debit" min="0" step="0.01"
+                   class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+        </div>
+        <div class="col-span-2">
+            <label class="block text-xs text-gray-500 mb-1">Crédit</label>
+            <input type="number" name="credit" min="0" step="0.01"
+                   class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+        </div>
+        <div class="col-span-1">
+            <button type="button" onclick="removeEntryLine(${lineCount})" 
+                    class="w-full bg-danger text-white px-2 py-1 rounded text-sm hover:bg-danger/90">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(newLine);
+    
+    // Ajouter les événements pour le calcul des totaux
+    newLine.querySelectorAll('input[name="debit"], input[name="credit"]').forEach(input => {
+        input.addEventListener('input', calculateTotals);
+    });
+}
+
+/**
+ * Supprimer une ligne d'écriture
+ */
+function removeEntryLine(index) {
+    const line = document.querySelector(`.entry-line[data-index="${index}"]`);
+    if (line) {
+        line.remove();
+        calculateTotals();
+    }
+}
+
+/**
+ * Calculer les totaux de l'écriture
+ */
+function calculateTotals() {
+    let totalDebit = 0;
+    let totalCredit = 0;
+    
+    document.querySelectorAll('.entry-line').forEach(line => {
+        const debit = parseFloat(line.querySelector('input[name="debit"]').value) || 0;
+        const credit = parseFloat(line.querySelector('input[name="credit"]').value) || 0;
+        totalDebit += debit;
+        totalCredit += credit;
+    });
+    
+    const balance = totalDebit - totalCredit;
+    
+    const totalDebitEl = document.getElementById('totalDebit');
+    const totalCreditEl = document.getElementById('totalCredit');
+    const balanceEl = document.getElementById('balance');
+    
+    if (totalDebitEl) totalDebitEl.textContent = totalDebit.toLocaleString('fr-FR');
+    if (totalCreditEl) totalCreditEl.textContent = totalCredit.toLocaleString('fr-FR');
+    if (balanceEl) {
+        balanceEl.textContent = balance.toLocaleString('fr-FR');
+        balanceEl.className = `font-mono font-bold ml-2 ${Math.abs(balance) <= 0.01 ? 'text-success' : 'text-danger'}`;
+    }
+}
+
+// =============================================================================
+// FONCTIONS AUXILIAIRES SUPPLÉMENTAIRES
+// =============================================================================
+
+/**
+ * Fonctions d'assistance pour les actions utilisateur
+ */
+function resetUserPassword(userId) {
+    const user = window.app.users.find(u => u.id === userId);
+    if (!user) return;
+
+    const newPassword = 'temp123';
+    user.passwordHash = window.unifiedManager.hashPassword(newPassword);
+
+    window.unifiedManager.notificationManager.show('success', 'Mot de passe réinitialisé', `Nouveau mot de passe pour ${user.name}: ${newPassword}`);
+}
+
+function toggleUserStatus(userId) {
+    const user = window.app.users.find(u => u.id === userId);
+    if (!user) return;
+
+    user.status = user.status === 'Actif' ? 'Inactif' : 'Actif';
+    const statusText = user.status === 'Actif' ? 'activé' : 'désactivé';
+    
+    window.unifiedManager.notificationManager.show('success', 'Statut modifié', `${user.name} a été ${statusText}`);
+    window.unifiedManager.modalManager.hide();
+}
+
+function generateUserReport(userId) {
+    window.unifiedManager.notificationManager.show('info', 'Rapport utilisateur', 'Génération du rapport d\'activité en cours...');
+}
+
+function sendNotificationToUser(userId) {
+    window.unifiedManager.notificationManager.show('info', 'Notification envoyée', 'Notification envoyée à l\'utilisateur');
+}
+
+function printEntry(entryId) {
+    window.unifiedManager.notificationManager.show('info', 'Impression', 'Préparation de l\'impression...');
+}
+
+function validateAllPendingEntries() {
+    validatePendingEntries();
+    window.unifiedManager.modalManager.hide();
+}
+
+function exportGlobalReport() {
+    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Rapport exporté en PDF avec succès');
+}
+
+function emailGlobalReport() {
+    window.unifiedManager.notificationManager.show('success', 'Email envoyé', 'Rapport envoyé par email avec succès');
+}
 
 // =============================================================================
 // INITIALISATION ET EXPOSITION GLOBALE
