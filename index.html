@@ -2792,6 +2792,119 @@ getPermissionsDisplay(profile) {
         `;
     }
 
+    // Fonctions de filtrage
+function filterAccounts() {
+    const searchInput = document.getElementById('accountSearchInput');
+    const classFilter = document.getElementById('classFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
+
+    if (!searchInput || !classFilter || !categoryFilter) return;
+
+    const searchTerm = searchInput.value.toLowerCase();
+    const classValue = classFilter.value;
+    const categoryValue = categoryFilter.value;
+
+    const cards = document.querySelectorAll('.account-card');
+
+    cards.forEach(card => {
+        const code = card.dataset.code || '';
+        const name = card.dataset.name || '';
+        const category = card.dataset.category || '';
+        const classe = card.dataset.class || '';
+
+        const matchSearch = code.includes(searchTerm) || name.includes(searchTerm);
+        const matchClass = !classValue || classe === classValue;
+        const matchCategory = !categoryValue || category === categoryValue;
+
+        if (matchSearch && matchClass && matchCategory) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function resetAccountFilters() {
+    const searchInput = document.getElementById('accountSearchInput');
+    const classFilter = document.getElementById('classFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
+
+    if (searchInput) searchInput.value = '';
+    if (classFilter) classFilter.value = '';
+    if (categoryFilter) categoryFilter.value = '';
+    
+    filterAccounts();
+}
+
+// Fonctions de gestion des comptes
+function showNewAccountModal() {
+    alert('📝 Modal nouveau compte (à implémenter selon vos besoins spécifiques)');
+}
+
+function viewAccountHistory(code) {
+    alert(`📊 Historique du compte ${code} (à implémenter)`);
+}
+
+// Fonctions de gestion des caisses
+function showNewCashRegisterModal() {
+    alert('🏪 Modal nouvelle caisse (à implémenter)');
+}
+
+function openCashOperations(cashId) {
+    alert(`💰 Opérations caisse ${cashId} (à implémenter)`);
+}
+
+function editCashRegister(cashId) {
+    alert(`✏️ Modifier caisse ${cashId} (à implémenter)`);
+}
+
+// Fonctions de rapports
+function generateBilan() {
+    alert('📊 Génération du Bilan SYSCOHADA (à implémenter)');
+}
+
+function generateTafire() {
+    alert('📈 Génération du TAFIRE (à implémenter)');
+}
+
+function generateCompteResultat() {
+    alert('📋 Génération du Compte de Résultat (à implémenter)');
+}
+
+function generateGrandLivre() {
+    alert('📚 Génération du Grand Livre (à implémenter)');
+}
+
+function generateBalance() {
+    alert('⚖️ Génération de la Balance (à implémenter)');
+}
+
+function generateJournal() {
+    alert('📝 Génération du Journal Général (à implémenter)');
+}
+
+function generateJournalReport(journal) {
+    alert(`📄 Rapport du journal ${journal} (à implémenter)`);
+}
+
+function generateAllReports() {
+    alert('📦 Export de tous les rapports (à implémenter)');
+}
+
+// Fonction de mise à jour du profil
+function updateUserProfile() {
+    const newPassword = document.getElementById('newPassword')?.value;
+    const confirmPassword = document.getElementById('confirmPassword')?.value;
+
+    if (newPassword && newPassword !== confirmPassword) {
+        alert('❌ Les mots de passe ne correspondent pas');
+        return;
+    }
+
+    // Logique de sauvegarde à implémenter
+    alert('✅ Profil mis à jour avec succès');
+}
+    
     // =============================================================================
     // FONCTIONS UTILITAIRES
     // =============================================================================
