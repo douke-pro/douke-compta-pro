@@ -2929,27 +2929,38 @@ console.log('✅ Prêt pour la production');
 </script>
 
 <script>
+// Simuler la base d’utilisateurs (doit correspondre à window.app.users si tu veux gérer la hiérarchie, ici version simple)
+const demoUsers = [
+  { email: 'admin@doukecompta.ci', password: 'admin123', profile: 'admin', name: 'Admin' },
+  { email: 'marie.kouassi@cabinet.com', password: 'marie123', profile: 'collaborateur_senior', name: 'Marie Kouassi' },
+  { email: 'jean.diabate@cabinet.com', password: 'jean123', profile: 'collaborateur', name: 'Jean Diabaté' },
+  { email: 'atraore@sarltech.ci', password: 'user123', profile: 'user', name: 'A. Traoré' },
+  { email: 'ikone@caisse.ci', password: 'caisse123', profile: 'caissier', name: 'Ikoné' }
+];
+
+// Gestion du formulaire de connexion
 document.getElementById('loginForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
 
-    // Exemple : comptes de démo en dur
-    const demoAccounts = {
-        'admin@doukecompta.ci': 'admin123',
-        'marie.kouassi@cabinet.com': 'marie123',
-        'jean.diabate@cabinet.com': 'jean123',
-        'atraore@sarltech.ci': 'user123',
-        'ikone@caisse.ci': 'caisse123'
-    };
-
-    if (demoAccounts[email] && demoAccounts[email] === password) {
-        document.getElementById('loginInterface').style.display = 'none';
-        document.getElementById('mainApp').classList.remove('hidden');
-    } else {
-        alert('Identifiants incorrects !');
-    }
+  const user = demoUsers.find(u => u.email === email && u.password === password);
+  if (user) {
+    // Stocker le user dans window.app.currentUser (ou simuler la session)
+    if (!window.app) window.app = {};
+    window.app.currentUser = user;
+    window.app.currentProfile = user.profile;
+    // Afficher l’interface principale
+    document.getElementById('loginInterface').style.display = 'none';
+    document.getElementById('mainApp').style.display = '';
+    // Mettre à jour le nom de l’utilisateur
+    document.getElementById('currentUserName').textContent = user.name;
+    // (Ajoute ici les autres initialisations nécessaires)
+  } else {
+    alert('Identifiants incorrects');
+  }
 });
+</script>
 </script>
 </body>
 </html>
