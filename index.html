@@ -3498,6 +3498,37 @@ function validatePendingEntries() { window.unifiedManager.notificationManager.sh
 // Instance globale unifiée
 let unifiedManager;
 
+ function UnifiedDataManager() {
+    console.log('UnifiedDataManager initialisé');
+}
+
+UnifiedDataManager.prototype.authenticateUser = function(email, password) {
+    const users = [
+        { id: 1, name: 'Admin', email: 'admin@doukecompta.ci', password: 'admin123', role: 'admin' },
+        { id: 2, name: 'Marie Kouassi', email: 'marie.kouassi@cabinet.com', password: 'marie123', role: 'collaborateur_senior' },
+        { id: 3, name: 'Jean Diabaté', email: 'jean.diabate@cabinet.com', password: 'jean123', role: 'collaborateur' },
+        { id: 4, name: 'A. Traoré', email: 'atraore@sarltech.ci', password: 'user123', role: 'user' },
+        { id: 5, name: 'I. Koné', email: 'ikone@caisse.ci', password: 'caisse123', role: 'caissier' }
+    ];
+
+    const user = users.find(u => u.email === email && u.password === password);
+
+    if (user) {
+        window.app = window.app || {};
+        window.app.currentUser = user;
+        window.app.currentCompanyId = null;
+
+        return {
+            success: true,
+            user: user
+        };
+    } else {
+        return {
+            success: false,
+            message: 'Email ou mot de passe incorrect'
+        };
+    }
+};   
 // Initialisation au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
     try {
