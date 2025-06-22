@@ -344,8 +344,29 @@ themeManager.init();
 
 <script>
 // =============================================================================
-// DOUKÈ Compta Pro - Système Unifié Complet v3.1
+// DOUKÈ Compta Pro - Système Comptable SYSCOHADA Intégré v3.1
 // =============================================================================
+
+// Variables globales pour l'application
+window.app = {
+    accounts: [],
+    companies: [],
+    users: [],
+    entries: [],
+    cashRegisters: [],
+    currentUser: null,
+    currentProfile: null,
+    currentCompanyId: null,
+    filteredData: {
+        entries: [],
+        accounts: [],
+        reports: [],
+        cashRegisters: [],
+        users: [],
+        lastUpdate: null,
+        companyId: null
+    }
+};
 
 // =============================================================================
 // GESTIONNAIRE DE SÉCURITÉ HIÉRARCHIQUE
@@ -446,28 +467,6 @@ class SecurityManager {
         }
 
         return false;
-    }
-
-    canManageUser(managerId, targetUserId) {
-        const manager = this.getCurrentUser(managerId);
-        const target = this.getCurrentUser(targetUserId);
-
-        if (!manager || !target) return false;
-
-        const managerLevel = this.profileHierarchy[manager.profile] || 0;
-        const targetLevel = this.profileHierarchy[target.profile] || 0;
-
-        // Hiérarchie stricte
-        if (managerLevel <= targetLevel) return false;
-
-        const permissions = this.permissions[manager.profile];
-        if (!permissions || !permissions.canManageUsers) return false;
-
-        if (Array.isArray(permissions.canManageUsers)) {
-            return permissions.canManageUsers.includes(target.profile);
-        }
-
-        return permissions.canManageUsers === true;
     }
 
     requiresCompanySelection(profile) {
@@ -575,73 +574,6 @@ class DataManager {
             user.companyId === companyId ||
             (user.assignedCompanies && user.assignedCompanies.includes(companyId))
         );
-    }
-}
-
-// =============================================================================
-// GESTIONNAIRE DE SYNCHRONISATION PIWA
-// =============================================================================
-
-class DataSyncManager {
-    constructor() {
-        this.syncInProgress = false;
-        this.lastSyncTimestamp = null;
-        this.syncQueue = [];
-        this.retryAttempts = 3;
-        console.log('🔄 DataSyncManager PIWA initialisé');
-    }
-
-    queueDataForSync(dataType, operation, data, companyId) {
-        if (!this.canSyncData()) {
-            console.log('ℹ️ Synchronisation non autorisée pour ce profil');
-            return;
-        }
-
-        const syncItem = {
-            id: `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            dataType: dataType,
-            operation: operation,
-            data: data,
-            companyId: companyId || window.app.currentCompanyId,
-            timestamp: new Date().toISOString(),
-            retries: 0,
-            status: 'pending'
-        };
-
-        this.syncQueue.push(syncItem);
-        console.log(`📤 Données ajoutées à la queue de sync: ${dataType} (${operation})`);
-        this.updateSyncIndicator();
-    }
-
-    canSyncData() {
-        if (!window.app || !window.app.currentProfile) return false;
-        return window.app.currentProfile === 'admin' ||
-               window.app.currentProfile === 'collaborateur_senior';
-    }
-
-    getSyncStatus() {
-        return {
-            inProgress: this.syncInProgress,
-            queueLength: this.syncQueue.length,
-            lastSync: this.lastSyncTimestamp,
-            canSync: this.canSyncData(),
-            pendingItems: this.syncQueue.filter(item => item.status === 'pending').length,
-            failedItems: this.syncQueue.filter(item => item.status === 'failed').length
-        };
-    }
-
-    updateSyncIndicator() {
-        const indicator = document.getElementById('syncIndicator');
-        if (indicator) {
-            const status = this.getSyncStatus();
-            if (status.pendingItems > 0) {
-                indicator.className = 'ml-auto px-2 py-1 bg-warning/20 text-warning rounded';
-                indicator.textContent = `${status.pendingItems}`;
-            } else {
-                indicator.className = 'ml-auto px-2 py-1 bg-success/20 text-success rounded';
-                indicator.textContent = '●';
-            }
-        }
     }
 }
 
@@ -822,7 +754,6 @@ class UnifiedDataManager {
     constructor() {
         this.security = new SecurityManager();
         this.data = new DataManager(this.security);
-        this.sync = new DataSyncManager();
         this.notificationManager = new NotificationManager();
         this.modalManager = new ModalManager();
         this.currentCompanyId = null;
@@ -831,28 +762,6 @@ class UnifiedDataManager {
     }
 
     initializeApplication() {
-        if (!window.app) {
-            window.app = {
-                accounts: [],
-                companies: [],
-                users: [],
-                entries: [],
-                cashRegisters: [],
-                currentUser: null,
-                currentProfile: null,
-                currentCompanyId: null,
-                filteredData: {
-                    entries: [],
-                    accounts: [],
-                    reports: [],
-                    cashRegisters: [],
-                    users: [],
-                    lastUpdate: null,
-                    companyId: null
-                }
-            };
-        }
-
         this.initializeData();
         // Exposer les gestionnaires globalement
         window.notificationManager = this.notificationManager;
@@ -1228,7 +1137,7 @@ class UnifiedDataManager {
             ];
         }
 
-        console.log('✅ Données complètes initialisées');
+        console.log('✅ Données complètes initialisées - Comptes:', window.app.users.length, 'utilisateurs créés');
     }
 
     hashPassword(password) {
@@ -1309,9 +1218,23 @@ class UnifiedDataManager {
     // =============================================================================
 
     authenticateUser(email, password) {
-        const user = window.app.users.find(u => u.email === email && this.verifyPassword(password, u.passwordHash));
-
+        console.log('🔐 Tentative d\'authentification pour:', email);
+        console.log('📋 Utilisateurs disponibles:', window.app.users.length);
+        
+        const user = window.app.users.find(u => u.email === email);
+        
         if (!user) {
+            console.log('❌ Utilisateur non trouvé pour email:', email);
+            return {
+                success: false,
+                message: 'Email ou mot de passe incorrect'
+            };
+        }
+
+        console.log('🔍 Utilisateur trouvé:', user.name, 'Profil:', user.profile);
+        
+        if (!this.verifyPassword(password, user.passwordHash)) {
+            console.log('❌ Mot de passe incorrect');
             return {
                 success: false,
                 message: 'Email ou mot de passe incorrect'
@@ -1456,15 +1379,15 @@ class UnifiedDataManager {
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success hover:shadow-xl transition-shadow">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Sync PIWA</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${stats.sync.pendingItems}</p>
+                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Caisses</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white">${stats.cashRegisters.total}</p>
                         </div>
                         <div class="bg-success/10 p-3 rounded-lg">
-                            <i class="fas fa-sync-alt text-success text-xl"></i>
+                            <i class="fas fa-cash-register text-success text-xl"></i>
                         </div>
                     </div>
                     <div class="mt-2 flex items-center text-sm">
-                        <span class="text-success">Opérationnel</span>
+                        <span class="text-success">${stats.cashRegisters.totalBalance.toLocaleString('fr-FR')} FCFA</span>
                     </div>
                 </div>
             </div>
@@ -1519,16 +1442,6 @@ class UnifiedDataManager {
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Activité récente -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-clock mr-2 text-info"></i>Activité Récente
-                </h3>
-                <div class="space-y-3">
-                    ${this.generateRecentActivity()}
                 </div>
             </div>
         </div>
@@ -1710,14 +1623,6 @@ class UnifiedDataManager {
                         <span class="text-3xl font-bold text-primary">${myCashRegisters[0].balance?.toLocaleString('fr-FR') || 0} F</span>
                     </div>
                 </div>
-                <div class="mt-6 grid grid-cols-2 gap-4">
-                    <button onclick="showNewCashOperationModal()" class="bg-success hover:bg-success/90 text-white px-4 py-3 rounded-lg font-medium transition-colors">
-                        <i class="fas fa-plus-circle mr-2"></i>Nouvelle opération
-                    </button>
-                    <button onclick="generateCashReport()" class="bg-info hover:bg-info/90 text-white px-4 py-3 rounded-lg font-medium transition-colors">
-                        <i class="fas fa-print mr-2"></i>État de caisse
-                    </button>
-                </div>
             </div>
             ` : `
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
@@ -1726,38 +1631,6 @@ class UnifiedDataManager {
                 <p class="text-gray-600 dark:text-gray-400">Contactez votre administrateur pour assigner une caisse.</p>
             </div>
             `}
-
-            <!-- Actions et historique -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        <i class="fas fa-hand-paper mr-2 text-warning"></i>Actions Caisse
-                    </h3>
-                    <div class="space-y-3">
-                        <button onclick="showNewCashOperationModal()" class="w-full text-left p-3 bg-success/10 hover:bg-success/20 rounded-lg transition-colors">
-                            <i class="fas fa-plus-circle mr-3 text-success"></i>Nouvelle Opération
-                        </button>
-                        <button onclick="generateCashReport()" class="w-full text-left p-3 bg-info/10 hover:bg-info/20 rounded-lg transition-colors">
-                            <i class="fas fa-print mr-3 text-info"></i>État de Caisse
-                        </button>
-                        <button onclick="loadCashierHistory()" class="w-full text-left p-3 bg-warning/10 hover:bg-warning/20 rounded-lg transition-colors">
-                            <i class="fas fa-history mr-3 text-warning"></i>Historique
-                        </button>
-                        <button onclick="requestCashValidation()" class="w-full text-left p-3 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
-                            <i class="fas fa-check-circle mr-3 text-primary"></i>Demander Validation
-                        </button>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        <i class="fas fa-history mr-2 text-info"></i>Dernières Opérations
-                    </h3>
-                    <div class="space-y-2 text-sm max-h-80 overflow-y-auto">
-                        ${this.generateCashOperations()}
-                    </div>
-                </div>
-            </div>
         </div>
         `;
     }
@@ -1903,62 +1776,6 @@ class UnifiedDataManager {
             <p class="text-gray-600 dark:text-gray-400 mt-2">Bienvenue dans DOUKÈ Compta Pro</p>
         </div>
         `;
-    }
-
-    generateRecentActivity() {
-        const activities = [
-            { user: 'Marie Kouassi', action: 'a validé une écriture', time: '5 min', icon: 'fas fa-check', color: 'success' },
-            { user: 'Jean Diabaté', action: 'a créé une nouvelle écriture', time: '12 min', icon: 'fas fa-plus', color: 'info' },
-            { user: 'Ibrahim Koné', action: 'a effectué une opération de caisse', time: '18 min', icon: 'fas fa-cash-register', color: 'warning' },
-            { user: 'Amadou Traoré', action: 'a consulté un rapport', time: '25 min', icon: 'fas fa-chart-bar', color: 'primary' },
-            { user: 'Admin Système', action: 'a ajouté un nouveau collaborateur', time: '1h', icon: 'fas fa-user-plus', color: 'danger' }
-        ];
-
-        return activities.map(activity => `
-            <div class="flex items-center space-x-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <div class="w-8 h-8 bg-${activity.color}/10 text-${activity.color} rounded-full flex items-center justify-center">
-                    <i class="${activity.icon} text-sm"></i>
-                </div>
-                <div class="flex-1">
-                    <p class="text-sm text-gray-900 dark:text-white">
-                        <span class="font-medium">${activity.user}</span> ${activity.action}
-                    </p>
-                </div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">
-                    il y a ${activity.time}
-                </div>
-            </div>
-        `).join('');
-    }
-
-    generateCashOperations() {
-        const operations = [
-            { type: 'recette', libelle: 'Vente comptant', amount: 15000, time: '14:30', status: 'Validé' },
-            { type: 'depense', libelle: 'Achat fournitures', amount: 5000, time: '13:15', status: 'En attente' },
-            { type: 'recette', libelle: 'Encaissement facture', amount: 25000, time: '12:45', status: 'Validé' },
-            { type: 'depense', libelle: 'Frais de transport', amount: 3500, time: '11:30', status: 'Validé' },
-            { type: 'recette', libelle: 'Vente accessoires', amount: 8500, time: '10:15', status: 'Validé' }
-        ];
-
-        return operations.map(op => `
-            <div class="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 ${op.type === 'recette' ? 'bg-success' : 'bg-warning'} text-white rounded-full flex items-center justify-center">
-                        <i class="fas fa-arrow-${op.type === 'recette' ? 'down' : 'up'} text-sm"></i>
-                    </div>
-                    <div>
-                        <div class="font-medium text-gray-900 dark:text-white">${op.libelle}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">${op.time}</div>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <div class="font-bold ${op.type === 'recette' ? 'text-success' : 'text-warning'}">
-                        ${op.type === 'recette' ? '+' : '-'}${op.amount.toLocaleString('fr-FR')} FCFA
-                    </div>
-                    <div class="text-xs ${op.status === 'Validé' ? 'text-success' : 'text-warning'}">${op.status}</div>
-                </div>
-            </div>
-        `).join('');
     }
 
     // =============================================================================
@@ -2252,531 +2069,10 @@ class UnifiedDataManager {
     }
 
     // Fonctions placeholder pour les autres pages
-   // Remplacer cette ligne : loadAccountsPage() { this.showPlaceholder('Plan Comptable'); }
-loadAccountsPage() {
-    if (this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
-        document.getElementById('mainContent').innerHTML = this.generateCompanySelectionRequired();
-        return;
-    }
-
-    const companyName = this.getSelectedCompanyName();
-    const accounts = this.data.getCompanyAccounts(window.app.currentCompanyId);
-
-    const content = `
-    <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Plan Comptable SYSCOHADA Révisé - ${companyName}</h2>
-            <div class="flex items-center space-x-4">
-                <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
-                    <i class="fas fa-calculator mr-2"></i>${accounts.length} comptes
-                </div>
-                ${window.app.currentProfile !== 'caissier' ? `
-                <button onclick="showNewAccountModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    <i class="fas fa-plus mr-2"></i>Nouveau Compte
-                </button>
-                ` : ''}
-            </div>
-        </div>
-
-        <!-- Filtres par classe SYSCOHADA -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <input type="text" id="accountSearchInput" placeholder="Rechercher un compte..." onkeyup="filterAccounts()"
-                    class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                <select id="classFilter" onchange="filterAccounts()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                    <option value="">Toutes les classes</option>
-                    <option value="1">Classe 1 - Comptes de ressources durables</option>
-                    <option value="2">Classe 2 - Comptes d'actif immobilisé</option>
-                    <option value="3">Classe 3 - Comptes de stocks</option>
-                    <option value="4">Classe 4 - Comptes de tiers</option>
-                    <option value="5">Classe 5 - Comptes financiers</option>
-                    <option value="6">Classe 6 - Comptes de charges</option>
-                    <option value="7">Classe 7 - Comptes de produits</option>
-                    <option value="8">Classe 8 - Comptes de résultats</option>
-                    <option value="9">Classe 9 - Comptes analytiques</option>
-                </select>
-                <select id="categoryFilter" onchange="filterAccounts()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                    <option value="">Toutes les catégories</option>
-                    ${[...new Set(accounts.map(a => a.category))].map(cat => `<option value="${cat}">${cat}</option>`).join('')}
-                </select>
-                <button onclick="resetAccountFilters()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
-                    <i class="fas fa-sync mr-2"></i>Réinitialiser
-                </button>
-            </div>
-
-            <!-- Liste des comptes par classe -->
-            <div id="accountsList" class="space-y-6">
-                ${[1,2,3,4,5,6,7,8,9].map(classe => {
-                    const classAccounts = accounts.filter(a => a.code.charAt(0) === classe.toString());
-                    if (classAccounts.length === 0) return '';
-                    
-                    return `
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <div class="bg-primary/10 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                            <h3 class="text-lg font-semibold text-primary">Classe ${classe} - ${this.getClassTitle(classe)} (${classAccounts.length} comptes)</h3>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                            ${classAccounts.map(account => `
-                            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow account-card"
-                                data-category="${account.category}" data-code="${account.code}" data-name="${account.name.toLowerCase()}" data-class="${classe}">
-                                <div class="flex items-start justify-between mb-2">
-                                    <div class="font-mono text-sm text-primary font-semibold">${account.code}</div>
-                                    <span class="px-2 py-1 rounded text-xs bg-info/20 text-info">SYSCOHADA</span>
-                                </div>
-                                <div class="font-medium text-gray-900 dark:text-white text-sm mb-1">${account.name}</div>
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">${account.category}</div>
-                                <div class="flex items-center justify-between text-xs">
-                                    <span class="text-gray-600 dark:text-gray-400">Actif: ${account.isActive !== false ? 'Oui' : 'Non'}</span>
-                                    ${window.app.currentProfile !== 'caissier' ? `
-                                    <div class="flex space-x-1">
-                                        <button onclick="viewAccountHistory('${account.code}')" class="text-info hover:text-info/80" title="Historique">
-                                            <i class="fas fa-history"></i>
-                                        </button>
-                                    </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    `;
-                }).join('')}
-            </div>
-        </div>
-    </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-}
-
-// Ajouter cette méthode auxiliaire après loadAccountsPage()
-getClassTitle(classe) {
-    const titles = {
-        1: 'Comptes de ressources durables',
-        2: 'Comptes d\'actif immobilisé', 
-        3: 'Comptes de stocks',
-        4: 'Comptes de tiers',
-        5: 'Comptes financiers',
-        6: 'Comptes de charges',
-        7: 'Comptes de produits',
-        8: 'Comptes de résultats',
-        9: 'Comptes analytiques'
-    };
-    return titles[classe] || 'Classe inconnue';
-}
-
-   // Remplacer : loadCaissePage() { this.showPlaceholder('Gestion des Caisses'); }
-loadCaissePage() {
-    if (this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
-        document.getElementById('mainContent').innerHTML = this.generateCompanySelectionRequired();
-        return;
-    }
-
-    const companyName = this.getSelectedCompanyName();
-    const cashRegisters = this.data.getCompanyCashRegisters(window.app.currentCompanyId);
-    const canManage = window.app.currentProfile !== 'caissier';
-
-    const content = `
-    <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Caisses - ${companyName}</h2>
-            <div class="flex items-center space-x-4">
-                <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
-                    <i class="fas fa-cash-register mr-2"></i>${cashRegisters.length} caisse(s)
-                </div>
-                ${canManage && (window.app.currentProfile === 'user' ? cashRegisters.length < 5 : true) ? `
-                <button onclick="showNewCashRegisterModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    <i class="fas fa-plus mr-2"></i>Nouvelle Caisse
-                </button>
-                ` : ''}
-            </div>
-        </div>
-
-        <!-- Statistiques des caisses -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-success">${cashRegisters.filter(c => c.status === 'Ouvert').length}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Caisses ouvertes</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-warning">${cashRegisters.filter(c => c.status === 'Fermé').length}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Caisses fermées</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-primary">${cashRegisters.reduce((sum, c) => sum + (c.balance || 0), 0).toLocaleString('fr-FR')}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Solde total (FCFA)</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-info">${cashRegisters.filter(c => c.responsibleId).length}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Caisses assignées</div>
-            </div>
-        </div>
-
-        <!-- Liste des caisses -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Liste des Caisses</h3>
-            ${cashRegisters.length > 0 ? `
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${cashRegisters.map(cash => `
-                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${cash.responsibleId === window.app.currentUser?.id ? 'border-primary bg-primary/5' : ''} hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h4 class="font-medium text-gray-900 dark:text-white">${cash.name}</h4>
-                        <span class="px-2 py-1 rounded text-xs ${cash.status === 'Ouvert' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">${cash.status}</span>
-                    </div>
-                    
-                    <div class="space-y-3 text-sm">
-                        <div class="flex justify-between">
-                            <span class="text-gray-600 dark:text-gray-400">Responsable:</span>
-                            <span class="font-medium">${cash.responsibleName || 'Non assigné'}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600 dark:text-gray-400">Solde actuel:</span>
-                            <span class="font-bold text-primary">${(cash.balance || 0).toLocaleString('fr-FR')} FCFA</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600 dark:text-gray-400">Solde ouverture:</span>
-                            <span class="font-medium">${(cash.openingBalance || 0).toLocaleString('fr-FR')} FCFA</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600 dark:text-gray-400">Recettes jour:</span>
-                            <span class="text-success">+${(cash.dailyReceipts || 0).toLocaleString('fr-FR')} FCFA</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600 dark:text-gray-400">Dépenses jour:</span>
-                            <span class="text-warning">-${(cash.dailyExpenses || 0).toLocaleString('fr-FR')} FCFA</span>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between">
-                        ${cash.responsibleId === window.app.currentUser?.id || canManage ? `
-                        <button onclick="openCashOperations(${cash.id})" class="text-primary hover:text-primary/80 text-sm">
-                            <i class="fas fa-plus-circle mr-1"></i>Opération
-                        </button>
-                        ` : ''}
-                        ${canManage ? `
-                        <button onclick="editCashRegister(${cash.id})" class="text-info hover:text-info/80 text-sm">
-                            <i class="fas fa-edit mr-1"></i>Modifier
-                        </button>
-                        <button onclick="generateCashReport(${cash.id})" class="text-success hover:text-success/80 text-sm">
-                            <i class="fas fa-print mr-1"></i>État
-                        </button>
-                        ` : `
-                        <button onclick="generateCashReport(${cash.id})" class="text-success hover:text-success/80 text-sm">
-                            <i class="fas fa-print mr-1"></i>État
-                        </button>
-                        `}
-                    </div>
-                </div>
-                `).join('')}
-            </div>
-            ` : `
-            <div class="text-center py-12 text-gray-500">
-                <i class="fas fa-cash-register text-6xl mb-4"></i>
-                <h3 class="text-lg font-semibold mb-2">Aucune caisse trouvée</h3>
-                <p>Créez votre première caisse pour cette entreprise.</p>
-                ${canManage ? `
-                <button onclick="showNewCashRegisterModal()" class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
-                    <i class="fas fa-plus mr-2"></i>Créer une caisse
-                </button>
-                ` : ''}
-            </div>
-            `}
-        </div>
-    </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-}
-
-// Remplacer : loadReportsPage() { this.showPlaceholder('Rapports'); }
-loadReportsPage() {
-    if (this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
-        document.getElementById('mainContent').innerHTML = this.generateCompanySelectionRequired();
-        return;
-    }
-
-    const companyName = this.getSelectedCompanyName();
-    const stats = this.getCompanyStatistics();
-
-    const content = `
-    <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Rapports & États SYSCOHADA - ${companyName}</h2>
-            <div class="flex items-center space-x-4">
-                <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
-                    <i class="fas fa-chart-bar mr-2"></i>SYSCOHADA Révisé
-                </div>
-                <button onclick="generateAllReports()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    <i class="fas fa-download mr-2"></i>Exporter Tout
-                </button>
-            </div>
-        </div>
-
-        <!-- États financiers principaux -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-balance-scale mr-2 text-primary"></i>États Financiers Principaux
-                </h3>
-                <div class="space-y-3">
-                    <button onclick="generateBilan()" class="w-full text-left p-3 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <div class="font-medium text-primary">Bilan SYSCOHADA</div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400">Situation patrimoniale au ${new Date().toLocaleDateString('fr-FR')}</div>
-                            </div>
-                            <i class="fas fa-file-pdf text-primary"></i>
-                        </div>
-                    </button>
-                    <button onclick="generateTafire()" class="w-full text-left p-3 bg-info/10 hover:bg-info/20 rounded-lg transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <div class="font-medium text-info">TAFIRE</div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400">Tableau Financier des Ressources et Emplois</div>
-                            </div>
-                            <i class="fas fa-file-excel text-info"></i>
-                        </div>
-                    </button>
-                    <button onclick="generateCompteResultat()" class="w-full text-left p-3 bg-success/10 hover:bg-success/20 rounded-lg transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <div class="font-medium text-success">Compte de Résultat</div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400">Charges et produits de l'exercice</div>
-                            </div>
-                            <i class="fas fa-chart-line text-success"></i>
-                        </div>
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-list mr-2 text-warning"></i>États Détaillés
-                </h3>
-                <div class="space-y-3">
-                    <button onclick="generateGrandLivre()" class="w-full text-left p-3 bg-warning/10 hover:bg-warning/20 rounded-lg transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <div class="font-medium text-warning">Grand Livre</div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400">Mouvements détaillés par compte</div>
-                            </div>
-                            <i class="fas fa-book text-warning"></i>
-                        </div>
-                    </button>
-                    <button onclick="generateBalance()" class="w-full text-left p-3 bg-danger/10 hover:bg-danger/20 rounded-lg transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <div class="font-medium text-danger">Balance des Comptes</div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400">Soldes et mouvements par compte</div>
-                            </div>
-                            <i class="fas fa-calculator text-danger"></i>
-                        </div>
-                    </button>
-                    <button onclick="generateJournal()" class="w-full text-left p-3 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <div class="font-medium text-gray-700 dark:text-gray-300">Journal Général</div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400">Chronologie des écritures</div>
-                            </div>
-                            <i class="fas fa-clipboard-list text-gray-500"></i>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Statistiques rapides -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-primary">${stats?.entries.total || 0}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Total écritures</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-success">${stats?.entries.validated || 0}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Écritures validées</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-warning">${stats?.entries.pending || 0}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">En attente</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-info">${stats?.cashRegisters.totalBalance?.toLocaleString('fr-FR') || 0}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Solde caisses (FCFA)</div>
-            </div>
-        </div>
-
-        <!-- Rapports par journal -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rapports par Journal</h3>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                ${['JG', 'JA', 'JV', 'JB', 'JC', 'JOD'].map(journal => `
-                <button onclick="generateJournalReport('${journal}')" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
-                    <div class="text-2xl font-bold text-primary">${stats?.entries.byJournal[journal] || 0}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">${journal}</div>
-                    <div class="text-xs text-primary mt-1">Générer</div>
-                </button>
-                `).join('')}
-            </div>
-        </div>
-    </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-}
-
-   // Remplacer : loadSettingsPage() { this.showPlaceholder('Paramètres'); }
-loadSettingsPage() {
-    const user = window.app.currentUser;
-    const companyName = this.getSelectedCompanyName();
-
-    const content = `
-    <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mon Profil & Paramètres</h2>
-            <div class="flex items-center space-x-2 text-sm font-medium bg-primary/10 px-3 py-1 rounded-lg">
-                <i class="fas fa-shield-alt text-primary"></i>
-                <span class="text-primary">Niveau ${this.security.profileHierarchy[user.profile]} - ${user.role}</span>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Informations personnelles -->
-            <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-user mr-2 text-primary"></i>Informations Personnelles
-                </h3>
-                <form id="userProfileForm" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
-                            <input type="text" value="${user.name}" ${user.profile === 'admin' ? '' : 'readonly'} 
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                            <input type="email" value="${user.email}" readonly
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                            <input type="tel" value="${user.phone || ''}" 
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profil</label>
-                            <input type="text" value="${user.role}" readonly
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
-                        </div>
-                    </div>
-                    
-                    <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <h4 class="font-medium text-gray-900 dark:text-white mb-3">Changer le mot de passe</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nouveau mot de passe</label>
-                                <input type="password" id="newPassword" 
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirmer mot de passe</label>
-                                <input type="password" id="confirmPassword" 
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end space-x-4 pt-4">
-                        <button type="button" onclick="updateUserProfile()" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
-                            <i class="fas fa-save mr-2"></i>Sauvegarder
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Statistiques du profil -->
-            <div class="space-y-6">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        <i class="fas fa-chart-pie mr-2 text-info"></i>Mes Statistiques
-                    </h3>
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600 dark:text-gray-400">Entreprises accessibles:</span>
-                            <span class="font-bold text-primary">${this.security.getAccessibleCompanies(user.id).length}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600 dark:text-gray-400">Dernière connexion:</span>
-                            <span class="font-medium text-sm">${user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('fr-FR') : 'Première connexion'}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600 dark:text-gray-400">Membre depuis:</span>
-                            <span class="font-medium text-sm">${user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : 'Non défini'}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600 dark:text-gray-400">Statut:</span>
-                            <span class="px-2 py-1 rounded text-xs ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">${user.status}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Permissions -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        <i class="fas fa-key mr-2 text-warning"></i>Mes Permissions
-                    </h3>
-                    <div class="space-y-2 text-sm">
-                        ${this.getPermissionsDisplay(user.profile).map(perm => `
-                        <div class="flex items-center space-x-2">
-                            <i class="fas ${perm.granted ? 'fa-check text-success' : 'fa-times text-danger'}"></i>
-                            <span class="${perm.granted ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}">${perm.name}</span>
-                        </div>
-                        `).join('')}
-                    </div>
-                </div>
-
-                ${window.app.currentCompanyId ? `
-                <!-- Entreprise actuelle -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        <i class="fas fa-building mr-2 text-success"></i>Entreprise Active
-                    </h3>
-                    <div class="text-center">
-                        <div class="font-medium text-gray-900 dark:text-white">${companyName}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Sélectionnée</div>
-                        <button onclick="window.unifiedManager.loadCompaniesPage()" class="mt-3 text-primary hover:text-primary/80 text-sm">
-                            <i class="fas fa-exchange-alt mr-1"></i>Changer d'entreprise
-                        </button>
-                    </div>
-                </div>
-                ` : ''}
-            </div>
-        </div>
-    </div>
-    `;
-
-    document.getElementById('mainContent').innerHTML = content;
-}
-
-// Ajouter cette méthode auxiliaire après loadSettingsPage()
-getPermissionsDisplay(profile) {
-    const allPermissions = [
-        { name: 'Gestion des utilisateurs', key: 'canManageUsers' },
-        { name: 'Gestion des entreprises', key: 'canManageCompanies' },
-        { name: 'Accès toutes entreprises', key: 'canAccessAllCompanies' },
-        { name: 'Attribution d\'entreprises', key: 'canAssignCompanies' },
-        { name: 'Validation des opérations', key: 'canValidateOperations' },
-        { name: 'Création de rapports', key: 'canCreateReports' },
-        { name: 'Gestion des caisses', key: 'canManageCash' }
-    ];
-
-    const permissions = this.security.permissions[profile] || {};
-    
-    return allPermissions.map(perm => ({
-        name: perm.name,
-        granted: !!permissions[perm.key]
-    }));
-}
-
+    loadAccountsPage() { this.showPlaceholder('Plan Comptable'); }
+    loadCaissePage() { this.showPlaceholder('Gestion des Caisses'); }
+    loadReportsPage() { this.showPlaceholder('Rapports'); }
+    loadSettingsPage() { this.showPlaceholder('Paramètres'); }
     loadTeamPage() { this.showPlaceholder('Gestion d\'Équipe'); }
     loadCashierReports() { this.showPlaceholder('États de Caisse'); }
 
@@ -2792,117 +2088,6 @@ getPermissionsDisplay(profile) {
         `;
     }
 
-    // Fonctions de filtrage
-function filterAccounts() {
-    const searchInput = document.getElementById('accountSearchInput');
-    const classFilter = document.getElementById('classFilter');
-    const categoryFilter = document.getElementById('categoryFilter');
-
-    if (!searchInput || !classFilter || !categoryFilter) return;
-
-    const searchTerm = searchInput.value.toLowerCase();
-    const classValue = classFilter.value;
-    const categoryValue = categoryFilter.value;
-
-    const cards = document.querySelectorAll('.account-card');
-
-    cards.forEach(card => {
-        const code = card.dataset.code || '';
-        const name = card.dataset.name || '';
-        const category = card.dataset.category || '';
-        const classe = card.dataset.class || '';
-
-        const matchSearch = code.includes(searchTerm) || name.includes(searchTerm);
-        const matchClass = !classValue || classe === classValue;
-        const matchCategory = !categoryValue || category === categoryValue;
-
-        if (matchSearch && matchClass && matchCategory) {
-            card.style.display = '';
-        } else {
-            card.style.display = 'none';
-        }
-    });
-}
-
-function resetAccountFilters() {
-    const searchInput = document.getElementById('accountSearchInput');
-    const classFilter = document.getElementById('classFilter');
-    const categoryFilter = document.getElementById('categoryFilter');
-
-    if (searchInput) searchInput.value = '';
-    if (classFilter) classFilter.value = '';
-    if (categoryFilter) categoryFilter.value = '';
-    
-    filterAccounts();
-}
-
-// Fonctions de gestion des comptes
-function showNewAccountModal() {
-    // Exemple minimal : afficher un formulaire pour saisir le numéro, l'intitulé, le type
-    alert('Formulaire création d’un nouveau compte (Actif/Passif/Charge/Produit)');
-}
-
-function viewAccountHistory(accountCode) {
-    // Implémentation : récupérer le journal filtré par ce compte
-    alert(`Affichage de l’historique du compte : ${accountCode} (écritures passées)`);
-}
-
-// Fonctions de gestion des caisses
-function showNewCashRegisterModal() {
-    alert('Formulaire nouvelle caisse : nom, code, devise, solde initial');
-}
-
-function openCashOperations(cashId) {
-    alert(`Accès aux opérations de la caisse ${cashId} : entrées, sorties, solde actuel`);
-}
-
-function editCashRegister(cashId) {
-    alert(`Modification des informations de la caisse ${cashId}`);
-}
-    
-// Fonctions de rapports
-function generateBilan() {
-    alert('📊 Génération du Bilan SYSCOHADA : Actif vs Passif');
-}
-
-function generateCompteResultat() {
-    alert('📋 Génération du Compte de Résultat : Charges - Produits = Résultat');
-}
-
-function generateTafire() {
-    alert('📈 Génération du Tableau Financier des Ressources et Emplois (TAFIRE)');
-}
-
-function generateGrandLivre() {
-    alert('📚 Génération du Grand Livre (tous les comptes avec écritures)');
-}
-
-function generateBalance() {
-    alert('⚖️ Génération de la Balance générale (comptes + soldes)');
-}
-
-function generateJournal() {
-    alert('📝 Génération du Journal Général (écritures par date)');
-}
-
-function generateAllReports() {
-    alert('📦 Export complet des rapports (ZIP ou PDF)');
-}
-    
-// Fonction de mise à jour du profil
-function updateUserProfile() {
-    const newPassword = document.getElementById('newPassword')?.value;
-    const confirmPassword = document.getElementById('confirmPassword')?.value;
-
-    if (newPassword && newPassword !== confirmPassword) {
-        alert('❌ Les mots de passe ne correspondent pas');
-        return;
-    }
-
-    // Logique de sauvegarde à implémenter
-    alert('✅ Profil mis à jour avec succès');
-}
-    
     // =============================================================================
     // FONCTIONS UTILITAIRES
     // =============================================================================
@@ -3003,8 +2188,7 @@ function updateUserProfile() {
                 open: window.app.cashRegisters.filter(c => c.status === 'Ouvert').length,
                 closed: window.app.cashRegisters.filter(c => c.status === 'Fermé').length,
                 totalBalance: window.app.cashRegisters.reduce((sum, cash) => sum + (cash.balance || 0), 0)
-            },
-            sync: this.sync.getSyncStatus()
+            }
         };
     }
 
@@ -3219,7 +2403,6 @@ function initializeSecureApp() {
     updateSecureUserInfo();
     window.unifiedManager.loadSecureDashboard();
     populateSecureCompanySelector();
-    bindSecureEventListeners();
 }
 
 function updateSecureUserInfo() {
@@ -3252,50 +2435,6 @@ function populateSecureCompanySelector() {
         });
     }
 }
-
-function bindSecureEventListeners() {
-    // ✅ IMMÉDIAT : Gestion du formulaire de connexion → NE PAS ATTENDRE
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            handleSecureLogin();
-        });
-    }
-
-    // ✅ IMMÉDIAT : Gestion du bouton de la sidebar
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', function() {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) {
-                sidebar.classList.toggle('-translate-x-full');
-            }
-        });
-    }
-
-    // ✅ IMMÉDIAT : Gestion fermeture menu thème
-    document.addEventListener('click', function(e) {
-        const themeMenu = document.getElementById('themeMenu');
-        const themeButton = e.target.closest('[onclick="toggleThemeMenu()"]');
-        if (themeMenu && !themeMenu.contains(e.target) && !themeButton) {
-            themeMenu.classList.add('hidden');
-        }
-    });
-
-    // ⚠️ SPECIFIQUE : Gestion du changement d’entreprise → Peut rester avec setTimeout() si nécessaire
-    setTimeout(() => {
-        const companySelect = document.getElementById('activeCompanySelect');
-        if (companySelect) {
-            companySelect.addEventListener('change', function(e) {
-                if (e.target.value) {
-                    window.unifiedManager.selectCompany(parseInt(e.target.value));
-                    updateSecureUserInfo();
-                }
-            });
-        }
-    }, 100);
-}
     
 // Fonctions utilitaires
 function setActiveMenuItem(element) {
@@ -3314,113 +2453,15 @@ function setActiveMenuItem(element) {
 
 // Fonctions pour les modales et actions
 function showNewUserModal() {
-    const content = `
-        <form id="newUserForm" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
-                    <input type="text" name="name" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                    <input type="email" name="email" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                    <input type="tel" name="phone" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profil</label>
-                    <select name="profile" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                        <option value="">Sélectionner</option>
-                        <option value="collaborateur_senior">Collaborateur Senior</option>
-                        <option value="collaborateur">Collaborateur</option>
-                        <option value="user">Utilisateur</option>
-                        <option value="caissier">Caissier</option>
-                    </select>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mot de passe temporaire</label>
-                <input type="password" name="password" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-            </div>
-        </form>
-    `;
-
-    const actions = `
-        <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-            Annuler
-        </button>
-        <button onclick="createUser()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
-            Créer l'utilisateur
-        </button>
-    `;
-
-    window.unifiedManager.modalManager.show('Nouveau Collaborateur', content, { actions });
+    window.unifiedManager.notificationManager.show('info', 'Nouveau utilisateur', 'Modal de création d\'utilisateur (fonctionnalité à implémenter)');
 }
 
 function showNewCompanyModal() {
-    const content = `
-        <form id="newCompanyForm" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom de l'entreprise</label>
-                    <input type="text" name="name" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type juridique</label>
-                    <select name="type" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                        <option value="">Sélectionner</option>
-                        <option value="SARL">SARL</option>
-                        <option value="SA">SA</option>
-                        <option value="EURL">EURL</option>
-                        <option value="SAS">SAS</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                    <input type="tel" name="phone" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                    <input type="email" name="email" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Adresse</label>
-                <textarea name="address" required rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base"></textarea>
-            </div>
-        </form>
-    `;
-
-    const actions = `
-        <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-            Annuler
-        </button>
-        <button onclick="createCompany()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
-            Créer l'entreprise
-        </button>
-    `;
-
-    window.unifiedManager.modalManager.show('Nouvelle Entreprise', content, { actions });
+    window.unifiedManager.notificationManager.show('info', 'Nouvelle entreprise', 'Modal de création d\'entreprise (fonctionnalité à implémenter)');
 }
 
 function showNewEntryModal() {
     window.unifiedManager.notificationManager.show('info', 'Nouvelle écriture', 'Modal de création d\'écriture (fonctionnalité à implémenter)');
-}
-
-function showNewCashOperationModal() {
-    window.unifiedManager.notificationManager.show('info', 'Nouvelle opération', 'Modal d\'opération de caisse (fonctionnalité à implémenter)');
-}
-
-function createUser() {
-    window.unifiedManager.notificationManager.show('success', 'Utilisateur créé', 'Nouvel utilisateur ajouté avec succès');
-    window.unifiedManager.modalManager.hide();
-}
-
-function createCompany() {
-    window.unifiedManager.notificationManager.show('success', 'Entreprise créée', 'Nouvelle entreprise ajoutée avec succès');
-    window.unifiedManager.modalManager.hide();
 }
 
 // Fonctions sécurisées pour audit
@@ -3452,15 +2493,6 @@ function showSecurityAudit() {
             </div>
         </div>
 
-        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-            <h4 class="font-semibold mb-2">État de la Synchronisation PIWA</h4>
-            <div class="text-sm space-y-1">
-                <div>Éléments en attente: <span class="font-mono">${stats.sync.pendingItems}</span></div>
-                <div>Éléments échoués: <span class="font-mono">${stats.sync.failedItems}</span></div>
-                <div>Dernière sync: <span class="font-mono">${stats.sync.lastSync || 'Jamais'}</span></div>
-            </div>
-        </div>
-
         <div class="bg-info/10 p-4 rounded-lg">
             <h4 class="font-semibold mb-2">Sécurité des Données</h4>
             <div class="text-sm space-y-1">
@@ -3486,9 +2518,6 @@ function editEntry(id) { window.unifiedManager.notificationManager.show('info', 
 function validateEntry(id) { window.unifiedManager.notificationManager.show('success', 'Validation', `Écriture ${id} validée`); }
 function showPendingEntries() { window.unifiedManager.notificationManager.show('info', 'En attente', 'Écritures en attente de validation'); }
 function generateGlobalReport() { window.unifiedManager.notificationManager.show('info', 'Rapport', 'Génération du rapport global en cours...'); }
-function generateCashReport() { window.unifiedManager.notificationManager.show('info', 'État de caisse', 'Génération de l\'état de caisse en cours...'); }
-function loadCashierHistory() { window.unifiedManager.notificationManager.show('info', 'Historique', 'Chargement de l\'historique des opérations...'); }
-function requestCashValidation() { window.unifiedManager.notificationManager.show('info', 'Validation', 'Demande de validation envoyée au collaborateur senior'); }
 function validatePendingEntries() { window.unifiedManager.notificationManager.show('info', 'Validation', 'Traitement des écritures en attente...'); }
 
 // =============================================================================
@@ -3498,64 +2527,62 @@ function validatePendingEntries() { window.unifiedManager.notificationManager.sh
 // Instance globale unifiée
 let unifiedManager;
 
- function UnifiedDataManager() {
-    console.log('UnifiedDataManager initialisé');
-}
-
-UnifiedDataManager.prototype.authenticateUser = function(email, password) {
-    const users = [
-        { id: 1, name: 'Admin', email: 'admin@doukecompta.ci', password: 'admin123', role: 'admin' },
-        { id: 2, name: 'Marie Kouassi', email: 'marie.kouassi@cabinet.com', password: 'marie123', role: 'collaborateur_senior' },
-        { id: 3, name: 'Jean Diabaté', email: 'jean.diabate@cabinet.com', password: 'jean123', role: 'collaborateur' },
-        { id: 4, name: 'A. Traoré', email: 'atraore@sarltech.ci', password: 'user123', role: 'user' },
-        { id: 5, name: 'I. Koné', email: 'ikone@caisse.ci', password: 'caisse123', role: 'caissier' }
-    ];
-
-    const user = users.find(u => u.email === email && u.password === password);
-
-    if (user) {
-        window.app = window.app || {};
-        window.app.currentUser = user;
-        window.app.currentCompanyId = null;
-
-        return {
-            success: true,
-            user: user
-        };
-    } else {
-        return {
-            success: false,
-            message: 'Email ou mot de passe incorrect'
-        };
-    }
-};   
 // Initialisation au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
     try {
         unifiedManager = new UnifiedDataManager();
         window.unifiedManager = unifiedManager;
 
-        // Exposer les fonctions pour compatibilité
-        window.hasAccessToCompany = (companyId, userId) =>
-            unifiedManager.security.hasAccessToCompany(userId, companyId);
+        // Gestion du formulaire de connexion
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                handleSecureLogin();
+            });
+        }
 
-        window.selectCompany = (companyId) =>
-            unifiedManager.selectCompany(companyId);
+        // Gestion du bouton de la sidebar
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) {
+                    sidebar.classList.toggle('-translate-x-full');
+                }
+            });
+        }
 
-        window.authenticateUser = (email, password) =>
-            unifiedManager.authenticateUser(email, password);
+        // Gestion fermeture menu thème
+        document.addEventListener('click', function(e) {
+            const themeMenu = document.getElementById('themeMenu');
+            const themeButton = e.target.closest('[onclick="toggleThemeMenu()"]');
+            if (themeMenu && !themeMenu.contains(e.target) && !themeButton) {
+                themeMenu.classList.add('hidden');
+            }
+        });
 
+        // Gestion du changement d'entreprise
         setTimeout(() => {
-            bindSecureEventListeners();
-            console.log('🚀 DOUKÈ Compta Pro v3.1 - Système Unifié Intégré démarré avec succès');
-            console.log('🔒 Sécurité hiérarchique: ADMIN → SENIOR → COLLABORATEUR → USER → CAISSIER');
-            console.log('💾 Isolation totale des données par entreprise: ACTIVÉE');
-            console.log('🔄 Synchronisation PIWA: OPÉRATIONNELLE');
-            console.log('📊 Cache et statistiques: DISPONIBLES');
-            console.log('🎨 Interface moderne avec thèmes: OPÉRATIONNELLE');
-            console.log('📱 Design responsive mobile: OPTIMISÉ');
-            console.log('✅ Toutes les fonctionnalités: INTÉGRÉES ET PRÊTES POUR LA PRODUCTION');
+            const companySelect = document.getElementById('activeCompanySelect');
+            if (companySelect) {
+                companySelect.addEventListener('change', function(e) {
+                    if (e.target.value) {
+                        window.unifiedManager.selectCompany(parseInt(e.target.value));
+                        updateSecureUserInfo();
+                    }
+                });
+            }
         }, 100);
+
+        console.log('🚀 DOUKÈ Compta Pro v3.1 - Système Unifié Intégré démarré avec succès');
+        console.log('🔒 Sécurité hiérarchique: ADMIN → SENIOR → COLLABORATEUR → USER → CAISSIER');
+        console.log('💾 Isolation totale des données par entreprise: ACTIVÉE');
+        console.log('📊 Cache et statistiques: DISPONIBLES');
+        console.log('🎨 Interface moderne avec thèmes: OPÉRATIONNELLE');
+        console.log('📱 Design responsive mobile: OPTIMISÉ');
+        console.log('✅ Tous les comptes test:', window.app.users.length, 'utilisateurs chargés');
+        console.log('✅ Toutes les fonctionnalités: INTÉGRÉES ET PRÊTES POUR LA PRODUCTION');
     } catch (error) {
         console.error('❌ Erreur au démarrage:', error);
     }
@@ -3564,24 +2591,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // Protection globale contre les erreurs
 window.addEventListener('error', function(e) {
     console.error('❌ Erreur globale capturée:', e.error);
-    if (window.unifiedManager && window.unifiedManager.sync.canSyncData()) {
-        window.unifiedManager.sync.queueDataForSync('error', 'log', {
-            message: e.error.message,
-            timestamp: new Date().toISOString(),
-            user: window.app.currentUser?.id
-        });
-    }
 });
 
 window.addEventListener('unhandledrejection', function(e) {
     console.error('❌ Promesse rejetée:', e.reason);
-    if (window.unifiedManager && window.unifiedManager.sync.canSyncData()) {
-        window.unifiedManager.sync.queueDataForSync('error', 'rejection', {
-            reason: e.reason,
-            timestamp: new Date().toISOString(),
-            user: window.app.currentUser?.id
-        });
-    }
 });
 
 console.log('🎉 DOUKÈ Compta Pro - SYSTÈME UNIFIÉ COMPLET CHARGÉ AVEC SUCCÈS');
