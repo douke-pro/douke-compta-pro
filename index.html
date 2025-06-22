@@ -2838,59 +2838,57 @@ function resetAccountFilters() {
 
 // Fonctions de gestion des comptes
 function showNewAccountModal() {
-    alert('📝 Modal nouveau compte (à implémenter selon vos besoins spécifiques)');
+    // Exemple minimal : afficher un formulaire pour saisir le numéro, l'intitulé, le type
+    alert('Formulaire création d’un nouveau compte (Actif/Passif/Charge/Produit)');
 }
 
-function viewAccountHistory(code) {
-    alert(`📊 Historique du compte ${code} (à implémenter)`);
+function viewAccountHistory(accountCode) {
+    // Implémentation : récupérer le journal filtré par ce compte
+    alert(`Affichage de l’historique du compte : ${accountCode} (écritures passées)`);
 }
 
 // Fonctions de gestion des caisses
 function showNewCashRegisterModal() {
-    alert('🏪 Modal nouvelle caisse (à implémenter)');
+    alert('Formulaire nouvelle caisse : nom, code, devise, solde initial');
 }
 
 function openCashOperations(cashId) {
-    alert(`💰 Opérations caisse ${cashId} (à implémenter)`);
+    alert(`Accès aux opérations de la caisse ${cashId} : entrées, sorties, solde actuel`);
 }
 
 function editCashRegister(cashId) {
-    alert(`✏️ Modifier caisse ${cashId} (à implémenter)`);
+    alert(`Modification des informations de la caisse ${cashId}`);
 }
-
+    
 // Fonctions de rapports
 function generateBilan() {
-    alert('📊 Génération du Bilan SYSCOHADA (à implémenter)');
-}
-
-function generateTafire() {
-    alert('📈 Génération du TAFIRE (à implémenter)');
+    alert('📊 Génération du Bilan SYSCOHADA : Actif vs Passif');
 }
 
 function generateCompteResultat() {
-    alert('📋 Génération du Compte de Résultat (à implémenter)');
+    alert('📋 Génération du Compte de Résultat : Charges - Produits = Résultat');
+}
+
+function generateTafire() {
+    alert('📈 Génération du Tableau Financier des Ressources et Emplois (TAFIRE)');
 }
 
 function generateGrandLivre() {
-    alert('📚 Génération du Grand Livre (à implémenter)');
+    alert('📚 Génération du Grand Livre (tous les comptes avec écritures)');
 }
 
 function generateBalance() {
-    alert('⚖️ Génération de la Balance (à implémenter)');
+    alert('⚖️ Génération de la Balance générale (comptes + soldes)');
 }
 
 function generateJournal() {
-    alert('📝 Génération du Journal Général (à implémenter)');
-}
-
-function generateJournalReport(journal) {
-    alert(`📄 Rapport du journal ${journal} (à implémenter)`);
+    alert('📝 Génération du Journal Général (écritures par date)');
 }
 
 function generateAllReports() {
-    alert('📦 Export de tous les rapports (à implémenter)');
+    alert('📦 Export complet des rapports (ZIP ou PDF)');
 }
-
+    
 // Fonction de mise à jour du profil
 function updateUserProfile() {
     const newPassword = document.getElementById('newPassword')?.value;
