@@ -2582,9 +2582,454 @@ loadSettingsPage() {
     document.getElementById('mainContent').innerHTML = content;
 }
 
+   // =============================================================================
+// FONCTIONS ADMINISTRATION AVANCÉE
+// =============================================================================
 
+/**
+ * Page d'administration avec gestion du logo et données test
+ */
+loadAdminSettingsPage() {
+    if (window.app.currentProfile !== 'admin') {
+        this.showSecurityAlert('🚫 Accès refusé - Administrateur requis');
+        return;
+    }
+
+    const content = `
+    <div class="space-y-6">
+        <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Administration Système</h2>
+            <div class="flex items-center space-x-2 text-sm text-danger font-medium bg-danger/10 px-3 py-1 rounded-lg">
+                <i class="fas fa-shield-alt"></i>
+                <span>Accès Administrateur</span>
+            </div>
+        </div>
+
+        <!-- Gestion du Logo -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-image mr-2 text-primary"></i>Gestion du Logo
+            </h3>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        Logo actuel
+                    </label>
+                    <div id="currentLogoPreview" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                        <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-calculator text-3xl"></i>
+                        </div>
+                        <p class="text-sm text-gray-500">Logo par défaut DOUKÈ</p>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        Nouveau logo
+                    </label>
+                    <div class="space-y-4">
+                        <input type="file" id="logoUpload" accept="image/*" class="hidden">
+                        <button onclick="document.getElementById('logoUpload').click()" 
+                            class="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-primary transition-colors">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                            <p class="text-sm text-gray-500">Cliquer pour choisir un logo</p>
+                            <p class="text-xs text-gray-400 mt-1">PNG, JPG ou SVG - Max 2MB</p>
+                        </button>
+                        
+                        <div id="newLogoPreview" class="hidden border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                            <img id="logoPreviewImg" src="" alt="Aperçu" class="max-w-full h-20 mx-auto">
+                            <div class="mt-3 flex space-x-3">
+                                <button onclick="applyNewLogo()" class="flex-1 bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90">
+                                    <i class="fas fa-check mr-2"></i>Appliquer
+                                </button>
+                                <button onclick="cancelLogoUpload()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                                    <i class="fas fa-times mr-2"></i>Annuler
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gestion des Données Test -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-database mr-2 text-warning"></i>Gestion des Données Test
+            </h3>
+            
+            <div class="bg-warning/10 border border-warning/20 rounded-lg p-4 mb-6">
+                <div class="flex items-start space-x-3">
+                    <i class="fas fa-exclamation-triangle text-warning mt-1"></i>
+                    <div>
+                        <h4 class="font-medium text-warning">Attention - Action irréversible</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            La suppression des données test supprimera définitivement toutes les données de démonstration.
+                            Cette action ne peut pas être annulée.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-primary/10 p-4 rounded-lg text-center">
+                    <div class="text-2xl font-bold text-primary">${window.app.users.length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs test</div>
+                </div>
+                <div class="bg-info/10 p-4 rounded-lg text-center">
+                    <div class="text-2xl font-bold text-info">${window.app.companies.length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Entreprises test</div>
+                </div>
+                <div class="bg-success/10 p-4 rounded-lg text-center">
+                    <div class="text-2xl font-bold text-success">${window.app.entries.length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Écritures test</div>
+                </div>
+                <div class="bg-warning/10 p-4 rounded-lg text-center">
+                    <div class="text-2xl font-bold text-warning">${window.app.cashRegisters.length}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Caisses test</div>
+                </div>
+            </div>
+
+            <div class="flex space-x-4">
+                <button onclick="confirmDeleteTestData()" 
+                    class="bg-danger text-white px-6 py-3 rounded-lg hover:bg-danger/90 transition-colors">
+                    <i class="fas fa-trash mr-2"></i>Supprimer toutes les données test
+                </button>
+                <button onclick="resetToCleanSlate()" 
+                    class="bg-warning text-white px-6 py-3 rounded-lg hover:bg-warning/90 transition-colors">
+                    <i class="fas fa-broom mr-2"></i>Réinitialiser complètement
+                </button>
+                <button onclick="exportTestDataBackup()" 
+                    class="bg-info text-white px-6 py-3 rounded-lg hover:bg-info/90 transition-colors">
+                    <i class="fas fa-download mr-2"></i>Sauvegarder avant suppression
+                </button>
+            </div>
+        </div>
+
+        <!-- Configuration Cloud -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-cloud mr-2 text-info"></i>Backend Cloud
+            </h3>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="font-medium text-gray-900 dark:text-white mb-3">Google Sheets + BigQuery</h4>
+                    <div class="space-y-3">
+                        <button onclick="setupGoogleSheetsBackend()" 
+                            class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                            <i class="fab fa-google mr-2"></i>Configurer Google Sheets
+                        </button>
+                        <button onclick="setupBigQueryBackend()" 
+                            class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-database mr-2"></i>Configurer BigQuery
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-medium text-gray-900 dark:text-white mb-3">État de la synchronisation</h4>
+                    <div id="cloudStatus" class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span>Google Drive:</span>
+                            <span class="text-warning">Non configuré</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Google Sheets:</span>
+                            <span class="text-warning">Non configuré</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>BigQuery:</span>
+                            <span class="text-warning">Non configuré</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    document.getElementById('mainContent').innerHTML = content;
+
+    // Initialiser l'upload de logo
+    setTimeout(() => {
+        initializeLogoUpload();
+    }, 100);
+}
+
+// =============================================================================
+// FONCTIONS UTILITAIRES ET GESTION
+// =============================================================================
+
+/**
+ * Met à jour le profil utilisateur
+ */
+function updateUserProfile() {
+    try {
+        const form = document.getElementById('userProfileForm');
+        if (!form) {
+            throw new Error('Formulaire non trouvé');
+        }
+
+        const fullName = document.getElementById('userFullName')?.value;
+        const phone = document.getElementById('userPhone')?.value;
+        const newPassword = document.getElementById('newPassword')?.value;
+        const confirmPassword = document.getElementById('confirmPassword')?.value;
+
+        // Validation du mot de passe si fourni
+        if (newPassword && newPassword !== confirmPassword) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Les mots de passe ne correspondent pas');
+            return;
+        }
+
+        if (newPassword && newPassword.length < 6) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
+            return;
+        }
+
+        // Mettre à jour les données utilisateur
+        const user = window.app.currentUser;
+        if (fullName && user.profile === 'admin') {
+            user.name = fullName;
+        }
+        if (phone) {
+            user.phone = phone;
+        }
+        if (newPassword) {
+            user.password = newPassword;
+        }
+
+        // Réinitialiser les champs mot de passe
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+
+        window.unifiedManager.notificationManager.show('success', 'Profil mis à jour', 'Vos informations ont été sauvegardées');
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour du profil:', error);
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Impossible de mettre à jour le profil');
+    }
+}
+
+/**
+ * Initialise le système d'upload de logo
+ */
+function initializeLogoUpload() {
+    const logoUpload = document.getElementById('logoUpload');
+    const newLogoPreview = document.getElementById('newLogoPreview');
+    const logoPreviewImg = document.getElementById('logoPreviewImg');
+
+    if (logoUpload) {
+        logoUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 2 * 1024 * 1024) {
+                    window.unifiedManager.notificationManager.show('error', 'Fichier trop volumineux', 'Le logo ne doit pas dépasser 2MB');
+                    return;
+                }
+
+                if (!file.type.startsWith('image/')) {
+                    window.unifiedManager.notificationManager.show('error', 'Format invalide', 'Seuls les fichiers image sont acceptés');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    logoPreviewImg.src = e.target.result;
+                    newLogoPreview.classList.remove('hidden');
+                    window.app.pendingLogo = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+}
+
+/**
+ * Applique le nouveau logo à toute l'application
+ */
+function applyNewLogo() {
+    if (!window.app.pendingLogo) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Aucun logo en attente');
+        return;
+    }
+
+    // Sauvegarder le logo dans le localStorage
+    try {
+        localStorage.setItem('doukeComptaLogo', window.app.pendingLogo);
+        window.app.customLogo = window.app.pendingLogo;
+
+        // Appliquer le logo immédiatement
+        updateLogoThroughoutApp(window.app.pendingLogo);
+
+        window.unifiedManager.notificationManager.show('success', 'Logo appliqué', 'Le nouveau logo a été appliqué à toute l\'application');
+        
+        // Rafraîchir la preview
+        const currentLogoPreview = document.getElementById('currentLogoPreview');
+        if (currentLogoPreview) {
+            currentLogoPreview.innerHTML = `
+                <img src="${window.app.pendingLogo}" alt="Logo actuel" class="max-w-full h-20 mx-auto mb-2">
+                <p class="text-sm text-gray-500">Logo personnalisé</p>
+            `;
+        }
+
+        cancelLogoUpload();
+    } catch (error) {
+        console.error('Erreur lors de la sauvegarde du logo:', error);
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Impossible de sauvegarder le logo');
+    }
+}
+
+/**
+ * Met à jour le logo dans toute l'application
+ */
+function updateLogoThroughoutApp(logoUrl) {
+    // Logo dans la sidebar
+    const sidebarLogo = document.querySelector('#sidebar .w-8.h-8');
+    if (sidebarLogo) {
+        sidebarLogo.innerHTML = `<img src="${logoUrl}" alt="Logo" class="w-8 h-8 rounded-lg">`;
+    }
+
+    // Logo dans l'interface de connexion
+    const loginLogo = document.querySelector('#loginInterface .w-20.h-20');
+    if (loginLogo) {
+        loginLogo.innerHTML = `<img src="${logoUrl}" alt="Logo" class="w-20 h-20 rounded-full">`;
+    }
+
+    // Autres logos dans les modales et rapports
+    document.querySelectorAll('.douke-logo').forEach(el => {
+        if (el.tagName === 'IMG') {
+            el.src = logoUrl;
+        } else {
+            el.innerHTML = `<img src="${logoUrl}" alt="Logo DOUKÈ" class="h-full w-auto">`;
+        }
+    });
+}
+
+/**
+ * Annule l'upload de logo
+ */
+function cancelLogoUpload() {
+    const newLogoPreview = document.getElementById('newLogoPreview');
+    const logoUpload = document.getElementById('logoUpload');
+
+    if (newLogoPreview) newLogoPreview.classList.add('hidden');
+    if (logoUpload) logoUpload.value = '';
+
+    delete window.app.pendingLogo;
+}
+
+/**
+ * Confirmation de suppression des données test
+ */
+function confirmDeleteTestData() {
+    window.unifiedManager.modalManager.confirm(
+        'Supprimer les données test',
+        'Êtes-vous ABSOLUMENT sûr de vouloir supprimer toutes les données de test ? Cette action est DÉFINITIVE et supprimera :\n\n• Tous les utilisateurs de test\n• Toutes les entreprises de test\n• Toutes les écritures de test\n• Toutes les caisses de test\n\nSeul votre compte administrateur sera conservé.',
+        () => {
+            deleteAllTestData();
+        }
+    );
+}
+
+/**
+ * Supprime toutes les données test
+ */
+function deleteAllTestData() {
+    const adminUser = window.app.users.find(u => u.profile === 'admin');
+
+    if (!adminUser) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur critique', 'Aucun administrateur trouvé - Annulation');
+        return;
+    }
+
+    // Sauvegarder le count avant suppression
+    const counts = {
+        users: window.app.users.length - 1, // -1 pour l'admin
+        companies: window.app.companies.length,
+        entries: window.app.entries.length,
+        cashRegisters: window.app.cashRegisters.length
+    };
+
+    // Supprimer toutes les données sauf l'admin
+    window.app.users = [adminUser];
+    window.app.companies = [];
+    window.app.entries = [];
+    window.app.cashRegisters = [];
+
+    // Réinitialiser les données filtrées
+    window.unifiedManager.clearFilteredDataCache();
+    window.app.currentCompanyId = null;
+
+    // Recharger l'interface
+    window.unifiedManager.loadSecureDashboard();
+
+    window.unifiedManager.notificationManager.show(
+        'success',
+        'Données supprimées',
+        `${counts.users} utilisateurs, ${counts.companies} entreprises, ${counts.entries} écritures et ${counts.cashRegisters} caisses supprimés avec succès`
+    );
+}
+
+/**
+ * Réinitialisation complète à une base propre
+ */
+function resetToCleanSlate() {
+    window.unifiedManager.modalManager.confirm(
+        'Réinitialisation complète',
+        'Cette action va supprimer TOUTES les données et créer une base propre avec seulement votre compte administrateur. Continuer ?',
+        () => {
+            deleteAllTestData();
+            // Rediriger vers la page de configuration initiale
+            setTimeout(() => {
+                window.unifiedManager.notificationManager.show('info', 'Base propre', 'Système réinitialisé - Prêt pour vos vraies données');
+            }, 1000);
+        }
+    );
+}
+
+/**
+ * Exporte une sauvegarde des données test
+ */
+function exportTestDataBackup() {
+    const backup = {
+        version: '3.1',
+        timestamp: new Date().toISOString(),
+        data: {
+            users: window.app.users,
+            companies: window.app.companies,
+            entries: window.app.entries,
+            cashRegisters: window.app.cashRegisters
+        }
+    };
+
+    const dataStr = JSON.stringify(backup, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `douke-compta-backup-${new Date().toISOString().slice(0,10)}.json`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+
+    window.unifiedManager.notificationManager.show('success', 'Sauvegarde créée', 'Les données ont été exportées avec succès');
+}
+
+/**
+ * Configuration Google Sheets Backend
+ */
+function setupGoogleSheetsBackend() {
+    window.unifiedManager.notificationManager.show('info', 'Configuration Google Sheets', 'Fonctionnalité en développement - Sera disponible dans la prochaine version');
+}
+
+/**
+ * Configuration BigQuery Backend
+ */
+function setupBigQueryBackend() {
+    window.unifiedManager.notificationManager.show('info', 'Configuration BigQuery', 'Fonctionnalité en développement - Sera disponible dans la prochaine version');
+}
  
-    
 // Ajouter cette méthode auxiliaire après loadSettingsPage()
 getPermissionsDisplay(profile) {
     const allPermissions = [
