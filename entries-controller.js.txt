@@ -1,0 +1,568 @@
+// =============================================================================
+// DOUKÈ Compta Pro - Contrôleur de gestion des écritures v3.1
+// =============================================================================
+
+class EntriesController {
+    constructor(securityManager, dataManager) {
+        this.security = securityManager;
+        this.data = dataManager;
+        this.currentFilters = {
+            search: '',
+            journal: '',
+            status: '',
+            dateFrom: '',
+            dateTo: '',
+            account: ''
+        };
+        
+        console.log('📝 EntriesController initialisé');
+    }
+
+    // Charger la page de gestion des écritures
+    loadEntriesPage() {
+        if (this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
+            document.getElementById('mainContent').innerHTML = this.generateCompanySelectionRequired();
+            return;
+        }
+
+        const entries = this.data.getCompanyEntries(window.app.currentCompanyId);
+        const companyName = this.getSelectedCompanyName();
+        const isCashier = window.app.currentProfile === 'caissier';
+
+        const content = `
+            <div class="space-y-6">
+                <!-- Header -->
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                            ${isCashier ? 'Opérations Caisse' : 'Écritures Comptables'}
+                        </h2>
+                        <p class="text-gray-600 dark:text-gray-400">${companyName}</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            ${entries.length} écriture(s) total
+                        </div>
+                        <button onclick="window.entriesController.showNewEntryModal()" 
+                                class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Nouvelle ${isCashier ? 'opération' : 'écriture'}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Statistiques des écritures -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-primary">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Écritures</p>
+                                <p class="text-3xl font-bold text-gray-900 dark:text-white">${entries.length}</p>
+                            </div>
+                            <div class="bg-primary/10 p-3 rounded-lg">
+                                <i class="fas fa-edit text-primary text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">
+                            ${this.getThisMonthEntries(entries)} ce mois
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-success">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Validées</p>
+                                <p class="text-3xl font-bold text-success">${entries.filter(e => e.status === 'Validé').length}</p>
+                            </div>
+                            <div class="bg-success/10 p-3 rounded-lg">
+                                <i class="fas fa-check-circle text-success text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-sm text-success">
+                            ${((entries.filter(e => e.status === 'Validé').length / entries.length) * 100).toFixed(1)}% du total
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-warning">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">En Attente</p>
+                                <p class="text-3xl font-bold text-warning">${entries.filter(e => e.status === 'En attente').length}</p>
+                            </div>
+                            <div class="bg-warning/10 p-3 rounded-lg">
+                                <i class="fas fa-clock text-warning text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <button onclick="window.entriesController.showPendingEntries()" 
+                                    class="text-xs bg-warning/20 text-warning px-2 py-1 rounded hover:bg-warning/30 transition-colors">
+                                Traiter
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-info">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Montant Total</p>
+                                <p class="text-2xl font-bold text-info">${this.getTotalAmount(entries).toLocaleString('fr-FR')}</p>
+                                <p class="text-xs text-gray-500">FCFA</p>
+                            </div>
+                            <div class="bg-info/10 p-3 rounded-lg">
+                                <i class="fas fa-calculator text-info text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtres et recherche -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recherche</label>
+                            <input type="text" id="entrySearch" placeholder="Libellé, pièce..." 
+                                   onkeyup="window.entriesController.filterEntries()"
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Journal</label>
+                            <select id="journalFilter" onchange="window.entriesController.filterEntries()"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                <option value="">Tous les journaux</option>
+                                <option value="JG">Journal Général (JG)</option>
+                                <option value="JA">Journal des Achats (JA)</option>
+                                <option value="JV">Journal des Ventes (JV)</option>
+                                <option value="JB">Journal de Banque (JB)</option>
+                                <option value="JC">Journal de Caisse (JC)</option>
+                                <option value="JOD">Journal des Op. Diverses (JOD)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Statut</label>
+                            <select id="statusFilter" onchange="window.entriesController.filterEntries()"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                <option value="">Tous les statuts</option>
+                                <option value="Validé">Validé</option>
+                                <option value="En attente">En attente</option>
+                                <option value="Brouillon">Brouillon</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Du</label>
+                            <input type="date" id="dateFromFilter" onchange="window.entriesController.filterEntries()"
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Au</label>
+                            <input type="date" id="dateToFilter" onchange="window.entriesController.filterEntries()"
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="window.entriesController.resetFilters()" 
+                                    class="w-full bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                                <i class="fas fa-sync mr-2"></i>Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tableau des écritures -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                Liste des Écritures
+                                <span id="entriesCount" class="text-sm font-normal text-gray-500 ml-2">(${entries.length})</span>
+                            </h3>
+                            <div class="flex space-x-2">
+                                ${this.security.permissions[window.app.currentProfile]?.canValidateOperations ? `
+                                <button onclick="window.entriesController.validateSelectedEntries()" 
+                                        class="bg-success text-white px-3 py-2 rounded-lg text-sm hover:bg-success/90">
+                                    <i class="fas fa-check-double mr-1"></i>Valider sélection
+                                </button>
+                                ` : ''}
+                                <button onclick="window.entriesController.exportEntries()" 
+                                        class="bg-info text-white px-3 py-2 rounded-lg text-sm hover:bg-info/90">
+                                    <i class="fas fa-download mr-1"></i>Exporter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="entriesTableContainer">
+                        ${this.generateEntriesTable()}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('mainContent').innerHTML = content;
+    }
+
+    // Générer le tableau des écritures
+    generateEntriesTable() {
+        const filteredEntries = this.getFilteredEntries();
+        
+        if (filteredEntries.length === 0) {
+            return `
+                <div class="text-center py-12 text-gray-500">
+                    <i class="fas fa-file-alt text-6xl mb-4"></i>
+                    <h3 class="text-lg font-semibold mb-2">Aucune écriture trouvée</h3>
+                    <p>Commencez par créer votre première écriture pour cette entreprise.</p>
+                    <button onclick="window.entriesController.showNewEntryModal()" 
+                            class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
+                        <i class="fas fa-plus mr-2"></i>Nouvelle écriture
+                    </button>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            ${this.security.permissions[window.app.currentProfile]?.canValidateOperations ? `
+                            <th class="px-6 py-3 text-left">
+                                <input type="checkbox" id="selectAllEntries" onchange="window.entriesController.toggleSelectAll()" 
+                                       class="rounded border-gray-300 text-primary focus:ring-primary">
+                            </th>
+                            ` : ''}
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Journal</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">N° Pièce</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Libellé</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Montant</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Statut</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        ${filteredEntries.map(entry => `
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                ${this.security.permissions[window.app.currentProfile]?.canValidateOperations ? `
+                                <td class="px-6 py-4">
+                                    <input type="checkbox" class="entry-checkbox rounded border-gray-300 text-primary focus:ring-primary" 
+                                           value="${entry.id}" ${entry.status === 'En attente' ? '' : 'disabled'}>
+                                </td>
+                                ` : ''}
+                                <td class="px-6 py-4 text-gray-900 dark:text-white text-sm">
+                                    ${new Date(entry.date).toLocaleDateString('fr-FR')}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="px-2 py-1 rounded text-xs font-medium ${this.getJournalColor(entry.journal)}">
+                                        ${entry.journal}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 font-mono text-sm text-gray-900 dark:text-white">
+                                    ${entry.piece}
+                                </td>
+                                <td class="px-6 py-4 text-gray-900 dark:text-white">
+                                    <div class="max-w-xs truncate" title="${entry.libelle}">
+                                        ${entry.libelle}
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        ${entry.lines.length} ligne(s)
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 font-mono text-gray-900 dark:text-white">
+                                    ${entry.lines.reduce((sum, line) => sum + line.debit, 0).toLocaleString('fr-FR')} FCFA
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="px-2 py-1 rounded text-sm ${this.getEntryStatusColor(entry.status)}">
+                                        ${entry.status}
+                                    </span>
+                                    ${entry.validatedBy ? `
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        Validé le ${new Date(entry.validatedAt).toLocaleDateString('fr-FR')}
+                                    </div>
+                                    ` : ''}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex space-x-2">
+                                        <button onclick="viewEntry(${entry.id})" 
+                                                class="text-primary hover:text-primary/80" title="Voir détails">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        ${this.security.permissions[window.app.currentProfile]?.canValidateOperations ? `
+                                        <button onclick="editEntry(${entry.id})" 
+                                                class="text-info hover:text-info/80" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        ` : ''}
+                                        ${entry.status === 'En attente' && this.security.permissions[window.app.currentProfile]?.canValidateOperations ? `
+                                        <button onclick="validateEntry(${entry.id})" 
+                                                class="text-success hover:text-success/80" title="Valider">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        ` : ''}
+                                        <button onclick="window.entriesController.duplicateEntry(${entry.id})" 
+                                                class="text-warning hover:text-warning/80" title="Dupliquer">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        <button onclick="printEntry(${entry.id})" 
+                                                class="text-gray-500 hover:text-gray-700" title="Imprimer">
+                                            <i class="fas fa-print"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    // Modal de création d'écriture
+    showNewEntryModal() {
+        const accounts = window.app.accounts;
+        const modalContent = `
+            <form id="newEntryForm" class="space-y-6">
+                <!-- Informations générales -->
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 dark:text-white mb-4">Informations générales</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date*</label>
+                            <input type="date" id="entryDate" value="${new Date().toISOString().split('T')[0]}" required
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Journal*</label>
+                            <select id="entryJournal" required onchange="window.entriesController.updatePieceNumber()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                                <option value="">Sélectionner un journal</option>
+                                <option value="JG">JG - Journal Général</option>
+                                <option value="JA">JA - Journal des Achats</option>
+                                <option value="JV">JV - Journal des Ventes</option>
+                                <option value="JB">JB - Journal de Banque</option>
+                                <option value="JC">JC - Journal de Caisse</option>
+                                <option value="JOD">JOD - Journal des Opérations Diverses</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">N° Pièce*</label>
+                            <input type="text" id="entryPiece" required
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Libellé général*</label>
+                        <input type="text" id="entryLibelle" required placeholder="Description de l'opération"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    </div>
+                </div>
+
+                <!-- Lignes d'écriture -->
+                <div class="bg-white dark:bg-gray-800">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="font-medium text-gray-900 dark:text-white">Lignes d'écriture</h4>
+                        <button type="button" onclick="window.entriesController.addEntryLine()"
+                                class="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary/90">
+                            <i class="fas fa-plus mr-1"></i>Ajouter ligne
+                        </button>
+                    </div>
+                    <div id="entryLines" class="space-y-2">
+                        <!-- Les lignes seront ajoutées ici -->
+                    </div>
+
+                    <!-- Totaux -->
+                    <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                        <div class="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <span class="text-gray-600 dark:text-gray-400">Total Débit:</span>
+                                <span id="totalDebit" class="font-mono font-bold text-success ml-2">0.00</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600 dark:text-gray-400">Total Crédit:</span>
+                                <span id="totalCredit" class="font-mono font-bold text-danger ml-2">0.00</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600 dark:text-gray-400">Équilibre:</span>
+                                <span id="balance" class="font-mono font-bold ml-2">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                        Annuler
+                    </button>
+                    <button type="button" onclick="window.entriesController.saveAsDraft()"
+                            class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                        <i class="fas fa-save mr-2"></i>Sauvegarder brouillon
+                    </button>
+                    <button type="submit"
+                            class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                        <i class="fas fa-check mr-2"></i>Créer l'écriture
+                    </button>
+                </div>
+            </form>
+        `;
+
+        window.unifiedManager.modalManager.show('Nouvelle Écriture', modalContent, { size: 'large' });
+
+        // Initialiser avec 2 lignes par défaut
+        setTimeout(() => {
+            this.addEntryLine();
+            this.addEntryLine();
+            
+            // Attacher l'événement de soumission
+            document.getElementById('newEntryForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.createEntry();
+            });
+        }, 100);
+    }
+
+    // Ajouter une ligne d'écriture
+    addEntryLine() {
+        const container = document.getElementById('entryLines');
+        const lineCount = container.children.length;
+        const accounts = window.app.accounts;
+
+        const newLine = document.createElement('div');
+        newLine.className = 'entry-line grid grid-cols-12 gap-2 items-end';
+        newLine.dataset.index = lineCount;
+
+        newLine.innerHTML = `
+            <div class="col-span-3">
+                <label class="block text-xs text-gray-500 mb-1">Compte*</label>
+                <select name="account" required onchange="window.entriesController.updateAccountName(this)"
+                        class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                    <option value="">Sélectionner</option>
+                    ${accounts.map(account => `
+                        <option value="${account.code}" data-name="${account.name}">
+                            ${account.code} - ${account.name}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            <div class="col-span-4">
+                <label class="block text-xs text-gray-500 mb-1">Libellé*</label>
+                <input type="text" name="libelle" required
+                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+            </div>
+            <div class="col-span-2">
+                <label class="block text-xs text-gray-500 mb-1">Débit</label>
+                <input type="number" name="debit" min="0" step="0.01" onchange="window.entriesController.updateTotals()"
+                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+            </div>
+            <div class="col-span-2">
+                <label class="block text-xs text-gray-500 mb-1">Crédit</label>
+                <input type="number" name="credit" min="0" step="0.01" onchange="window.entriesController.updateTotals()"
+                       class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white">
+            </div>
+            <div class="col-span-1">
+                <button type="button" onclick="window.entriesController.removeEntryLine(${lineCount})"
+                        class="w-full bg-danger text-white px-2 py-1 rounded text-sm hover:bg-danger/90">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+
+        container.appendChild(newLine);
+    }
+
+    // Méthodes utilitaires pour les écritures
+    filterEntries() {
+        const search = document.getElementById('entrySearch')?.value.toLowerCase() || '';
+        const journal = document.getElementById('journalFilter')?.value || '';
+        const status = document.getElementById('statusFilter')?.value || '';
+        const dateFrom = document.getElementById('dateFromFilter')?.value || '';
+        const dateTo = document.getElementById('dateToFilter')?.value || '';
+
+        this.currentFilters = { search, journal, status, dateFrom, dateTo };
+
+        document.getElementById('entriesTableContainer').innerHTML = this.generateEntriesTable();
+        
+        const entriesCount = document.getElementById('entriesCount');
+        if (entriesCount) {
+            entriesCount.textContent = `(${this.getFilteredEntries().length})`;
+        }
+    }
+
+    getFilteredEntries() {
+        const entries = this.data.getCompanyEntries(window.app.currentCompanyId);
+        
+        return entries.filter(entry => {
+            const matchesSearch = !this.currentFilters.search || 
+                entry.libelle.toLowerCase().includes(this.currentFilters.search) ||
+                entry.piece.toLowerCase().includes(this.currentFilters.search);
+            
+            const matchesJournal = !this.currentFilters.journal || entry.journal === this.currentFilters.journal;
+            const matchesStatus = !this.currentFilters.status || entry.status === this.currentFilters.status;
+            
+            const entryDate = new Date(entry.date);
+            const matchesDateFrom = !this.currentFilters.dateFrom || entryDate >= new Date(this.currentFilters.dateFrom);
+            const matchesDateTo = !this.currentFilters.dateTo || entryDate <= new Date(this.currentFilters.dateTo);
+
+            return matchesSearch && matchesJournal && matchesStatus && matchesDateFrom && matchesDateTo;
+        });
+    }
+
+    // Méthodes utilitaires
+    getJournalColor(journal) {
+        const colors = {
+            'JG': 'bg-gray-200 text-gray-800',
+            'JA': 'bg-blue-200 text-blue-800',
+            'JV': 'bg-green-200 text-green-800',
+            'JB': 'bg-purple-200 text-purple-800',
+            'JC': 'bg-orange-200 text-orange-800',
+            'JOD': 'bg-pink-200 text-pink-800'
+        };
+        return colors[journal] || 'bg-gray-200 text-gray-800';
+    }
+
+    getEntryStatusColor(status) {
+        const colors = {
+            'Validé': 'bg-success/20 text-success',
+            'En attente': 'bg-warning/20 text-warning',
+            'Brouillon': 'bg-gray-500/20 text-gray-500'
+        };
+        return colors[status] || 'bg-gray-200 text-gray-800';
+    }
+
+    getSelectedCompanyName() {
+        if (!window.app.currentCompanyId) return 'Aucune entreprise';
+        const company = window.app.companies.find(c => c.id === window.app.currentCompanyId);
+        return company ? company.name : 'Entreprise inconnue';
+    }
+
+    getTotalAmount(entries) {
+        return entries.reduce((sum, entry) => {
+            return sum + entry.lines.reduce((lineSum, line) => lineSum + (line.debit || 0), 0);
+        }, 0);
+    }
+
+    getThisMonthEntries(entries) {
+        const now = new Date();
+        const thisMonth = entries.filter(entry => {
+            const entryDate = new Date(entry.date);
+            return entryDate.getMonth() === now.getMonth() && entryDate.getFullYear() === now.getFullYear();
+        });
+        return thisMonth.length;
+    }
+
+    generateCompanySelectionRequired() {
+        return `
+            <div class="text-center p-8">
+                <div class="w-16 h-16 bg-warning text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-building text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Sélection d'entreprise requise</h3>
+                <p class="text-gray-600 dark:text-gray-400 mt-2 mb-6">Sélectionnez une entreprise dans la barre latérale pour accéder aux écritures.</p>
+                <button onclick="window.unifiedManager.loadCompaniesPage()" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-building mr-2"></i>Sélectionner une entreprise
+                </button>
+            </div>
+        `;
+    }
+}
+
+// Export de la classe
+window.EntriesController = EntriesController;
+
+console.log('📦 Module EntriesController chargé');

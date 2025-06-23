@@ -1,0 +1,844 @@
+// =============================================================================
+// DOUKÈ Compta Pro - Gestionnaire Unifié Principal v3.1
+// =============================================================================
+
+class UnifiedManager {
+    constructor() {
+        this.version = "3.1";
+        this.initialized = false;
+        this.modules = {};
+        
+        // Références vers les gestionnaires
+        this.themeManager = null;
+        this.modalManager = null;
+        this.notificationManager = null;
+        this.authController = null;
+        this.security = null;
+        this.dataManager = null;
+        
+        // Contrôleurs métier
+        this.usersController = null;
+        this.companiesController = null;
+        this.entriesController = null;
+        this.accountsController = null;
+        this.cashController = null;
+        this.reportsController = null;
+        
+        console.log('🚀 UnifiedManager v' + this.version + ' initialisé');
+    }
+
+    // Initialisation complète de l'application
+    async initialize() {
+        try {
+            console.log('⚡ Initialisation de DOUKÈ Compta Pro...');
+            
+            // 1. Initialiser les données d'exemple
+            this.initializeData();
+            
+            // 2. Initialiser les gestionnaires de base
+            this.initializeManagers();
+            
+            // 3. Initialiser la sécurité et l'authentification
+            this.initializeSecurity();
+            
+            // 4. Initialiser les contrôleurs métier
+            this.initializeControllers();
+            
+            // 5. Configurer l'interface utilisateur
+            this.initializeUI();
+            
+            // 6. Finaliser l'initialisation
+            this.finializeInitialization();
+            
+            console.log('✅ DOUKÈ Compta Pro initialisé avec succès');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'initialisation:', error);
+            this.showCriticalError(error);
+            return false;
+        }
+    }
+
+    // Initialiser les données
+    initializeData() {
+        console.log('📦 Initialisation des données...');
+        
+        // Charger les données d'exemple
+        if (typeof initializeSampleData === 'function') {
+            initializeSampleData();
+        } else {
+            throw new Error('Module de données d\'exemple non disponible');
+        }
+        
+        // Vérifier la cohérence des données
+        this.validateDataIntegrity();
+        
+        console.log('✓ Données initialisées');
+    }
+
+    // Initialiser les gestionnaires de base
+    initializeManagers() {
+        console.log('🔧 Initialisation des gestionnaires...');
+        
+        // Gestionnaire de thèmes
+        if (typeof ThemeManager !== 'undefined') {
+            this.themeManager = new ThemeManager();
+            this.modules.themeManager = this.themeManager;
+        } else {
+            throw new Error('ThemeManager non disponible');
+        }
+        
+        // Gestionnaire de modals
+        if (typeof ModalManager !== 'undefined') {
+            this.modalManager = new ModalManager();
+            this.modules.modalManager = this.modalManager;
+        } else {
+            throw new Error('ModalManager non disponible');
+        }
+        
+        // Gestionnaire de notifications
+        if (typeof NotificationManager !== 'undefined') {
+            this.notificationManager = new NotificationManager();
+            this.modules.notificationManager = this.notificationManager;
+        } else {
+            throw new Error('NotificationManager non disponible');
+        }
+        
+        // Gestionnaire de données
+        if (typeof DataManager !== 'undefined') {
+            this.dataManager = new DataManager();
+            this.modules.dataManager = this.dataManager;
+        } else {
+            throw new Error('DataManager non disponible');
+        }
+        
+        console.log('✓ Gestionnaires initialisés');
+    }
+
+    // Initialiser la sécurité
+    initializeSecurity() {
+        console.log('🔐 Initialisation de la sécurité...');
+        
+        // Gestionnaire de sécurité
+        if (typeof SecurityManager !== 'undefined') {
+            this.security = new SecurityManager();
+            this.modules.security = this.security;
+        } else {
+            throw new Error('SecurityManager non disponible');
+        }
+        
+        // Contrôleur d'authentification
+        if (typeof AuthController !== 'undefined') {
+            this.authController = new AuthController(this.security, this.dataManager);
+            this.modules.authController = this.authController;
+        } else {
+            throw new Error('AuthController non disponible');
+        }
+        
+        console.log('✓ Sécurité initialisée');
+    }
+
+    // Initialiser les contrôleurs métier
+    initializeControllers() {
+        console.log('📋 Initialisation des contrôleurs...');
+        
+        // Contrôleur des utilisateurs
+        if (typeof UsersController !== 'undefined') {
+            this.usersController = new UsersController(this.security, this.dataManager);
+            this.modules.usersController = this.usersController;
+            window.usersController = this.usersController;
+        } else {
+            console.warn('⚠️ UsersController non disponible');
+        }
+        
+        // Contrôleur des entreprises
+        if (typeof CompaniesController !== 'undefined') {
+            this.companiesController = new CompaniesController(this.security, this.dataManager);
+            this.modules.companiesController = this.companiesController;
+            window.companiesController = this.companiesController;
+        } else {
+            console.warn('⚠️ CompaniesController non disponible');
+        }
+        
+        // Contrôleur des écritures
+        if (typeof EntriesController !== 'undefined') {
+            this.entriesController = new EntriesController(this.security, this.dataManager);
+            this.modules.entriesController = this.entriesController;
+            window.entriesController = this.entriesController;
+        } else {
+            console.warn('⚠️ EntriesController non disponible');
+        }
+        
+        // Contrôleur des comptes
+        if (typeof AccountsController !== 'undefined') {
+            this.accountsController = new AccountsController(this.security, this.dataManager);
+            this.modules.accountsController = this.accountsController;
+            window.accountsController = this.accountsController;
+        } else {
+            console.warn('⚠️ AccountsController non disponible');
+        }
+        
+        // Contrôleur des caisses
+        if (typeof CashController !== 'undefined') {
+            this.cashController = new CashController(this.security, this.dataManager);
+            this.modules.cashController = this.cashController;
+            window.cashController = this.cashController;
+        } else {
+            console.warn('⚠️ CashController non disponible');
+        }
+        
+        // Contrôleur des rapports
+        if (typeof ReportsController !== 'undefined') {
+            this.reportsController = new ReportsController(this.security, this.dataManager);
+            this.modules.reportsController = this.reportsController;
+            window.reportsController = this.reportsController;
+        } else {
+            console.warn('⚠️ ReportsController non disponible');
+        }
+        
+        console.log('✓ Contrôleurs initialisés');
+    }
+
+    // Initialiser l'interface utilisateur
+    initializeUI() {
+        console.log('🎨 Initialisation de l\'interface...');
+        
+        // Appliquer le thème par défaut
+        this.themeManager?.applyTheme();
+        
+        // Configurer la gestion des erreurs globales
+        this.setupGlobalErrorHandling();
+        
+        // Afficher l'écran de connexion
+        this.showLoginScreen();
+        
+        console.log('✓ Interface initialisée');
+    }
+
+    // Finaliser l'initialisation
+    finializeInitialization() {
+        this.initialized = true;
+        
+        // Afficher les informations de version
+        this.displayVersionInfo();
+        
+        // Marquer l'application comme prête
+        document.body.classList.add('app-ready');
+        
+        // Émettre un événement d'initialisation complète
+        window.dispatchEvent(new CustomEvent('doukeAppReady', {
+            detail: { version: this.version, timestamp: new Date() }
+        }));
+    }
+
+    // Gestion des erreurs globales
+    setupGlobalErrorHandling() {
+        window.addEventListener('error', (event) => {
+            console.error('Erreur globale:', event.error);
+            this.notificationManager?.show('error', 'Erreur système', 'Une erreur inattendue s\'est produite');
+        });
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Promise rejetée:', event.reason);
+            this.notificationManager?.show('error', 'Erreur système', 'Une erreur asynchrone s\'est produite');
+        });
+    }
+
+    // Afficher l'écran de connexion
+    showLoginScreen() {
+        if (this.authController) {
+            this.authController.showLoginForm();
+        } else {
+            throw new Error('AuthController non disponible pour afficher l\'écran de connexion');
+        }
+    }
+
+    // Connexion utilisateur
+    async login(email, password) {
+        if (!this.authController) {
+            throw new Error('AuthController non disponible');
+        }
+        
+        try {
+            const result = await this.authController.login(email, password);
+            
+            if (result.success) {
+                this.showDashboard();
+                this.notificationManager?.show('success', 'Connexion réussie', 
+                    `Bienvenue ${window.app.currentUser.name}`);
+            }
+            
+            return result;
+        } catch (error) {
+            console.error('Erreur de connexion:', error);
+            this.notificationManager?.show('error', 'Erreur de connexion', error.message);
+            throw error;
+        }
+    }
+
+    // Déconnexion utilisateur
+    logout() {
+        if (this.authController) {
+            this.authController.logout();
+            this.showLoginScreen();
+            this.notificationManager?.show('info', 'Déconnexion', 'Vous avez été déconnecté avec succès');
+        }
+    }
+
+    // Afficher le tableau de bord
+    showDashboard() {
+        if (!window.app.isAuthenticated) {
+            this.showLoginScreen();
+            return;
+        }
+        
+        // Générer l'interface principale
+        const mainInterface = this.generateMainInterface();
+        document.body.innerHTML = mainInterface;
+        
+        // Charger le contenu par défaut selon le profil
+        this.loadDefaultContent();
+        
+        // Initialiser les événements de l'interface
+        this.initializeInterfaceEvents();
+    }
+
+    // Générer l'interface principale
+    generateMainInterface() {
+        const user = window.app.currentUser;
+        const profile = window.app.currentProfile;
+        
+        return `
+            <!-- Interface principale DOUKÈ Compta Pro -->
+            <div id="app" class="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
+                <!-- Barre de navigation supérieure -->
+                <nav class="bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
+                    <div class="px-6 py-4">
+                        <div class="flex justify-between items-center">
+                            <!-- Logo et titre -->
+                            <div class="flex items-center space-x-4">
+                                <div class="w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center font-bold text-xl">
+                                    D
+                                </div>
+                                <div>
+                                    <h1 class="text-xl font-bold text-gray-900 dark:text-white">DOUKÈ Compta Pro</h1>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">SYSCOHADA Révisé</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Informations utilisateur -->
+                            <div class="flex items-center space-x-4">
+                                <!-- Sélection d'entreprise -->
+                                ${this.generateCompanySelector()}
+                                
+                                <!-- Notifications -->
+                                <button class="p-2 text-gray-600 dark:text-gray-400 hover:text-primary" title="Notifications">
+                                    <i class="fas fa-bell"></i>
+                                </button>
+                                
+                                <!-- Thème -->
+                                <button onclick="window.unifiedManager.themeManager?.toggleTheme()" 
+                                        class="p-2 text-gray-600 dark:text-gray-400 hover:text-primary" title="Changer le thème">
+                                    <i class="fas fa-moon dark:hidden"></i>
+                                    <i class="fas fa-sun hidden dark:inline"></i>
+                                </button>
+                                
+                                <!-- Menu utilisateur -->
+                                <div class="relative">
+                                    <button onclick="toggleUserMenu()" class="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                                            ${user.name.split(' ').map(n => n[0]).join('')}
+                                        </div>
+                                        <div class="text-left hidden md:block">
+                                            <div class="text-sm font-medium text-gray-900 dark:text-white">${user.name}</div>
+                                            <div class="text-xs text-gray-500">${user.role}</div>
+                                        </div>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    
+                                    <!-- Menu déroulant utilisateur -->
+                                    <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                                        <div class="py-2">
+                                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                <i class="fas fa-user mr-2"></i>Mon profil
+                                            </a>
+                                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                <i class="fas fa-cog mr-2"></i>Paramètres
+                                            </a>
+                                            <hr class="my-2 border-gray-200 dark:border-gray-700">
+                                            <button onclick="window.unifiedManager.logout()" 
+                                                    class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                                <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- Contenu principal -->
+                <div class="flex">
+                    <!-- Barre latérale -->
+                    ${this.generateSidebar()}
+                    
+                    <!-- Zone de contenu -->
+                    <main class="flex-1 p-6">
+                        <div id="mainContent">
+                            <!-- Le contenu sera chargé ici -->
+                        </div>
+                    </main>
+                </div>
+            </div>
+
+            <!-- Conteneurs pour les modals et notifications -->
+            <div id="modalContainer"></div>
+            <div id="notificationContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+        `;
+    }
+
+    // Générer le sélecteur d'entreprise
+    generateCompanySelector() {
+        if (this.security?.requiresCompanySelection(window.app.currentProfile)) {
+            const currentCompany = window.app.companies.find(c => c.id === window.app.currentCompanyId);
+            const accessibleCompanies = this.security.getAccessibleCompanies(window.app.currentUser?.id);
+            
+            return `
+                <div class="relative">
+                    <button onclick="toggleCompanySelector()" 
+                            class="flex items-center space-x-2 px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20">
+                        <i class="fas fa-building"></i>
+                        <span class="hidden md:inline">${currentCompany ? currentCompany.name : 'Sélectionner une entreprise'}</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    
+                    <div id="companySelector" class="hidden absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-40">
+                        <div class="py-2">
+                            ${accessibleCompanies.map(company => `
+                                <button onclick="window.unifiedManager.selectCompany(${company.id})" 
+                                        class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${company.id === window.app.currentCompanyId ? 'bg-primary/10 text-primary' : 'text-gray-700 dark:text-gray-300'}">
+                                    <div class="font-medium">${company.name}</div>
+                                    <div class="text-xs text-gray-500">${company.type} - ${company.sector}</div>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        return '';
+    }
+
+    // Générer la barre latérale
+    generateSidebar() {
+        const profile = window.app.currentProfile;
+        const menuItems = this.getMenuItemsForProfile(profile);
+        
+        return `
+            <aside class="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 min-h-screen">
+                <div class="p-6">
+                    <div class="space-y-2">
+                        ${menuItems.map(item => `
+                            <button onclick="window.unifiedManager.${item.action}()" 
+                                    class="w-full flex items-center space-x-3 px-4 py-3 text-left rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${item.active ? 'bg-primary/10 text-primary' : 'text-gray-700 dark:text-gray-300'}">
+                                <i class="${item.icon}"></i>
+                                <span>${item.label}</span>
+                                ${item.badge ? `<span class="ml-auto px-2 py-1 text-xs bg-primary/20 text-primary rounded-full">${item.badge}</span>` : ''}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </aside>
+        `;
+    }
+
+    // Obtenir les éléments de menu selon le profil
+    getMenuItemsForProfile(profile) {
+        const baseItems = [
+            { icon: 'fas fa-tachometer-alt', label: 'Tableau de bord', action: 'loadDashboard', active: true }
+        ];
+        
+        if (profile === 'admin') {
+            return [
+                ...baseItems,
+                { icon: 'fas fa-users', label: 'Collaborateurs', action: 'loadUsersPage' },
+                { icon: 'fas fa-building', label: 'Entreprises', action: 'loadCompaniesPage' },
+                { icon: 'fas fa-edit', label: 'Écritures', action: 'loadEntriesPage' },
+                { icon: 'fas fa-list', label: 'Plan Comptable', action: 'loadAccountsPage' },
+                { icon: 'fas fa-cash-register', label: 'Caisses', action: 'loadCaissePage' },
+                { icon: 'fas fa-chart-bar', label: 'Rapports', action: 'loadReportsPage' }
+            ];
+        } else if (profile === 'collaborateur_senior') {
+            return [
+                ...baseItems,
+                { icon: 'fas fa-building', label: 'Mes Entreprises', action: 'loadCompaniesPage' },
+                { icon: 'fas fa-edit', label: 'Écritures', action: 'loadEntriesPage' },
+                { icon: 'fas fa-list', label: 'Plan Comptable', action: 'loadAccountsPage' },
+                { icon: 'fas fa-cash-register', label: 'Caisses', action: 'loadCaissePage' },
+                { icon: 'fas fa-chart-bar', label: 'Rapports', action: 'loadReportsPage' }
+            ];
+        } else if (profile === 'collaborateur') {
+            return [
+                ...baseItems,
+                { icon: 'fas fa-building', label: 'Mes Entreprises', action: 'loadCompaniesPage' },
+                { icon: 'fas fa-edit', label: 'Écritures', action: 'loadEntriesPage' },
+                { icon: 'fas fa-list', label: 'Plan Comptable', action: 'loadAccountsPage' },
+                { icon: 'fas fa-chart-bar', label: 'Rapports', action: 'loadReportsPage' }
+            ];
+        } else if (profile === 'user') {
+            return [
+                ...baseItems,
+                { icon: 'fas fa-edit', label: 'Écritures', action: 'loadEntriesPage' },
+                { icon: 'fas fa-list', label: 'Plan Comptable', action: 'loadAccountsPage' },
+                { icon: 'fas fa-cash-register', label: 'Caisses', action: 'loadCaissePage' },
+                { icon: 'fas fa-chart-bar', label: 'Rapports', action: 'loadReportsPage' }
+            ];
+        } else if (profile === 'caissier') {
+            return [
+                ...baseItems,
+                { icon: 'fas fa-cash-register', label: 'Ma Caisse', action: 'loadCaissePage' },
+                { icon: 'fas fa-print', label: 'État Caisse', action: 'loadReportsPage' }
+            ];
+        }
+        
+        return baseItems;
+    }
+
+    // Charger le contenu par défaut
+    loadDefaultContent() {
+        this.loadDashboard();
+    }
+
+    // Actions de navigation
+    loadDashboard() {
+        document.getElementById('mainContent').innerHTML = this.generateDashboardContent();
+        this.updateActiveMenuItem('loadDashboard');
+    }
+
+    loadUsersPage() {
+        if (this.usersController) {
+            this.usersController.loadUsersPage();
+            this.updateActiveMenuItem('loadUsersPage');
+        }
+    }
+
+    loadCompaniesPage() {
+        if (this.companiesController) {
+            this.companiesController.loadCompaniesPage();
+            this.updateActiveMenuItem('loadCompaniesPage');
+        }
+    }
+
+    loadEntriesPage() {
+        if (this.entriesController) {
+            this.entriesController.loadEntriesPage();
+            this.updateActiveMenuItem('loadEntriesPage');
+        }
+    }
+
+    loadAccountsPage() {
+        if (this.accountsController) {
+            this.accountsController.loadAccountsPage();
+            this.updateActiveMenuItem('loadAccountsPage');
+        }
+    }
+
+    loadCaissePage() {
+        if (this.cashController) {
+            this.cashController.loadCaissePage();
+            this.updateActiveMenuItem('loadCaissePage');
+        }
+    }
+
+    loadReportsPage() {
+        if (this.reportsController) {
+            this.reportsController.loadReportsPage();
+            this.updateActiveMenuItem('loadReportsPage');
+        }
+    }
+
+    // Sélectionner une entreprise
+    selectCompany(companyId) {
+        const company = window.app.companies.find(c => c.id === companyId);
+        if (!company) return;
+        
+        if (!this.security?.canAccessCompany(window.app.currentUser?.id, companyId)) {
+            this.notificationManager?.show('error', 'Accès refusé', 'Vous n\'avez pas accès à cette entreprise');
+            return;
+        }
+        
+        window.app.currentCompanyId = companyId;
+        this.notificationManager?.show('success', 'Entreprise sélectionnée', `${company.name} est maintenant active`);
+        
+        // Recharger l'interface
+        this.showDashboard();
+        
+        // Fermer le sélecteur
+        document.getElementById('companySelector')?.classList.add('hidden');
+    }
+
+    // Générer le contenu du tableau de bord
+    generateDashboardContent() {
+        const user = window.app.currentUser;
+        const profile = window.app.currentProfile;
+        const stats = this.getDashboardStats();
+        
+        return `
+            <div class="space-y-6">
+                <!-- En-tête du tableau de bord -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                                Bonjour ${user.name.split(' ')[0]} 👋
+                            </h2>
+                            <p class="text-gray-600 dark:text-gray-400">
+                                Bienvenue sur votre tableau de bord - ${user.role}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-semibold text-primary">${new Date().toLocaleDateString('fr-FR', { 
+                                weekday: 'long', 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                            })}</div>
+                            <div class="text-sm text-gray-500">DOUKÈ Compta Pro v${this.version}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistiques rapides -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    ${stats.map(stat => `
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 ${stat.color}">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">${stat.label}</p>
+                                    <p class="text-3xl font-bold text-gray-900 dark:text-white">${stat.value}</p>
+                                </div>
+                                <div class="w-12 h-12 ${stat.bgColor} ${stat.textColor} rounded-lg flex items-center justify-center">
+                                    <i class="${stat.icon} text-xl"></i>
+                                </div>
+                            </div>
+                            ${stat.description ? `<p class="text-sm text-gray-500 mt-2">${stat.description}</p>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+
+                <!-- Actions rapides -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions Rapides</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        ${this.getQuickActionsForProfile(profile).map(action => `
+                            <button onclick="window.unifiedManager.${action.action}()" 
+                                    class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow text-center">
+                                <i class="${action.icon} text-2xl ${action.color} mb-2 block"></i>
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">${action.label}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Obtenir les statistiques du tableau de bord
+    getDashboardStats() {
+        const profile = window.app.currentProfile;
+        const stats = [];
+        
+        if (profile === 'admin') {
+            stats.push(
+                {
+                    label: 'Entreprises',
+                    value: window.app.companies.length,
+                    icon: 'fas fa-building',
+                    color: 'border-blue-500',
+                    bgColor: 'bg-blue-100',
+                    textColor: 'text-blue-600',
+                    description: 'Entreprises gérées'
+                },
+                {
+                    label: 'Utilisateurs',
+                    value: window.app.users.length,
+                    icon: 'fas fa-users',
+                    color: 'border-green-500',
+                    bgColor: 'bg-green-100',
+                    textColor: 'text-green-600',
+                    description: 'Collaborateurs actifs'
+                }
+            );
+        }
+        
+        if (window.app.currentCompanyId) {
+            const entries = window.app.entries.filter(e => e.companyId === window.app.currentCompanyId);
+            stats.push(
+                {
+                    label: 'Écritures',
+                    value: entries.length,
+                    icon: 'fas fa-edit',
+                    color: 'border-purple-500',
+                    bgColor: 'bg-purple-100',
+                    textColor: 'text-purple-600',
+                    description: 'Total des écritures'
+                },
+                {
+                    label: 'En attente',
+                    value: entries.filter(e => e.status === 'En attente').length,
+                    icon: 'fas fa-clock',
+                    color: 'border-orange-500',
+                    bgColor: 'bg-orange-100',
+                    textColor: 'text-orange-600',
+                    description: 'À valider'
+                }
+            );
+        }
+        
+        return stats;
+    }
+
+    // Obtenir les actions rapides selon le profil
+    getQuickActionsForProfile(profile) {
+        const actions = [];
+        
+        if (profile === 'admin') {
+            actions.push(
+                { label: 'Nouvel utilisateur', action: 'showNewUserModal', icon: 'fas fa-user-plus', color: 'text-blue-500' },
+                { label: 'Nouvelle entreprise', action: 'showNewCompanyModal', icon: 'fas fa-building', color: 'text-green-500' }
+            );
+        }
+        
+        if (window.app.currentCompanyId) {
+            actions.push(
+                { label: 'Nouvelle écriture', action: 'showNewEntryModal', icon: 'fas fa-plus', color: 'text-purple-500' },
+                { label: 'Rapports', action: 'loadReportsPage', icon: 'fas fa-chart-bar', color: 'text-orange-500' }
+            );
+        }
+        
+        return actions;
+    }
+
+    // Initialiser les événements de l'interface
+    initializeInterfaceEvents() {
+        // Fonction globale pour basculer le menu utilisateur
+        window.toggleUserMenu = () => {
+            const menu = document.getElementById('userMenu');
+            menu?.classList.toggle('hidden');
+        };
+        
+        // Fonction globale pour basculer le sélecteur d'entreprise
+        window.toggleCompanySelector = () => {
+            const selector = document.getElementById('companySelector');
+            selector?.classList.toggle('hidden');
+        };
+        
+        // Fermer les menus en cliquant à l'extérieur
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('#userMenu') && !event.target.closest('button[onclick="toggleUserMenu()"]')) {
+                document.getElementById('userMenu')?.classList.add('hidden');
+            }
+            if (!event.target.closest('#companySelector') && !event.target.closest('button[onclick="toggleCompanySelector()"]')) {
+                document.getElementById('companySelector')?.classList.add('hidden');
+            }
+        });
+    }
+
+    // Mettre à jour l'élément de menu actif
+    updateActiveMenuItem(action) {
+        // Cette fonction pourrait être implémentée pour mettre à jour visuellement l'élément actif
+    }
+
+    // Valider l'intégrité des données
+    validateDataIntegrity() {
+        const checks = [
+            () => Array.isArray(window.app.companies) && window.app.companies.length > 0,
+            () => Array.isArray(window.app.users) && window.app.users.length > 0,
+            () => Array.isArray(window.app.accounts) && window.app.accounts.length > 0,
+            () => Array.isArray(window.app.entries),
+            () => Array.isArray(window.app.cashRegisters)
+        ];
+        
+        const failed = checks.findIndex(check => !check());
+        if (failed !== -1) {
+            throw new Error(`Validation des données échouée au contrôle ${failed + 1}`);
+        }
+    }
+
+    // Afficher les informations de version
+    displayVersionInfo() {
+        console.log(`
+╔══════════════════════════════════════════════════════════════╗
+║                    DOUKÈ Compta Pro v${this.version}                    ║
+║              Logiciel de Comptabilité SYSCOHADA             ║
+║                                                              ║
+║  🏢 Gestion Multi-Entreprises                               ║
+║  👥 Gestion des Utilisateurs & Droits                      ║
+║  📝 Écritures Comptables SYSCOHADA                         ║
+║  🗂️  Plan Comptable SYSCOHADA Révisé                       ║
+║  💰 Gestion des Caisses                                    ║
+║  📊 Rapports & États Financiers                            ║
+║                                                              ║
+║  ⚡ Modules chargés: ${Object.keys(this.modules).length.toString().padStart(2)}                                ║
+║  🔐 Sécurité: Activée                                      ║
+║  🎨 Thème: Dark/Light                                       ║
+║                                                              ║
+║              Développé par l'équipe DOUKÈ                   ║
+╚══════════════════════════════════════════════════════════════╝
+        `);
+    }
+
+    // Afficher une erreur critique
+    showCriticalError(error) {
+        document.body.innerHTML = `
+            <div class="min-h-screen bg-red-50 flex items-center justify-center p-6">
+                <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+                    <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">Erreur Critique</h2>
+                    <p class="text-gray-600 mb-4">L'application n'a pas pu s'initialiser correctement.</p>
+                    <p class="text-sm text-gray-500 mb-6">${error.message}</p>
+                    <button onclick="location.reload()" 
+                            class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                        Recharger la page
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // Obtenir le statut de l'application
+    getStatus() {
+        return {
+            version: this.version,
+            initialized: this.initialized,
+            modulesLoaded: Object.keys(this.modules).length,
+            currentUser: window.app.currentUser?.name,
+            currentCompany: window.app.companies.find(c => c.id === window.app.currentCompanyId)?.name,
+            timestamp: new Date().toISOString()
+        };
+    }
+}
+
+// Initialiser le gestionnaire unifié global
+window.unifiedManager = new UnifiedManager();
+
+// Initialiser l'application au chargement de la page
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const success = await window.unifiedManager.initialize();
+        if (!success) {
+            throw new Error('Échec de l\'initialisation de l\'application');
+        }
+    } catch (error) {
+        console.error('Erreur fatale lors de l\'initialisation:', error);
+    }
+});
+
+// Exporter pour utilisation
+window.UnifiedManager = UnifiedManager;
+
+console.log('🎯 Gestionnaire Unifié Principal chargé - DOUKÈ Compta Pro v3.1');
