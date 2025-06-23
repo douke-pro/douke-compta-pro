@@ -214,11 +214,11 @@ class UsersController {
                                                 class="text-info hover:text-info/80" title="Voir">
                                             <i class="fas fa-eye"></i>
                                         </button>
-                                        <button onclick="editUser(${user.id})" 
+                                        <button onclick="window.usersController.editUser(${user.id})" 
                                                 class="text-primary hover:text-primary/80" title="Modifier">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button onclick="manageUserAccess(${user.id})" 
+                                        <button onclick="window.usersController.manageUserAccess(${user.id})" 
                                                 class="text-warning hover:text-warning/80" title="Accès">
                                             <i class="fas fa-key"></i>
                                         </button>
@@ -375,6 +375,24 @@ class UsersController {
         }, 100);
     }
 
+    // Mettre à jour les options d'entreprise selon le rôle sélectionné
+    updateCompanyOptions() {
+        const roleSelect = document.getElementById('newUserRole');
+        const companySection = document.getElementById('companySelectionSection');
+        
+        if (roleSelect.value && roleSelect.value !== 'admin') {
+            companySection.classList.remove('hidden');
+        } else {
+            companySection.classList.add('hidden');
+        }
+    }
+
+    // Générer un mot de passe aléatoire
+    generatePassword() {
+        const password = this.generateRandomPassword();
+        document.getElementById('newUserPassword').value = password;
+    }
+
     // Créer un nouvel utilisateur
     createUser() {
         const name = document.getElementById('newUserName').value.trim();
@@ -440,6 +458,352 @@ class UsersController {
         this.loadUsersPage();
     }
 
+    // Obtenir les informations d'un rôle
+    getRoleInfo(profile) {
+        const roles = {
+            'admin': {
+                name: 'Administrateur',
+                permissions: ['all']
+            },
+            'collaborateur_senior': {
+                name: 'Collaborateur Senior',
+                permissions: ['read', 'write', 'manage_users']
+            },
+            'collaborateur': {
+                name: 'Collaborateur',
+                permissions: ['read', 'write']
+            },
+            'user': {
+                name: 'Utilisateur',
+                permissions: ['read']
+            },
+            'caissier': {
+                name: 'Caissier',
+                permissions: ['read', 'pos']
+            }
+        };
+        return roles[profile] || roles['user'];
+    }
+
+    // Voir les détails d'un utilisateur
+    viewUser(userId) {
+        const user = window.app.users.find(u => u.id === userId);
+        if (!user) return;
+
+        const companies = this.getUserCompanies(user);
+        const modalContent = `
+            <div class="space-y-6">
+                <!-- Informations générales -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom complet</label>
+                            <div class="mt-1 text-sm text-gray-900 dark:text-white">${user.name}</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                            <div class="mt-1 text-sm text-gray-900 dark:text-white">${user.email}</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Téléphone</label>
+                            <div class="mt-1 text-sm text-gray-900 dark:text-white">${user.phone || 'Non renseigné'}</div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Rôle</label>
+                            <div class="mt-1">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${this.getRoleBadgeColor(user.profile)}">
+                                    ${this.getRoleIcon(user.profile)} ${user.role}
+                                </span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Statut</label>
+                            <div class="mt-1">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${this.getStatusColor(user.status)}">
+                                    ${user.status}
+                                </span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Dernière connexion</label>
+                            <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                                ${user.lastLogin ? new Date(user.lastLogin).toLocaleString('fr-FR') : 'Jamais connecté'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Entreprises assignées -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Entreprises assignées (${companies.length})</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${companies.map(company => `
+                            <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                                <div class="font-medium text-gray-900 dark:text-white">${company.name}</div>
+                                <div class="text-sm text-gray-500">${company.type}</div>
+                                <div class="text-xs text-gray-400">${company.address || 'Adresse non renseignée'}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Actions rapides -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <button onclick="window.usersController.editUser(${userId})" 
+                            class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
+                        <i class="fas fa-edit mr-2"></i>Modifier
+                    </button>
+                    <button onclick="window.unifiedManager.modalManager.hide()"
+                            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+
+        window.unifiedManager.modalManager.show(`Détails - ${user.name}`, modalContent, { size: 'large' });
+    }
+
+    // Modifier un utilisateur
+    editUser(userId) {
+        const user = window.app.users.find(u => u.id === userId);
+        if (!user) return;
+
+        const modalContent = `
+            <form id="editUserForm" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet*</label>
+                        <input type="text" id="editUserName" value="${user.name}" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email*</label>
+                        <input type="email" id="editUserEmail" value="${user.email}" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
+                        <input type="tel" id="editUserPhone" value="${user.phone || ''}"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Statut</label>
+                        <select id="editUserStatus"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                            <option value="Actif" ${user.status === 'Actif' ? 'selected' : ''}>Actif</option>
+                            <option value="Inactif" ${user.status === 'Inactif' ? 'selected' : ''}>Inactif</option>
+                            <option value="Suspendu" ${user.status === 'Suspendu' ? 'selected' : ''}>Suspendu</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800">
+                        Annuler
+                    </button>
+                    <button type="submit"
+                            class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90">
+                        <i class="fas fa-save mr-2"></i>Sauvegarder
+                    </button>
+                </div>
+            </form>
+        `;
+
+        window.unifiedManager.modalManager.show(`Modifier - ${user.name}`, modalContent, { size: 'large' });
+
+        // Attacher l'événement de soumission
+        setTimeout(() => {
+            document.getElementById('editUserForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.updateUser(userId);
+            });
+        }, 100);
+    }
+
+    // Mettre à jour un utilisateur
+    updateUser(userId) {
+        const user = window.app.users.find(u => u.id === userId);
+        if (!user) return;
+
+        const name = document.getElementById('editUserName').value.trim();
+        const email = document.getElementById('editUserEmail').value.trim();
+        const phone = document.getElementById('editUserPhone').value.trim();
+        const status = document.getElementById('editUserStatus').value;
+
+        // Validation
+        if (!name || !email) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Les champs nom et email sont obligatoires');
+            return;
+        }
+
+        // Vérifier l'email unique (sauf pour l'utilisateur actuel)
+        const existingUser = window.app.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.id !== userId);
+        if (existingUser) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Cet email est déjà utilisé par un autre utilisateur');
+            return;
+        }
+
+        // Mettre à jour l'utilisateur
+        user.name = name;
+        user.email = email;
+        user.phone = phone;
+        user.status = status;
+        user.updatedAt = new Date().toISOString();
+        user.updatedBy = window.app.currentUser.id;
+
+        // Log de sécurité
+        window.unifiedManager.security.logSecurityEvent('user_updated', {
+            userId: userId,
+            updatedBy: window.app.currentUser.id,
+            changes: { name, email, phone, status }
+        });
+
+        window.unifiedManager.modalManager.hide();
+        window.unifiedManager.notificationManager.show('success', 'Utilisateur modifié', `${name} a été mis à jour avec succès`);
+
+        // Recharger la page
+        this.loadUsersPage();
+    }
+
+    // Gérer les accès utilisateur
+    manageUserAccess(userId) {
+        const user = window.app.users.find(u => u.id === userId);
+        if (!user) return;
+
+        const modalContent = `
+            <div class="space-y-6">
+                <div class="text-center">
+                    <div class="w-16 h-16 ${this.getRoleColor(user.profile)} text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-key text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">${user.name}</h3>
+                    <p class="text-gray-500">${user.email}</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-white">Réinitialiser le mot de passe</h4>
+                            <p class="text-sm text-gray-500">Générer un nouveau mot de passe temporaire</p>
+                        </div>
+                        <button onclick="window.usersController.resetPassword(${userId})" 
+                                class="bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90">
+                            <i class="fas fa-key mr-2"></i>Réinitialiser
+                        </button>
+                    </div>
+
+                    <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-white">Forcer la déconnexion</h4>
+                            <p class="text-sm text-gray-500">Déconnecter l'utilisateur de toutes ses sessions</p>
+                        </div>
+                        <button onclick="window.usersController.forceLogout(${userId})" 
+                                class="bg-danger text-white px-4 py-2 rounded-lg hover:bg-danger/90">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Déconnecter
+                        </button>
+                    </div>
+
+                    ${user.status === 'Actif' ? `
+                    <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-white">Suspendre l'accès</h4>
+                            <p class="text-sm text-gray-500">Suspendre temporairement l'utilisateur</p>
+                        </div>
+                        <button onclick="window.usersController.suspendUser(${userId})" 
+                                class="bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90">
+                            <i class="fas fa-user-slash mr-2"></i>Suspendre
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <button onclick="window.unifiedManager.modalManager.hide()"
+                            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+
+        window.unifiedManager.modalManager.show(`Gestion d'accès - ${user.name}`, modalContent);
+    }
+
+    // Réinitialiser le mot de passe
+    resetPassword(userId) {
+        const user = window.app.users.find(u => u.id === userId);
+        if (!user) return;
+
+        const newPassword = this.generateRandomPassword();
+        user.passwordHash = window.unifiedManager.authController.hashPassword(newPassword);
+        user.requirePasswordChange = true;
+
+        window.unifiedManager.notificationManager.show('success', 'Mot de passe réinitialisé', 
+            `Nouveau mot de passe pour ${user.name}: ${newPassword}`);
+        
+        window.unifiedManager.modalManager.hide();
+    }
+
+    // Forcer la déconnexion
+    forceLogout(userId) {
+        const user = window.app.users.find(u => u.id === userId);
+        if (!user) return;
+
+        // Log de sécurité
+        window.unifiedManager.security.logSecurityEvent('forced_logout', {
+            targetUserId: userId,
+            performedBy: window.app.currentUser.id
+        });
+
+        window.unifiedManager.notificationManager.show('success', 'Déconnexion forcée', 
+            `${user.name} a été déconnecté de toutes ses sessions`);
+        
+        window.unifiedManager.modalManager.hide();
+    }
+
+    // Suspendre un utilisateur
+    suspendUser(userId) {
+        const user = window.app.users.find(u => u.id === userId);
+        if (!user) return;
+
+        user.status = 'Suspendu';
+        
+        window.unifiedManager.notificationManager.show('warning', 'Utilisateur suspendu', 
+            `${user.name} a été suspendu`);
+        
+        window.unifiedManager.modalManager.hide();
+        this.loadUsersPage();
+    }
+
+    // Basculer le statut d'un utilisateur
+    toggleUserStatus(userId) {
+        const user = window.app.users.find(u => u.id === userId);
+        if (!user) return;
+
+        const newStatus = user.status === 'Actif' ? 'Inactif' : 'Actif';
+        user.status = newStatus;
+
+        window.unifiedManager.notificationManager.show('success', 'Statut modifié', `${user.name} est maintenant ${newStatus}`);
+        this.loadUsersPage();
+    }
+
+    // Générer un mot de passe aléatoire
+    generateRandomPassword() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let password = '';
+        for (let i = 0; i < 8; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
+    }
+
     // Méthodes utilitaires
     getRoleColor(profile) {
         const colors = {
@@ -491,26 +855,6 @@ class UsersController {
             return window.app.companies.filter(c => c.id === user.companyId);
         }
         return window.app.companies.filter(c => user.assignedCompanies && user.assignedCompanies.includes(c.id));
-    }
-
-    // Autres méthodes de gestion...
-    viewUser(userId) {
-        const user = window.app.users.find(u => u.id === userId);
-        if (!user) return;
-
-        // Implémenter la vue détaillée de l'utilisateur
-        window.unifiedManager.notificationManager.show('info', 'Vue utilisateur', `Affichage des détails de ${user.name}`);
-    }
-
-    toggleUserStatus(userId) {
-        const user = window.app.users.find(u => u.id === userId);
-        if (!user) return;
-
-        const newStatus = user.status === 'Actif' ? 'Inactif' : 'Actif';
-        user.status = newStatus;
-
-        window.unifiedManager.notificationManager.show('success', 'Statut modifié', `${user.name} est maintenant ${newStatus}`);
-        this.loadUsersPage();
     }
 
     showAccessDenied() {
