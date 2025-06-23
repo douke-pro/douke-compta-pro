@@ -2601,6 +2601,744 @@ getPermissionsDisplay(profile) {
         granted: !!permissions[perm.key]
     }));
 }
+
+    <!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module Paramètres & Administration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .douke-logo { transition: all 0.3s ease; }
+        .notification { z-index: 9999; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 p-6">
+
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            <i class="fas fa-cogs mr-2 text-purple-600"></i>
+            Module Paramètres & Administration
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 mb-4">
+            Module autonome prêt à intégrer dans votre application existante.
+        </p>
+        
+        <div class="flex space-x-4">
+            <button onclick="SettingsAdminModule.loadUserSettingsPage()" 
+                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                <i class="fas fa-user mr-2"></i>Paramètres Utilisateur
+            </button>
+            <button onclick="SettingsAdminModule.loadAdminSettingsPage()" 
+                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+                <i class="fas fa-shield-alt mr-2"></i>Administration
+            </button>
+            <button onclick="demoAdminPanel()" 
+                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                <i class="fas fa-play mr-2"></i>Tester
+            </button>
+        </div>
+    </div>
+    
+    <div id="moduleContent" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div class="text-center text-gray-500 dark:text-gray-400">
+            Sélectionnez une option ci-dessus pour voir le contenu
+        </div>
+    </div>
+</div>
+
+<script>
+// =============================================================================
+// MODULE PARAMÈTRES & ADMINISTRATION AUTONOME
+// =============================================================================
+
+window.SettingsAdminModule = (function() {
+    'use strict';
+    
+    // Configuration par défaut
+    const config = {
+        targetElementId: 'moduleContent', // ID de l'élément où injecter le contenu
+        defaultColors: {
+            primary: '#5D5CDE',
+            success: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+            info: '#3B82F6'
+        }
+    };
+    
+    // =============================================================================
+    // FONCTIONS UTILITAIRES INTERNES
+    // =============================================================================
+    
+    function safeGetApp() {
+        return window.app || {
+            currentUser: { 
+                id: 1, 
+                name: 'Utilisateur Test', 
+                email: 'test@example.com', 
+                profile: 'admin',
+                role: 'Administrateur',
+                phone: '',
+                status: 'Actif',
+                lastLogin: new Date().toISOString(),
+                createdAt: new Date().toISOString()
+            },
+            currentCompanyId: null,
+            users: [],
+            companies: [],
+            entries: [],
+            cashRegisters: [],
+            customLogo: null,
+            pendingLogo: null
+        };
+    }
+    
+    function safeGetUnifiedManager() {
+        return window.unifiedManager || {
+            notificationManager: {
+                show: (type, title, message) => console.log(`${type}: ${title} - ${message}`)
+            },
+            modalManager: {
+                show: (title, content) => console.log(`Modal: ${title}`),
+                hide: () => console.log('Modal hidden'),
+                confirm: (title, message, callback) => {
+                    if (confirm(`${title}\n\n${message}`)) callback();
+                }
+            }
+        };
+    }
+    
+    function isAdmin() {
+        const app = safeGetApp();
+        return app.currentUser && app.currentUser.profile === 'admin';
+    }
+    
+    function getSelectedCompanyName() {
+        const app = safeGetApp();
+        if (!app.currentCompanyId || !app.companies) return 'Aucune entreprise';
+        const company = app.companies.find(c => c.id === app.currentCompanyId);
+        return company ? company.name : 'Entreprise inconnue';
+    }
+    
+    function getTargetElement() {
+        return document.getElementById(config.targetElementId) || document.body;
+    }
+    
+    function getPermissionsDisplay(profile) {
+        const permissions = {
+            admin: [
+                { name: 'Gestion des utilisateurs', granted: true },
+                { name: 'Configuration système', granted: true },
+                { name: 'Suppression des données', granted: true },
+                { name: 'Sauvegarde/Restauration', granted: true },
+                { name: 'Gestion des entreprises', granted: true }
+            ],
+            manager: [
+                { name: 'Gestion des utilisateurs', granted: true },
+                { name: 'Configuration système', granted: false },
+                { name: 'Suppression des données', granted: false },
+                { name: 'Sauvegarde/Restauration', granted: true },
+                { name: 'Gestion des entreprises', granted: true }
+            ],
+            user: [
+                { name: 'Gestion des utilisateurs', granted: false },
+                { name: 'Configuration système', granted: false },
+                { name: 'Suppression des données', granted: false },
+                { name: 'Sauvegarde/Restauration', granted: false },
+                { name: 'Gestion des entreprises', granted: false }
+            ]
+        };
+        return permissions[profile] || permissions.user;
+    }
+    
+    // =============================================================================
+    // GESTION DU PROFIL UTILISATEUR
+    // =============================================================================
+    
+    function loadUserSettingsPage() {
+        const app = safeGetApp();
+        const user = app.currentUser;
+        const companyName = getSelectedCompanyName();
+        const targetElement = getTargetElement();
+        
+        const content = `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mon Profil & Paramètres</h2>
+                    <div class="flex items-center space-x-2 text-sm font-medium bg-purple-100 dark:bg-purple-900/30 px-3 py-1 rounded-lg">
+                        <i class="fas fa-shield-alt text-purple-600"></i>
+                        <span class="text-purple-600 dark:text-purple-400">Niveau ${user.profile} - ${user.role}</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Informations personnelles -->
+                    <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                            <i class="fas fa-user mr-2 text-blue-600"></i>Informations Personnelles
+                        </h3>
+                        <form id="userProfileForm" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
+                                    <input type="text" id="userFullName" value="${user.name}" ${user.profile === 'admin' ? '' : 'readonly'} 
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                                    <input type="email" id="userEmail" value="${user.email}" readonly
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
+                                    <input type="tel" id="userPhone" value="${user.phone || ''}" 
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profil</label>
+                                    <input type="text" value="${user.role}" readonly
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
+                                </div>
+                            </div>
+                            
+                            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Changer le mot de passe</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nouveau mot de passe</label>
+                                        <input type="password" id="newPassword" 
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirmer mot de passe</label>
+                                        <input type="password" id="confirmPassword" 
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end space-x-4 pt-4">
+                                <button type="button" onclick="SettingsAdminModule.updateUserProfile()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-save mr-2"></i>Sauvegarder
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Statistiques du profil -->
+                    <div class="space-y-6">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                <i class="fas fa-chart-pie mr-2 text-green-600"></i>Mes Statistiques
+                            </h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600 dark:text-gray-400">Entreprises accessibles:</span>
+                                    <span class="font-bold text-blue-600">${app.companies?.length || 0}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600 dark:text-gray-400">Dernière connexion:</span>
+                                    <span class="font-medium text-sm">${user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('fr-FR') : 'Première connexion'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600 dark:text-gray-400">Membre depuis:</span>
+                                    <span class="font-medium text-sm">${user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : 'Non défini'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600 dark:text-gray-400">Statut:</span>
+                                    <span class="px-2 py-1 rounded text-xs ${user.status === 'Actif' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}">${user.status}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Permissions -->
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                <i class="fas fa-key mr-2 text-yellow-600"></i>Mes Permissions
+                            </h3>
+                            <div class="space-y-2 text-sm">
+                                ${getPermissionsDisplay(user.profile).map(perm => `
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas ${perm.granted ? 'fa-check text-green-600' : 'fa-times text-red-600'}"></i>
+                                    <span class="${perm.granted ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}">${perm.name}</span>
+                                </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        ${app.currentCompanyId ? `
+                        <!-- Entreprise actuelle -->
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                <i class="fas fa-building mr-2 text-green-600"></i>Entreprise Active
+                            </h3>
+                            <div class="text-center">
+                                <div class="font-medium text-gray-900 dark:text-white">${companyName}</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Sélectionnée</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        targetElement.innerHTML = content;
+    }
+    
+    function updateUserProfile() {
+        try {
+            const form = document.getElementById('userProfileForm');
+            if (!form) {
+                throw new Error('Formulaire non trouvé');
+            }
+
+            const fullName = document.getElementById('userFullName')?.value;
+            const phone = document.getElementById('userPhone')?.value;
+            const newPassword = document.getElementById('newPassword')?.value;
+            const confirmPassword = document.getElementById('confirmPassword')?.value;
+
+            // Validation du mot de passe si fourni
+            if (newPassword && newPassword !== confirmPassword) {
+                safeGetUnifiedManager().notificationManager.show('error', 'Erreur', 'Les mots de passe ne correspondent pas');
+                return;
+            }
+
+            if (newPassword && newPassword.length < 6) {
+                safeGetUnifiedManager().notificationManager.show('error', 'Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
+                return;
+            }
+
+            // Mettre à jour les données utilisateur
+            const app = safeGetApp();
+            const user = app.currentUser;
+            if (fullName && user.profile === 'admin') {
+                user.name = fullName;
+            }
+            if (phone) {
+                user.phone = phone;
+            }
+            if (newPassword) {
+                user.password = newPassword;
+            }
+
+            // Réinitialiser les champs mot de passe
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+
+            safeGetUnifiedManager().notificationManager.show('success', 'Profil mis à jour', 'Vos informations ont été sauvegardées');
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du profil:', error);
+            safeGetUnifiedManager().notificationManager.show('error', 'Erreur', 'Impossible de mettre à jour le profil');
+        }
+    }
+    
+    // =============================================================================
+    // ADMINISTRATION AVANCÉE
+    // =============================================================================
+    
+    function loadAdminSettingsPage() {
+        if (!isAdmin()) {
+            safeGetUnifiedManager().notificationManager.show('error', 'Accès refusé', 'Administrateur requis');
+            return;
+        }
+
+        const app = safeGetApp();
+        const targetElement = getTargetElement();
+        
+        const content = `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Administration Système</h2>
+                    <div class="flex items-center space-x-2 text-sm text-red-600 dark:text-red-400 font-medium bg-red-100 dark:bg-red-900/30 px-3 py-1 rounded-lg">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Accès Administrateur</span>
+                    </div>
+                </div>
+
+                <!-- Gestion du Logo -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-image mr-2 text-blue-600"></i>Gestion du Logo
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                Logo actuel
+                            </label>
+                            <div id="currentLogoPreview" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                                <div class="w-20 h-20 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-calculator text-3xl"></i>
+                                </div>
+                                <p class="text-sm text-gray-500">Logo par défaut</p>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                Nouveau logo
+                            </label>
+                            <div class="space-y-4">
+                                <input type="file" id="logoUpload" accept="image/*" class="hidden">
+                                <button onclick="document.getElementById('logoUpload').click()" 
+                                    class="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-blue-600 transition-colors">
+                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                    <p class="text-sm text-gray-500">Cliquer pour choisir un logo</p>
+                                    <p class="text-xs text-gray-400 mt-1">PNG, JPG ou SVG - Max 2MB</p>
+                                </button>
+                                
+                                <div id="newLogoPreview" class="hidden border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                                    <img id="logoPreviewImg" src="" alt="Aperçu" class="max-w-full h-20 mx-auto">
+                                    <div class="mt-3 flex space-x-3">
+                                        <button onclick="SettingsAdminModule.applyNewLogo()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                                            <i class="fas fa-check mr-2"></i>Appliquer
+                                        </button>
+                                        <button onclick="SettingsAdminModule.cancelLogoUpload()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                                            <i class="fas fa-times mr-2"></i>Annuler
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gestion des Données Test -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-database mr-2 text-yellow-600"></i>Gestion des Données Test
+                    </h3>
+                    
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+                        <div class="flex items-start space-x-3">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 mt-1"></i>
+                            <div>
+                                <h4 class="font-medium text-yellow-800 dark:text-yellow-200">Attention - Action irréversible</h4>
+                                <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                                    La suppression des données test supprimera définitivement toutes les données de démonstration.
+                                    Cette action ne peut pas être annulée.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-blue-600">${app.users?.length || 0}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs test</div>
+                        </div>
+                        <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-green-600">${app.companies?.length || 0}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Entreprises test</div>
+                        </div>
+                        <div class="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-purple-600">${app.entries?.length || 0}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Écritures test</div>
+                        </div>
+                        <div class="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-yellow-600">${app.cashRegisters?.length || 0}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Caisses test</div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-4">
+                        <button onclick="SettingsAdminModule.confirmDeleteTestData()" 
+                            class="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors">
+                            <i class="fas fa-trash mr-2"></i>Supprimer toutes les données test
+                        </button>
+                        <button onclick="SettingsAdminModule.resetToCleanSlate()" 
+                            class="bg-yellow-600 text-white px-6 py-3 rounded-lg hover:bg-yellow-700 transition-colors">
+                            <i class="fas fa-broom mr-2"></i>Réinitialiser complètement
+                        </button>
+                        <button onclick="SettingsAdminModule.exportTestDataBackup()" 
+                            class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-download mr-2"></i>Sauvegarder avant suppression
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        targetElement.innerHTML = content;
+        
+        // Initialiser l'upload de logo après rendu
+        setTimeout(() => {
+            initializeLogoUpload();
+        }, 100);
+    }
+    
+    // =============================================================================
+    // GESTION DU LOGO
+    // =============================================================================
+    
+    function initializeLogoUpload() {
+        const logoUpload = document.getElementById('logoUpload');
+        const newLogoPreview = document.getElementById('newLogoPreview');
+        const logoPreviewImg = document.getElementById('logoPreviewImg');
+
+        if (logoUpload) {
+            logoUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    if (file.size > 2 * 1024 * 1024) {
+                        safeGetUnifiedManager().notificationManager.show('error', 'Fichier trop volumineux', 'Le logo ne doit pas dépasser 2MB');
+                        return;
+                    }
+
+                    if (!file.type.startsWith('image/')) {
+                        safeGetUnifiedManager().notificationManager.show('error', 'Format invalide', 'Seuls les fichiers image sont acceptés');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        logoPreviewImg.src = e.target.result;
+                        newLogoPreview.classList.remove('hidden');
+                        const app = safeGetApp();
+                        app.pendingLogo = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+    }
+    
+    function applyNewLogo() {
+        const app = safeGetApp();
+        if (!app.pendingLogo) {
+            safeGetUnifiedManager().notificationManager.show('error', 'Erreur', 'Aucun logo en attente');
+            return;
+        }
+
+        try {
+            localStorage.setItem('customAppLogo', app.pendingLogo);
+            app.customLogo = app.pendingLogo;
+
+            updateLogoThroughoutApp(app.pendingLogo);
+
+            safeGetUnifiedManager().notificationManager.show('success', 'Logo appliqué', 'Le nouveau logo a été appliqué');
+            
+            const currentLogoPreview = document.getElementById('currentLogoPreview');
+            if (currentLogoPreview) {
+                currentLogoPreview.innerHTML = `
+                    <img src="${app.pendingLogo}" alt="Logo actuel" class="max-w-full h-20 mx-auto mb-2">
+                    <p class="text-sm text-gray-500">Logo personnalisé</p>
+                `;
+            }
+
+            cancelLogoUpload();
+        } catch (error) {
+            console.error('Erreur lors de la sauvegarde du logo:', error);
+            safeGetUnifiedManager().notificationManager.show('error', 'Erreur', 'Impossible de sauvegarder le logo');
+        }
+    }
+    
+    function updateLogoThroughoutApp(logoUrl) {
+        document.querySelectorAll('.douke-logo, [data-logo]').forEach(el => {
+            if (el.tagName === 'IMG') {
+                el.src = logoUrl;
+            } else {
+                el.innerHTML = `<img src="${logoUrl}" alt="Logo" class="h-full w-auto douke-logo">`;
+            }
+        });
+    }
+    
+    function cancelLogoUpload() {
+        const newLogoPreview = document.getElementById('newLogoPreview');
+        const logoUpload = document.getElementById('logoUpload');
+
+        if (newLogoPreview) newLogoPreview.classList.add('hidden');
+        if (logoUpload) logoUpload.value = '';
+
+        const app = safeGetApp();
+        delete app.pendingLogo;
+    }
+    
+    // =============================================================================
+    // GESTION DES DONNÉES
+    // =============================================================================
+    
+    function confirmDeleteTestData() {
+        safeGetUnifiedManager().modalManager.confirm(
+            'Supprimer les données test',
+            'Êtes-vous ABSOLUMENT sûr de vouloir supprimer toutes les données de test ? Cette action est DÉFINITIVE.',
+            () => deleteAllTestData()
+        );
+    }
+    
+    function deleteAllTestData() {
+        const app = safeGetApp();
+        const adminUser = app.users?.find(u => u.profile === 'admin');
+
+        if (!adminUser) {
+            safeGetUnifiedManager().notificationManager.show('error', 'Erreur critique', 'Aucun administrateur trouvé - Annulation');
+            return;
+        }
+
+        const counts = {
+            users: (app.users?.length || 0) - 1,
+            companies: app.companies?.length || 0,
+            entries: app.entries?.length || 0,
+            cashRegisters: app.cashRegisters?.length || 0
+        };
+
+        // Réinitialiser les données
+        app.users = [adminUser];
+        app.companies = [];
+        app.entries = [];
+        app.cashRegisters = [];
+        app.currentCompanyId = null;
+
+        safeGetUnifiedManager().notificationManager.show(
+            'success',
+            'Données supprimées',
+            `${counts.users} utilisateurs, ${counts.companies} entreprises, ${counts.entries} écritures et ${counts.cashRegisters} caisses supprimés`
+        );
+        
+        // Recharger la page admin
+        loadAdminSettingsPage();
+    }
+    
+    function resetToCleanSlate() {
+        safeGetUnifiedManager().modalManager.confirm(
+            'Réinitialisation complète',
+            'Cette action va supprimer TOUTES les données et créer une base propre. Continuer ?',
+            () => {
+                deleteAllTestData();
+                setTimeout(() => {
+                    safeGetUnifiedManager().notificationManager.show('info', 'Base propre', 'Système réinitialisé - Prêt pour vos vraies données');
+                }, 1000);
+            }
+        );
+    }
+    
+    function exportTestDataBackup() {
+        const app = safeGetApp();
+        const backup = {
+            version: '3.1',
+            timestamp: new Date().toISOString(),
+            data: {
+                users: app.users || [],
+                companies: app.companies || [],
+                entries: app.entries || [],
+                cashRegisters: app.cashRegisters || []
+            }
+        };
+
+        const dataStr = JSON.stringify(backup, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        const url = URL.createObjectURL(dataBlob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `app-backup-${new Date().toISOString().slice(0,10)}.json`;
+        link.click();
+
+        URL.revokeObjectURL(url);
+
+        safeGetUnifiedManager().notificationManager.show('success', 'Sauvegarde créée', 'Les données ont été exportées avec succès');
+    }
+    
+    // =============================================================================
+    // INITIALISATION
+    // =============================================================================
+    
+    function initializeCustomLogo() {
+        const savedLogo = localStorage.getItem('customAppLogo');
+        if (savedLogo) {
+            const app = safeGetApp();
+            app.customLogo = savedLogo;
+            updateLogoThroughoutApp(savedLogo);
+        }
+    }
+    
+    // Auto-initialisation
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeCustomLogo);
+    } else {
+        initializeCustomLogo();
+    }
+    
+    // =============================================================================
+    // API PUBLIQUE
+    // =============================================================================
+    
+    return {
+        // Paramètres utilisateur
+        loadUserSettingsPage: loadUserSettingsPage,
+        updateUserProfile: updateUserProfile,
+        
+        // Administration
+        loadAdminSettingsPage: loadAdminSettingsPage,
+        
+        // Gestion du logo
+        initializeLogoUpload: initializeLogoUpload,
+        applyNewLogo: applyNewLogo,
+        updateLogoThroughoutApp: updateLogoThroughoutApp,
+        cancelLogoUpload: cancelLogoUpload,
+        
+        // Gestion des données
+        confirmDeleteTestData: confirmDeleteTestData,
+        deleteAllTestData: deleteAllTestData,
+        resetToCleanSlate: resetToCleanSlate,
+        exportTestDataBackup: exportTestDataBackup,
+        
+        // Utilitaires
+        initializeCustomLogo: initializeCustomLogo,
+        getSelectedCompanyName: getSelectedCompanyName,
+        isAdmin: isAdmin,
+        
+        // Configuration
+        config: config
+    };
+})();
+
+// =============================================================================
+// SIMULATEUR DE GESTIONNAIRES POUR LA DÉMO
+// =============================================================================
+
+// Simuler les gestionnaires s'ils n'existent pas
+if (!window.unifiedManager) {
+    window.unifiedManager = {
+        notificationManager: {
+            show: function(type, title, message) {
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    warning: 'bg-yellow-500',
+                    info: 'bg-blue-500'
+                };
+                
+                const notification = document.createElement('div');
+                notification.className = `fixed top-4 right-4 ${colors[type] || 'bg-gray-500'} text-white p-4 rounded-lg shadow-lg z-50 notification max-w-sm`;
+                notification.innerHTML = `
+                    <div class="font-bold">${title}</div>
+                    <div class="text-sm mt-1">${message}</div>
+                `;
+                
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 5000);
+            }
+        },
+        modalManager: {
+            show: (title, content) => console.log(`Modal: ${title}`),
+            hide: () => console.log('Modal hidden'),
+            confirm: (title, message, callback) => {
+                if (confirm(`${title}\n\n${message}`)) callback();
+            }
+        }
+    };
+}
+
+function demoAdminPanel() {
+    window.unifiedManager.notificationManager.show('info', 'Panneau Admin', 'Fonctionnalité d\'administration prête à intégrer');
+}
+
     loadTeamPage() { this.showPlaceholder('Gestion d\'Équipe'); }
     loadCashierReports() { this.showPlaceholder('États de Caisse'); }
 
