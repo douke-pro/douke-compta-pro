@@ -2443,430 +2443,147 @@ loadReportsPage() {
     document.getElementById('mainContent').innerHTML = content;
 }
     
-
-    // =============================================================================
-// BACKEND CLOUD - GOOGLE SHEETS + BIGQUERY
+// =============================================================================
+// GESTION DES PARAMÈTRES ET PROFIL UTILISATEUR
 // =============================================================================
 
 /**
- * Configuration du backend Google Sheets
+ * Charge la page des paramètres utilisateur
  */
-function setupGoogleSheetsBackend() {
-    const modalContent = `
+loadSettingsPage() {
+    const user = window.app.currentUser;
+    const companyName = this.getSelectedCompanyName();
+
+    const content = `
     <div class="space-y-6">
-        <div class="text-center">
-            <div class="w-16 h-16 bg-green-600 text-white rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fab fa-google text-2xl"></i>
+        <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mon Profil & Paramètres</h2>
+            <div class="flex items-center space-x-2 text-sm font-medium bg-primary/10 px-3 py-1 rounded-lg">
+                <i class="fas fa-shield-alt text-primary"></i>
+                <span class="text-primary">Niveau ${this.security.profileHierarchy[user.profile]} - ${user.role}</span>
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Configuration Google Sheets</h3>
-            <p class="text-gray-600 dark:text-gray-400">Connectez votre Google Drive pour la synchronisation</p>
         </div>
 
-        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-            <h4 class="font-medium text-gray-900 dark:text-white mb-3">Étapes de configuration</h4>
-            <ol class="text-sm text-gray-600 dark:text-gray-400 space-y-2">
-                <li>1. Créer un projet dans Google Cloud Console</li>
-                <li>2. Activer les APIs Google Sheets et Google Drive</li>
-                <li>3. Créer des identifiants OAuth 2.0</li>
-                <li>4. Configurer les paramètres ci-dessous</li>
-            </ol>
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Informations personnelles -->
+            <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-user mr-2 text-primary"></i>Informations Personnelles
+                </h3>
+                <form id="userProfileForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
+                            <input type="text" id="userFullName" value="${user.name}" ${user.profile === 'admin' ? '' : 'readonly'} 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                            <input type="email" id="userEmail" value="${user.email}" readonly
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
+                            <input type="tel" id="userPhone" value="${user.phone || ''}" 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profil</label>
+                            <input type="text" value="${user.role}" readonly
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <h4 class="font-medium text-gray-900 dark:text-white mb-3">Changer le mot de passe</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nouveau mot de passe</label>
+                                <input type="password" id="newPassword" 
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirmer mot de passe</label>
+                                <input type="password" id="confirmPassword" 
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                            </div>
+                        </div>
+                    </div>
 
-        <form id="googleSheetsConfigForm" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Client ID Google*
-                </label>
-                <input type="text" id="googleClientId" required placeholder="123456789-abc.apps.googleusercontent.com"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" onclick="updateUserProfile()" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                            <i class="fas fa-save mr-2"></i>Sauvegarder
+                        </button>
+                    </div>
+                </form>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Client Secret Google*
-                </label>
-                <input type="password" id="googleClientSecret" required placeholder="GOCSPX-..."
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nom du dossier Google Drive
-                </label>
-                <input type="text" id="googleDriveFolder" value="DOUKE Compta Pro" 
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Fréquence de synchronisation
-                    </label>
-                    <select id="syncFrequency" 
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-                        <option value="realtime">Temps réel</option>
-                        <option value="5min">Toutes les 5 minutes</option>
-                        <option value="15min">Toutes les 15 minutes</option>
-                        <option value="1hour">Toutes les heures</option>
-                        <option value="manual">Manuel uniquement</option>
-                    </select>
+            <!-- Statistiques du profil -->
+            <div class="space-y-6">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-chart-pie mr-2 text-info"></i>Mes Statistiques
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600 dark:text-gray-400">Entreprises accessibles:</span>
+                            <span class="font-bold text-primary">${this.security.getAccessibleCompanies(user.id).length}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600 dark:text-gray-400">Dernière connexion:</span>
+                            <span class="font-medium text-sm">${user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('fr-FR') : 'Première connexion'}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600 dark:text-gray-400">Membre depuis:</span>
+                            <span class="font-medium text-sm">${user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : 'Non défini'}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600 dark:text-gray-400">Statut:</span>
+                            <span class="px-2 py-1 rounded text-xs ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">${user.status}</span>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Mode de sauvegarde
-                    </label>
-                    <select id="backupMode" 
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-                        <option value="incremental">Incrémentale</option>
-                        <option value="full">Complète</option>
-                        <option value="diff">Différentielle</option>
-                    </select>
+
+                <!-- Permissions -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-key mr-2 text-warning"></i>Mes Permissions
+                    </h3>
+                    <div class="space-y-2 text-sm">
+                        ${this.getPermissionsDisplay(user.profile).map(perm => `
+                        <div class="flex items-center space-x-2">
+                            <i class="fas ${perm.granted ? 'fa-check text-success' : 'fa-times text-danger'}"></i>
+                            <span class="${perm.granted ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}">${perm.name}</span>
+                        </div>
+                        `).join('')}
+                    </div>
                 </div>
-            </div>
 
-            <div class="flex items-center space-x-2">
-                <input type="checkbox" id="autoCreateSheets" checked class="rounded border-gray-300 dark:border-gray-600">
-                <label for="autoCreateSheets" class="text-sm text-gray-700 dark:text-gray-300">
-                    Créer automatiquement les feuilles de calcul par entreprise
-                </label>
+                ${window.app.currentCompanyId ? `
+                <!-- Entreprise actuelle -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-building mr-2 text-success"></i>Entreprise Active
+                    </h3>
+                    <div class="text-center">
+                        <div class="font-medium text-gray-900 dark:text-white">${companyName}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Sélectionnée</div>
+                        <button onclick="window.unifiedManager.loadCompaniesPage()" class="mt-3 text-primary hover:text-primary/80 text-sm">
+                            <i class="fas fa-exchange-alt mr-1"></i>Changer d'entreprise
+                        </button>
+                    </div>
+                </div>
+                ` : ''}
             </div>
-
-            <div class="flex items-center space-x-2">
-                <input type="checkbox" id="enableRealTimeCollab" class="rounded border-gray-300 dark:border-gray-600">
-                <label for="enableRealTimeCollab" class="text-sm text-gray-700 dark:text-gray-300">
-                    Activer la collaboration en temps réel
-                </label>
-            </div>
-        </form>
-
-        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
-            <button onclick="window.unifiedManager.modalManager.hide()"
-                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-                Annuler
-            </button>
-            <button onclick="testGoogleConnection()"
-                class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90">
-                <i class="fas fa-flask mr-2"></i>Tester la connexion
-            </button>
-            <button onclick="saveGoogleSheetsConfig()"
-                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
-                <i class="fas fa-save mr-2"></i>Sauvegarder
-            </button>
         </div>
     </div>
     `;
 
-    window.unifiedManager.modalManager.show('Configuration Google Sheets', modalContent);
+    document.getElementById('mainContent').innerHTML = content;
 }
 
-/**
- * Configuration du backend BigQuery
- */
-function setupBigQueryBackend() {
-    const modalContent = `
-    <div class="space-y-6">
-        <div class="text-center">
-            <div class="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-database text-2xl"></i>
-            </div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Configuration BigQuery</h3>
-            <p class="text-gray-600 dark:text-gray-400">Configurez l'entrepôt de données pour les analyses avancées</p>
-        </div>
 
-        <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-            <h4 class="font-medium text-blue-900 dark:text-blue-300 mb-2">
-                <i class="fas fa-info-circle mr-2"></i>Avantages BigQuery
-            </h4>
-            <ul class="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                <li>• Analyses SQL avancées sur vos données comptables</li>
-                <li>• Rapports automatisés avec Google Data Studio</li>
-                <li>• Historique complet et versionné</li>
-                <li>• Capacité de traitement illimitée</li>
-                <li>• Intégration avec d'autres outils Google</li>
-            </ul>
-        </div>
-
-        <form id="bigQueryConfigForm" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Project ID Google Cloud*
-                </label>
-                <input type="text" id="gcpProjectId" required placeholder="mon-projet-compta-123"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nom du Dataset BigQuery
-                </label>
-                <input type="text" id="bigQueryDataset" value="douke_compta_data" 
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Clé JSON du compte de service
-                </label>
-                <textarea id="serviceAccountKey" rows="6" placeholder='{"type": "service_account", "project_id": "..."}'
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base"></textarea>
-                <p class="text-xs text-gray-500 mt-1">Collez ici le contenu du fichier JSON de votre compte de service</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Région BigQuery
-                    </label>
-                    <select id="bigQueryRegion" 
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-                        <option value="europe-west1">Europe (Belgique)</option>
-                        <option value="europe-west3">Europe (Francfort)</option>
-                        <option value="us-central1">US Central</option>
-                        <option value="asia-southeast1">Asie (Singapour)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Mode de stockage
-                    </label>
-                    <select id="storageMode" 
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
-                        <option value="standard">Standard</option>
-                        <option value="nearline">Nearline (économique)</option>
-                        <option value="coldline">Coldline (archivage)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="space-y-3">
-                <h4 class="font-medium text-gray-900 dark:text-white">Tables à créer</h4>
-                <div class="grid grid-cols-2 gap-2">
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" checked class="rounded border-gray-300 dark:border-gray-600">
-                        <span class="text-sm">Écritures comptables</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" checked class="rounded border-gray-300 dark:border-gray-600">
-                        <span class="text-sm">Comptes</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" checked class="rounded border-gray-300 dark:border-gray-600">
-                        <span class="text-sm">Entreprises</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" checked class="rounded border-gray-300 dark:border-gray-600">
-                        <span class="text-sm">Caisses</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" class="rounded border-gray-300 dark:border-gray-600">
-                        <span class="text-sm">Logs d'audit</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" class="rounded border-gray-300 dark:border-gray-600">
-                        <span class="text-sm">Métriques</span>
-                    </label>
-                </div>
-            </div>
-        </form>
-
-        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
-            <button onclick="window.unifiedManager.modalManager.hide()"
-                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-                Annuler
-            </button>
-            <button onclick="testBigQueryConnection()"
-                class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90">
-                <i class="fas fa-flask mr-2"></i>Tester la connexion
-            </button>
-            <button onclick="createBigQueryTables()"
-                class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90">
-                <i class="fas fa-table mr-2"></i>Créer les tables
-            </button>
-            <button onclick="saveBigQueryConfig()"
-                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                <i class="fas fa-save mr-2"></i>Sauvegarder
-            </button>
-        </div>
-    </div>
-    `;
-
-    window.unifiedManager.modalManager.show('Configuration BigQuery', modalContent);
-}
-
-/**
- * Sauvegarde la configuration Google Sheets
- */
-function saveGoogleSheetsConfig() {
-    const clientId = document.getElementById('googleClientId').value;
-    const clientSecret = document.getElementById('googleClientSecret').value;
-    const driveFolder = document.getElementById('googleDriveFolder').value;
-    const syncFrequency = document.getElementById('syncFrequency').value;
-    const backupMode = document.getElementById('backupMode').value;
-    const autoCreateSheets = document.getElementById('autoCreateSheets').checked;
-    const enableRealTimeCollab = document.getElementById('enableRealTimeCollab').checked;
-
-    if (!clientId || !clientSecret) {
-        window.unifiedManager.notificationManager.show('error', 'Configuration incomplète', 'Le Client ID et Client Secret sont obligatoires');
-        return;
-    }
-
-    const config = {
-        provider: 'google_sheets',
-        clientId: clientId,
-        clientSecret: clientSecret,
-        driveFolder: driveFolder,
-        syncFrequency: syncFrequency,
-        backupMode: backupMode,
-        autoCreateSheets: autoCreateSheets,
-        enableRealTimeCollab: enableRealTimeCollab,
-        configuredAt: new Date().toISOString(),
-        configuredBy: window.app.currentUser.id
-    };
-
-    // Sauvegarder dans localStorage (en production, utiliser un stockage sécurisé)
-    try {
-        localStorage.setItem('doukeGoogleSheetsConfig', JSON.stringify(config));
-        window.app.cloudConfig = window.app.cloudConfig || {};
-        window.app.cloudConfig.googleSheets = config;
-
-        window.unifiedManager.modalManager.hide();
-        window.unifiedManager.notificationManager.show('success', 'Configuration sauvegardée', 'Google Sheets configuré avec succès');
-        
-        // Mettre à jour le statut dans l'interface
-        updateCloudStatus();
-    } catch (error) {
-        window.unifiedManager.notificationManager.show('error', 'Erreur de sauvegarde', 'Impossible de sauvegarder la configuration');
-    }
-}
-
-/**
- * Sauvegarde la configuration BigQuery
- */
-function saveBigQueryConfig() {
-    const projectId = document.getElementById('gcpProjectId').value;
-    const dataset = document.getElementById('bigQueryDataset').value;
-    const serviceAccountKey = document.getElementById('serviceAccountKey').value;
-    const region = document.getElementById('bigQueryRegion').value;
-    const storageMode = document.getElementById('storageMode').value;
-
-    if (!projectId || !dataset || !serviceAccountKey) {
-        window.unifiedManager.notificationManager.show('error', 'Configuration incomplète', 'Tous les champs obligatoires doivent être remplis');
-        return;
-    }
-
-    // Valider le JSON du compte de service
-    try {
-        JSON.parse(serviceAccountKey);
-    } catch (error) {
-        window.unifiedManager.notificationManager.show('error', 'JSON invalide', 'La clé du compte de service n\'est pas un JSON valide');
-        return;
-    }
-
-    const config = {
-        provider: 'bigquery',
-        projectId: projectId,
-        dataset: dataset,
-        serviceAccountKey: serviceAccountKey,
-        region: region,
-        storageMode: storageMode,
-        configuredAt: new Date().toISOString(),
-        configuredBy: window.app.currentUser.id
-    };
-
-    try {
-        localStorage.setItem('doukeBigQueryConfig', JSON.stringify(config));
-        window.app.cloudConfig = window.app.cloudConfig || {};
-        window.app.cloudConfig.bigQuery = config;
-
-        window.unifiedManager.modalManager.hide();
-        window.unifiedManager.notificationManager.show('success', 'Configuration sauvegardée', 'BigQuery configuré avec succès');
-        
-        updateCloudStatus();
-    } catch (error) {
-        window.unifiedManager.notificationManager.show('error', 'Erreur de sauvegarde', 'Impossible de sauvegarder la configuration');
-    }
-}
-
-/**
- * Test de connexion Google Sheets
- */
-function testGoogleConnection() {
-    window.unifiedManager.notificationManager.show('info', 'Test en cours', 'Test de connexion à Google Sheets...');
-    
-    // Simuler le test (en production, faire un vrai test API)
-    setTimeout(() => {
-        const success = Math.random() > 0.3; // 70% de chance de succès pour la démo
-        
-        if (success) {
-            window.unifiedManager.notificationManager.show('success', 'Connexion réussie', 'Google Sheets est accessible avec ces paramètres');
-        } else {
-            window.unifiedManager.notificationManager.show('error', 'Connexion échouée', 'Vérifiez vos identifiants et les permissions API');
-        }
-    }, 2000);
-}
-
-/**
- * Test de connexion BigQuery
- */
-function testBigQueryConnection() {
-    window.unifiedManager.notificationManager.show('info', 'Test en cours', 'Test de connexion à BigQuery...');
-    
-    setTimeout(() => {
-        const success = Math.random() > 0.3;
-        
-        if (success) {
-            window.unifiedManager.notificationManager.show('success', 'Connexion réussie', 'BigQuery est accessible avec ces paramètres');
-        } else {
-            window.unifiedManager.notificationManager.show('error', 'Connexion échouée', 'Vérifiez votre configuration et les permissions');
-        }
-    }, 2000);
-}
-
-/**
- * Création des tables BigQuery
- */
-function createBigQueryTables() {
-    window.unifiedManager.notificationManager.show('info', 'Création en cours', 'Création des tables BigQuery...');
-    
-    setTimeout(() => {
-        window.unifiedManager.notificationManager.show('success', 'Tables créées', 'Toutes les tables BigQuery ont été créées avec succès');
-    }, 3000);
-}
-
-/**
- * Met à jour le statut cloud dans l'interface
- */
-function updateCloudStatus() {
-    const cloudStatus = document.getElementById('cloudStatus');
-    if (!cloudStatus) return;
-
-    const hasGoogleSheets = localStorage.getItem('doukeGoogleSheetsConfig');
-    const hasBigQuery = localStorage.getItem('doukeBigQueryConfig');
-
-    cloudStatus.innerHTML = `
-        <div class="flex justify-between">
-            <span>Google Drive:</span>
-            <span class="${hasGoogleSheets ? 'text-success' : 'text-warning'}">${hasGoogleSheets ? 'Configuré' : 'Non configuré'}</span>
-        </div>
-        <div class="flex justify-between">
-            <span>Google Sheets:</span>
-            <span class="${hasGoogleSheets ? 'text-success' : 'text-warning'}">${hasGoogleSheets ? 'Configuré' : 'Non configuré'}</span>
-        </div>
-        <div class="flex justify-between">
-            <span>BigQuery:</span>
-            <span class="${hasBigQuery ? 'text-success' : 'text-warning'}">${hasBigQuery ? 'Configuré' : 'Non configuré'}</span>
-        </div>
-    `;
-}
-
-// Initialiser le logo personnalisé au chargement
-document.addEventListener('DOMContentLoaded', function() {
-    const savedLogo = localStorage.getItem('doukeComptaLogo');
-    if (savedLogo) {
-        window.app.customLogo = savedLogo;
-        updateLogoThroughoutApp(savedLogo);
-    }
-});
+ 
     
 // Ajouter cette méthode auxiliaire après loadSettingsPage()
 getPermissionsDisplay(profile) {
