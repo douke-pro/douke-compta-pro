@@ -2443,7 +2443,13 @@ loadReportsPage() {
     document.getElementById('mainContent').innerHTML = content;
 }
     
-  // Remplacer : loadSettingsPage() { this.showPlaceholder('Paramètres'); }
+// =============================================================================
+// GESTION DES PARAMÈTRES ET PROFIL UTILISATEUR
+// =============================================================================
+
+/**
+ * Charge la page des paramètres utilisateur
+ */
 loadSettingsPage() {
     const user = window.app.currentUser;
     const companyName = this.getSelectedCompanyName();
@@ -2468,17 +2474,17 @@ loadSettingsPage() {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet</label>
-                            <input type="text" value="${user.name}" ${user.profile === 'admin' ? '' : 'readonly'} 
+                            <input type="text" id="userFullName" value="${user.name}" ${user.profile === 'admin' ? '' : 'readonly'} 
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                            <input type="email" value="${user.email}" readonly
+                            <input type="email" id="userEmail" value="${user.email}" readonly
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
-                            <input type="tel" value="${user.phone || ''}" 
+                            <input type="tel" id="userPhone" value="${user.phone || ''}" 
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
                         </div>
                         <div>
@@ -2576,7 +2582,7 @@ loadSettingsPage() {
     document.getElementById('mainContent').innerHTML = content;
 }
 
-  // =============================================================================
+// =============================================================================
 // FONCTIONS ADMINISTRATION AVANCÉE
 // =============================================================================
 
@@ -2744,11 +2750,64 @@ loadAdminSettingsPage() {
     `;
 
     document.getElementById('mainContent').innerHTML = content;
-    
+
     // Initialiser l'upload de logo
     setTimeout(() => {
         initializeLogoUpload();
     }, 100);
+}
+
+// =============================================================================
+// FONCTIONS UTILITAIRES ET GESTION
+// =============================================================================
+
+/**
+ * Met à jour le profil utilisateur
+ */
+function updateUserProfile() {
+    try {
+        const form = document.getElementById('userProfileForm');
+        if (!form) {
+            throw new Error('Formulaire non trouvé');
+        }
+
+        const fullName = document.getElementById('userFullName')?.value;
+        const phone = document.getElementById('userPhone')?.value;
+        const newPassword = document.getElementById('newPassword')?.value;
+        const confirmPassword = document.getElementById('confirmPassword')?.value;
+
+        // Validation du mot de passe si fourni
+        if (newPassword && newPassword !== confirmPassword) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Les mots de passe ne correspondent pas');
+            return;
+        }
+
+        if (newPassword && newPassword.length < 6) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
+            return;
+        }
+
+        // Mettre à jour les données utilisateur
+        const user = window.app.currentUser;
+        if (fullName && user.profile === 'admin') {
+            user.name = fullName;
+        }
+        if (phone) {
+            user.phone = phone;
+        }
+        if (newPassword) {
+            user.password = newPassword;
+        }
+
+        // Réinitialiser les champs mot de passe
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+
+        window.unifiedManager.notificationManager.show('success', 'Profil mis à jour', 'Vos informations ont été sauvegardées');
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour du profil:', error);
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Impossible de mettre à jour le profil');
+    }
 }
 
 /**
@@ -2815,6 +2874,7 @@ function applyNewLogo() {
 
         cancelLogoUpload();
     } catch (error) {
+        console.error('Erreur lors de la sauvegarde du logo:', error);
         window.unifiedManager.notificationManager.show('error', 'Erreur', 'Impossible de sauvegarder le logo');
     }
 }
@@ -2851,10 +2911,10 @@ function updateLogoThroughoutApp(logoUrl) {
 function cancelLogoUpload() {
     const newLogoPreview = document.getElementById('newLogoPreview');
     const logoUpload = document.getElementById('logoUpload');
-    
+
     if (newLogoPreview) newLogoPreview.classList.add('hidden');
     if (logoUpload) logoUpload.value = '';
-    
+
     delete window.app.pendingLogo;
 }
 
@@ -2876,7 +2936,7 @@ function confirmDeleteTestData() {
  */
 function deleteAllTestData() {
     const adminUser = window.app.users.find(u => u.profile === 'admin');
-    
+
     if (!adminUser) {
         window.unifiedManager.notificationManager.show('error', 'Erreur critique', 'Aucun administrateur trouvé - Annulation');
         return;
@@ -2904,8 +2964,8 @@ function deleteAllTestData() {
     window.unifiedManager.loadSecureDashboard();
 
     window.unifiedManager.notificationManager.show(
-        'success', 
-        'Données supprimées', 
+        'success',
+        'Données supprimées',
         `${counts.users} utilisateurs, ${counts.companies} entreprises, ${counts.entries} écritures et ${counts.cashRegisters} caisses supprimés avec succès`
     );
 }
@@ -2945,15 +3005,29 @@ function exportTestDataBackup() {
     const dataStr = JSON.stringify(backup, null, 2);
     const dataBlob = new Blob([dataStr], {type: 'application/json'});
     const url = URL.createObjectURL(dataBlob);
-    
+
     const link = document.createElement('a');
     link.href = url;
     link.download = `douke-compta-backup-${new Date().toISOString().slice(0,10)}.json`;
     link.click();
-    
+
     URL.revokeObjectURL(url);
-    
+
     window.unifiedManager.notificationManager.show('success', 'Sauvegarde créée', 'Les données ont été exportées avec succès');
+}
+
+/**
+ * Configuration Google Sheets Backend
+ */
+function setupGoogleSheetsBackend() {
+    window.unifiedManager.notificationManager.show('info', 'Configuration Google Sheets', 'Fonctionnalité en développement - Sera disponible dans la prochaine version');
+}
+
+/**
+ * Configuration BigQuery Backend
+ */
+function setupBigQueryBackend() {
+    window.unifiedManager.notificationManager.show('info', 'Configuration BigQuery', 'Fonctionnalité en développement - Sera disponible dans la prochaine version');
 }
 
     // =============================================================================
@@ -5198,6 +5272,255 @@ function emailGlobalReport() {
     window.unifiedManager.notificationManager.show('success', 'Email envoyé', 'Rapport envoyé par email avec succès');
 }
 
+   /**
+ * Chargement de la page de gestion d'équipe
+ */
+function loadTeamManagementPage() {
+    // Vérifier les permissions (admin ou senior seulement)
+    if (window.app.currentProfile !== 'admin' && window.app.currentProfile !== 'collaborateur_senior') {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Seuls les administrateurs et collaborateurs seniors peuvent accéder à la gestion d\'équipe');
+        return;
+    }
+
+    const teamPageContent = `
+        <div class="space-y-6">
+            <!-- Header -->
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Gestion d'Équipe</h1>
+                    <p class="text-gray-600 dark:text-gray-400 mt-2">Gérez les membres de votre équipe et leurs accès</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Admin Principal</span>
+                    <div class="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-primary text-sm"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-xl text-white">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm">Total Équipe</p>
+                            <p class="text-3xl font-bold" id="totalMembers">12</p>
+                        </div>
+                        <i class="fas fa-users text-3xl text-blue-200"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-100 text-sm">Actifs</p>
+                            <p class="text-3xl font-bold" id="activeMembers">9</p>
+                        </div>
+                        <i class="fas fa-user-check text-3xl text-green-200"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-orange-500 to-orange-600 p-6 rounded-xl text-white">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-orange-100 text-sm">En ligne</p>
+                            <p class="text-3xl font-bold" id="onlineMembers">6</p>
+                        </div>
+                        <i class="fas fa-circle text-3xl text-orange-200"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-6 rounded-xl text-white">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-100 text-sm">Entreprises</p>
+                            <p class="text-3xl font-bold" id="totalCompanies">8</p>
+                        </div>
+                        <i class="fas fa-building text-3xl text-purple-200"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Bar -->
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex flex-wrap gap-3 mb-4 md:mb-0">
+                    <button onclick="showAddMemberModal()" 
+                            class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Ajouter Membre
+                    </button>
+                    <button onclick="showBulkActions()" 
+                            class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                        <i class="fas fa-tasks mr-2"></i>Actions en lot
+                    </button>
+                    <button onclick="exportTeam()" 
+                            class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90 transition-colors">
+                        <i class="fas fa-download mr-2"></i>Exporter
+                    </button>
+                </div>
+                
+                <div class="flex items-center space-x-3">
+                    <div class="relative">
+                        <input type="text" 
+                               id="searchMembers" 
+                               placeholder="Rechercher un membre..."
+                               class="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base w-64">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                    <select id="filterRole" 
+                            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                        <option value="">Tous les rôles</option>
+                        <option value="admin">Administrateur</option>
+                        <option value="collaborateur_senior">Collaborateur Senior</option>
+                        <option value="collaborateur">Collaborateur</option>
+                        <option value="utilisateur">Utilisateur</option>
+                        <option value="caissier">Caissier</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Team Members Table -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <input type="checkbox" id="selectAll" class="rounded border-gray-300 dark:border-gray-600">
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Membre
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Rôle
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Entreprises
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Statut
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Dernière connexion
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="teamTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <!-- Team members will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-700 dark:text-gray-300">
+                    Affichage de <span id="showingFrom">1</span> à <span id="showingTo">10</span> sur <span id="totalResults">12</span> membres
+                </div>
+                <div class="flex space-x-2">
+                    <button class="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                        Précédent
+                    </button>
+                    <button class="px-3 py-1 text-sm bg-primary text-white rounded">1</button>
+                    <button class="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                        Suivant
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal pour ajouter un membre -->
+        <div id="addMemberModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Ajouter un nouveau membre</h2>
+                            <button onclick="hideAddMemberModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        
+                        <form id="addMemberForm" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Prénom*</label>
+                                    <input type="text" id="firstName" required
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom*</label>
+                                    <input type="text" id="lastName" required
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email*</label>
+                                <input type="email" id="email" required
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
+                                <input type="tel" id="phone"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rôle*</label>
+                                <select id="role" required
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                                    <option value="">Sélectionner un rôle</option>
+                                    <option value="admin">Administrateur</option>
+                                    <option value="collaborateur_senior">Collaborateur Senior</option>
+                                    <option value="collaborateur">Collaborateur</option>
+                                    <option value="utilisateur">Utilisateur</option>
+                                    <option value="caissier">Caissier</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Entreprises assignées</label>
+                                <div id="companiesCheckboxes" class="space-y-2 max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                                    <!-- Companies will be loaded here -->
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center">
+                                <input type="checkbox" id="sendWelcomeEmail" checked class="rounded border-gray-300 dark:border-gray-600">
+                                <label for="sendWelcomeEmail" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                    Envoyer un email de bienvenue avec les identifiants
+                                </label>
+                            </div>
+                            
+                            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+                                <button type="button" onclick="hideAddMemberModal()" 
+                                        class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                                    Annuler
+                                </button>
+                                <button type="submit" 
+                                        class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                                    <i class="fas fa-save mr-2"></i>Créer le membre
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('mainContent').innerHTML = teamPageContent;
+    
+    // Initialiser les fonctionnalités après chargement du contenu
+    setTimeout(() => {
+        initializeTeamManagement();
+    }, 100);
+}
+ 
 // =============================================================================
 // INITIALISATION ET EXPOSITION GLOBALE
 // =============================================================================
