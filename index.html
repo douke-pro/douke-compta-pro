@@ -1783,65 +1783,140 @@ class UnifiedDataManager {
     // =============================================================================
 
     loadNavigationMenu() {
-        const profile = window.app.currentProfile;
-        const menus = {
-    admin: [
-        { id: 'dashboard', icon: 'fas fa-crown', text: 'Dashboard Admin', handler: 'loadSecureDashboard' },
-        { id: 'users', icon: 'fas fa-users', text: 'Gestion Collaborateurs', handler: 'loadUsersPage' },
-        { id: 'team', icon: 'fas fa-users-cog', text: 'Gestion d\'Équipe', handler: 'loadTeamManagementPage' },
-        { id: 'companies', icon: 'fas fa-building', text: 'Gestion Entreprises', handler: 'loadCompaniesPage' },
-        { id: 'entries', icon: 'fas fa-edit', text: 'Écritures', handler: 'loadEntriesPage' },
-        { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable', handler: 'loadAccountsPage' },
-        { id: 'caisse', icon: 'fas fa-cash-register', text: 'Caisses', handler: 'loadCaissePage' },
-        { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports', handler: 'loadReportsPage' },
-        { id: 'settings', icon: 'fas fa-cog', text: 'Administration', handler: 'loadAdminSettingsPage' }
-    ],
-    collaborateur_senior: [
-        { id: 'dashboard', icon: 'fas fa-star', text: 'Dashboard Senior', handler: 'loadSecureDashboard' },
-        { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises', handler: 'loadCompaniesPage' },
-        { id: 'entries', icon: 'fas fa-edit', text: 'Écritures', handler: 'loadEntriesPage' },
-        { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable', handler: 'loadAccountsPage' },
-        { id: 'team', icon: 'fas fa-users-cog', text: 'Gestion d\'Équipe', handler: 'loadTeamManagementPage' },
-        { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports', handler: 'loadReportsPage' },
-        { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil', handler: 'loadSettingsPage' }
-    ],
-            collaborateur: [
-                { id: 'dashboard', icon: 'fas fa-users', text: 'Dashboard', handler: 'loadSecureDashboard' },
-                { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises', handler: 'loadCompaniesPage' },
-                { id: 'entries', icon: 'fas fa-edit', text: 'Écritures', handler: 'loadEntriesPage' },
-                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable', handler: 'loadAccountsPage' },
-                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Caisses', handler: 'loadCaissePage' },
-                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports', handler: 'loadReportsPage' },
-                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil', handler: 'loadSettingsPage' }
-            ],
-            user: [
-                { id: 'dashboard', icon: 'fas fa-user', text: 'Mon Entreprise', handler: 'loadSecureDashboard' },
-                { id: 'entries', icon: 'fas fa-edit', text: 'Mes Écritures', handler: 'loadEntriesPage' },
-                { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable', handler: 'loadAccountsPage' },
-                { id: 'caisse', icon: 'fas fa-cash-register', text: 'Mes Caisses', handler: 'loadCaissePage' },
-                { id: 'reports', icon: 'fas fa-chart-bar', text: 'Mes Rapports', handler: 'loadReportsPage' },
-                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil', handler: 'loadSettingsPage' }
-            ],
-            caissier: [
-                { id: 'dashboard', icon: 'fas fa-cash-register', text: 'Ma Caisse', handler: 'loadSecureDashboard' },
-                { id: 'entries', icon: 'fas fa-edit', text: 'Opérations', handler: 'loadEntriesPage' },
-                { id: 'reports', icon: 'fas fa-chart-bar', text: 'État Caisse', handler: 'loadCashierReports' },
-                { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil', handler: 'loadSettingsPage' }
-            ]
-        };
+    const profile = window.app.currentProfile;
+    const menus = {
+        admin: [
+            { id: 'dashboard', icon: 'fas fa-crown', text: 'Dashboard Admin', handler: 'loadSecureDashboard' },
+            { id: 'users', icon: 'fas fa-users', text: 'Gestion Collaborateurs', handler: 'loadUsersPage' },
+            { id: 'team', icon: 'fas fa-users-cog', text: 'Gestion d\'Équipe', handler: 'loadTeamManagementPage' },
+            { id: 'companies', icon: 'fas fa-building', text: 'Gestion Entreprises', handler: 'loadCompaniesPage' },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Écritures', handler: 'loadEntriesPage' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable', handler: 'loadAccountsPage' },
+            { id: 'caisse', icon: 'fas fa-cash-register', text: 'Caisses', handler: 'loadCaissePage' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports', handler: 'loadReportsPage' },
+            { id: 'settings', icon: 'fas fa-cog', text: 'Administration', handler: 'loadAdminSettingsPage' },
+            
+            // NOUVEAU: Séparateur pour section Production
+            { type: 'separator', text: 'PRODUCTION & BACKEND' },
+            // NOUVEAU: Fonctions Production & Backend (Admin uniquement)
+            { id: 'production', icon: 'fas fa-rocket', text: 'Mode Production', handler: 'showProductionModeModal', isSpecial: true, specialClass: 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20' },
+            { id: 'backend-stats', icon: 'fas fa-database', text: 'Backend Status', handler: 'showSyncStats', isSpecial: true, specialClass: 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20' },
+            { id: 'manual-sync', icon: 'fas fa-sync-alt', text: 'Synchroniser', handler: 'manualSync', isSpecial: true, specialClass: 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20' }
+        ],
+        collaborateur_senior: [
+            { id: 'dashboard', icon: 'fas fa-star', text: 'Dashboard Senior', handler: 'loadSecureDashboard' },
+            { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises', handler: 'loadCompaniesPage' },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Écritures', handler: 'loadEntriesPage' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable', handler: 'loadAccountsPage' },
+            { id: 'team', icon: 'fas fa-users-cog', text: 'Gestion d\'Équipe', handler: 'loadTeamManagementPage' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports', handler: 'loadReportsPage' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil', handler: 'loadSettingsPage' }
+        ],
+        collaborateur: [
+            { id: 'dashboard', icon: 'fas fa-users', text: 'Dashboard', handler: 'loadSecureDashboard' },
+            { id: 'companies', icon: 'fas fa-building', text: 'Mes Entreprises', handler: 'loadCompaniesPage' },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Écritures', handler: 'loadEntriesPage' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable', handler: 'loadAccountsPage' },
+            { id: 'caisse', icon: 'fas fa-cash-register', text: 'Caisses', handler: 'loadCaissePage' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'Rapports', handler: 'loadReportsPage' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil', handler: 'loadSettingsPage' }
+        ],
+        user: [
+            { id: 'dashboard', icon: 'fas fa-user', text: 'Mon Entreprise', handler: 'loadSecureDashboard' },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Mes Écritures', handler: 'loadEntriesPage' },
+            { id: 'accounts', icon: 'fas fa-list', text: 'Plan Comptable', handler: 'loadAccountsPage' },
+            { id: 'caisse', icon: 'fas fa-cash-register', text: 'Mes Caisses', handler: 'loadCaissePage' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'Mes Rapports', handler: 'loadReportsPage' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil', handler: 'loadSettingsPage' }
+        ],
+        caissier: [
+            { id: 'dashboard', icon: 'fas fa-cash-register', text: 'Ma Caisse', handler: 'loadSecureDashboard' },
+            { id: 'entries', icon: 'fas fa-edit', text: 'Opérations', handler: 'loadEntriesPage' },
+            { id: 'reports', icon: 'fas fa-chart-bar', text: 'État Caisse', handler: 'loadCashierReports' },
+            { id: 'settings', icon: 'fas fa-user-cog', text: 'Mon Profil', handler: 'loadSettingsPage' }
+        ]
+    };
 
-        const menuItems = menus[profile] || menus.user;
-        const menuHtml = menuItems.map((item, index) => `
-            <a href="#" onclick="window.unifiedManager.${item.handler}(); setActiveMenuItem(this); return false;" 
-               class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${index === 0 ? 'bg-primary text-white' : ''}">
-                <i class="${item.icon} w-5 h-5 mr-3"></i>
-                <span>${item.text}</span>
-            </a>
-        `).join('');
+    const menuItems = menus[profile] || menus.user;
+    
+    // AMÉLIORATION: Génération HTML avec support des séparateurs et fonctions spéciales
+    let menuHtml = '';
+    let activeSet = false;
+    
+    menuItems.forEach((item, index) => {
+        if (item.type === 'separator') {
+            // Séparateur pour les sections
+            menuHtml += `
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-6">
+                        ${item.text}
+                    </div>
+                </div>
+            `;
+        } else if (item.isSpecial) {
+            // Fonctions spéciales (Production/Backend) - sans le système unifiedManager
+            menuHtml += `
+                <a href="#" onclick="${item.handler}(); return false;" 
+                   class="flex items-center px-6 py-3 ${item.specialClass} transition-colors rounded-lg mx-2">
+                    <i class="${item.icon} w-5 h-5 mr-3"></i>
+                    <span>${item.text}</span>
+                </a>
+            `;
+        } else {
+            // Menu normal (votre logique existante INTACTE)
+            const isFirst = !activeSet && index === 0;
+            if (isFirst) activeSet = true;
+            
+            menuHtml += `
+                <a href="#" onclick="window.unifiedManager.${item.handler}(); setActiveMenuItem(this); return false;" 
+                   class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${isFirst ? 'bg-primary text-white' : ''}">
+                    <i class="${item.icon} w-5 h-5 mr-3"></i>
+                    <span>${item.text}</span>
+                </a>
+            `;
+        }
+    });
 
-        document.getElementById('navigationMenu').innerHTML = menuHtml;
+    document.getElementById('navigationMenu').innerHTML = menuHtml;
+    
+    // NOUVEAU: Mise à jour de l'indicateur de sync après chargement du menu
+    if (typeof this.updateSyncIndicator === 'function') {
+        this.updateSyncIndicator();
     }
-
+}
+    
+    updateSyncIndicator() {
+    const syncStatus = document.getElementById('syncStatus');
+    const syncIndicator = document.getElementById('syncIndicator');
+    const backendControls = document.getElementById('backendControls');
+    
+    if (!window.app.productionMode) {
+        // Mode développement
+        if (syncStatus) {
+            syncStatus.querySelector('span').textContent = 'Mode Dev';
+            syncIndicator.className = 'ml-auto px-2 py-1 bg-warning/20 text-warning rounded';
+            syncIndicator.textContent = '●';
+        }
+        if (backendControls) backendControls.classList.add('hidden');
+    } else if (window.doukeBackend && window.doukeBackend.isInitialized) {
+        // Backend connecté
+        if (syncStatus) {
+            syncStatus.querySelector('span').textContent = 'Sync Backend';
+            syncIndicator.className = 'ml-auto px-2 py-1 bg-success/20 text-success rounded';
+            syncIndicator.textContent = '●';
+        }
+        if (backendControls) backendControls.classList.remove('hidden');
+    } else {
+        // Backend non disponible
+        if (syncStatus) {
+            syncStatus.querySelector('span').textContent = 'Backend Off';
+            syncIndicator.className = 'ml-auto px-2 py-1 bg-gray-500/20 text-gray-500 rounded';
+            syncIndicator.textContent = '●';
+        }
+        if (backendControls) backendControls.classList.add('hidden');
+    }
+}
+    
     loadUsersPage() {
         if (window.app.currentProfile !== 'admin') {
             this.showSecurityAlert('🚫 Accès refusé - Administrateur requis');
