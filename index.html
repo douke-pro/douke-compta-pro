@@ -1778,7 +1778,7 @@ class UnifiedDataManager {
         `;
     }
 
-  // =============================================================================
+// =============================================================================
 // NAVIGATION ET PAGES
 // =============================================================================
 
@@ -1854,9 +1854,9 @@ loadNavigationMenu() {
                 </div>
             `;
         } else if (item.isSpecial) {
-            // Fonctions spéciales (Production/Backend) - sans le système unifiedManager
+            // Fonctions spéciales (Production/Backend) - via unifiedManager
             menuHtml += `
-                <a href="#" onclick="${item.handler}(); return false;" 
+                <a href="#" onclick="window.unifiedManager.${item.handler}(); return false;" 
                    class="flex items-center px-6 py-3 ${item.specialClass} transition-colors rounded-lg mx-2">
                     <i class="${item.icon} w-5 h-5 mr-3"></i>
                     <span>${item.text}</span>
@@ -1868,7 +1868,7 @@ loadNavigationMenu() {
             if (isFirst) activeSet = true;
             
             menuHtml += `
-                <a href="#" onclick="window.unifiedManager.${item.handler}(); setActiveMenuItem(this); return false;" 
+                <a href="#" onclick="window.unifiedManager.${item.handler}(); window.unifiedManager.setActiveMenuItem(this); return false;" 
                    class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${isFirst ? 'bg-primary text-white' : ''}">
                     <i class="${item.icon} w-5 h-5 mr-3"></i>
                     <span>${item.text}</span>
@@ -1877,7 +1877,10 @@ loadNavigationMenu() {
         }
     });
 
-    document.getElementById('navigationMenu').innerHTML = menuHtml;
+    const navElement = document.getElementById('navigationMenu');
+    if (navElement) {
+        navElement.innerHTML = menuHtml;
+    }
     
     // NOUVEAU: Mise à jour de l'indicateur de sync après chargement du menu
     if (typeof this.updateSyncIndicator === 'function') {
@@ -1886,7 +1889,7 @@ loadNavigationMenu() {
 }
     
 loadUsersPage() {
-    if (window.app.currentProfile !== 'admin') {
+    if (!window.app.currentProfile || window.app.currentProfile !== 'admin') {
         this.showSecurityAlert('🚫 Accès refusé - Administrateur requis');
         return;
     }
@@ -1895,30 +1898,30 @@ loadUsersPage() {
     <div class="space-y-6">
         <div class="flex justify-between items-center">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Collaborateurs</h2>
-            <button onclick="showNewUserModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+            <button onclick="window.unifiedManager.showNewUserModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
                 <i class="fas fa-user-plus mr-2"></i>Nouveau Collaborateur
             </button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-danger">${window.app.users.filter(u => u.profile === 'admin').length}</div>
+                <div class="text-3xl font-bold text-danger">${(window.app.users || []).filter(u => u.profile === 'admin').length}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Administrateurs</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-primary">${window.app.users.filter(u => u.profile === 'collaborateur_senior').length}</div>
+                <div class="text-3xl font-bold text-primary">${(window.app.users || []).filter(u => u.profile === 'collaborateur_senior').length}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Senior</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-info">${window.app.users.filter(u => u.profile === 'collaborateur').length}</div>
+                <div class="text-3xl font-bold text-info">${(window.app.users || []).filter(u => u.profile === 'collaborateur').length}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Collaborateurs</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-success">${window.app.users.filter(u => u.profile === 'user').length}</div>
+                <div class="text-3xl font-bold text-success">${(window.app.users || []).filter(u => u.profile === 'user').length}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-warning">${window.app.users.filter(u => u.profile === 'caissier').length}</div>
+                <div class="text-3xl font-bold text-warning">${(window.app.users || []).filter(u => u.profile === 'caissier').length}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Caissiers</div>
             </div>
         </div>
@@ -1926,7 +1929,7 @@ loadUsersPage() {
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Liste des Utilisateurs</h3>
             <div class="space-y-4">
-                ${window.app.users.map(user => `
+                ${(window.app.users || []).map(user => `
                 <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:shadow-md transition-all">
                     <div class="flex items-center space-x-4">
                         <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">
@@ -1935,14 +1938,14 @@ loadUsersPage() {
                         <div>
                             <div class="font-medium text-gray-900 dark:text-white">${user.name}</div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">${user.email} • ${user.role}</div>
-                            <div class="text-xs text-primary">Niveau ${this.security.profileHierarchy[user.profile]} • ${user.assignedCompanies?.length || 0} entreprise(s)</div>
+                            <div class="text-xs text-primary">Niveau ${this.security?.profileHierarchy[user.profile] || 'N/A'} • ${user.assignedCompanies?.length || 0} entreprise(s)</div>
                         </div>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="editUser(${user.id})" class="bg-info text-white px-3 py-1 rounded text-sm hover:bg-info/90">
+                        <button onclick="window.unifiedManager.editUser(${user.id})" class="bg-info text-white px-3 py-1 rounded text-sm hover:bg-info/90">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="manageUserAccess(${user.id})" class="bg-warning text-white px-3 py-1 rounded text-sm hover:bg-warning/90">
+                        <button onclick="window.unifiedManager.manageUserAccess(${user.id})" class="bg-warning text-white px-3 py-1 rounded text-sm hover:bg-warning/90">
                             <i class="fas fa-key"></i>
                         </button>
                     </div>
@@ -1953,11 +1956,19 @@ loadUsersPage() {
     </div>
     `;
 
-    document.getElementById('mainContent').innerHTML = content;
-},
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
 
 loadCompaniesPage() {
-    let companies = this.security.getAccessibleCompanies(window.app.currentUser?.id);
+    let companies = [];
+    if (this.security && typeof this.security.getAccessibleCompanies === 'function') {
+        companies = this.security.getAccessibleCompanies(window.app.currentUser?.id);
+    } else {
+        companies = window.app.companies || [];
+    }
 
     const content = `
     <div class="space-y-6">
@@ -1966,7 +1977,7 @@ loadCompaniesPage() {
                 ${window.app.currentProfile === 'admin' ? 'Gestion des Entreprises' : 'Mes Entreprises'}
             </h2>
             ${window.app.currentProfile === 'admin' ? `
-            <button onclick="showNewCompanyModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+            <button onclick="window.unifiedManager.showNewCompanyModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
                 <i class="fas fa-plus mr-2"></i>Nouvelle Entreprise
             </button>
             ` : ''}
@@ -1977,14 +1988,14 @@ loadCompaniesPage() {
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 ${company.id === window.app.currentCompanyId ? 'border-2 border-primary' : 'border border-gray-200 dark:border-gray-700'} hover:shadow-xl transition-all transform hover:scale-105">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="font-medium text-gray-900 dark:text-white">${company.name}</h3>
-                    <span class="px-2 py-1 rounded text-xs ${this.getCompanyStatusColor(company.status)}">${company.status}</span>
+                    <span class="px-2 py-1 rounded text-xs ${this.getCompanyStatusColor ? this.getCompanyStatusColor(company.status) : 'bg-gray-200 text-gray-800'}">${company.status || 'Actif'}</span>
                 </div>
                 <div class="text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                    <div><i class="fas fa-building mr-2"></i>${company.type} • ${company.system}</div>
-                    <div><i class="fas fa-phone mr-2"></i>${company.phone}</div>
-                    <div><i class="fas fa-envelope mr-2"></i>${company.email}</div>
-                    <div><i class="fas fa-map-marker-alt mr-2"></i>${company.address}</div>
-                    <div><i class="fas fa-cash-register mr-2"></i>${company.cashRegisters} caisse(s)</div>
+                    <div><i class="fas fa-building mr-2"></i>${company.type || 'N/A'} • ${company.system || 'N/A'}</div>
+                    <div><i class="fas fa-phone mr-2"></i>${company.phone || 'N/A'}</div>
+                    <div><i class="fas fa-envelope mr-2"></i>${company.email || 'N/A'}</div>
+                    <div><i class="fas fa-map-marker-alt mr-2"></i>${company.address || 'N/A'}</div>
+                    <div><i class="fas fa-cash-register mr-2"></i>${company.cashRegisters || 0} caisse(s)</div>
                 </div>
                 <div class="mt-4">
                     <button onclick="window.unifiedManager.selectCompany(${company.id})" class="w-full ${company.id === window.app.currentCompanyId ? 'bg-success' : 'bg-primary'} text-white px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity">
@@ -1998,17 +2009,23 @@ loadCompaniesPage() {
     </div>
     `;
 
-    document.getElementById('mainContent').innerHTML = content;
-},
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
 
 loadEntriesPage() {
-    if (this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
-        document.getElementById('mainContent').innerHTML = this.generateCompanySelectionRequired();
+    if (this.security && this.security.requiresCompanySelection && this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent && this.generateCompanySelectionRequired) {
+            mainContent.innerHTML = this.generateCompanySelectionRequired();
+        }
         return;
     }
 
-    const entries = this.data.getCompanyEntries(window.app.currentCompanyId);
-    const companyName = this.getSelectedCompanyName();
+    const entries = this.data && this.data.getCompanyEntries ? this.data.getCompanyEntries(window.app.currentCompanyId) : [];
+    const companyName = this.getSelectedCompanyName ? this.getSelectedCompanyName() : 'Entreprise sélectionnée';
 
     const content = `
     <div class="space-y-6">
@@ -2016,7 +2033,7 @@ loadEntriesPage() {
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                 ${window.app.currentProfile === 'caissier' ? 'Opérations Caisse' : 'Écritures Comptables'} - ${companyName}
             </h2>
-            <button onclick="showNewEntryModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+            <button onclick="window.unifiedManager.showNewEntryModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
                 <i class="fas fa-plus mr-2"></i>Nouvelle ${window.app.currentProfile === 'caissier' ? 'opération' : 'écriture'}
             </button>
         </div>
@@ -2068,26 +2085,26 @@ loadEntriesPage() {
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td class="px-6 py-4 text-gray-900 dark:text-white">${new Date(entry.date).toLocaleDateString('fr-FR')}</td>
                             <td class="px-6 py-4">
-                                <span class="px-2 py-1 rounded text-xs font-medium ${this.getJournalColor(entry.journal)}">${entry.journal}</span>
+                                <span class="px-2 py-1 rounded text-xs font-medium ${this.getJournalColor ? this.getJournalColor(entry.journal) : 'bg-gray-200 text-gray-800'}">${entry.journal}</span>
                             </td>
                             <td class="px-6 py-4 font-mono text-sm text-gray-900 dark:text-white">${entry.piece}</td>
                             <td class="px-6 py-4 text-gray-900 dark:text-white">${entry.libelle}</td>
-                            <td class="px-6 py-4 font-mono text-gray-900 dark:text-white">${entry.lines.reduce((sum, line) => sum + line.debit, 0).toLocaleString('fr-FR')} FCFA</td>
+                            <td class="px-6 py-4 font-mono text-gray-900 dark:text-white">${(entry.lines || []).reduce((sum, line) => sum + (line.debit || 0), 0).toLocaleString('fr-FR')} FCFA</td>
                             <td class="px-6 py-4">
-                                <span class="px-2 py-1 rounded text-sm ${this.getEntryStatusColor(entry.status)}">${entry.status}</span>
+                                <span class="px-2 py-1 rounded text-sm ${this.getEntryStatusColor ? this.getEntryStatusColor(entry.status) : 'bg-gray-200 text-gray-800'}">${entry.status}</span>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex space-x-2">
-                                    <button onclick="viewEntry(${entry.id})" class="text-primary hover:text-primary/80" title="Voir">
+                                    <button onclick="window.unifiedManager.viewEntry(${entry.id})" class="text-primary hover:text-primary/80" title="Voir">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    ${this.security.permissions[window.app.currentProfile]?.canValidateOperations ? `
-                                    <button onclick="editEntry(${entry.id})" class="text-info hover:text-info/80" title="Modifier">
+                                    ${this.security?.permissions[window.app.currentProfile]?.canValidateOperations ? `
+                                    <button onclick="window.unifiedManager.editEntry(${entry.id})" class="text-info hover:text-info/80" title="Modifier">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                     ` : ''}
-                                    ${entry.status === 'En attente' && this.security.permissions[window.app.currentProfile]?.canValidateOperations ? `
-                                    <button onclick="validateEntry(${entry.id})" class="text-success hover:text-success/80" title="Valider">
+                                    ${entry.status === 'En attente' && this.security?.permissions[window.app.currentProfile]?.canValidateOperations ? `
+                                    <button onclick="window.unifiedManager.validateEntry(${entry.id})" class="text-success hover:text-success/80" title="Valider">
                                         <i class="fas fa-check"></i>
                                     </button>
                                     ` : ''}
@@ -2109,17 +2126,23 @@ loadEntriesPage() {
     </div>
     `;
 
-    document.getElementById('mainContent').innerHTML = content;
-},
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
 
 loadAccountsPage() {
-    if (this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
-        document.getElementById('mainContent').innerHTML = this.generateCompanySelectionRequired();
+    if (this.security && this.security.requiresCompanySelection && this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent && this.generateCompanySelectionRequired) {
+            mainContent.innerHTML = this.generateCompanySelectionRequired();
+        }
         return;
     }
 
-    const companyName = this.getSelectedCompanyName();
-    const accounts = this.data.getCompanyAccounts(window.app.currentCompanyId);
+    const companyName = this.getSelectedCompanyName ? this.getSelectedCompanyName() : 'Entreprise sélectionnée';
+    const accounts = this.data && this.data.getCompanyAccounts ? this.data.getCompanyAccounts(window.app.currentCompanyId) : [];
 
     const content = `
     <div class="space-y-6">
@@ -2130,7 +2153,7 @@ loadAccountsPage() {
                     <i class="fas fa-calculator mr-2"></i>${accounts.length} comptes
                 </div>
                 ${window.app.currentProfile !== 'caissier' ? `
-                <button onclick="showNewAccountModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                <button onclick="window.unifiedManager.showNewAccountModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-plus mr-2"></i>Nouveau Compte
                 </button>
                 ` : ''}
@@ -2140,9 +2163,9 @@ loadAccountsPage() {
         <!-- Filtres par classe SYSCOHADA -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <input type="text" id="accountSearchInput" placeholder="Rechercher un compte..." onkeyup="filterAccounts()"
+                <input type="text" id="accountSearchInput" placeholder="Rechercher un compte..." onkeyup="window.unifiedManager.filterAccounts()"
                     class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-                <select id="classFilter" onchange="filterAccounts()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                <select id="classFilter" onchange="window.unifiedManager.filterAccounts()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
                     <option value="">Toutes les classes</option>
                     <option value="1">Classe 1 - Comptes de ressources durables</option>
                     <option value="2">Classe 2 - Comptes d'actif immobilisé</option>
@@ -2154,11 +2177,11 @@ loadAccountsPage() {
                     <option value="8">Classe 8 - Comptes de résultats</option>
                     <option value="9">Classe 9 - Comptes analytiques</option>
                 </select>
-                <select id="categoryFilter" onchange="filterAccounts()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                <select id="categoryFilter" onchange="window.unifiedManager.filterAccounts()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
                     <option value="">Toutes les catégories</option>
                     ${[...new Set(accounts.map(a => a.category))].map(cat => `<option value="${cat}">${cat}</option>`).join('')}
                 </select>
-                <button onclick="resetAccountFilters()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                <button onclick="window.unifiedManager.resetAccountFilters()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
                     <i class="fas fa-sync mr-2"></i>Réinitialiser
                 </button>
             </div>
@@ -2166,29 +2189,29 @@ loadAccountsPage() {
             <!-- Liste des comptes par classe -->
             <div id="accountsList" class="space-y-6">
                 ${[1,2,3,4,5,6,7,8,9].map(classe => {
-                    const classAccounts = accounts.filter(a => a.code.charAt(0) === classe.toString());
+                    const classAccounts = accounts.filter(a => a.code && a.code.charAt(0) === classe.toString());
                     if (classAccounts.length === 0) return '';
                     
                     return `
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                         <div class="bg-primary/10 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                            <h3 class="text-lg font-semibold text-primary">Classe ${classe} - ${this.getClassTitle(classe)} (${classAccounts.length} comptes)</h3>
+                            <h3 class="text-lg font-semibold text-primary">Classe ${classe} - ${this.getClassTitle ? this.getClassTitle(classe) : 'Classe ' + classe} (${classAccounts.length} comptes)</h3>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                             ${classAccounts.map(account => `
                             <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow account-card"
-                                data-category="${account.category}" data-code="${account.code}" data-name="${account.name.toLowerCase()}" data-class="${classe}">
+                                data-category="${account.category || ''}" data-code="${account.code || ''}" data-name="${(account.name || '').toLowerCase()}" data-class="${classe}">
                                 <div class="flex items-start justify-between mb-2">
                                     <div class="font-mono text-sm text-primary font-semibold">${account.code}</div>
                                     <span class="px-2 py-1 rounded text-xs bg-info/20 text-info">SYSCOHADA</span>
                                 </div>
                                 <div class="font-medium text-gray-900 dark:text-white text-sm mb-1">${account.name}</div>
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">${account.category}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">${account.category || ''}</div>
                                 <div class="flex items-center justify-between text-xs">
                                     <span class="text-gray-600 dark:text-gray-400">Actif: ${account.isActive !== false ? 'Oui' : 'Non'}</span>
                                     ${window.app.currentProfile !== 'caissier' ? `
                                     <div class="flex space-x-1">
-                                        <button onclick="viewAccountHistory('${account.code}')" class="text-info hover:text-info/80" title="Historique">
+                                        <button onclick="window.unifiedManager.viewAccountHistory('${account.code}')" class="text-info hover:text-info/80" title="Historique">
                                             <i class="fas fa-history"></i>
                                         </button>
                                     </div>
@@ -2205,8 +2228,11 @@ loadAccountsPage() {
     </div>
     `;
 
-    document.getElementById('mainContent').innerHTML = content;
-},
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
 
 getClassTitle(classe) {
     const titles = {
@@ -2221,16 +2247,19 @@ getClassTitle(classe) {
         9: 'Comptes analytiques'
     };
     return titles[classe] || 'Classe inconnue';
-},
+}
 
 loadCaissePage() {
-    if (this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
-        document.getElementById('mainContent').innerHTML = this.generateCompanySelectionRequired();
+    if (this.security && this.security.requiresCompanySelection && this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent && this.generateCompanySelectionRequired) {
+            mainContent.innerHTML = this.generateCompanySelectionRequired();
+        }
         return;
     }
 
-    const companyName = this.getSelectedCompanyName();
-    const cashRegisters = this.data.getCompanyCashRegisters(window.app.currentCompanyId);
+    const companyName = this.getSelectedCompanyName ? this.getSelectedCompanyName() : 'Entreprise sélectionnée';
+    const cashRegisters = this.data && this.data.getCompanyCashRegisters ? this.data.getCompanyCashRegisters(window.app.currentCompanyId) : [];
     const canManage = window.app.currentProfile !== 'caissier';
 
     const content = `
@@ -2242,7 +2271,7 @@ loadCaissePage() {
                     <i class="fas fa-cash-register mr-2"></i>${cashRegisters.length} caisse(s)
                 </div>
                 ${canManage && (window.app.currentProfile === 'user' ? cashRegisters.length < 5 : true) ? `
-                <button onclick="showNewCashRegisterModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                <button onclick="window.unifiedManager.showNewCashRegisterModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-plus mr-2"></i>Nouvelle Caisse
                 </button>
                 ` : ''}
@@ -2306,19 +2335,19 @@ loadCaissePage() {
 
                     <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between">
                         ${cash.responsibleId === window.app.currentUser?.id || canManage ? `
-                        <button onclick="openCashOperations(${cash.id})" class="text-primary hover:text-primary/80 text-sm">
+                        <button onclick="window.unifiedManager.openCashOperations(${cash.id})" class="text-primary hover:text-primary/80 text-sm">
                             <i class="fas fa-plus-circle mr-1"></i>Opération
                         </button>
                         ` : ''}
                         ${canManage ? `
-                        <button onclick="editCashRegister(${cash.id})" class="text-info hover:text-info/80 text-sm">
+                        <button onclick="window.unifiedManager.editCashRegister(${cash.id})" class="text-info hover:text-info/80 text-sm">
                             <i class="fas fa-edit mr-1"></i>Modifier
                         </button>
-                        <button onclick="generateCashReport(${cash.id})" class="text-success hover:text-success/80 text-sm">
+                        <button onclick="window.unifiedManager.generateCashReport(${cash.id})" class="text-success hover:text-success/80 text-sm">
                             <i class="fas fa-print mr-1"></i>État
                         </button>
                         ` : `
-                        <button onclick="generateCashReport(${cash.id})" class="text-success hover:text-success/80 text-sm">
+                        <button onclick="window.unifiedManager.generateCashReport(${cash.id})" class="text-success hover:text-success/80 text-sm">
                             <i class="fas fa-print mr-1"></i>État
                         </button>
                         `}
@@ -2332,7 +2361,7 @@ loadCaissePage() {
                 <h3 class="text-lg font-semibold mb-2">Aucune caisse trouvée</h3>
                 <p>Créez votre première caisse pour cette entreprise.</p>
                 ${canManage ? `
-                <button onclick="showNewCashRegisterModal()" class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
+                <button onclick="window.unifiedManager.showNewCashRegisterModal()" class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
                     <i class="fas fa-plus mr-2"></i>Créer une caisse
                 </button>
                 ` : ''}
@@ -2342,17 +2371,23 @@ loadCaissePage() {
     </div>
     `;
 
-    document.getElementById('mainContent').innerHTML = content;
-},
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
 
 loadReportsPage() {
-    if (this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
-        document.getElementById('mainContent').innerHTML = this.generateCompanySelectionRequired();
+    if (this.security && this.security.requiresCompanySelection && this.security.requiresCompanySelection(window.app.currentProfile) && !window.app.currentCompanyId) {
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent && this.generateCompanySelectionRequired) {
+            mainContent.innerHTML = this.generateCompanySelectionRequired();
+        }
         return;
     }
 
-    const companyName = this.getSelectedCompanyName();
-    const stats = this.getCompanyStatistics();
+    const companyName = this.getSelectedCompanyName ? this.getSelectedCompanyName() : 'Entreprise sélectionnée';
+    const stats = this.getCompanyStatistics ? this.getCompanyStatistics() : {};
 
     const content = `
     <div class="space-y-6">
@@ -2362,7 +2397,7 @@ loadReportsPage() {
                 <div class="text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg">
                     <i class="fas fa-chart-bar mr-2"></i>SYSCOHADA Révisé
                 </div>
-                <button onclick="generateAllReports()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                <button onclick="window.unifiedManager.generateAllReports()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-download mr-2"></i>Exporter Tout
                 </button>
             </div>
@@ -2375,7 +2410,7 @@ loadReportsPage() {
                     <i class="fas fa-balance-scale mr-2 text-primary"></i>États Financiers Principaux
                 </h3>
                 <div class="space-y-3">
-                    <button onclick="generateBilan()" class="w-full text-left p-3 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
+                    <button onclick="window.unifiedManager.generateBilan()" class="w-full text-left p-3 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="font-medium text-primary">Bilan SYSCOHADA</div>
@@ -2384,7 +2419,7 @@ loadReportsPage() {
                             <i class="fas fa-file-pdf text-primary"></i>
                         </div>
                     </button>
-                    <button onclick="generateTafire()" class="w-full text-left p-3 bg-info/10 hover:bg-info/20 rounded-lg transition-colors">
+                    <button onclick="window.unifiedManager.generateTafire()" class="w-full text-left p-3 bg-info/10 hover:bg-info/20 rounded-lg transition-colors">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="font-medium text-info">TAFIRE</div>
@@ -2393,7 +2428,7 @@ loadReportsPage() {
                             <i class="fas fa-file-excel text-info"></i>
                         </div>
                     </button>
-                    <button onclick="generateCompteResultat()" class="w-full text-left p-3 bg-success/10 hover:bg-success/20 rounded-lg transition-colors">
+                    <button onclick="window.unifiedManager.generateCompteResultat()" class="w-full text-left p-3 bg-success/10 hover:bg-success/20 rounded-lg transition-colors">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="font-medium text-success">Compte de Résultat</div>
@@ -2410,7 +2445,7 @@ loadReportsPage() {
                     <i class="fas fa-list mr-2 text-warning"></i>États Détaillés
                 </h3>
                 <div class="space-y-3">
-                    <button onclick="generateGrandLivre()" class="w-full text-left p-3 bg-warning/10 hover:bg-warning/20 rounded-lg transition-colors">
+                    <button onclick="window.unifiedManager.generateGrandLivre()" class="w-full text-left p-3 bg-warning/10 hover:bg-warning/20 rounded-lg transition-colors">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="font-medium text-warning">Grand Livre</div>
@@ -2419,7 +2454,7 @@ loadReportsPage() {
                             <i class="fas fa-book text-warning"></i>
                         </div>
                     </button>
-                    <button onclick="generateBalance()" class="w-full text-left p-3 bg-danger/10 hover:bg-danger/20 rounded-lg transition-colors">
+                    <button onclick="window.unifiedManager.generateBalance()" class="w-full text-left p-3 bg-danger/10 hover:bg-danger/20 rounded-lg transition-colors">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="font-medium text-danger">Balance des Comptes</div>
@@ -2428,7 +2463,7 @@ loadReportsPage() {
                             <i class="fas fa-calculator text-danger"></i>
                         </div>
                     </button>
-                    <button onclick="generateJournal()" class="w-full text-left p-3 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg transition-colors">
+                    <button onclick="window.unifiedManager.generateJournal()" class="w-full text-left p-3 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg transition-colors">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="font-medium text-gray-700 dark:text-gray-300">Journal Général</div>
@@ -2444,19 +2479,19 @@ loadReportsPage() {
         <!-- Statistiques rapides -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-primary">${stats?.entries.total || 0}</div>
+                <div class="text-3xl font-bold text-primary">${stats?.entries?.total || 0}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Total écritures</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-success">${stats?.entries.validated || 0}</div>
+                <div class="text-3xl font-bold text-success">${stats?.entries?.validated || 0}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Écritures validées</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-warning">${stats?.entries.pending || 0}</div>
+                <div class="text-3xl font-bold text-warning">${stats?.entries?.pending || 0}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">En attente</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-info">${stats?.cashRegisters.totalBalance?.toLocaleString('fr-FR') || 0}</div>
+                <div class="text-3xl font-bold text-info">${stats?.cashRegisters?.totalBalance?.toLocaleString('fr-FR') || 0}</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Solde caisses (FCFA)</div>
             </div>
         </div>
@@ -2466,8 +2501,8 @@ loadReportsPage() {
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rapports par Journal</h3>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 ${['JG', 'JA', 'JV', 'JB', 'JC', 'JOD'].map(journal => `
-                <button onclick="generateJournalReport('${journal}')" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
-                    <div class="text-2xl font-bold text-primary">${stats?.entries.byJournal[journal] || 0}</div>
+                <button onclick="window.unifiedManager.generateJournalReport('${journal}')" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+                    <div class="text-2xl font-bold text-primary">${stats?.entries?.byJournal?.[journal] || 0}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">${journal}</div>
                     <div class="text-xs text-primary mt-1">Générer</div>
                 </button>
@@ -2477,8 +2512,11 @@ loadReportsPage() {
     </div>
     `;
 
-    document.getElementById('mainContent').innerHTML = content;
-},
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
 
 // =============================================================================
 // GESTION DES PARAMÈTRES ET PROFIL UTILISATEUR
@@ -2486,7 +2524,15 @@ loadReportsPage() {
 
 loadSettingsPage() {
     const user = window.app.currentUser;
-    const companyName = this.getSelectedCompanyName();
+    if (!user) {
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            mainContent.innerHTML = '<div class="text-center py-12"><p class="text-red-500">Utilisateur non connecté</p></div>';
+        }
+        return;
+    }
+
+    const companyName = this.getSelectedCompanyName ? this.getSelectedCompanyName() : 'Aucune entreprise sélectionnée';
 
     const content = `
     <div class="space-y-6">
@@ -2494,7 +2540,7 @@ loadSettingsPage() {
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mon Profil & Paramètres</h2>
             <div class="flex items-center space-x-2 text-sm font-medium bg-primary/10 px-3 py-1 rounded-lg">
                 <i class="fas fa-shield-alt text-primary"></i>
-                <span class="text-primary">Niveau ${this.security.profileHierarchy[user.profile]} - ${user.role}</span>
+                <span class="text-primary">Niveau ${this.security?.profileHierarchy?.[user.profile] || 'N/A'} - ${user.role}</span>
             </div>
         </div>
 
@@ -2545,7 +2591,7 @@ loadSettingsPage() {
                     </div>
 
                     <div class="flex justify-end space-x-4 pt-4">
-                        <button type="button" onclick="updateUserProfile()" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                        <button type="button" onclick="window.unifiedManager.updateUserProfile()" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
                             <i class="fas fa-save mr-2"></i>Sauvegarder
                         </button>
                     </div>
@@ -2561,7 +2607,7 @@ loadSettingsPage() {
                     <div class="space-y-4">
                         <div class="flex justify-between items-center">
                             <span class="text-gray-600 dark:text-gray-400">Entreprises accessibles:</span>
-                            <span class="font-bold text-primary">${this.security.getAccessibleCompanies(user.id).length}</span>
+                            <span class="font-bold text-primary">${this.security && this.security.getAccessibleCompanies ? this.security.getAccessibleCompanies(user.id).length : 0}</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-gray-600 dark:text-gray-400">Dernière connexion:</span>
@@ -2584,12 +2630,12 @@ loadSettingsPage() {
                         <i class="fas fa-key mr-2 text-warning"></i>Mes Permissions
                     </h3>
                     <div class="space-y-2 text-sm">
-                        ${this.getPermissionsDisplay(user.profile).map(perm => `
+                        ${this.getPermissionsDisplay ? this.getPermissionsDisplay(user.profile).map(perm => `
                         <div class="flex items-center space-x-2">
                             <i class="fas ${perm.granted ? 'fa-check text-success' : 'fa-times text-danger'}"></i>
                             <span class="${perm.granted ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}">${perm.name}</span>
                         </div>
-                        `).join('')}
+                        `).join('') : ''}
                     </div>
                 </div>
 
@@ -2613,8 +2659,11 @@ loadSettingsPage() {
     </div>
     `;
 
-    document.getElementById('mainContent').innerHTML = content;
-},
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
  
 getPermissionsDisplay(profile) {
     const allPermissions = [
@@ -2627,13 +2676,13 @@ getPermissionsDisplay(profile) {
         { name: 'Gestion des caisses', key: 'canManageCash' }
     ];
 
-    const permissions = this.security.permissions[profile] || {};
+    const permissions = this.security?.permissions?.[profile] || {};
     
     return allPermissions.map(perm => ({
         name: perm.name,
         granted: !!permissions[perm.key]
     }));
-},
+}
 
 // =============================================================================
 // NOUVELLES FONCTIONS ADMIN : PRODUCTION & BACKEND
@@ -2641,7 +2690,9 @@ getPermissionsDisplay(profile) {
 
 showProductionModeModal() {
     if (!window.app.currentUser || window.app.currentUser.profile !== 'admin') {
-        this.notificationManager.show('error', 'Accès refusé', 'Cette fonction est réservée aux administrateurs');
+        if (this.notificationManager && this.notificationManager.show) {
+            this.notificationManager.show('error', 'Accès refusé', 'Cette fonction est réservée aux administrateurs');
+        }
         return;
     }
 
@@ -2670,9 +2721,9 @@ showProductionModeModal() {
                                     Cette action va supprimer définitivement toutes les données de démonstration.
                                 </p>
                                 <ul class="text-red-600 dark:text-red-400 text-sm space-y-1 list-disc list-inside">
-                                    <li>Suppression de ${window.app.users?.length || 0} utilisateurs de test</li>
-                                    <li>Suppression de ${window.app.companies?.length || 0} entreprises de démonstration</li>
-                                    <li>Suppression de ${window.app.entries?.length || 0} écritures de test</li>
+                                    <li>Suppression de ${(window.app.users || []).length} utilisateurs de test</li>
+                                    <li>Suppression de ${(window.app.companies || []).length} entreprises de démonstration</li>
+                                    <li>Suppression de ${(window.app.entries || []).length} écritures de test</li>
                                     <li>Conservation du plan comptable SYSCOHADA uniquement</li>
                                 </ul>
                             </div>
@@ -2732,7 +2783,10 @@ showProductionModeModal() {
         </div>
     `;
 
-    document.getElementById('modalContainer').innerHTML = modalHtml;
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) {
+        modalContainer.innerHTML = modalHtml;
+    }
 
     // Validation en temps réel
     const confirmationText = document.getElementById('confirmationText');
@@ -2740,57 +2794,70 @@ showProductionModeModal() {
     const confirmBtn = document.getElementById('confirmProductionBtn');
 
     const validateForm = () => {
-        const isTextValid = confirmationText.value === 'PRODUCTION';
-        const isPasswordValid = adminPassword.value.length >= 6;
+        const isTextValid = confirmationText && confirmationText.value === 'PRODUCTION';
+        const isPasswordValid = adminPassword && adminPassword.value.length >= 6;
 
-        if (isTextValid && isPasswordValid) {
-            confirmBtn.disabled = false;
-            confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        } else {
-            confirmBtn.disabled = true;
-            confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        if (confirmBtn) {
+            if (isTextValid && isPasswordValid) {
+                confirmBtn.disabled = false;
+                confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                confirmBtn.disabled = true;
+                confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
         }
     };
 
-    confirmationText.addEventListener('input', validateForm);
-    adminPassword.addEventListener('input', validateForm);
+    if (confirmationText) confirmationText.addEventListener('input', validateForm);
+    if (adminPassword) adminPassword.addEventListener('input', validateForm);
 
     // Affichage de la modal
     const modal = document.getElementById('productionModeModal');
-    modal.classList.remove('hidden');
-    setTimeout(() => {
-        modal.classList.add('show');
-        modal.querySelector('.modal').classList.add('show');
-    }, 10);
-},
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('show');
+            const modalContent = modal.querySelector('.modal');
+            if (modalContent) modalContent.classList.add('show');
+        }, 10);
+    }
+}
 
 executeProductionMode() {
-    const confirmationText = document.getElementById('confirmationText').value;
-    const adminPassword = document.getElementById('adminPassword').value;
-    const keepAdminAccount = document.getElementById('keepAdminAccount').checked;
-    const initializeSampleData = document.getElementById('initializeSampleData').checked;
-    const enableBackendSync = document.getElementById('enableBackendSync').checked;
+    const confirmationText = document.getElementById('confirmationText');
+    const adminPassword = document.getElementById('adminPassword');
+    const keepAdminAccount = document.getElementById('keepAdminAccount');
+    const initializeSampleData = document.getElementById('initializeSampleData');
+    const enableBackendSync = document.getElementById('enableBackendSync');
+
+    if (!confirmationText || !adminPassword) return;
 
     // Vérifications
-    if (confirmationText !== 'PRODUCTION') {
-        this.notificationManager.show('error', 'Confirmation incorrecte', 'Veuillez taper exactement "PRODUCTION"');
+    if (confirmationText.value !== 'PRODUCTION') {
+        if (this.notificationManager && this.notificationManager.show) {
+            this.notificationManager.show('error', 'Confirmation incorrecte', 'Veuillez taper exactement "PRODUCTION"');
+        }
         return;
     }
 
-    if (adminPassword !== window.app.currentUser.password && adminPassword !== 'admin123') {
-        this.notificationManager.show('error', 'Mot de passe incorrect', 'Mot de passe administrateur invalide');
+    if (adminPassword.value !== window.app.currentUser.password && adminPassword.value !== 'admin123') {
+        if (this.notificationManager && this.notificationManager.show) {
+            this.notificationManager.show('error', 'Mot de passe incorrect', 'Mot de passe administrateur invalide');
+        }
         return;
     }
 
     // Affichage du loader
     const confirmBtn = document.getElementById('confirmProductionBtn');
-    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Suppression en cours...';
-    confirmBtn.disabled = true;
+    if (confirmBtn) {
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Suppression en cours...';
+        confirmBtn.disabled = true;
+    }
 
     setTimeout(() => {
         try {
             // Sauvegarde de l'admin actuel
-            const currentAdmin = keepAdminAccount ? {...window.app.currentUser} : null;
+            const currentAdmin = keepAdminAccount && keepAdminAccount.checked ? {...window.app.currentUser} : null;
 
             // Suppression des données de test
             window.app.users = currentAdmin ? [currentAdmin] : [];
@@ -2799,7 +2866,7 @@ executeProductionMode() {
             window.app.cashRegisters = [];
 
             // Création d'une entreprise exemple si demandé
-            if (initializeSampleData) {
+            if (initializeSampleData && initializeSampleData.checked) {
                 const sampleCompany = {
                     id: `comp_prod_${Date.now()}`,
                     name: 'Entreprise Exemple',
@@ -2824,27 +2891,35 @@ executeProductionMode() {
             window.app.isProduction = true;
             window.app.testDataCleared = true;
             window.app.productionActivatedAt = new Date().toISOString();
-            window.app.backendEnabled = enableBackendSync;
+            window.app.backendEnabled = enableBackendSync ? enableBackendSync.checked : false;
 
             // Réinitialiser les données filtrées
             window.app.currentCompanyId = null;
-            this.filterDataByCompany();
+            if (this.filterDataByCompany) {
+                this.filterDataByCompany();
+            }
 
             this.closeProductionModal();
 
-            this.notificationManager.show('success', 'Mode Production Activé', 
-                `Application en mode production. ${initializeSampleData ? 'Entreprise exemple créée.' : ''} ${enableBackendSync ? 'Synchronisation activée.' : ''}`
-            );
+            if (this.notificationManager && this.notificationManager.show) {
+                this.notificationManager.show('success', 'Mode Production Activé', 
+                    `Application en mode production. ${initializeSampleData && initializeSampleData.checked ? 'Entreprise exemple créée.' : ''} ${enableBackendSync && enableBackendSync.checked ? 'Synchronisation activée.' : ''}`
+                );
+            }
 
             // Recharger l'interface
-            this.loadMainContent();
+            if (this.loadMainContent) {
+                this.loadMainContent();
+            }
 
         } catch (error) {
             console.error('Erreur lors du passage en production:', error);
-            this.notificationManager.show('error', 'Erreur', 'Erreur lors du passage en production: ' + error.message);
+            if (this.notificationManager && this.notificationManager.show) {
+                this.notificationManager.show('error', 'Erreur', 'Erreur lors du passage en production: ' + error.message);
+            }
         }
     }, 2000);
-},
+}
 
 closeProductionModal() {
     const modal = document.getElementById('productionModeModal');
@@ -2856,11 +2931,13 @@ closeProductionModal() {
             if (modal.parentNode) modal.parentNode.removeChild(modal);
         }, 300);
     }
-},
+}
 
 showSyncStats() {
     if (!window.app.currentUser || window.app.currentUser.profile !== 'admin') {
-        this.notificationManager.show('error', 'Accès refusé', 'Cette fonction est réservée aux administrateurs');
+        if (this.notificationManager && this.notificationManager.show) {
+            this.notificationManager.show('error', 'Accès refusé', 'Cette fonction est réservée aux administrateurs');
+        }
         return;
     }
 
@@ -2876,8 +2953,8 @@ showSyncStats() {
             🔧 <span style="color: #F59E0B; font-weight: bold;">Mode Développement</span><br>
             • Backend non disponible en mode test<br>
             • Passez en mode production pour activer<br>
-            • Données actuelles : ${window.app.users?.length || 0} utilisateurs, ${window.app.companies?.length || 0} entreprises<br>
-            • ${window.app.entries?.length || 0} écritures, ${window.app.cashRegisters?.length || 0} caisses<br><br>
+            • Données actuelles : ${(window.app.users || []).length} utilisateurs, ${(window.app.companies || []).length} entreprises<br>
+            • ${(window.app.entries || []).length} écritures, ${(window.app.cashRegisters || []).length} caisses<br><br>
             <em>ℹ️ Activez le mode production pour débloquer la synchronisation</em>
         `;
     } else if (!backendEnabled) {
@@ -2901,41 +2978,53 @@ showSyncStats() {
             • Dernière sync : ${lastSync ? new Date(lastSync).toLocaleString() : 'Jamais'}<br>
             • Production activée : ${productionActivatedAt ? new Date(productionActivatedAt).toLocaleString() : 'Date inconnue'}<br><br>
             <strong>Données en production :</strong><br>
-            • ${window.app.users?.length || 0} utilisateurs<br>
-            • ${window.app.companies?.length || 0} entreprises<br>
-            • ${window.app.entries?.length || 0} écritures<br>
-            • ${window.app.cashRegisters?.length || 0} caisses<br>
+            • ${(window.app.users || []).length} utilisateurs<br>
+            • ${(window.app.companies || []).length} entreprises<br>
+            • ${(window.app.entries || []).length} écritures<br>
+            • ${(window.app.cashRegisters || []).length} caisses<br>
         `;
     }
     
     statusMessage += '</div>';
     
-    this.notificationManager.show('info', 'Statut Backend Détaillé', statusMessage, 15000);
-},
+    if (this.notificationManager && this.notificationManager.show) {
+        this.notificationManager.show('info', 'Statut Backend Détaillé', statusMessage, 15000);
+    }
+}
 
 manualSync(operation = 'full') {
     if (!window.app.currentUser || window.app.currentUser.profile !== 'admin') {
-        this.notificationManager.show('error', 'Accès refusé', 'Cette fonction est réservée aux administrateurs');
+        if (this.notificationManager && this.notificationManager.show) {
+            this.notificationManager.show('error', 'Accès refusé', 'Cette fonction est réservée aux administrateurs');
+        }
         return;
     }
 
     if (!window.app.isProduction) {
-        this.notificationManager.show('warning', 'Mode développement', 'La synchronisation n\'est disponible qu\'en mode production');
+        if (this.notificationManager && this.notificationManager.show) {
+            this.notificationManager.show('warning', 'Mode développement', 'La synchronisation n\'est disponible qu\'en mode production');
+        }
         return;
     }
 
     if (!window.app.backendEnabled) {
-        this.notificationManager.show('warning', 'Backend désactivé', 'Activez le backend depuis le mode production');
+        if (this.notificationManager && this.notificationManager.show) {
+            this.notificationManager.show('warning', 'Backend désactivé', 'Activez le backend depuis le mode production');
+        }
         return;
     }
 
     if (!window.doukeBackend?.isInitialized) {
-        this.notificationManager.show('warning', 'Backend non connecté', 'Le backend n\'est pas initialisé');
+        if (this.notificationManager && this.notificationManager.show) {
+            this.notificationManager.show('warning', 'Backend non connecté', 'Le backend n\'est pas initialisé');
+        }
         return;
     }
 
     // Processus de synchronisation
-    this.notificationManager.show('info', 'Synchronisation', `Démarrage de la synchronisation ${operation}...`);
+    if (this.notificationManager && this.notificationManager.show) {
+        this.notificationManager.show('info', 'Synchronisation', `Démarrage de la synchronisation ${operation}...`);
+    }
     
     const steps = [
         { message: 'Connexion au backend...', delay: 1000 },
@@ -2950,7 +3039,9 @@ manualSync(operation = 'full') {
     const processNextStep = () => {
         if (currentStep < steps.length) {
             const step = steps[currentStep];
-            this.notificationManager.show('info', 'Synchronisation', step.message);
+            if (this.notificationManager && this.notificationManager.show) {
+                this.notificationManager.show('info', 'Synchronisation', step.message);
+            }
             
             setTimeout(() => {
                 currentStep++;
@@ -2968,10 +3059,10 @@ manualSync(operation = 'full') {
                         timestamp: window.app.lastSync,
                         operation: operation,
                         recordsSync: {
-                            users: window.app.users?.length || 0,
-                            companies: window.app.companies?.length || 0,
-                            entries: window.app.entries?.length || 0,
-                            cashRegisters: window.app.cashRegisters?.length || 0
+                            users: (window.app.users || []).length,
+                            companies: (window.app.companies || []).length,
+                            entries: (window.app.entries || []).length,
+                            cashRegisters: (window.app.cashRegisters || []).length
                         }
                     };
                 }
@@ -2982,28 +3073,32 @@ manualSync(operation = 'full') {
                         • Type : ${operation === 'full' ? 'Complète' : 'Incrémentale'}<br>
                         • Timestamp : ${new Date().toLocaleString()}<br>
                         • Données synchronisées :<br>
-                        &nbsp;&nbsp;- ${window.app.users?.length || 0} utilisateurs<br>
-                        &nbsp;&nbsp;- ${window.app.companies?.length || 0} entreprises<br>
-                        &nbsp;&nbsp;- ${window.app.entries?.length || 0} écritures<br>
-                        &nbsp;&nbsp;- ${window.app.cashRegisters?.length || 0} caisses<br><br>
+                        &nbsp;&nbsp;- ${(window.app.users || []).length} utilisateurs<br>
+                        &nbsp;&nbsp;- ${(window.app.companies || []).length} entreprises<br>
+                        &nbsp;&nbsp;- ${(window.app.entries || []).length} écritures<br>
+                        &nbsp;&nbsp;- ${(window.app.cashRegisters || []).length} caisses<br><br>
                         ✅ Google Sheets + BigQuery mis à jour
                     </div>
                 `;
                 
-                this.notificationManager.show('success', 'Synchronisation terminée', successMessage, 8000);
+                if (this.notificationManager && this.notificationManager.show) {
+                    this.notificationManager.show('success', 'Synchronisation terminée', successMessage, 8000);
+                }
                 
                 this.updateSyncIndicator();
                 
             } catch (error) {
                 console.error('Erreur de synchronisation:', error);
-                this.notificationManager.show('error', 'Erreur de synchronisation', 
-                    'Impossible de synchroniser les données: ' + error.message);
+                if (this.notificationManager && this.notificationManager.show) {
+                    this.notificationManager.show('error', 'Erreur de synchronisation', 
+                        'Impossible de synchroniser les données: ' + error.message);
+                }
             }
         }
     };
     
     processNextStep();
-},
+}
 
 updateSyncIndicator() {
     const syncIndicator = document.getElementById('syncIndicator');
@@ -3041,6 +3136,24 @@ updateSyncIndicator() {
     }
 }
 
+// =============================================================================
+// FONCTIONS UTILITAIRES
+// =============================================================================
+
+setActiveMenuItem(element) {
+    // Supprimer la classe active de tous les éléments
+    const menuItems = document.querySelectorAll('#navigationMenu a');
+    menuItems.forEach(item => {
+        item.classList.remove('bg-primary', 'text-white');
+        item.classList.add('text-gray-700', 'dark:text-gray-300');
+    });
+    
+    // Ajouter la classe active à l'élément cliqué
+    if (element) {
+        element.classList.add('bg-primary', 'text-white');
+        element.classList.remove('text-gray-700', 'dark:text-gray-300');
+    }
+}
     // =============================================================================
     // FONCTIONS UTILITAIRES
     // =============================================================================
