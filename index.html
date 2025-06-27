@@ -1011,7 +1011,208 @@ class UnifiedDataManager {
                 }
             ];
 
-            // =============================================================================
+        // Écritures d'exemple COMPLÈTES
+        if (window.app.entries.length === 0) {
+            window.app.entries = [
+                {
+                    id: 1,
+                    date: '2024-12-15',
+                    journal: 'JV',
+                    piece: 'JV-2024-001-0156',
+                    libelle: 'Vente marchandises Client ABC',
+                    companyId: 1,
+                    lines: [
+                        { account: '411000', accountName: 'Clients', libelle: 'Vente Client ABC', debit: 1800000, credit: 0 },
+                        { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente marchandises', debit: 0, credit: 1500000 },
+                        { account: '445000', accountName: 'TVA due', libelle: 'TVA sur ventes', debit: 0, credit: 300000 }
+                    ],
+                    status: 'Validé',
+                    userId: 2,
+                    validatedBy: 1,
+                    validatedAt: new Date('2024-12-15T14:30:00'),
+                    createdAt: new Date('2024-12-15T10:00:00')
+                },
+                {
+                    id: 2,
+                    date: '2024-12-14',
+                    journal: 'JA',
+                    piece: 'JA-2024-001-0157',
+                    libelle: 'Achat marchandises Fournisseur XYZ',
+                    companyId: 1,
+                    lines: [
+                        { account: '601000', accountName: 'Achats de marchandises', libelle: 'Achat marchandises', debit: 850000, credit: 0 },
+                        { account: '449000', accountName: 'État - créances diverses', libelle: 'TVA déductible', debit: 170000, credit: 0 },
+                        { account: '401000', accountName: 'Fournisseurs', libelle: 'Fournisseur XYZ', debit: 0, credit: 1020000 }
+                    ],
+                    status: 'En attente',
+                    userId: 3,
+                    createdAt: new Date('2024-12-14T16:00:00')
+                },
+                {
+                    id: 3,
+                    date: '2024-12-13',
+                    journal: 'JC',
+                    piece: 'JC-2024-001-0158',
+                    libelle: 'Encaissement vente comptant',
+                    companyId: 2,
+                    lines: [
+                        { account: '571000', accountName: 'Caisse', libelle: 'Encaissement vente', debit: 120000, credit: 0 },
+                        { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente comptant', debit: 0, credit: 100000 },
+                        { account: '445000', accountName: 'TVA due', libelle: 'TVA sur vente', debit: 0, credit: 20000 }
+                    ],
+                    status: 'Validé',
+                    userId: 5,
+                    validatedBy: 2,
+                    validatedAt: new Date('2024-12-13T17:00:00'),
+                    createdAt: new Date('2024-12-13T15:00:00')
+                },
+                {
+                    id: 4,
+                    date: '2024-12-12',
+                    journal: 'JB',
+                    piece: 'JB-2024-001-0089',
+                    libelle: 'Virement bancaire salaires',
+                    companyId: 2,
+                    lines: [
+                        { account: '641000', accountName: 'Rémunérations du personnel', libelle: 'Salaires décembre', debit: 2500000, credit: 0 },
+                        { account: '645000', accountName: 'Charges sociales', libelle: 'Cotisations sociales', debit: 750000, credit: 0 },
+                        { account: '512000', accountName: 'Banques', libelle: 'Virement salaires', debit: 0, credit: 3250000 }
+                    ],
+                    status: 'Validé',
+                    userId: 2,
+                    createdAt: new Date('2024-12-12T11:15:00')
+                }
+            ];
+        }
+
+        // Caisses COMPLÈTES
+        if (window.app.cashRegisters.length === 0) {
+            window.app.cashRegisters = [
+                {
+                    id: 1,
+                    name: 'Caisse Principale',
+                    companyId: 2,
+                    responsibleId: 5,
+                    responsibleName: 'Ibrahim Koné',
+                    balance: 210000,
+                    status: 'Ouvert',
+                    openingBalance: 150000,
+                    dailyReceipts: 85000,
+                    dailyExpenses: 25000,
+                    lastOperation: new Date(),
+                    currency: 'FCFA',
+                    maxLimit: 500000
+                },
+                {
+                    id: 2,
+                    name: 'Caisse Ventes',
+                    companyId: 2,
+                    responsibleId: null,
+                    responsibleName: 'Fatou Diallo',
+                    balance: 85000,
+                    status: 'Ouvert',
+                    openingBalance: 100000,
+                    dailyReceipts: 35000,
+                    dailyExpenses: 50000,
+                    lastOperation: new Date(),
+                    currency: 'FCFA',
+                    maxLimit: 300000
+                },
+                {
+                    id: 3,
+                    name: 'Caisse Petite Monnaie',
+                    companyId: 1,
+                    responsibleId: 4,
+                    responsibleName: 'Amadou Traoré',
+                    balance: 50000,
+                    status: 'Fermé',
+                    openingBalance: 50000,
+                    dailyReceipts: 15000,
+                    dailyExpenses: 15000,
+                    lastOperation: new Date(),
+                    currency: 'FCFA',
+                    maxLimit: 100000
+                }
+            ];
+        }
+
+        console.log('✅ Données complètes initialisées - Comptes:', window.app.users.length, 'utilisateurs créés');
+    }
+
+    hashPassword(password) {
+        return btoa(password + 'DOUKE_SALT_2024');
+    }
+
+    verifyPassword(password, hash) {
+        return this.hashPassword(password) === hash;
+    }
+
+    // Sélectionner une entreprise (avec validation de sécurité)
+    selectCompany(companyId, userId = null) {
+        const currentUserId = userId || (window.app.currentUser ? window.app.currentUser.id : null);
+
+        if (!this.security.hasAccessToCompany(currentUserId, companyId)) {
+            this.showSecurityAlert('🚫 Accès refusé à cette entreprise');
+            return false;
+        }
+
+        this.currentCompanyId = companyId;
+        window.app.currentCompanyId = companyId;
+
+        // Mettre à jour le cache des données filtrées
+        this.updateFilteredDataCache();
+        this.updateSecurityIndicators();
+
+        this.notificationManager.show('success', 'Entreprise sélectionnée', 
+            `Vous travaillez maintenant sur ${this.getSelectedCompanyName()}`);
+
+        // Recharger le dashboard
+        setTimeout(() => {
+            this.loadSecureDashboard();
+        }, 200);
+
+        console.log(`🏢 Entreprise ${companyId} sélectionnée`);
+        return true;
+    }
+
+    updateFilteredDataCache() {
+        if (!window.app.currentCompanyId) {
+            this.clearFilteredDataCache();
+            return;
+        }
+
+        try {
+            window.app.filteredData = {
+                entries: this.data.getCompanyEntries(window.app.currentCompanyId),
+                accounts: this.data.getCompanyAccounts(window.app.currentCompanyId),
+                cashRegisters: this.data.getCompanyCashRegisters(window.app.currentCompanyId),
+                users: this.data.getCompanyUsers(window.app.currentCompanyId),
+                reports: [],
+                lastUpdate: new Date().toISOString(),
+                companyId: window.app.currentCompanyId
+            };
+
+            console.log(`🔄 Cache mis à jour pour entreprise ${window.app.currentCompanyId}`);
+        } catch (error) {
+            console.error('❌ Erreur mise à jour cache:', error);
+            this.clearFilteredDataCache();
+        }
+    }
+
+    clearFilteredDataCache() {
+        window.app.filteredData = {
+            entries: [],
+            accounts: [],
+            reports: [],
+            cashRegisters: [],
+            users: [],
+            lastUpdate: null,
+            companyId: null
+        };
+        console.log('🗑️ Cache des données filtrées vidé');
+    }
+        
+// =============================================================================
 // NOUVELLES PAGES : GESTION D'ÉQUIPE ET ADMINISTRATION
 // =============================================================================
 
@@ -1330,209 +1531,6 @@ loadAdminSettingsPage() {
         mainContent.innerHTML = content;
     }
 }
-        }
-
-        // Écritures d'exemple COMPLÈTES
-        if (window.app.entries.length === 0) {
-            window.app.entries = [
-                {
-                    id: 1,
-                    date: '2024-12-15',
-                    journal: 'JV',
-                    piece: 'JV-2024-001-0156',
-                    libelle: 'Vente marchandises Client ABC',
-                    companyId: 1,
-                    lines: [
-                        { account: '411000', accountName: 'Clients', libelle: 'Vente Client ABC', debit: 1800000, credit: 0 },
-                        { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente marchandises', debit: 0, credit: 1500000 },
-                        { account: '445000', accountName: 'TVA due', libelle: 'TVA sur ventes', debit: 0, credit: 300000 }
-                    ],
-                    status: 'Validé',
-                    userId: 2,
-                    validatedBy: 1,
-                    validatedAt: new Date('2024-12-15T14:30:00'),
-                    createdAt: new Date('2024-12-15T10:00:00')
-                },
-                {
-                    id: 2,
-                    date: '2024-12-14',
-                    journal: 'JA',
-                    piece: 'JA-2024-001-0157',
-                    libelle: 'Achat marchandises Fournisseur XYZ',
-                    companyId: 1,
-                    lines: [
-                        { account: '601000', accountName: 'Achats de marchandises', libelle: 'Achat marchandises', debit: 850000, credit: 0 },
-                        { account: '449000', accountName: 'État - créances diverses', libelle: 'TVA déductible', debit: 170000, credit: 0 },
-                        { account: '401000', accountName: 'Fournisseurs', libelle: 'Fournisseur XYZ', debit: 0, credit: 1020000 }
-                    ],
-                    status: 'En attente',
-                    userId: 3,
-                    createdAt: new Date('2024-12-14T16:00:00')
-                },
-                {
-                    id: 3,
-                    date: '2024-12-13',
-                    journal: 'JC',
-                    piece: 'JC-2024-001-0158',
-                    libelle: 'Encaissement vente comptant',
-                    companyId: 2,
-                    lines: [
-                        { account: '571000', accountName: 'Caisse', libelle: 'Encaissement vente', debit: 120000, credit: 0 },
-                        { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente comptant', debit: 0, credit: 100000 },
-                        { account: '445000', accountName: 'TVA due', libelle: 'TVA sur vente', debit: 0, credit: 20000 }
-                    ],
-                    status: 'Validé',
-                    userId: 5,
-                    validatedBy: 2,
-                    validatedAt: new Date('2024-12-13T17:00:00'),
-                    createdAt: new Date('2024-12-13T15:00:00')
-                },
-                {
-                    id: 4,
-                    date: '2024-12-12',
-                    journal: 'JB',
-                    piece: 'JB-2024-001-0089',
-                    libelle: 'Virement bancaire salaires',
-                    companyId: 2,
-                    lines: [
-                        { account: '641000', accountName: 'Rémunérations du personnel', libelle: 'Salaires décembre', debit: 2500000, credit: 0 },
-                        { account: '645000', accountName: 'Charges sociales', libelle: 'Cotisations sociales', debit: 750000, credit: 0 },
-                        { account: '512000', accountName: 'Banques', libelle: 'Virement salaires', debit: 0, credit: 3250000 }
-                    ],
-                    status: 'Validé',
-                    userId: 2,
-                    createdAt: new Date('2024-12-12T11:15:00')
-                }
-            ];
-        }
-
-        // Caisses COMPLÈTES
-        if (window.app.cashRegisters.length === 0) {
-            window.app.cashRegisters = [
-                {
-                    id: 1,
-                    name: 'Caisse Principale',
-                    companyId: 2,
-                    responsibleId: 5,
-                    responsibleName: 'Ibrahim Koné',
-                    balance: 210000,
-                    status: 'Ouvert',
-                    openingBalance: 150000,
-                    dailyReceipts: 85000,
-                    dailyExpenses: 25000,
-                    lastOperation: new Date(),
-                    currency: 'FCFA',
-                    maxLimit: 500000
-                },
-                {
-                    id: 2,
-                    name: 'Caisse Ventes',
-                    companyId: 2,
-                    responsibleId: null,
-                    responsibleName: 'Fatou Diallo',
-                    balance: 85000,
-                    status: 'Ouvert',
-                    openingBalance: 100000,
-                    dailyReceipts: 35000,
-                    dailyExpenses: 50000,
-                    lastOperation: new Date(),
-                    currency: 'FCFA',
-                    maxLimit: 300000
-                },
-                {
-                    id: 3,
-                    name: 'Caisse Petite Monnaie',
-                    companyId: 1,
-                    responsibleId: 4,
-                    responsibleName: 'Amadou Traoré',
-                    balance: 50000,
-                    status: 'Fermé',
-                    openingBalance: 50000,
-                    dailyReceipts: 15000,
-                    dailyExpenses: 15000,
-                    lastOperation: new Date(),
-                    currency: 'FCFA',
-                    maxLimit: 100000
-                }
-            ];
-        }
-
-        console.log('✅ Données complètes initialisées - Comptes:', window.app.users.length, 'utilisateurs créés');
-    }
-
-    hashPassword(password) {
-        return btoa(password + 'DOUKE_SALT_2024');
-    }
-
-    verifyPassword(password, hash) {
-        return this.hashPassword(password) === hash;
-    }
-
-    // Sélectionner une entreprise (avec validation de sécurité)
-    selectCompany(companyId, userId = null) {
-        const currentUserId = userId || (window.app.currentUser ? window.app.currentUser.id : null);
-
-        if (!this.security.hasAccessToCompany(currentUserId, companyId)) {
-            this.showSecurityAlert('🚫 Accès refusé à cette entreprise');
-            return false;
-        }
-
-        this.currentCompanyId = companyId;
-        window.app.currentCompanyId = companyId;
-
-        // Mettre à jour le cache des données filtrées
-        this.updateFilteredDataCache();
-        this.updateSecurityIndicators();
-
-        this.notificationManager.show('success', 'Entreprise sélectionnée', 
-            `Vous travaillez maintenant sur ${this.getSelectedCompanyName()}`);
-
-        // Recharger le dashboard
-        setTimeout(() => {
-            this.loadSecureDashboard();
-        }, 200);
-
-        console.log(`🏢 Entreprise ${companyId} sélectionnée`);
-        return true;
-    }
-
-    updateFilteredDataCache() {
-        if (!window.app.currentCompanyId) {
-            this.clearFilteredDataCache();
-            return;
-        }
-
-        try {
-            window.app.filteredData = {
-                entries: this.data.getCompanyEntries(window.app.currentCompanyId),
-                accounts: this.data.getCompanyAccounts(window.app.currentCompanyId),
-                cashRegisters: this.data.getCompanyCashRegisters(window.app.currentCompanyId),
-                users: this.data.getCompanyUsers(window.app.currentCompanyId),
-                reports: [],
-                lastUpdate: new Date().toISOString(),
-                companyId: window.app.currentCompanyId
-            };
-
-            console.log(`🔄 Cache mis à jour pour entreprise ${window.app.currentCompanyId}`);
-        } catch (error) {
-            console.error('❌ Erreur mise à jour cache:', error);
-            this.clearFilteredDataCache();
-        }
-    }
-
-    clearFilteredDataCache() {
-        window.app.filteredData = {
-            entries: [],
-            accounts: [],
-            reports: [],
-            cashRegisters: [],
-            users: [],
-            lastUpdate: null,
-            companyId: null
-        };
-        console.log('🗑️ Cache des données filtrées vidé');
-    }
-
     // =============================================================================
     // FONCTIONS D'AUTHENTIFICATION SÉCURISÉES
     // =============================================================================
