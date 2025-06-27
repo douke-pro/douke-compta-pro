@@ -746,791 +746,469 @@ class ModalManager {
     }
 }
 
-// =============================================================================
-// GESTIONNAIRE PRINCIPAL UNIFIÉ
-// =============================================================================
+        class UnifiedDataManager {
+            constructor() {
+                this.security = new SecurityManager();
+                this.data = new DataManager(this.security);
+                this.notificationManager = new NotificationManager();
+                this.modalManager = new ModalManager();
+                this.currentCompanyId = null;
+                this.initializeApplication();
+                console.log('🚀 UnifiedDataManager COMPLET initialisé');
+            }
 
-class UnifiedDataManager {
-    constructor() {
-        this.security = new SecurityManager();
-        this.data = new DataManager(this.security);
-        this.notificationManager = new NotificationManager();
-        this.modalManager = new ModalManager();
-        this.currentCompanyId = null;
-        this.initializeApplication();
-        console.log('🚀 UnifiedDataManager COMPLET initialisé');
-    }
+            initializeApplication() {
+                this.initializeData();
+                // Exposer les gestionnaires globalement
+                window.notificationManager = this.notificationManager;
+                window.modalManager = this.modalManager;
+            }
 
-    initializeApplication() {
-        this.initializeData();
-        // Exposer les gestionnaires globalement
-        window.notificationManager = this.notificationManager;
-        window.modalManager = this.modalManager;
-    }
-
-    initializeData() {
-        // Plan comptable SYSCOHADA Révisé complet
-        if (window.app.accounts.length === 0) {
-            window.app.accounts = [
-                // Classe 1 - Comptes de ressources durables
-                { code: '101000', name: 'Capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                { code: '104000', name: 'Primes liées au capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                { code: '106000', name: 'Réserves', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                { code: '131000', name: 'Subventions d\'équipement', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                { code: '140000', name: 'Provisions réglementées', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                { code: '151000', name: 'Provisions pour risques', category: 'Provisions', type: 'Passif', nature: 'Credit' },
-                { code: '161000', name: 'Emprunts et dettes', category: 'Dettes financières', type: 'Passif', nature: 'Credit' },
-                { code: '171000', name: 'Dettes de crédit-bail', category: 'Dettes financières', type: 'Passif', nature: 'Credit' },
-                
-                // Classe 2 - Comptes d'actif immobilisé
-                { code: '211000', name: 'Terrains', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                { code: '212000', name: 'Agencements et aménagements de terrains', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                { code: '213000', name: 'Constructions', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                { code: '215000', name: 'Installations techniques', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                { code: '218000', name: 'Matériel de transport', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                { code: '241000', name: 'Immobilisations incorporelles', category: 'Immobilisations incorporelles', type: 'Actif', nature: 'Debit' },
-                { code: '244000', name: 'Matériel et outillage', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                { code: '245000', name: 'Matériel et mobilier de bureau', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                { code: '246000', name: 'Matériel informatique', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                { code: '261000', name: 'Titres de participation', category: 'Immobilisations financières', type: 'Actif', nature: 'Debit' },
-                
-                // Classe 3 - Comptes de stocks
-                { code: '311000', name: 'Marchandises', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                { code: '321000', name: 'Matières premières', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                { code: '322000', name: 'Fournitures', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                { code: '331000', name: 'Produits en cours', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                { code: '341000', name: 'Produits finis', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                
-                // Classe 4 - Comptes de tiers
-                { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs', type: 'Passif', nature: 'Credit' },
-                { code: '409000', name: 'Fournisseurs débiteurs', category: 'Fournisseurs', type: 'Actif', nature: 'Debit' },
-                { code: '411000', name: 'Clients', category: 'Clients', type: 'Actif', nature: 'Debit' },
-                { code: '419000', name: 'Clients créditeurs', category: 'Clients', type: 'Passif', nature: 'Credit' },
-                { code: '421000', name: 'Personnel - avances et acomptes', category: 'Personnel', type: 'Actif', nature: 'Debit' },
-                { code: '422000', name: 'Personnel - rémunérations dues', category: 'Personnel', type: 'Passif', nature: 'Credit' },
-                { code: '431000', name: 'Sécurité sociale', category: 'Organismes sociaux', type: 'Passif', nature: 'Credit' },
-                { code: '441000', name: 'État et collectivités', category: 'État', type: 'Passif', nature: 'Credit' },
-                { code: '445000', name: 'TVA due', category: 'État', type: 'Passif', nature: 'Credit' },
-                { code: '449000', name: 'État - créances et dettes diverses', category: 'État', type: 'Actif', nature: 'Debit' },
-                
-                // Classe 5 - Comptes financiers
-                { code: '512000', name: 'Banques', category: 'Comptes bancaires', type: 'Actif', nature: 'Debit' },
-                { code: '521000', name: 'Chèques postaux', category: 'Comptes bancaires', type: 'Actif', nature: 'Debit' },
-                { code: '531000', name: 'Caisse siège social', category: 'Caisse', type: 'Actif', nature: 'Debit' },
-                { code: '571000', name: 'Caisse', category: 'Caisse', type: 'Actif', nature: 'Debit' },
-                
-                // Classe 6 - Comptes de charges
-                { code: '601000', name: 'Achats de marchandises', category: 'Achats', type: 'Charge', nature: 'Debit' },
-                { code: '602000', name: 'Achats de matières premières', category: 'Achats', type: 'Charge', nature: 'Debit' },
-                { code: '605000', name: 'Autres achats', category: 'Achats', type: 'Charge', nature: 'Debit' },
-                { code: '621000', name: 'Transports', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                { code: '622000', name: 'Rémunérations d\'intermédiaires', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                { code: '623000', name: 'Publicité, publications', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                { code: '624000', name: 'Télécommunications', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                { code: '625000', name: 'Frais de déplacement', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                { code: '641000', name: 'Rémunérations du personnel', category: 'Charges de personnel', type: 'Charge', nature: 'Debit' },
-                { code: '645000', name: 'Charges sociales', category: 'Charges de personnel', type: 'Charge', nature: 'Debit' },
-                { code: '661000', name: 'Intérêts des emprunts', category: 'Charges financières', type: 'Charge', nature: 'Debit' },
-                
-                // Classe 7 - Comptes de produits
-                { code: '701000', name: 'Ventes de marchandises', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                { code: '702000', name: 'Ventes de produits finis', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                { code: '704000', name: 'Travaux', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                { code: '706000', name: 'Services vendus', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                { code: '707000', name: 'Produits accessoires', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                { code: '754000', name: 'Produits exceptionnels', category: 'Produits exceptionnels', type: 'Produit', nature: 'Credit' },
-                { code: '771000', name: 'Intérêts de prêts', category: 'Produits financiers', type: 'Produit', nature: 'Credit' }
-            ];
-        }
-
-        // Entreprises avec hiérarchie complète
-        if (window.app.companies.length === 0) {
-            window.app.companies = [
-                {
-                    id: 1,
-                    name: 'SARL TECH INNOVATION',
-                    type: 'SARL',
-                    status: 'Actif',
-                    system: 'Normal',
-                    phone: '+225 07 12 34 56 78',
-                    email: 'contact@tech-innovation.ci',
-                    address: 'Abidjan, Cocody, Riviera 3',
-                    rccm: 'CI-ABJ-2020-B-12345',
-                    nif: '0123456789',
-                    cashRegisters: 3,
-                    sector: 'Informatique',
-                    currency: 'FCFA',
-                    exerciceStart: '2024-01-01',
-                    exerciceEnd: '2024-12-31',
-                    createdAt: '2024-01-01T00:00:00.000Z',
-                    createdBy: 1
-                },
-                {
-                    id: 2,
-                    name: 'SA COMMERCE PLUS',
-                    type: 'SA',
-                    status: 'Actif',
-                    system: 'Normal',
-                    phone: '+225 05 98 76 54 32',
-                    email: 'admin@commerce-plus.ci',
-                    address: 'Abidjan, Plateau, Boulevard Clozel',
-                    rccm: 'CI-ABJ-2019-B-67890',
-                    nif: '9876543210',
-                    cashRegisters: 5,
-                    sector: 'Commerce',
-                    currency: 'FCFA',
-                    exerciceStart: '2024-01-01',
-                    exerciceEnd: '2024-12-31',
-                    createdAt: '2024-01-15T00:00:00.000Z',
-                    createdBy: 1
-                },
-                {
-                    id: 3,
-                    name: 'EURL SERVICES PRO',
-                    type: 'EURL',
-                    status: 'Période d\'essai',
-                    system: 'Minimal',
-                    phone: '+225 01 23 45 67 89',
-                    email: 'info@services-pro.ci',
-                    address: 'Bouaké Centre, Quartier Air France',
-                    rccm: 'CI-BKE-2021-B-11111',
-                    nif: '1111111111',
-                    cashRegisters: 2,
-                    sector: 'Services',
-                    currency: 'FCFA',
-                    exerciceStart: '2024-01-01',
-                    exerciceEnd: '2024-12-31',
-                    createdAt: '2024-02-01T00:00:00.000Z',
-                    createdBy: 1
-                },
-                {
-                    id: 4,
-                    name: 'SAS DIGITAL WORLD',
-                    type: 'SAS',
-                    status: 'Suspendu',
-                    system: 'Normal',
-                    phone: '+225 07 11 22 33 44',
-                    email: 'contact@digital-world.ci',
-                    address: 'San-Pédro, Zone Industrielle',
-                    rccm: 'CI-SPE-2022-B-22222',
-                    nif: '2222222222',
-                    cashRegisters: 1,
-                    sector: 'Digital',
-                    currency: 'FCFA',
-                    exerciceStart: '2024-01-01',
-                    exerciceEnd: '2024-12-31',
-                    createdAt: '2024-03-01T00:00:00.000Z',
-                    createdBy: 1
+            initializeData() {
+                // Plan comptable SYSCOHADA Révisé complet
+                if (window.app.accounts.length === 0) {
+                    window.app.accounts = [
+                        // Classe 1 - Comptes de ressources durables
+                        { code: '101000', name: 'Capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                        { code: '104000', name: 'Primes liées au capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                        { code: '106000', name: 'Réserves', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                        { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                        { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                        { code: '131000', name: 'Subventions d\'équipement', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                        { code: '140000', name: 'Provisions réglementées', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                        { code: '151000', name: 'Provisions pour risques', category: 'Provisions', type: 'Passif', nature: 'Credit' },
+                        { code: '161000', name: 'Emprunts et dettes', category: 'Dettes financières', type: 'Passif', nature: 'Credit' },
+                        { code: '171000', name: 'Dettes de crédit-bail', category: 'Dettes financières', type: 'Passif', nature: 'Credit' },
+                        
+                        // Classe 2 - Comptes d'actif immobilisé
+                        { code: '211000', name: 'Terrains', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '212000', name: 'Agencements et aménagements de terrains', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '213000', name: 'Constructions', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '215000', name: 'Installations techniques', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '218000', name: 'Matériel de transport', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '241000', name: 'Immobilisations incorporelles', category: 'Immobilisations incorporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '244000', name: 'Matériel et outillage', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '245000', name: 'Matériel et mobilier de bureau', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '246000', name: 'Matériel informatique', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                        { code: '261000', name: 'Titres de participation', category: 'Immobilisations financières', type: 'Actif', nature: 'Debit' },
+                        
+                        // Classe 3 - Comptes de stocks
+                        { code: '311000', name: 'Marchandises', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                        { code: '321000', name: 'Matières premières', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                        { code: '322000', name: 'Fournitures', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                        { code: '331000', name: 'Produits en cours', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                        { code: '341000', name: 'Produits finis', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                        
+                        // Classe 4 - Comptes de tiers
+                        { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs', type: 'Passif', nature: 'Credit' },
+                        { code: '409000', name: 'Fournisseurs débiteurs', category: 'Fournisseurs', type: 'Actif', nature: 'Debit' },
+                        { code: '411000', name: 'Clients', category: 'Clients', type: 'Actif', nature: 'Debit' },
+                        { code: '419000', name: 'Clients créditeurs', category: 'Clients', type: 'Passif', nature: 'Credit' },
+                        { code: '421000', name: 'Personnel - avances et acomptes', category: 'Personnel', type: 'Actif', nature: 'Debit' },
+                        { code: '422000', name: 'Personnel - rémunérations dues', category: 'Personnel', type: 'Passif', nature: 'Credit' },
+                        { code: '431000', name: 'Sécurité sociale', category: 'Organismes sociaux', type: 'Passif', nature: 'Credit' },
+                        { code: '441000', name: 'État et collectivités', category: 'État', type: 'Passif', nature: 'Credit' },
+                        { code: '445000', name: 'TVA due', category: 'État', type: 'Passif', nature: 'Credit' },
+                        { code: '449000', name: 'État - créances et dettes diverses', category: 'État', type: 'Actif', nature: 'Debit' },
+                        
+                        // Classe 5 - Comptes financiers
+                        { code: '512000', name: 'Banques', category: 'Comptes bancaires', type: 'Actif', nature: 'Debit' },
+                        { code: '521000', name: 'Chèques postaux', category: 'Comptes bancaires', type: 'Actif', nature: 'Debit' },
+                        { code: '531000', name: 'Caisse siège social', category: 'Caisse', type: 'Actif', nature: 'Debit' },
+                        { code: '571000', name: 'Caisse', category: 'Caisse', type: 'Actif', nature: 'Debit' },
+                        
+                        // Classe 6 - Comptes de charges
+                        { code: '601000', name: 'Achats de marchandises', category: 'Achats', type: 'Charge', nature: 'Debit' },
+                        { code: '602000', name: 'Achats de matières premières', category: 'Achats', type: 'Charge', nature: 'Debit' },
+                        { code: '605000', name: 'Autres achats', category: 'Achats', type: 'Charge', nature: 'Debit' },
+                        { code: '621000', name: 'Transports', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                        { code: '622000', name: 'Rémunérations d\'intermédiaires', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                        { code: '623000', name: 'Publicité, publications', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                        { code: '624000', name: 'Télécommunications', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                        { code: '625000', name: 'Frais de déplacement', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                        { code: '641000', name: 'Rémunérations du personnel', category: 'Charges de personnel', type: 'Charge', nature: 'Debit' },
+                        { code: '645000', name: 'Charges sociales', category: 'Charges de personnel', type: 'Charge', nature: 'Debit' },
+                        { code: '661000', name: 'Intérêts des emprunts', category: 'Charges financières', type: 'Charge', nature: 'Debit' },
+                        
+                        // Classe 7 - Comptes de produits
+                        { code: '701000', name: 'Ventes de marchandises', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                        { code: '702000', name: 'Ventes de produits finis', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                        { code: '704000', name: 'Travaux', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                        { code: '706000', name: 'Services vendus', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                        { code: '707000', name: 'Produits accessoires', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                        { code: '754000', name: 'Produits exceptionnels', category: 'Produits exceptionnels', type: 'Produit', nature: 'Credit' },
+                        { code: '771000', name: 'Intérêts de prêts', category: 'Produits financiers', type: 'Produit', nature: 'Credit' }
+                    ];
                 }
-            ];
-        }
 
-        // Utilisateurs avec hiérarchie COMPLÈTE
-        if (window.app.users.length === 0) {
-            window.app.users = [
-                {
-                    id: 1,
-                    name: 'Admin Système',
-                    email: 'admin@doukecompta.ci',
-                    passwordHash: this.hashPassword('admin123'),
-                    profile: 'admin',
-                    role: 'Administrateur',
-                    phone: '+225 07 00 00 00 00',
-                    status: 'Actif',
-                    assignedCompanies: [1, 2, 3, 4],
-                    companies: [1, 2, 3, 4],
-                    permissions: ['all'],
-                    lastLogin: new Date(),
-                    createdAt: new Date('2024-01-01')
-                },
-                {
-                    id: 2,
-                    name: 'Marie Kouassi',
-                    email: 'marie.kouassi@cabinet.com',
-                    passwordHash: this.hashPassword('marie123'),
-                    profile: 'collaborateur_senior',
-                    role: 'Collaborateur Senior',
-                    phone: '+225 07 11 11 11 11',
-                    status: 'Actif',
-                    assignedCompanies: [1, 2, 3],
-                    companies: [1, 2, 3],
-                    managedCollaborators: [3],
-                    permissions: ['read', 'write', 'validate'],
-                    lastLogin: new Date(),
-                    createdAt: new Date('2024-02-01')
-                },
-                {
-                    id: 3,
-                    name: 'Jean Diabaté',
-                    email: 'jean.diabate@cabinet.com',
-                    passwordHash: this.hashPassword('jean123'),
-                    profile: 'collaborateur',
-                    role: 'Collaborateur',
-                    phone: '+225 07 22 22 22 22',
-                    status: 'Actif',
-                    assignedCompanies: [2, 4],
-                    companies: [2, 4],
-                    seniorCollaboratorId: 2,
-                    permissions: ['read', 'write'],
-                    lastLogin: new Date(),
-                    createdAt: new Date('2024-03-01')
-                },
-                {
-                    id: 4,
-                    name: 'Amadou Traoré',
-                    email: 'atraore@sarltech.ci',
-                    passwordHash: this.hashPassword('user123'),
-                    profile: 'user',
-                    role: 'Utilisateur',
-                    phone: '+225 07 33 33 33 33',
-                    status: 'Actif',
-                    companyId: 1,
-                    assignedCompanies: [1],
-                    companies: [1],
-                    permissions: ['read'],
-                    lastLogin: new Date(),
-                    createdAt: new Date('2024-04-01')
-                },
-                {
-                    id: 5,
-                    name: 'Ibrahim Koné',
-                    email: 'ikone@caisse.ci',
-                    passwordHash: this.hashPassword('caisse123'),
-                    profile: 'caissier',
-                    role: 'Caissier',
-                    phone: '+225 07 44 44 44 44',
-                    status: 'Actif',
-                    companyId: 2,
-                    assignedCompanies: [2],
-                    companies: [2],
-                    permissions: ['cash_operations'],
-                    lastLogin: new Date(),
-                    createdAt: new Date('2024-05-01')
+                // Entreprises avec hiérarchie complète
+                if (window.app.companies.length === 0) {
+                    window.app.companies = [
+                        {
+                            id: 1,
+                            name: 'SARL TECH INNOVATION',
+                            type: 'SARL',
+                            status: 'Actif',
+                            system: 'Normal',
+                            phone: '+225 07 12 34 56 78',
+                            email: 'contact@tech-innovation.ci',
+                            address: 'Abidjan, Cocody, Riviera 3',
+                            rccm: 'CI-ABJ-2020-B-12345',
+                            nif: '0123456789',
+                            cashRegisters: 3,
+                            sector: 'Informatique',
+                            currency: 'FCFA',
+                            exerciceStart: '2024-01-01',
+                            exerciceEnd: '2024-12-31',
+                            createdAt: '2024-01-01T00:00:00.000Z',
+                            createdBy: 1
+                        },
+                        {
+                            id: 2,
+                            name: 'SA COMMERCE PLUS',
+                            type: 'SA',
+                            status: 'Actif',
+                            system: 'Normal',
+                            phone: '+225 05 98 76 54 32',
+                            email: 'admin@commerce-plus.ci',
+                            address: 'Abidjan, Plateau, Boulevard Clozel',
+                            rccm: 'CI-ABJ-2019-B-67890',
+                            nif: '9876543210',
+                            cashRegisters: 5,
+                            sector: 'Commerce',
+                            currency: 'FCFA',
+                            exerciceStart: '2024-01-01',
+                            exerciceEnd: '2024-12-31',
+                            createdAt: '2024-01-15T00:00:00.000Z',
+                            createdBy: 1
+                        },
+                        {
+                            id: 3,
+                            name: 'EURL SERVICES PRO',
+                            type: 'EURL',
+                            status: 'Période d\'essai',
+                            system: 'Minimal',
+                            phone: '+225 01 23 45 67 89',
+                            email: 'info@services-pro.ci',
+                            address: 'Bouaké Centre, Quartier Air France',
+                            rccm: 'CI-BKE-2021-B-11111',
+                            nif: '1111111111',
+                            cashRegisters: 2,
+                            sector: 'Services',
+                            currency: 'FCFA',
+                            exerciceStart: '2024-01-01',
+                            exerciceEnd: '2024-12-31',
+                            createdAt: '2024-02-01T00:00:00.000Z',
+                            createdBy: 1
+                        },
+                        {
+                            id: 4,
+                            name: 'SAS DIGITAL WORLD',
+                            type: 'SAS',
+                            status: 'Suspendu',
+                            system: 'Normal',
+                            phone: '+225 07 11 22 33 44',
+                            email: 'contact@digital-world.ci',
+                            address: 'San-Pédro, Zone Industrielle',
+                            rccm: 'CI-SPE-2022-B-22222',
+                            nif: '2222222222',
+                            cashRegisters: 1,
+                            sector: 'Digital',
+                            currency: 'FCFA',
+                            exerciceStart: '2024-01-01',
+                            exerciceEnd: '2024-12-31',
+                            createdAt: '2024-03-01T00:00:00.000Z',
+                            createdBy: 1
+                        }
+                    ];
                 }
-            ];
 
-        // Écritures d'exemple COMPLÈTES
-        if (window.app.entries.length === 0) {
-            window.app.entries = [
-                {
-                    id: 1,
-                    date: '2024-12-15',
-                    journal: 'JV',
-                    piece: 'JV-2024-001-0156',
-                    libelle: 'Vente marchandises Client ABC',
-                    companyId: 1,
-                    lines: [
-                        { account: '411000', accountName: 'Clients', libelle: 'Vente Client ABC', debit: 1800000, credit: 0 },
-                        { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente marchandises', debit: 0, credit: 1500000 },
-                        { account: '445000', accountName: 'TVA due', libelle: 'TVA sur ventes', debit: 0, credit: 300000 }
-                    ],
-                    status: 'Validé',
-                    userId: 2,
-                    validatedBy: 1,
-                    validatedAt: new Date('2024-12-15T14:30:00'),
-                    createdAt: new Date('2024-12-15T10:00:00')
-                },
-                {
-                    id: 2,
-                    date: '2024-12-14',
-                    journal: 'JA',
-                    piece: 'JA-2024-001-0157',
-                    libelle: 'Achat marchandises Fournisseur XYZ',
-                    companyId: 1,
-                    lines: [
-                        { account: '601000', accountName: 'Achats de marchandises', libelle: 'Achat marchandises', debit: 850000, credit: 0 },
-                        { account: '449000', accountName: 'État - créances diverses', libelle: 'TVA déductible', debit: 170000, credit: 0 },
-                        { account: '401000', accountName: 'Fournisseurs', libelle: 'Fournisseur XYZ', debit: 0, credit: 1020000 }
-                    ],
-                    status: 'En attente',
-                    userId: 3,
-                    createdAt: new Date('2024-12-14T16:00:00')
-                },
-                {
-                    id: 3,
-                    date: '2024-12-13',
-                    journal: 'JC',
-                    piece: 'JC-2024-001-0158',
-                    libelle: 'Encaissement vente comptant',
-                    companyId: 2,
-                    lines: [
-                        { account: '571000', accountName: 'Caisse', libelle: 'Encaissement vente', debit: 120000, credit: 0 },
-                        { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente comptant', debit: 0, credit: 100000 },
-                        { account: '445000', accountName: 'TVA due', libelle: 'TVA sur vente', debit: 0, credit: 20000 }
-                    ],
-                    status: 'Validé',
-                    userId: 5,
-                    validatedBy: 2,
-                    validatedAt: new Date('2024-12-13T17:00:00'),
-                    createdAt: new Date('2024-12-13T15:00:00')
-                },
-                {
-                    id: 4,
-                    date: '2024-12-12',
-                    journal: 'JB',
-                    piece: 'JB-2024-001-0089',
-                    libelle: 'Virement bancaire salaires',
-                    companyId: 2,
-                    lines: [
-                        { account: '641000', accountName: 'Rémunérations du personnel', libelle: 'Salaires décembre', debit: 2500000, credit: 0 },
-                        { account: '645000', accountName: 'Charges sociales', libelle: 'Cotisations sociales', debit: 750000, credit: 0 },
-                        { account: '512000', accountName: 'Banques', libelle: 'Virement salaires', debit: 0, credit: 3250000 }
-                    ],
-                    status: 'Validé',
-                    userId: 2,
-                    createdAt: new Date('2024-12-12T11:15:00')
+                // Utilisateurs avec hiérarchie COMPLÈTE
+                if (window.app.users.length === 0) {
+                    window.app.users = [
+                        {
+                            id: 1,
+                            name: 'Admin Système',
+                            email: 'admin@doukecompta.ci',
+                            passwordHash: this.hashPassword('admin123'),
+                            profile: 'admin',
+                            role: 'Administrateur',
+                            phone: '+225 07 00 00 00 00',
+                            status: 'Actif',
+                            assignedCompanies: [1, 2, 3, 4],
+                            companies: [1, 2, 3, 4],
+                            permissions: ['all'],
+                            lastLogin: new Date(),
+                            createdAt: new Date('2024-01-01')
+                        },
+                        {
+                            id: 2,
+                            name: 'Marie Kouassi',
+                            email: 'marie.kouassi@cabinet.com',
+                            passwordHash: this.hashPassword('marie123'),
+                            profile: 'collaborateur_senior',
+                            role: 'Collaborateur Senior',
+                            phone: '+225 07 11 11 11 11',
+                            status: 'Actif',
+                            assignedCompanies: [1, 2, 3],
+                            companies: [1, 2, 3],
+                            managedCollaborators: [3],
+                            permissions: ['read', 'write', 'validate'],
+                            lastLogin: new Date(),
+                            createdAt: new Date('2024-02-01')
+                        },
+                        {
+                            id: 3,
+                            name: 'Jean Diabaté',
+                            email: 'jean.diabate@cabinet.com',
+                            passwordHash: this.hashPassword('jean123'),
+                            profile: 'collaborateur',
+                            role: 'Collaborateur',
+                            phone: '+225 07 22 22 22 22',
+                            status: 'Actif',
+                            assignedCompanies: [2, 4],
+                            companies: [2, 4],
+                            seniorCollaboratorId: 2,
+                            permissions: ['read', 'write'],
+                            lastLogin: new Date(),
+                            createdAt: new Date('2024-03-01')
+                        },
+                        {
+                            id: 4,
+                            name: 'Amadou Traoré',
+                            email: 'atraore@sarltech.ci',
+                            passwordHash: this.hashPassword('user123'),
+                            profile: 'user',
+                            role: 'Utilisateur',
+                            phone: '+225 07 33 33 33 33',
+                            status: 'Actif',
+                            companyId: 1,
+                            assignedCompanies: [1],
+                            companies: [1],
+                            permissions: ['read'],
+                            lastLogin: new Date(),
+                            createdAt: new Date('2024-04-01')
+                        },
+                        {
+                            id: 5,
+                            name: 'Ibrahim Koné',
+                            email: 'ikone@caisse.ci',
+                            passwordHash: this.hashPassword('caisse123'),
+                            profile: 'caissier',
+                            role: 'Caissier',
+                            phone: '+225 07 44 44 44 44',
+                            status: 'Actif',
+                            companyId: 2,
+                            assignedCompanies: [2],
+                            companies: [2],
+                            permissions: ['cash_operations'],
+                            lastLogin: new Date(),
+                            createdAt: new Date('2024-05-01')
+                        }
+                    ];
                 }
-            ];
-        }
 
-        // Caisses COMPLÈTES
-        if (window.app.cashRegisters.length === 0) {
-            window.app.cashRegisters = [
-                {
-                    id: 1,
-                    name: 'Caisse Principale',
-                    companyId: 2,
-                    responsibleId: 5,
-                    responsibleName: 'Ibrahim Koné',
-                    balance: 210000,
-                    status: 'Ouvert',
-                    openingBalance: 150000,
-                    dailyReceipts: 85000,
-                    dailyExpenses: 25000,
-                    lastOperation: new Date(),
-                    currency: 'FCFA',
-                    maxLimit: 500000
-                },
-                {
-                    id: 2,
-                    name: 'Caisse Ventes',
-                    companyId: 2,
-                    responsibleId: null,
-                    responsibleName: 'Fatou Diallo',
-                    balance: 85000,
-                    status: 'Ouvert',
-                    openingBalance: 100000,
-                    dailyReceipts: 35000,
-                    dailyExpenses: 50000,
-                    lastOperation: new Date(),
-                    currency: 'FCFA',
-                    maxLimit: 300000
-                },
-                {
-                    id: 3,
-                    name: 'Caisse Petite Monnaie',
-                    companyId: 1,
-                    responsibleId: 4,
-                    responsibleName: 'Amadou Traoré',
-                    balance: 50000,
-                    status: 'Fermé',
-                    openingBalance: 50000,
-                    dailyReceipts: 15000,
-                    dailyExpenses: 15000,
-                    lastOperation: new Date(),
-                    currency: 'FCFA',
-                    maxLimit: 100000
+                // Écritures d'exemple COMPLÈTES
+                if (window.app.entries.length === 0) {
+                    window.app.entries = [
+                        {
+                            id: 1,
+                            date: '2024-12-15',
+                            journal: 'JV',
+                            piece: 'JV-2024-001-0156',
+                            libelle: 'Vente marchandises Client ABC',
+                            companyId: 1,
+                            lines: [
+                                { account: '411000', accountName: 'Clients', libelle: 'Vente Client ABC', debit: 1800000, credit: 0 },
+                                { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente marchandises', debit: 0, credit: 1500000 },
+                                { account: '445000', accountName: 'TVA due', libelle: 'TVA sur ventes', debit: 0, credit: 300000 }
+                            ],
+                            status: 'Validé',
+                            userId: 2,
+                            validatedBy: 1,
+                            validatedAt: new Date('2024-12-15T14:30:00'),
+                            createdAt: new Date('2024-12-15T10:00:00')
+                        },
+                        {
+                            id: 2,
+                            date: '2024-12-14',
+                            journal: 'JA',
+                            piece: 'JA-2024-001-0157',
+                            libelle: 'Achat marchandises Fournisseur XYZ',
+                            companyId: 1,
+                            lines: [
+                                { account: '601000', accountName: 'Achats de marchandises', libelle: 'Achat marchandises', debit: 850000, credit: 0 },
+                                { account: '449000', accountName: 'État - créances diverses', libelle: 'TVA déductible', debit: 170000, credit: 0 },
+                                { account: '401000', accountName: 'Fournisseurs', libelle: 'Fournisseur XYZ', debit: 0, credit: 1020000 }
+                            ],
+                            status: 'En attente',
+                            userId: 3,
+                            createdAt: new Date('2024-12-14T16:00:00')
+                        },
+                        {
+                            id: 3,
+                            date: '2024-12-13',
+                            journal: 'JC',
+                            piece: 'JC-2024-001-0158',
+                            libelle: 'Encaissement vente comptant',
+                            companyId: 2,
+                            lines: [
+                                { account: '571000', accountName: 'Caisse', libelle: 'Encaissement vente', debit: 120000, credit: 0 },
+                                { account: '701000', accountName: 'Ventes de marchandises', libelle: 'Vente comptant', debit: 0, credit: 100000 },
+                                { account: '445000', accountName: 'TVA due', libelle: 'TVA sur vente', debit: 0, credit: 20000 }
+                            ],
+                            status: 'Validé',
+                            userId: 5,
+                            validatedBy: 2,
+                            validatedAt: new Date('2024-12-13T17:00:00'),
+                            createdAt: new Date('2024-12-13T15:00:00')
+                        },
+                        {
+                            id: 4,
+                            date: '2024-12-12',
+                            journal: 'JB',
+                            piece: 'JB-2024-001-0089',
+                            libelle: 'Virement bancaire salaires',
+                            companyId: 2,
+                            lines: [
+                                { account: '641000', accountName: 'Rémunérations du personnel', libelle: 'Salaires décembre', debit: 2500000, credit: 0 },
+                                { account: '645000', accountName: 'Charges sociales', libelle: 'Cotisations sociales', debit: 750000, credit: 0 },
+                                { account: '512000', accountName: 'Banques', libelle: 'Virement salaires', debit: 0, credit: 3250000 }
+                            ],
+                            status: 'Validé',
+                            userId: 2,
+                            createdAt: new Date('2024-12-12T11:15:00')
+                        }
+                    ];
                 }
-            ];
-        }
 
-        console.log('✅ Données complètes initialisées - Comptes:', window.app.users.length, 'utilisateurs créés');
-    }
+                // Caisses COMPLÈTES
+                if (window.app.cashRegisters.length === 0) {
+                    window.app.cashRegisters = [
+                        {
+                            id: 1,
+                            name: 'Caisse Principale',
+                            companyId: 2,
+                            responsibleId: 5,
+                            responsibleName: 'Ibrahim Koné',
+                            balance: 210000,
+                            status: 'Ouvert',
+                            openingBalance: 150000,
+                            dailyReceipts: 85000,
+                            dailyExpenses: 25000,
+                            lastOperation: new Date(),
+                            currency: 'FCFA',
+                            maxLimit: 500000
+                        },
+                        {
+                            id: 2,
+                            name: 'Caisse Ventes',
+                            companyId: 2,
+                            responsibleId: null,
+                            responsibleName: 'Fatou Diallo',
+                            balance: 85000,
+                            status: 'Ouvert',
+                            openingBalance: 100000,
+                            dailyReceipts: 35000,
+                            dailyExpenses: 50000,
+                            lastOperation: new Date(),
+                            currency: 'FCFA',
+                            maxLimit: 300000
+                        },
+                        {
+                            id: 3,
+                            name: 'Caisse Petite Monnaie',
+                            companyId: 1,
+                            responsibleId: 4,
+                            responsibleName: 'Amadou Traoré',
+                            balance: 50000,
+                            status: 'Fermé',
+                            openingBalance: 50000,
+                            dailyReceipts: 15000,
+                            dailyExpenses: 15000,
+                            lastOperation: new Date(),
+                            currency: 'FCFA',
+                            maxLimit: 100000
+                        }
+                    ];
+                }
 
-    hashPassword(password) {
-        return btoa(password + 'DOUKE_SALT_2024');
-    }
+                console.log('✅ Données complètes initialisées - Comptes:', window.app.users.length, 'utilisateurs créés');
+            }
 
-    verifyPassword(password, hash) {
-        return this.hashPassword(password) === hash;
-    }
+            hashPassword(password) {
+                return btoa(password + 'DOUKE_SALT_2024');
+            }
 
-    // Sélectionner une entreprise (avec validation de sécurité)
-    selectCompany(companyId, userId = null) {
-        const currentUserId = userId || (window.app.currentUser ? window.app.currentUser.id : null);
+            verifyPassword(password, hash) {
+                return this.hashPassword(password) === hash;
+            }
 
-        if (!this.security.hasAccessToCompany(currentUserId, companyId)) {
-            this.showSecurityAlert('🚫 Accès refusé à cette entreprise');
-            return false;
-        }
+            // Sélectionner une entreprise (avec validation de sécurité)
+            selectCompany(companyId, userId = null) {
+                const currentUserId = userId || (window.app.currentUser ? window.app.currentUser.id : null);
 
-        this.currentCompanyId = companyId;
-        window.app.currentCompanyId = companyId;
+                if (!this.security.hasAccessToCompany(currentUserId, companyId)) {
+                    this.showSecurityAlert('🚫 Accès refusé à cette entreprise');
+                    return false;
+                }
 
-        // Mettre à jour le cache des données filtrées
-        this.updateFilteredDataCache();
-        this.updateSecurityIndicators();
+                this.currentCompanyId = companyId;
+                window.app.currentCompanyId = companyId;
 
-        this.notificationManager.show('success', 'Entreprise sélectionnée', 
-            `Vous travaillez maintenant sur ${this.getSelectedCompanyName()}`);
+                // Mettre à jour le cache des données filtrées
+                this.updateFilteredDataCache();
+                this.updateSecurityIndicators();
 
-        // Recharger le dashboard
-        setTimeout(() => {
-            this.loadSecureDashboard();
-        }, 200);
+                this.notificationManager.show('success', 'Entreprise sélectionnée', 
+                    `Vous travaillez maintenant sur ${this.getSelectedCompanyName()}`);
 
-        console.log(`🏢 Entreprise ${companyId} sélectionnée`);
-        return true;
-    }
+                // Recharger le dashboard
+                setTimeout(() => {
+                    this.loadSecureDashboard();
+                }, 200);
 
-    updateFilteredDataCache() {
-        if (!window.app.currentCompanyId) {
-            this.clearFilteredDataCache();
-            return;
-        }
+                console.log(`🏢 Entreprise ${companyId} sélectionnée`);
+                return true;
+            }
 
-        try {
-            window.app.filteredData = {
-                entries: this.data.getCompanyEntries(window.app.currentCompanyId),
-                accounts: this.data.getCompanyAccounts(window.app.currentCompanyId),
-                cashRegisters: this.data.getCompanyCashRegisters(window.app.currentCompanyId),
-                users: this.data.getCompanyUsers(window.app.currentCompanyId),
-                reports: [],
-                lastUpdate: new Date().toISOString(),
-                companyId: window.app.currentCompanyId
-            };
+            updateFilteredDataCache() {
+                if (!window.app.currentCompanyId) {
+                    this.clearFilteredDataCache();
+                    return;
+                }
 
-            console.log(`🔄 Cache mis à jour pour entreprise ${window.app.currentCompanyId}`);
-        } catch (error) {
-            console.error('❌ Erreur mise à jour cache:', error);
-            this.clearFilteredDataCache();
-        }
-    }
+                try {
+                    window.app.filteredData = {
+                        entries: this.data.getCompanyEntries(window.app.currentCompanyId),
+                        accounts: this.data.getCompanyAccounts(window.app.currentCompanyId),
+                        cashRegisters: this.data.getCompanyCashRegisters(window.app.currentCompanyId),
+                        users: this.data.getCompanyUsers(window.app.currentCompanyId),
+                        reports: [],
+                        lastUpdate: new Date().toISOString(),
+                        companyId: window.app.currentCompanyId
+                    };
 
-    clearFilteredDataCache() {
-        window.app.filteredData = {
-            entries: [],
-            accounts: [],
-            reports: [],
-            cashRegisters: [],
-            users: [],
-            lastUpdate: null,
-            companyId: null
-        };
-        console.log('🗑️ Cache des données filtrées vidé');
-    }
-        
-// =============================================================================
-// NOUVELLES PAGES : GESTION D'ÉQUIPE ET ADMINISTRATION
-// =============================================================================
+                    console.log(`🔄 Cache mis à jour pour entreprise ${window.app.currentCompanyId}`);
+                } catch (error) {
+                    console.error('❌ Erreur mise à jour cache:', error);
+                    this.clearFilteredDataCache();
+                }
+            }
 
-loadTeamManagementPage() {
-    if (!window.app.currentProfile || !['admin', 'collaborateur_senior'].includes(window.app.currentProfile)) {
-        this.showSecurityAlert('🚫 Accès refusé - Collaborateur Senior ou Administrateur requis');
-        return;
-    }
+            clearFilteredDataCache() {
+                window.app.filteredData = {
+                    entries: [],
+                    accounts: [],
+                    reports: [],
+                    cashRegisters: [],
+                    users: [],
+                    lastUpdate: null,
+                    companyId: null
+                };
+                console.log('🗑️ Cache des données filtrées vidé');
+            }
 
-    const currentUser = window.app.currentUser;
-    const isAdmin = currentUser.profile === 'admin';
-    
-    // Obtenir les membres de l'équipe selon le profil
-    let teamMembers = [];
-    if (isAdmin) {
-        // Admin voit tous les utilisateurs sauf lui-même
-        teamMembers = window.app.users.filter(u => u.id !== currentUser.id);
-    } else {
-        // Collaborateur senior voit ses collaborateurs assignés
-        teamMembers = window.app.users.filter(u => 
-            u.seniorCollaboratorId === currentUser.id || 
-            (currentUser.managedCollaborators && currentUser.managedCollaborators.includes(u.id))
-        );
-    }
-
-    const content = `
-    <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                Gestion d'Équipe ${isAdmin ? '(Administrateur)' : '(Collaborateur Senior)'}
-            </h2>
-            <div class="flex items-center space-x-4">
-                <div class="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-lg">
-                    <i class="fas fa-users mr-2"></i>${teamMembers.length} membre(s)
-                </div>
-                ${isAdmin ? `
-                <button onclick="window.unifiedManager.showNewUserModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    <i class="fas fa-user-plus mr-2"></i>Ajouter Membre
-                </button>
-                ` : ''}
-            </div>
-        </div>
-
-        <!-- Statistiques de l'équipe -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-primary">${teamMembers.filter(u => u.profile === 'collaborateur_senior').length}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Collaborateurs Senior</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-info">${teamMembers.filter(u => u.profile === 'collaborateur').length}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Collaborateurs</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-success">${teamMembers.filter(u => u.profile === 'user').length}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs</div>
-            </div>
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                <div class="text-3xl font-bold text-warning">${teamMembers.filter(u => u.profile === 'caissier').length}</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Caissiers</div>
-            </div>
-        </div>
-
-        <!-- Liste des membres de l'équipe -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Membres de l'Équipe</h3>
-            ${teamMembers.length > 0 ? `
-            <div class="space-y-4">
-                ${teamMembers.map(member => `
-                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:shadow-md transition-all">
-                    <div class="flex items-center space-x-4">
-                        <div class="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-semibold">
-                            ${member.name.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div>
-                            <div class="font-medium text-gray-900 dark:text-white">${member.name}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">${member.email} • ${member.role}</div>
-                            <div class="text-xs text-primary">
-                                ${member.assignedCompanies?.length || 0} entreprise(s) • 
-                                Niveau ${this.security?.profileHierarchy?.[member.profile] || 'N/A'}
-                                ${member.status === 'Actif' ? '' : ' • ' + member.status}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex space-x-2">
-                        <button onclick="window.unifiedManager.viewUserDetails(${member.id})" class="bg-info text-white px-3 py-1 rounded text-sm hover:bg-info/90" title="Voir détails">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        ${isAdmin || (member.profile === 'collaborateur' && member.seniorCollaboratorId === currentUser.id) ? `
-                        <button onclick="window.unifiedManager.editUser(${member.id})" class="bg-warning text-white px-3 py-1 rounded text-sm hover:bg-warning/90" title="Modifier">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button onclick="window.unifiedManager.manageUserAccess(${member.id})" class="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary/90" title="Gérer accès">
-                            <i class="fas fa-key"></i>
-                        </button>
-                        ` : ''}
-                    </div>
-                </div>
-                `).join('')}
-            </div>
-            ` : `
-            <div class="text-center py-12 text-gray-500">
-                <i class="fas fa-users text-6xl mb-4"></i>
-                <h3 class="text-lg font-semibold mb-2">Aucun membre d'équipe</h3>
-                <p>Aucun collaborateur n'est assigné à votre équipe pour le moment.</p>
-                ${isAdmin ? `
-                <button onclick="window.unifiedManager.showNewUserModal()" class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
-                    <i class="fas fa-user-plus mr-2"></i>Ajouter le premier membre
-                </button>
-                ` : ''}
-            </div>
-            `}
-        </div>
-
-        ${isAdmin ? `
-        <!-- Actions administrateur -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions Administrateur</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button onclick="window.unifiedManager.bulkAssignCompanies()" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-left">
-                    <i class="fas fa-building text-primary text-xl mb-2"></i>
-                    <div class="font-medium">Assignation en Masse</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Assigner plusieurs entreprises</div>
-                </button>
-                <button onclick="window.unifiedManager.generateTeamReport()" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-left">
-                    <i class="fas fa-chart-bar text-info text-xl mb-2"></i>
-                    <div class="font-medium">Rapport d'Équipe</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Performance et activité</div>
-                </button>
-                <button onclick="window.unifiedManager.teamPermissionsAudit()" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-left">
-                    <i class="fas fa-shield-alt text-warning text-xl mb-2"></i>
-                    <div class="font-medium">Audit Permissions</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Vérifier les accès</div>
-                </button>
-            </div>
-        </div>
-        ` : ''}
-    </div>
-    `;
-
-    const mainContent = document.getElementById('mainContent');
-    if (mainContent) {
-        mainContent.innerHTML = content;
-    }
-}
-
-loadAdminSettingsPage() {
-    if (!window.app.currentProfile || window.app.currentProfile !== 'admin') {
-        this.showSecurityAlert('🚫 Accès refusé - Administrateur requis');
-        return;
-    }
-
-    const stats = this.getAppStatistics();
-    const isProduction = window.app.isProduction || false;
-    const backendEnabled = window.app.backendEnabled || false;
-
-    const content = `
-    <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Administration Système</h2>
-            <div class="flex items-center space-x-2 text-sm text-danger font-medium bg-danger/10 px-3 py-1 rounded-lg">
-                <i class="fas fa-crown"></i>
-                <span>Accès Administrateur</span>
-            </div>
-        </div>
-
-        <!-- État du système -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-server mr-2 text-primary"></i>État du Système
-                </h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-600 dark:text-gray-400">Mode:</span>
-                        <span class="px-2 py-1 rounded text-xs font-medium ${isProduction ? 'bg-blue-500/20 text-blue-600' : 'bg-yellow-500/20 text-yellow-600'}">
-                            ${isProduction ? 'PRODUCTION' : 'DÉVELOPPEMENT'}
-                        </span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-600 dark:text-gray-400">Backend:</span>
-                        <span class="px-2 py-1 rounded text-xs font-medium ${backendEnabled ? 'bg-green-500/20 text-green-600' : 'bg-gray-500/20 text-gray-600'}">
-                            ${backendEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ'}
-                        </span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-600 dark:text-gray-400">Version:</span>
-                        <span class="font-medium">DOUKÈ Compta Pro v2.1</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-600 dark:text-gray-400">Dernière sync:</span>
-                        <span class="text-xs">${window.app.lastSync ? new Date(window.app.lastSync).toLocaleString() : 'Jamais'}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-database mr-2 text-info"></i>Données Système
-                </h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 dark:text-gray-400">Utilisateurs:</span>
-                        <span class="font-bold text-primary">${stats.users.total}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 dark:text-gray-400">Entreprises:</span>
-                        <span class="font-bold text-info">${stats.companies.total}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 dark:text-gray-400">Écritures:</span>
-                        <span class="font-bold text-success">${stats.entries.total}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 dark:text-gray-400">Caisses:</span>
-                        <span class="font-bold text-warning">${stats.cashRegisters.total}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-shield-alt mr-2 text-warning"></i>Sécurité
-                </h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 dark:text-gray-400">Utilisateurs actifs:</span>
-                        <span class="font-medium text-success">${stats.users.active}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 dark:text-gray-400">Écritures en attente:</span>
-                        <span class="font-medium text-warning">${stats.entries.pending}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 dark:text-gray-400">Isolation données:</span>
-                        <span class="text-xs text-success">✓ ACTIVÉE</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 dark:text-gray-400">Chiffrement:</span>
-                        <span class="text-xs text-success">✓ ACTIVÉ</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Actions système -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-cogs mr-2 text-primary"></i>Configuration Système
-                </h3>
-                <div class="space-y-3">
-                    <button onclick="window.unifiedManager.showSystemSettings()" class="w-full text-left p-3 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
-                        <i class="fas fa-sliders-h mr-3 text-primary"></i>Paramètres Généraux
-                    </button>
-                    <button onclick="window.unifiedManager.showSecuritySettings()" class="w-full text-left p-3 bg-warning/10 hover:bg-warning/20 rounded-lg transition-colors">
-                        <i class="fas fa-lock mr-3 text-warning"></i>Paramètres Sécurité
-                    </button>
-                    <button onclick="window.unifiedManager.showBackupSettings()" class="w-full text-left p-3 bg-info/10 hover:bg-info/20 rounded-lg transition-colors">
-                        <i class="fas fa-hdd mr-3 text-info"></i>Sauvegarde & Restauration
-                    </button>
-                    <button onclick="window.unifiedManager.showNotificationSettings()" class="w-full text-left p-3 bg-success/10 hover:bg-success/20 rounded-lg transition-colors">
-                        <i class="fas fa-bell mr-3 text-success"></i>Notifications
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    <i class="fas fa-tools mr-2 text-danger"></i>Outils Administrateur
-                </h3>
-                <div class="space-y-3">
-                    <button onclick="window.unifiedManager.runSystemDiagnostic()" class="w-full text-left p-3 bg-danger/10 hover:bg-danger/20 rounded-lg transition-colors">
-                        <i class="fas fa-stethoscope mr-3 text-danger"></i>Diagnostic Système
-                    </button>
-                    <button onclick="window.unifiedManager.viewSystemLogs()" class="w-full text-left p-3 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg transition-colors">
-                        <i class="fas fa-file-alt mr-3 text-gray-500"></i>Logs Système
-                    </button>
-                    <button onclick="window.unifiedManager.performMaintenance()" class="w-full text-left p-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg transition-colors">
-                        <i class="fas fa-wrench mr-3 text-purple-500"></i>Maintenance
-                    </button>
-                    <button onclick="window.unifiedManager.exportSystemData()" class="w-full text-left p-3 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg transition-colors">
-                        <i class="fas fa-download mr-3 text-indigo-500"></i>Export Données
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Statistiques détaillées -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Statistiques Détaillées</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div class="text-center">
-                    <div class="text-3xl font-bold text-primary mb-2">${stats.companies.active}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Entreprises Actives</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-3xl font-bold text-info mb-2">${stats.entries.validated}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Écritures Validées</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-3xl font-bold text-success mb-2">${stats.users.active}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs Actifs</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-3xl font-bold text-warning mb-2">${stats.cashRegisters.totalBalance.toLocaleString('fr-FR')}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Solde Total Caisses (FCFA)</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    `;
-
-    const mainContent = document.getElementById('mainContent');
-    if (mainContent) {
-        mainContent.innerHTML = content;
-    }
-}
     // =============================================================================
     // FONCTIONS D'AUTHENTIFICATION SÉCURISÉES
     // =============================================================================
