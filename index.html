@@ -3132,11 +3132,7 @@ updateSyncIndicator() {
     }
 }
 
-  =============================================================================
-            // NOUVELLES PAGES : GESTION D'ÉQUIPE ET ADMINISTRATION
-            // =============================================================================
-
-            loadTeamManagementPage() {
+loadTeamManagementPage() {
                 if (!window.app.currentProfile || !['admin', 'collaborateur_senior'].includes(window.app.currentProfile)) {
                     this.showSecurityAlert('🚫 Accès refusé - Collaborateur Senior ou Administrateur requis');
                     return;
@@ -3451,7 +3447,7 @@ updateSyncIndicator() {
                     mainContent.innerHTML = content;
                 }
             }
-          
+    
 // =============================================================================
 // FONCTIONS UTILITAIRES
 // =============================================================================
