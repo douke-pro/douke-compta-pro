@@ -1010,6 +1010,326 @@ class UnifiedDataManager {
                     createdAt: new Date('2024-05-01')
                 }
             ];
+
+            // =============================================================================
+// NOUVELLES PAGES : GESTION D'ÉQUIPE ET ADMINISTRATION
+// =============================================================================
+
+loadTeamManagementPage() {
+    if (!window.app.currentProfile || !['admin', 'collaborateur_senior'].includes(window.app.currentProfile)) {
+        this.showSecurityAlert('🚫 Accès refusé - Collaborateur Senior ou Administrateur requis');
+        return;
+    }
+
+    const currentUser = window.app.currentUser;
+    const isAdmin = currentUser.profile === 'admin';
+    
+    // Obtenir les membres de l'équipe selon le profil
+    let teamMembers = [];
+    if (isAdmin) {
+        // Admin voit tous les utilisateurs sauf lui-même
+        teamMembers = window.app.users.filter(u => u.id !== currentUser.id);
+    } else {
+        // Collaborateur senior voit ses collaborateurs assignés
+        teamMembers = window.app.users.filter(u => 
+            u.seniorCollaboratorId === currentUser.id || 
+            (currentUser.managedCollaborators && currentUser.managedCollaborators.includes(u.id))
+        );
+    }
+
+    const content = `
+    <div class="space-y-6">
+        <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                Gestion d'Équipe ${isAdmin ? '(Administrateur)' : '(Collaborateur Senior)'}
+            </h2>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-lg">
+                    <i class="fas fa-users mr-2"></i>${teamMembers.length} membre(s)
+                </div>
+                ${isAdmin ? `
+                <button onclick="window.unifiedManager.showNewUserModal()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    <i class="fas fa-user-plus mr-2"></i>Ajouter Membre
+                </button>
+                ` : ''}
+            </div>
+        </div>
+
+        <!-- Statistiques de l'équipe -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                <div class="text-3xl font-bold text-primary">${teamMembers.filter(u => u.profile === 'collaborateur_senior').length}</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">Collaborateurs Senior</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                <div class="text-3xl font-bold text-info">${teamMembers.filter(u => u.profile === 'collaborateur').length}</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">Collaborateurs</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                <div class="text-3xl font-bold text-success">${teamMembers.filter(u => u.profile === 'user').length}</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+                <div class="text-3xl font-bold text-warning">${teamMembers.filter(u => u.profile === 'caissier').length}</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">Caissiers</div>
+            </div>
+        </div>
+
+        <!-- Liste des membres de l'équipe -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Membres de l'Équipe</h3>
+            ${teamMembers.length > 0 ? `
+            <div class="space-y-4">
+                ${teamMembers.map(member => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:shadow-md transition-all">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-semibold">
+                            ${member.name.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">${member.name}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">${member.email} • ${member.role}</div>
+                            <div class="text-xs text-primary">
+                                ${member.assignedCompanies?.length || 0} entreprise(s) • 
+                                Niveau ${this.security?.profileHierarchy?.[member.profile] || 'N/A'}
+                                ${member.status === 'Actif' ? '' : ' • ' + member.status}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="window.unifiedManager.viewUserDetails(${member.id})" class="bg-info text-white px-3 py-1 rounded text-sm hover:bg-info/90" title="Voir détails">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${isAdmin || (member.profile === 'collaborateur' && member.seniorCollaboratorId === currentUser.id) ? `
+                        <button onclick="window.unifiedManager.editUser(${member.id})" class="bg-warning text-white px-3 py-1 rounded text-sm hover:bg-warning/90" title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="window.unifiedManager.manageUserAccess(${member.id})" class="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary/90" title="Gérer accès">
+                            <i class="fas fa-key"></i>
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+                `).join('')}
+            </div>
+            ` : `
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-users text-6xl mb-4"></i>
+                <h3 class="text-lg font-semibold mb-2">Aucun membre d'équipe</h3>
+                <p>Aucun collaborateur n'est assigné à votre équipe pour le moment.</p>
+                ${isAdmin ? `
+                <button onclick="window.unifiedManager.showNewUserModal()" class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
+                    <i class="fas fa-user-plus mr-2"></i>Ajouter le premier membre
+                </button>
+                ` : ''}
+            </div>
+            `}
+        </div>
+
+        ${isAdmin ? `
+        <!-- Actions administrateur -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions Administrateur</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button onclick="window.unifiedManager.bulkAssignCompanies()" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-left">
+                    <i class="fas fa-building text-primary text-xl mb-2"></i>
+                    <div class="font-medium">Assignation en Masse</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Assigner plusieurs entreprises</div>
+                </button>
+                <button onclick="window.unifiedManager.generateTeamReport()" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-left">
+                    <i class="fas fa-chart-bar text-info text-xl mb-2"></i>
+                    <div class="font-medium">Rapport d'Équipe</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Performance et activité</div>
+                </button>
+                <button onclick="window.unifiedManager.teamPermissionsAudit()" class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-left">
+                    <i class="fas fa-shield-alt text-warning text-xl mb-2"></i>
+                    <div class="font-medium">Audit Permissions</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Vérifier les accès</div>
+                </button>
+            </div>
+        </div>
+        ` : ''}
+    </div>
+    `;
+
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
+
+loadAdminSettingsPage() {
+    if (!window.app.currentProfile || window.app.currentProfile !== 'admin') {
+        this.showSecurityAlert('🚫 Accès refusé - Administrateur requis');
+        return;
+    }
+
+    const stats = this.getAppStatistics();
+    const isProduction = window.app.isProduction || false;
+    const backendEnabled = window.app.backendEnabled || false;
+
+    const content = `
+    <div class="space-y-6">
+        <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Administration Système</h2>
+            <div class="flex items-center space-x-2 text-sm text-danger font-medium bg-danger/10 px-3 py-1 rounded-lg">
+                <i class="fas fa-crown"></i>
+                <span>Accès Administrateur</span>
+            </div>
+        </div>
+
+        <!-- État du système -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-server mr-2 text-primary"></i>État du Système
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 dark:text-gray-400">Mode:</span>
+                        <span class="px-2 py-1 rounded text-xs font-medium ${isProduction ? 'bg-blue-500/20 text-blue-600' : 'bg-yellow-500/20 text-yellow-600'}">
+                            ${isProduction ? 'PRODUCTION' : 'DÉVELOPPEMENT'}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 dark:text-gray-400">Backend:</span>
+                        <span class="px-2 py-1 rounded text-xs font-medium ${backendEnabled ? 'bg-green-500/20 text-green-600' : 'bg-gray-500/20 text-gray-600'}">
+                            ${backendEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ'}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 dark:text-gray-400">Version:</span>
+                        <span class="font-medium">DOUKÈ Compta Pro v2.1</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 dark:text-gray-400">Dernière sync:</span>
+                        <span class="text-xs">${window.app.lastSync ? new Date(window.app.lastSync).toLocaleString() : 'Jamais'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-database mr-2 text-info"></i>Données Système
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Utilisateurs:</span>
+                        <span class="font-bold text-primary">${stats.users.total}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Entreprises:</span>
+                        <span class="font-bold text-info">${stats.companies.total}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Écritures:</span>
+                        <span class="font-bold text-success">${stats.entries.total}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Caisses:</span>
+                        <span class="font-bold text-warning">${stats.cashRegisters.total}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-shield-alt mr-2 text-warning"></i>Sécurité
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Utilisateurs actifs:</span>
+                        <span class="font-medium text-success">${stats.users.active}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Écritures en attente:</span>
+                        <span class="font-medium text-warning">${stats.entries.pending}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Isolation données:</span>
+                        <span class="text-xs text-success">✓ ACTIVÉE</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Chiffrement:</span>
+                        <span class="text-xs text-success">✓ ACTIVÉ</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions système -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-cogs mr-2 text-primary"></i>Configuration Système
+                </h3>
+                <div class="space-y-3">
+                    <button onclick="window.unifiedManager.showSystemSettings()" class="w-full text-left p-3 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
+                        <i class="fas fa-sliders-h mr-3 text-primary"></i>Paramètres Généraux
+                    </button>
+                    <button onclick="window.unifiedManager.showSecuritySettings()" class="w-full text-left p-3 bg-warning/10 hover:bg-warning/20 rounded-lg transition-colors">
+                        <i class="fas fa-lock mr-3 text-warning"></i>Paramètres Sécurité
+                    </button>
+                    <button onclick="window.unifiedManager.showBackupSettings()" class="w-full text-left p-3 bg-info/10 hover:bg-info/20 rounded-lg transition-colors">
+                        <i class="fas fa-hdd mr-3 text-info"></i>Sauvegarde & Restauration
+                    </button>
+                    <button onclick="window.unifiedManager.showNotificationSettings()" class="w-full text-left p-3 bg-success/10 hover:bg-success/20 rounded-lg transition-colors">
+                        <i class="fas fa-bell mr-3 text-success"></i>Notifications
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-tools mr-2 text-danger"></i>Outils Administrateur
+                </h3>
+                <div class="space-y-3">
+                    <button onclick="window.unifiedManager.runSystemDiagnostic()" class="w-full text-left p-3 bg-danger/10 hover:bg-danger/20 rounded-lg transition-colors">
+                        <i class="fas fa-stethoscope mr-3 text-danger"></i>Diagnostic Système
+                    </button>
+                    <button onclick="window.unifiedManager.viewSystemLogs()" class="w-full text-left p-3 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg transition-colors">
+                        <i class="fas fa-file-alt mr-3 text-gray-500"></i>Logs Système
+                    </button>
+                    <button onclick="window.unifiedManager.performMaintenance()" class="w-full text-left p-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg transition-colors">
+                        <i class="fas fa-wrench mr-3 text-purple-500"></i>Maintenance
+                    </button>
+                    <button onclick="window.unifiedManager.exportSystemData()" class="w-full text-left p-3 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg transition-colors">
+                        <i class="fas fa-download mr-3 text-indigo-500"></i>Export Données
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques détaillées -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Statistiques Détaillées</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-primary mb-2">${stats.companies.active}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Entreprises Actives</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-info mb-2">${stats.entries.validated}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Écritures Validées</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-success mb-2">${stats.users.active}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Utilisateurs Actifs</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-warning mb-2">${stats.cashRegisters.totalBalance.toLocaleString('fr-FR')}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Solde Total Caisses (FCFA)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        mainContent.innerHTML = content;
+    }
+}
         }
 
         // Écritures d'exemple COMPLÈTES
