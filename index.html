@@ -1854,9 +1854,9 @@ loadNavigationMenu() {
                 </div>
             `;
         } else if (item.isSpecial) {
-            // Fonctions spéciales (Production/Backend) - CORRIGÉ avec unifiedManager
+            // Fonctions spéciales (Production/Backend) - sans le système unifiedManager
             menuHtml += `
-                <a href="#" onclick="window.unifiedManager.${item.handler}(); return false;" 
+                <a href="#" onclick="${item.handler}(); return false;" 
                    class="flex items-center px-6 py-3 ${item.specialClass} transition-colors rounded-lg mx-2">
                     <i class="${item.icon} w-5 h-5 mr-3"></i>
                     <span>${item.text}</span>
@@ -1883,7 +1883,7 @@ loadNavigationMenu() {
     if (typeof this.updateSyncIndicator === 'function') {
         this.updateSyncIndicator();
     }
-},
+}
     
 loadUsersPage() {
     if (window.app.currentProfile !== 'admin') {
