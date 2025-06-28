@@ -969,13 +969,13 @@ window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Lis
             
             // 3. Vérifier que window.app existe avant d'initialiser l'équipe
             if (window.app && window.app.users && window.app.companies) {
-                this.initializeTeamManagement();
+                this.setupTeamManagement();
             } else {
                 console.warn('⚠️ window.app non initialisé, report de initializeTeamManagement');
                 // Programmer une nouvelle tentative après un délai
                 setTimeout(() => {
                     if (window.app && window.app.users && window.app.companies) {
-                        this.initializeTeamManagement();
+                        this.setupTeamManagement();
                     }
                 }, 100);
             }
@@ -1073,7 +1073,7 @@ window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Lis
         }
     }
 
-    initializeTeamManagement() {
+    setupTeamManagement() {
         try {
             if (typeof initializeTeamManagement === 'function') {
                 initializeTeamManagement();
@@ -1086,7 +1086,7 @@ window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Lis
                 'Certaines fonctionnalités d\'équipe ne sont pas disponibles');
         }
     }
-} 
+}
                 /**
 * Filtre les comptes selon les critères sélectionnés
 */
