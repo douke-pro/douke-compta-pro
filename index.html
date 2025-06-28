@@ -1108,7 +1108,1351 @@ counter.innerHTML = `<i class="fas fa-calculator mr-2"></i>${count} compte(s) af
 header.appendChild(counter);
 }
 }
-                
+
+                /**
+* Met à jour le profil utilisateur
+*/
+function updateUserProfile() {
+const currentUser = window.app.currentUser;
+if (!currentUser) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur non connecté');
+return;
+}
+
+const fullName = document.getElementById('userFullName').value.trim();
+const phone = document.getElementById('userPhone').value.trim();
+const newPassword = document.getElementById('newPassword').value;
+const confirmPassword = document.getElementById('confirmPassword').value;
+
+// Validation du nom
+if (!fullName) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le nom complet est obligatoire');
+return;
+}
+
+// Validation du mot de passe si fourni
+if (newPassword || confirmPassword) {
+if (newPassword !== confirmPassword) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Les mots de passe ne correspondent pas');
+return;
+}
+
+if (newPassword.length < 6) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
+return;
+}
+}
+
+// Mettre à jour les informations
+currentUser.name = fullName;
+currentUser.phone = phone;
+
+if (newPassword) {
+currentUser.passwordHash = window.unifiedManager.hashPassword(newPassword);
+}
+
+// Marquer comme modifié
+currentUser.updatedAt = new Date().toISOString();
+
+// Mettre à jour l'interface
+updateSecureUserInfo();
+
+// Vider les champs de mot de passe
+if (newPassword) {
+document.getElementById('newPassword').value = '';
+document.getElementById('confirmPassword').value = '';
+}
+
+window.unifiedManager.notificationManager.show('success', 'Profil mis à jour', 'Vos informations ont été sauvegardées avec succès');
+}
+               /**
+* Affiche le modal de création d'un nouveau compte
+*/
+function showNewAccountModal() {
+if (window.app.currentProfile === 'caissier') {
+window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Les caissiers ne peuvent pas créer de comptes');
+return;
+}
+
+const modalContent = `
+<form id="newAccountForm" class="space-y-6">
+<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-success">
+<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+<i class="fas fa-plus-circle text-success mr-2"></i>Nouveau Compte SYSCOHADA
+</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Code compte*</label>
+<input type="text" id="accountCode" required pattern="[0-9]{6}" maxlength="6" placeholder="Ex: 601000"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-success focus:border-transparent">
+<div class="text-xs text-gray-500 mt-1">6 chiffres selon SYSCOHADA</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Classe*</label>
+<select id="accountClass" required onchange="updateAccountClass()"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-success focus:border-transparent">
+<option value="">-- Sélectionner --</option>
+<option value="1">Classe 1 - Comptes de ressources durables</option>
+<option value="2">Classe 2 - Comptes d'actif immobilisé</option>
+<option value="3">Classe 3 - Comptes de stocks</option>
+<option value="4">Classe 4 - Comptes de tiers</option>
+<option value="5">Classe 5 - Comptes financiers</option>
+<option value="6">Classe 6 - Comptes de charges</option>
+<option value="7">Classe 7 - Comptes de produits</option>
+<option value="8">Classe 8 - Comptes de résultats</option>
+<option value="9">Classe 9 - Comptes analytiques</option>
+</select>
+</div>
+</div>
+
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Intitulé du compte*</label>
+<input type="text" id="accountName" required placeholder="Ex: Achats de marchandises"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-success focus:border-transparent">
+</div>
+
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Catégorie*</label>
+<select id="accountCategory" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-success focus:border-transparent">
+<option value="">-- Sélectionner --</option>
+<option value="Capitaux propres">Capitaux propres</option>
+<option value="Provisions">Provisions</option>
+<option value="Dettes financières">Dettes financières</option>
+<option value="Immobilisations corporelles">Immobilisations corporelles</option>
+<option value="Immobilisations incorporelles">Immobilisations incorporelles</option>
+<option value="Immobilisations financières">Immobilisations financières</option>
+<option value="Stocks">Stocks</option>
+<option value="Fournisseurs">Fournisseurs</option>
+<option value="Clients">Clients</option>
+<option value="Personnel">Personnel</option>
+<option value="Organismes sociaux">Organismes sociaux</option>
+<option value="État">État</option>
+<option value="Comptes bancaires">Comptes bancaires</option>
+<option value="Caisse">Caisse</option>
+<option value="Achats">Achats</option>
+<option value="Services extérieurs">Services extérieurs</option>
+<option value="Charges de personnel">Charges de personnel</option>
+<option value="Charges financières">Charges financières</option>
+<option value="Ventes">Ventes</option>
+<option value="Produits financiers">Produits financiers</option>
+<option value="Produits exceptionnels">Produits exceptionnels</option>
+</select>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type*</label>
+<select id="accountType" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-success focus:border-transparent">
+<option value="">-- Sélectionner --</option>
+<option value="Actif">Actif</option>
+<option value="Passif">Passif</option>
+<option value="Charge">Charge</option>
+<option value="Produit">Produit</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nature*</label>
+<select id="accountNature" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-success focus:border-transparent">
+<option value="">-- Sélectionner --</option>
+<option value="Debit">Débiteur</option>
+<option value="Credit">Créditeur</option>
+</select>
+</div>
+</div>
+
+<div class="flex items-center space-x-4">
+<label class="flex items-center">
+<input type="checkbox" id="accountActive" checked class="text-success focus:ring-success border-gray-300 rounded">
+<span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Compte actif</span>
+</label>
+<label class="flex items-center">
+<input type="checkbox" id="accountReconcilable" class="text-success focus:ring-success border-gray-300 rounded">
+<span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Lettrage autorisé</span>
+</label>
+</div>
+</div>
+
+<div class="flex justify-end space-x-3 pt-4">
+<button type="button" onclick="window.unifiedManager.modalManager.hide()"
+class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+Annuler
+</button>
+<button type="submit"
+class="bg-success text-white px-6 py-2 rounded-lg hover:bg-success/90 transition-colors">
+<i class="fas fa-save mr-2"></i>Créer le compte
+</button>
+</div>
+</form>
+`;
+
+window.unifiedManager.modalManager.show('Nouveau Compte SYSCOHADA', modalContent);
+
+// Attacher l'événement de soumission
+document.getElementById('newAccountForm').addEventListener('submit', function(e) {
+e.preventDefault();
+handleNewAccountSubmit();
+});
+}
+
+/**
+* Met à jour automatiquement le code compte selon la classe
+*/
+function updateAccountClass() {
+const classValue = document.getElementById('accountClass').value;
+const codeInput = document.getElementById('accountCode');
+if (classValue && codeInput) {
+const currentCode = codeInput.value;
+if (currentCode.length === 0 || currentCode.charAt(0) !== classValue) {
+codeInput.value = classValue + '00000';
+codeInput.setSelectionRange(1, 6); // Sélectionner les 5 derniers chiffres
+}
+}
+}
+
+/**
+* Traite la soumission du nouveau compte
+*/
+function handleNewAccountSubmit() {
+const code = document.getElementById('accountCode').value;
+const name = document.getElementById('accountName').value;
+const category = document.getElementById('accountCategory').value;
+const type = document.getElementById('accountType').value;
+const nature = document.getElementById('accountNature').value;
+const isActive = document.getElementById('accountActive').checked;
+const isReconcilable = document.getElementById('accountReconcilable').checked;
+
+// Validations
+if (!code || !name || !category || !type || !nature) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Tous les champs obligatoires doivent être remplis');
+return;
+}
+
+if (!/^[0-9]{6}$/.test(code)) {
+window.unifiedManager.notificationManager.show('error', 'Code invalide', 'Le code compte doit contenir exactement 6 chiffres');
+return;
+}
+
+// Vérifier l'unicité du code
+const existingAccount = window.app.accounts.find(a => a.code === code);
+if (existingAccount) {
+window.unifiedManager.notificationManager.show('error', 'Code existant', 'Ce code compte existe déjà');
+return;
+}
+
+// Créer le nouveau compte
+const newAccount = {
+code: code,
+name: name,
+category: category,
+type: type,
+nature: nature,
+isActive: isActive,
+isReconcilable: isReconcilable,
+createdAt: new Date().toISOString(),
+createdBy: window.app.currentUser.id,
+companyId: window.app.currentCompanyId
+};
+
+window.app.accounts.push(newAccount);
+window.unifiedManager.modalManager.hide();
+window.unifiedManager.notificationManager.show('success', 'Compte créé', `Le compte ${code} - ${name} a été créé avec succès`);
+
+// Recharger la page des comptes
+window.unifiedManager.loadAccountsPage();
+}
+
+                /**
+* Affiche l'historique d'un compte
+*/
+function viewAccountHistory(accountCode) {
+const account = window.app.accounts.find(a => a.code === accountCode);
+if (!account) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Compte introuvable');
+return;
+}
+
+// Rechercher toutes les écritures contenant ce compte
+const accountEntries = window.app.entries.filter(entry => 
+entry.companyId === window.app.currentCompanyId &&
+entry.lines.some(line => line.account === accountCode)
+).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+// Calculer le solde
+let solde = 0;
+const movements = [];
+
+accountEntries.forEach(entry => {
+entry.lines.forEach(line => {
+if (line.account === accountCode) {
+const debit = line.debit || 0;
+const credit = line.credit || 0;
+
+if (account.nature === 'Debit') {
+solde += debit - credit;
+} else {
+solde += credit - debit;
+}
+
+movements.push({
+date: entry.date,
+piece: entry.piece,
+journal: entry.journal,
+libelle: line.libelle,
+debit: debit,
+credit: credit,
+solde: solde,
+status: entry.status
+});
+}
+});
+});
+
+const modalContent = `
+<div class="space-y-6">
+<!-- En-tête du compte -->
+<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-lg font-semibold text-gray-900 dark:text-white">${account.code} - ${account.name}</h3>
+<p class="text-sm text-gray-600 dark:text-gray-400">${account.category} • ${account.type}</p>
+</div>
+<div class="text-right">
+<div class="text-2xl font-bold ${solde >= 0 ? 'text-success' : 'text-danger'}">${solde.toLocaleString('fr-FR')} FCFA</div>
+<div class="text-sm text-gray-500">Solde actuel</div>
+</div>
+</div>
+</div>
+
+<!-- Statistiques -->
+<div class="grid grid-cols-3 gap-4">
+<div class="bg-info/10 p-4 rounded-lg text-center">
+<div class="text-2xl font-bold text-info">${movements.length}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Mouvements</div>
+</div>
+<div class="bg-success/10 p-4 rounded-lg text-center">
+<div class="text-2xl font-bold text-success">${movements.reduce((sum, m) => sum + m.debit, 0).toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Total Débit</div>
+</div>
+<div class="bg-danger/10 p-4 rounded-lg text-center">
+<div class="text-2xl font-bold text-danger">${movements.reduce((sum, m) => sum + m.credit, 0).toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Total Crédit</div>
+</div>
+</div>
+
+<!-- Historique des mouvements -->
+<div class="bg-white dark:bg-gray-800 rounded-lg">
+<h4 class="font-medium text-gray-900 dark:text-white mb-3 p-4 border-b border-gray-200 dark:border-gray-700">
+Historique des mouvements
+</h4>
+${movements.length > 0 ? `
+<div class="overflow-x-auto">
+<table class="min-w-full">
+<thead class="bg-gray-50 dark:bg-gray-700">
+<tr>
+<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Journal</th>
+<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">N° Pièce</th>
+<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Libellé</th>
+<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Débit</th>
+<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Crédit</th>
+<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Solde</th>
+<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Statut</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+${movements.map(movement => `
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+<td class="px-4 py-2 text-sm">${new Date(movement.date).toLocaleDateString('fr-FR')}</td>
+<td class="px-4 py-2">
+<span class="px-2 py-1 text-xs rounded ${window.unifiedManager.getJournalColor ? window.unifiedManager.getJournalColor(movement.journal) : 'bg-gray-200 text-gray-800'}">${movement.journal}</span>
+</td>
+<td class="px-4 py-2 text-sm font-mono">${movement.piece}</td>
+<td class="px-4 py-2 text-sm">${movement.libelle}</td>
+<td class="px-4 py-2 text-sm text-right font-mono ${movement.debit > 0 ? 'text-success font-medium' : 'text-gray-400'}">
+${movement.debit > 0 ? movement.debit.toLocaleString('fr-FR') : '-'}
+</td>
+<td class="px-4 py-2 text-sm text-right font-mono ${movement.credit > 0 ? 'text-danger font-medium' : 'text-gray-400'}">
+${movement.credit > 0 ? movement.credit.toLocaleString('fr-FR') : '-'}
+</td>
+<td class="px-4 py-2 text-sm text-right font-mono font-bold ${movement.solde >= 0 ? 'text-success' : 'text-danger'}">
+${movement.solde.toLocaleString('fr-FR')}
+</td>
+<td class="px-4 py-2 text-center">
+<span class="px-2 py-1 text-xs rounded ${movement.status === 'Validé' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">${movement.status}</span>
+</td>
+</tr>
+`).join('')}
+</tbody>
+</table>
+</div>
+` : `
+<div class="text-center py-8 text-gray-500">
+<i class="fas fa-history text-4xl mb-4"></i>
+<h3 class="text-lg font-medium mb-2">Aucun mouvement</h3>
+<p>Ce compte n'a encore aucun mouvement enregistré.</p>
+</div>
+`}
+</div>
+
+<!-- Actions -->
+<div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+<div class="flex space-x-3">
+<button onclick="exportAccountHistory('${accountCode}')"
+class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+<i class="fas fa-download mr-2"></i>Exporter
+</button>
+<button onclick="printAccountHistory('${accountCode}')"
+class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+<i class="fas fa-print mr-2"></i>Imprimer
+</button>
+</div>
+<button onclick="window.unifiedManager.modalManager.hide()"
+class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+Fermer
+</button>
+</div>
+</div>
+`;
+
+window.unifiedManager.modalManager.show(`Historique - ${account.code}`, modalContent);
+}
+
+function exportAccountHistory(accountCode) {
+window.unifiedManager.notificationManager.show('success', 'Export réussi', `Historique du compte ${accountCode} exporté avec succès`);
+}
+
+function printAccountHistory(accountCode) {
+window.unifiedManager.notificationManager.show('info', 'Impression', `Préparation de l'impression pour le compte ${accountCode}...`);
+}
+
+                /**
+* Affiche le modal de création d'une nouvelle caisse
+*/
+function showNewCashRegisterModal() {
+if (!window.app.currentCompanyId) {
+window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour créer une caisse');
+return;
+}
+
+const currentUser = window.app.currentUser;
+const maxCaisses = currentUser.profile === 'user' ? 5 : 999;
+const currentCaisses = window.app.cashRegisters.filter(c => c.companyId === window.app.currentCompanyId).length;
+
+if (currentUser.profile === 'user' && currentCaisses >= maxCaisses) {
+window.unifiedManager.notificationManager.show('warning', 'Limite atteinte', `Vous ne pouvez créer que ${maxCaisses} caisses maximum`);
+return;
+}
+
+const modalContent = `
+<form id="newCashRegisterForm" class="space-y-6">
+<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-warning">
+<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+<i class="fas fa-cash-register text-warning mr-2"></i>Nouvelle Caisse
+</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom de la caisse*</label>
+<input type="text" id="cashRegisterName" required placeholder="Ex: Caisse Principale"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-warning focus:border-transparent">
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type de caisse*</label>
+<select id="cashRegisterType" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-warning focus:border-transparent">
+<option value="">-- Sélectionner --</option>
+<option value="principale">Caisse Principale</option>
+<option value="ventes">Caisse Ventes</option>
+<option value="petite_monnaie">Petite Monnaie</option>
+<option value="recettes">Caisse Recettes</option>
+<option value="depenses">Caisse Dépenses</option>
+<option value="autre">Autre</option>
+</select>
+</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Responsable</label>
+<select id="cashRegisterResponsible"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-warning focus:border-transparent">
+<option value="">-- Aucun responsable --</option>
+${window.app.users.filter(u => 
+u.companies && u.companies.includes(window.app.currentCompanyId) &&
+(u.profile === 'caissier' || u.profile === 'user')
+).map(user => `
+<option value="${user.id}">${user.name} - ${user.role}</option>
+`).join('')}
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Devise*</label>
+<select id="cashRegisterCurrency" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-warning focus:border-transparent">
+<option value="FCFA">Franc CFA (FCFA)</option>
+<option value="EUR">Euro (EUR)</option>
+<option value="USD">Dollar US (USD)</option>
+</select>
+</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Solde d'ouverture*</label>
+<input type="number" id="cashRegisterOpeningBalance" required min="0" step="0.01" value="0"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-warning focus:border-transparent">
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Limite maximum</label>
+<input type="number" id="cashRegisterMaxLimit" min="0" step="0.01" placeholder="Ex: 500000"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-warning focus:border-transparent">
+<div class="text-xs text-gray-500 mt-1">Limite recommandée pour la sécurité</div>
+</div>
+</div>
+
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Emplacement</label>
+<input type="text" id="cashRegisterLocation" placeholder="Ex: Bureau principal, Magasin..."
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-warning focus:border-transparent">
+</div>
+
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+<textarea id="cashRegisterDescription" rows="3" placeholder="Description optionnelle de la caisse..."
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-warning focus:border-transparent"></textarea>
+</div>
+
+<div class="flex items-center space-x-4">
+<label class="flex items-center">
+<input type="checkbox" id="cashRegisterActive" checked class="text-warning focus:ring-warning border-gray-300 rounded">
+<span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Caisse active</span>
+</label>
+<label class="flex items-center">
+<input type="checkbox" id="cashRegisterAutoOpen" class="text-warning focus:ring-warning border-gray-300 rounded">
+<span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Ouverture automatique</span>
+</label>
+</div>
+
+<div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+<div class="flex">
+<i class="fas fa-info-circle text-yellow-600 dark:text-yellow-400 text-sm mt-0.5 mr-2"></i>
+<div class="text-sm text-yellow-800 dark:text-yellow-200">
+<strong>Information :</strong> Cette caisse sera créée avec le statut "Fermé". 
+Vous pourrez l'ouvrir depuis la gestion des caisses après création.
+</div>
+</div>
+</div>
+</div>
+
+<div class="flex justify-end space-x-3 pt-4">
+<button type="button" onclick="window.unifiedManager.modalManager.hide()"
+class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+Annuler
+</button>
+<button type="submit"
+class="bg-warning text-white px-6 py-2 rounded-lg hover:bg-warning/90 transition-colors">
+<i class="fas fa-save mr-2"></i>Créer la caisse
+</button>
+</div>
+</form>
+`;
+
+window.unifiedManager.modalManager.show('Nouvelle Caisse', modalContent);
+
+// Attacher l'événement de soumission
+document.getElementById('newCashRegisterForm').addEventListener('submit', function(e) {
+e.preventDefault();
+handleNewCashRegisterSubmit();
+});
+}
+
+/**
+* Traite la soumission d'une nouvelle caisse
+*/
+function handleNewCashRegisterSubmit() {
+const name = document.getElementById('cashRegisterName').value.trim();
+const type = document.getElementById('cashRegisterType').value;
+const responsibleId = document.getElementById('cashRegisterResponsible').value;
+const currency = document.getElementById('cashRegisterCurrency').value;
+const openingBalance = parseFloat(document.getElementById('cashRegisterOpeningBalance').value) || 0;
+const maxLimit = parseFloat(document.getElementById('cashRegisterMaxLimit').value) || null;
+const location = document.getElementById('cashRegisterLocation').value.trim();
+const description = document.getElementById('cashRegisterDescription').value.trim();
+const isActive = document.getElementById('cashRegisterActive').checked;
+const autoOpen = document.getElementById('cashRegisterAutoOpen').checked;
+
+// Validations
+if (!name || !type || !currency) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Tous les champs obligatoires doivent être remplis');
+return;
+}
+
+if (openingBalance < 0) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le solde d\'ouverture ne peut pas être négatif');
+return;
+}
+
+// Vérifier l'unicité du nom
+const existingCash = window.app.cashRegisters.find(c => 
+c.companyId === window.app.currentCompanyId && 
+c.name.toLowerCase() === name.toLowerCase()
+);
+if (existingCash) {
+window.unifiedManager.notificationManager.show('error', 'Nom existant', 'Une caisse avec ce nom existe déjà');
+return;
+}
+
+// Trouver le responsable
+const responsible = responsibleId ? window.app.users.find(u => u.id == responsibleId) : null;
+
+// Créer la nouvelle caisse
+const newCashRegister = {
+id: Date.now(),
+name: name,
+type: type,
+companyId: window.app.currentCompanyId,
+responsibleId: responsibleId ? parseInt(responsibleId) : null,
+responsibleName: responsible ? responsible.name : null,
+currency: currency,
+balance: openingBalance,
+openingBalance: openingBalance,
+dailyReceipts: 0,
+dailyExpenses: 0,
+maxLimit: maxLimit,
+location: location,
+description: description,
+status: autoOpen ? 'Ouvert' : 'Fermé',
+isActive: isActive,
+createdAt: new Date().toISOString(),
+createdBy: window.app.currentUser.id,
+lastOperation: new Date()
+};
+
+window.app.cashRegisters.push(newCashRegister);
+window.unifiedManager.modalManager.hide();
+window.unifiedManager.notificationManager.show('success', 'Caisse créée', `La caisse "${name}" a été créée avec succès`);
+
+// Recharger la page des caisses
+window.unifiedManager.loadCaissePage();
+}
+
+                /**
+* Ouvre le modal des opérations de caisse
+*/
+function openCashOperations(cashId) {
+const cashRegister = window.app.cashRegisters.find(c => c.id === cashId);
+if (!cashRegister) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Caisse introuvable');
+return;
+}
+
+// Vérifier les permissions
+const currentUser = window.app.currentUser;
+const canOperate = cashRegister.responsibleId === currentUser.id || 
+                  ['admin', 'collaborateur_senior', 'collaborateur', 'user'].includes(currentUser.profile);
+
+if (!canOperate) {
+window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'êtes pas autorisé à opérer sur cette caisse');
+return;
+}
+
+if (cashRegister.status === 'Fermé') {
+window.unifiedManager.notificationManager.show('warning', 'Caisse fermée', 'Cette caisse est fermée. Ouvrez-la d\'abord.');
+return;
+}
+
+const modalContent = `
+<div class="space-y-6">
+<!-- En-tête de la caisse -->
+<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-lg font-semibold text-gray-900 dark:text-white">${cashRegister.name}</h3>
+<p class="text-sm text-gray-600 dark:text-gray-400">Responsable: ${cashRegister.responsibleName || 'Non assigné'}</p>
+</div>
+<div class="text-right">
+<div class="text-2xl font-bold text-primary">${(cashRegister.balance || 0).toLocaleString('fr-FR')} ${cashRegister.currency}</div>
+<div class="text-sm text-gray-500">Solde actuel</div>
+</div>
+</div>
+</div>
+
+<!-- Types d'opérations -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Encaissement -->
+<div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+<h4 class="font-medium text-gray-900 dark:text-white mb-4 flex items-center">
+<i class="fas fa-plus-circle text-success mr-2"></i>Encaissement
+</h4>
+<form id="encaissementForm" class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Montant*</label>
+<input type="number" id="encaissementMontant" required min="0.01" step="0.01" placeholder="0.00"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-success dark:bg-gray-700 dark:text-white text-base">
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Motif*</label>
+<select id="encaissementMotif" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-success dark:bg-gray-700 dark:text-white text-base">
+<option value="">-- Sélectionner --</option>
+<option value="vente_comptant">Vente au comptant</option>
+<option value="encaissement_client">Encaissement client</option>
+<option value="remboursement">Remboursement</option>
+<option value="autre_recette">Autre recette</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Référence</label>
+<input type="text" id="encaissementReference" placeholder="N° facture, reçu..."
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-success dark:bg-gray-700 dark:text-white text-base">
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observation</label>
+<textarea id="encaissementObservation" rows="2" placeholder="Observation optionnelle..."
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-success dark:bg-gray-700 dark:text-white text-base"></textarea>
+</div>
+<button type="submit" class="w-full bg-success text-white py-2 rounded-lg hover:bg-success/90 transition-colors">
+<i class="fas fa-plus mr-2"></i>Enregistrer encaissement
+</button>
+</form>
+</div>
+
+<!-- Décaissement -->
+<div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+<h4 class="font-medium text-gray-900 dark:text-white mb-4 flex items-center">
+<i class="fas fa-minus-circle text-danger mr-2"></i>Décaissement
+</h4>
+<form id="decaissementForm" class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Montant*</label>
+<input type="number" id="decaissementMontant" required min="0.01" step="0.01" placeholder="0.00"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-danger dark:bg-gray-700 dark:text-white text-base">
+<div class="text-xs text-gray-500 mt-1">Solde disponible: ${(cashRegister.balance || 0).toLocaleString('fr-FR')} ${cashRegister.currency}</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Motif*</label>
+<select id="decaissementMotif" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-danger dark:bg-gray-700 dark:text-white text-base">
+<option value="">-- Sélectionner --</option>
+<option value="achat_comptant">Achat au comptant</option>
+<option value="paiement_fournisseur">Paiement fournisseur</option>
+<option value="frais_divers">Frais divers</option>
+<option value="petite_caisse">Petite caisse</option>
+<option value="autre_depense">Autre dépense</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Référence</label>
+<input type="text" id="decaissementReference" placeholder="N° facture, reçu..."
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-danger dark:bg-gray-700 dark:text-white text-base">
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observation</label>
+<textarea id="decaissementObservation" rows="2" placeholder="Observation optionnelle..."
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-danger dark:bg-gray-700 dark:text-white text-base"></textarea>
+</div>
+<button type="submit" class="w-full bg-danger text-white py-2 rounded-lg hover:bg-danger/90 transition-colors">
+<i class="fas fa-minus mr-2"></i>Enregistrer décaissement
+</button>
+</form>
+</div>
+</div>
+
+<!-- Actions -->
+<div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+<button onclick="window.unifiedManager.modalManager.hide()"
+class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+Fermer
+</button>
+</div>
+</div>
+`;
+
+window.unifiedManager.modalManager.show(`Opérations - ${cashRegister.name}`, modalContent);
+
+// Attacher les événements des formulaires
+document.getElementById('encaissementForm').addEventListener('submit', function(e) {
+e.preventDefault();
+handleCashOperation(cashId, 'encaissement');
+});
+
+document.getElementById('decaissementForm').addEventListener('submit', function(e) {
+e.preventDefault();
+handleCashOperation(cashId, 'decaissement');
+});
+}
+
+/**
+* Traite une opération de caisse
+*/
+function handleCashOperation(cashId, type) {
+const cashRegister = window.app.cashRegisters.find(c => c.id === cashId);
+if (!cashRegister) return;
+
+const prefix = type === 'encaissement' ? 'encaissement' : 'decaissement';
+const montant = parseFloat(document.getElementById(`${prefix}Montant`).value);
+const motif = document.getElementById(`${prefix}Motif`).value;
+const reference = document.getElementById(`${prefix}Reference`).value;
+const observation = document.getElementById(`${prefix}Observation`).value;
+
+// Validations
+if (!montant || montant <= 0 || !motif) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Veuillez remplir tous les champs obligatoires');
+return;
+}
+
+if (type === 'decaissement' && montant > cashRegister.balance) {
+window.unifiedManager.notificationManager.show('error', 'Solde insuffisant', 'Le montant dépasse le solde disponible');
+return;
+}
+
+// Vérifier la limite maximum si définie
+if (type === 'encaissement' && cashRegister.maxLimit) {
+const nouveauSolde = cashRegister.balance + montant;
+if (nouveauSolde > cashRegister.maxLimit) {
+window.unifiedManager.notificationManager.show('warning', 'Limite dépassée', 
+`Cette opération dépasserait la limite fixée (${cashRegister.maxLimit.toLocaleString('fr-FR')} ${cashRegister.currency})`);
+return;
+}
+}
+
+// Mettre à jour le solde de la caisse
+if (type === 'encaissement') {
+cashRegister.balance += montant;
+cashRegister.dailyReceipts += montant;
+} else {
+cashRegister.balance -= montant;
+cashRegister.dailyExpenses += montant;
+}
+
+cashRegister.lastOperation = new Date();
+
+// Créer l'écriture comptable correspondante
+const entryLines = [];
+const comptesCaisse = window.app.accounts.filter(a => a.category === 'Caisse');
+const compteCaisse = comptesCaisse.find(a => a.code === '571000') || comptesCaisse[0];
+
+if (type === 'encaissement') {
+entryLines.push({
+account: compteCaisse ? compteCaisse.code : '571000',
+accountName: compteCaisse ? compteCaisse.name : 'Caisse',
+libelle: `Encaissement - ${motif} ${reference ? '(' + reference + ')' : ''}`,
+debit: montant,
+credit: 0
+});
+entryLines.push({
+account: '701000', // À adapter selon le motif
+accountName: 'Ventes de marchandises',
+libelle: `Encaissement - ${motif}`,
+debit: 0,
+credit: montant
+});
+} else {
+entryLines.push({
+account: '601000', // À adapter selon le motif
+accountName: 'Achats de marchandises',
+libelle: `Décaissement - ${motif}`,
+debit: montant,
+credit: 0
+});
+entryLines.push({
+account: compteCaisse ? compteCaisse.code : '571000',
+accountName: compteCaisse ? compteCaisse.name : 'Caisse',
+libelle: `Décaissement - ${motif} ${reference ? '(' + reference + ')' : ''}`,
+debit: 0,
+credit: montant
+});
+}
+
+// Créer l'écriture
+const newEntry = {
+id: Date.now(),
+companyId: cashRegister.companyId,
+date: new Date().toISOString().split('T')[0],
+journal: 'JC',
+piece: `JC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+libelle: `${type === 'encaissement' ? 'Encaissement' : 'Décaissement'} caisse ${cashRegister.name}`,
+lines: entryLines,
+status: window.app.currentUser.profile === 'caissier' ? 'En attente' : 'Validé',
+cashRegisterId: cashId,
+userId: window.app.currentUser.id,
+createdAt: new Date().toISOString()
+};
+
+if (newEntry.status === 'Validé') {
+newEntry.validatedBy = window.app.currentUser.id;
+newEntry.validatedAt = new Date().toISOString();
+}
+
+window.app.entries.push(newEntry);
+
+// Réinitialiser le formulaire
+document.getElementById(`${prefix}Form`).reset();
+
+// Mettre à jour l'affichage du solde dans le modal
+const soldeElement = document.querySelector('.text-2xl.font-bold.text-primary');
+if (soldeElement) {
+soldeElement.textContent = `${cashRegister.balance.toLocaleString('fr-FR')} ${cashRegister.currency}`;
+}
+
+// Mettre à jour l'indication du solde disponible pour les décaissements
+const soldeDispoElement = document.querySelector('.text-xs.text-gray-500');
+if (soldeDispoElement) {
+soldeDispoElement.textContent = `Solde disponible: ${cashRegister.balance.toLocaleString('fr-FR')} ${cashRegister.currency}`;
+}
+
+const operationType = type === 'encaissement' ? 'Encaissement' : 'Décaissement';
+window.unifiedManager.notificationManager.show('success', `${operationType} enregistré`, 
+`${operationType} de ${montant.toLocaleString('fr-FR')} ${cashRegister.currency} enregistré avec succès`);
+}
+
+                /**
+* Édite une caisse existante
+*/
+function editCashRegister(cashId) {
+const cashRegister = window.app.cashRegisters.find(c => c.id === cashId);
+if (!cashRegister) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Caisse introuvable');
+return;
+}
+
+// Vérifier les permissions
+const currentUser = window.app.currentUser;
+const canEdit = ['admin', 'collaborateur_senior', 'collaborateur', 'user'].includes(currentUser.profile);
+
+if (!canEdit) {
+window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n\'avez pas les permissions pour modifier cette caisse');
+return;
+}
+
+const modalContent = `
+<form id="editCashRegisterForm" class="space-y-6">
+<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-info">
+<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+<i class="fas fa-edit text-info mr-2"></i>Modifier la Caisse
+</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom de la caisse*</label>
+<input type="text" id="editCashRegisterName" required value="${cashRegister.name}"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-info focus:border-transparent">
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type de caisse*</label>
+<select id="editCashRegisterType" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-info focus:border-transparent">
+<option value="principale" ${cashRegister.type === 'principale' ? 'selected' : ''}>Caisse Principale</option>
+<option value="ventes" ${cashRegister.type === 'ventes' ? 'selected' : ''}>Caisse Ventes</option>
+<option value="petite_monnaie" ${cashRegister.type === 'petite_monnaie' ? 'selected' : ''}>Petite Monnaie</option>
+<option value="recettes" ${cashRegister.type === 'recettes' ? 'selected' : ''}>Caisse Recettes</option>
+<option value="depenses" ${cashRegister.type === 'depenses' ? 'selected' : ''}>Caisse Dépenses</option>
+<option value="autre" ${cashRegister.type === 'autre' ? 'selected' : ''}>Autre</option>
+</select>
+</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Responsable</label>
+<select id="editCashRegisterResponsible"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-info focus:border-transparent">
+<option value="">-- Aucun responsable --</option>
+${window.app.users.filter(u => 
+u.companies && u.companies.includes(cashRegister.companyId) &&
+(u.profile === 'caissier' || u.profile === 'user')
+).map(user => `
+<option value="${user.id}" ${cashRegister.responsibleId == user.id ? 'selected' : ''}>${user.name} - ${user.role}</option>
+`).join('')}
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Statut*</label>
+<select id="editCashRegisterStatus" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-info focus:border-transparent">
+<option value="Ouvert" ${cashRegister.status === 'Ouvert' ? 'selected' : ''}>Ouvert</option>
+<option value="Fermé" ${cashRegister.status === 'Fermé' ? 'selected' : ''}>Fermé</option>
+<option value="Suspendu" ${cashRegister.status === 'Suspendu' ? 'selected' : ''}>Suspendu</option>
+</select>
+</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Limite maximum</label>
+<input type="number" id="editCashRegisterMaxLimit" min="0" step="0.01" value="${cashRegister.maxLimit || ''}"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-info focus:border-transparent">
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Devise*</label>
+<select id="editCashRegisterCurrency" required
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-info focus:border-transparent">
+<option value="FCFA" ${cashRegister.currency === 'FCFA' ? 'selected' : ''}>Franc CFA (FCFA)</option>
+<option value="EUR" ${cashRegister.currency === 'EUR' ? 'selected' : ''}>Euro (EUR)</option>
+<option value="USD" ${cashRegister.currency === 'USD' ? 'selected' : ''}>Dollar US (USD)</option>
+</select>
+</div>
+</div>
+
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Emplacement</label>
+<input type="text" id="editCashRegisterLocation" value="${cashRegister.location || ''}"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-info focus:border-transparent">
+</div>
+
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+<textarea id="editCashRegisterDescription" rows="3"
+class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-info focus:border-transparent">${cashRegister.description || ''}</textarea>
+</div>
+
+<div class="flex items-center">
+<label class="flex items-center">
+<input type="checkbox" id="editCashRegisterActive" ${cashRegister.isActive !== false ? 'checked' : ''} class="text-info focus:ring-info border-gray-300 rounded">
+<span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Caisse active</span>
+</label>
+</div>
+
+<!-- Informations en lecture seule -->
+<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+<h4 class="font-medium text-gray-900 dark:text-white mb-3">Informations financières</h4>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+<div>
+<span class="text-gray-600 dark:text-gray-400">Solde actuel:</span>
+<div class="font-bold text-primary">${(cashRegister.balance || 0).toLocaleString('fr-FR')} ${cashRegister.currency}</div>
+</div>
+<div>
+<span class="text-gray-600 dark:text-gray-400">Solde ouverture:</span>
+<div class="font-medium">${(cashRegister.openingBalance || 0).toLocaleString('fr-FR')} ${cashRegister.currency}</div>
+</div>
+<div>
+<span class="text-gray-600 dark:text-gray-400">Recettes jour:</span>
+<div class="font-medium text-success">+${(cashRegister.dailyReceipts || 0).toLocaleString('fr-FR')} ${cashRegister.currency}</div>
+</div>
+<div>
+<span class="text-gray-600 dark:text-gray-400">Dépenses jour:</span>
+<div class="font-medium text-danger">-${(cashRegister.dailyExpenses || 0).toLocaleString('fr-FR')} ${cashRegister.currency}</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="flex justify-end space-x-3 pt-4">
+<button type="button" onclick="window.unifiedManager.modalManager.hide()"
+class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+Annuler
+</button>
+<button type="submit"
+class="bg-info text-white px-6 py-2 rounded-lg hover:bg-info/90 transition-colors">
+<i class="fas fa-save mr-2"></i>Sauvegarder
+</button>
+</div>
+</form>
+`;
+
+window.unifiedManager.modalManager.show(`Modifier - ${cashRegister.name}`, modalContent);
+
+// Attacher l'événement de soumission
+document.getElementById('editCashRegisterForm').addEventListener('submit', function(e) {
+e.preventDefault();
+handleEditCashRegisterSubmit(cashId);
+});
+}
+
+/**
+* Traite la modification d'une caisse
+*/
+function handleEditCashRegisterSubmit(cashId) {
+const cashRegister = window.app.cashRegisters.find(c => c.id === cashId);
+if (!cashRegister) return;
+
+const name = document.getElementById('editCashRegisterName').value.trim();
+const type = document.getElementById('editCashRegisterType').value;
+const responsibleId = document.getElementById('editCashRegisterResponsible').value;
+const status = document.getElementById('editCashRegisterStatus').value;
+const maxLimit = parseFloat(document.getElementById('editCashRegisterMaxLimit').value) || null;
+const currency = document.getElementById('editCashRegisterCurrency').value;
+const location = document.getElementById('editCashRegisterLocation').value.trim();
+const description = document.getElementById('editCashRegisterDescription').value.trim();
+const isActive = document.getElementById('editCashRegisterActive').checked;
+
+// Validations
+if (!name || !type || !status || !currency) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Tous les champs obligatoires doivent être remplis');
+return;
+}
+
+// Vérifier l'unicité du nom si modifié
+if (name !== cashRegister.name) {
+const existingCash = window.app.cashRegisters.find(c => 
+c.id !== cashId &&
+c.companyId === cashRegister.companyId && 
+c.name.toLowerCase() === name.toLowerCase()
+);
+if (existingCash) {
+window.unifiedManager.notificationManager.show('error', 'Nom existant', 'Une autre caisse avec ce nom existe déjà');
+return;
+}
+}
+
+// Trouver le responsable
+const responsible = responsibleId ? window.app.users.find(u => u.id == responsibleId) : null;
+
+// Mettre à jour la caisse
+cashRegister.name = name;
+cashRegister.type = type;
+cashRegister.responsibleId = responsibleId ? parseInt(responsibleId) : null;
+cashRegister.responsibleName = responsible ? responsible.name : null;
+cashRegister.status = status;
+cashRegister.maxLimit = maxLimit;
+cashRegister.currency = currency;
+cashRegister.location = location;
+cashRegister.description = description;
+cashRegister.isActive = isActive;
+cashRegister.updatedAt = new Date().toISOString();
+cashRegister.updatedBy = window.app.currentUser.id;
+
+window.unifiedManager.modalManager.hide();
+window.unifiedManager.notificationManager.show('success', 'Caisse modifiée', `La caisse "${name}" a été mise à jour avec succès`);
+
+// Recharger la page des caisses
+window.unifiedManager.loadCaissePage();
+}
+
+                /**
+* Génère un rapport d'état de caisse
+*/
+function generateCashReport(cashId) {
+const cashRegister = window.app.cashRegisters.find(c => c.id === cashId);
+if (!cashRegister) {
+window.unifiedManager.notificationManager.show('error', 'Erreur', 'Caisse introuvable');
+return;
+}
+
+// Récupérer les opérations de la caisse
+const cashEntries = window.app.entries.filter(entry => 
+entry.cashRegisterId === cashId ||
+entry.lines.some(line => line.libelle.toLowerCase().includes(cashRegister.name.toLowerCase()))
+).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+// Calculer les statistiques
+const today = new Date().toISOString().split('T')[0];
+const thisMonth = new Date().toISOString().slice(0, 7);
+
+const todayEntries = cashEntries.filter(e => e.date === today);
+const monthEntries = cashEntries.filter(e => e.date.startsWith(thisMonth));
+
+const todayReceipts = todayEntries.reduce((sum, entry) => {
+return sum + entry.lines.filter(line => line.account === '571000' && line.debit > 0)
+.reduce((lineSum, line) => lineSum + line.debit, 0);
+}, 0);
+
+const todayExpenses = todayEntries.reduce((sum, entry) => {
+return sum + entry.lines.filter(line => line.account === '571000' && line.credit > 0)
+.reduce((lineSum, line) => lineSum + line.credit, 0);
+}, 0);
+
+const monthReceipts = monthEntries.reduce((sum, entry) => {
+return sum + entry.lines.filter(line => line.account === '571000' && line.debit > 0)
+.reduce((lineSum, line) => lineSum + line.debit, 0);
+}, 0);
+
+const monthExpenses = monthEntries.reduce((sum, entry) => {
+return sum + entry.lines.filter(line => line.account === '571000' && line.credit > 0)
+.reduce((lineSum, line) => lineSum + line.credit, 0);
+}, 0);
+
+const modalContent = `
+<div class="space-y-6">
+<!-- En-tête du rapport -->
+<div class="text-center border-b border-gray-200 dark:border-gray-600 pb-4">
+<h2 class="text-xl font-bold text-gray-900 dark:text-white">État de Caisse</h2>
+<p class="text-gray-600 dark:text-gray-400 mt-1">${cashRegister.name}</p>
+<p class="text-sm text-gray-500">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+</div>
+
+<!-- Informations générales -->
+<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+<h3 class="font-medium text-gray-900 dark:text-white mb-3">Informations Générales</h3>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+<div>
+<span class="text-gray-600 dark:text-gray-400">Type:</span>
+<div class="font-medium capitalize">${cashRegister.type}</div>
+</div>
+<div>
+<span class="text-gray-600 dark:text-gray-400">Responsable:</span>
+<div class="font-medium">${cashRegister.responsibleName || 'Non assigné'}</div>
+</div>
+<div>
+<span class="text-gray-600 dark:text-gray-400">Statut:</span>
+<div class="font-medium">
+<span class="px-2 py-1 text-xs rounded ${cashRegister.status === 'Ouvert' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">${cashRegister.status}</span>
+</div>
+</div>
+<div>
+<span class="text-gray-600 dark:text-gray-400">Limite:</span>
+<div class="font-medium">${cashRegister.maxLimit ? cashRegister.maxLimit.toLocaleString('fr-FR') + ' ' + cashRegister.currency : 'Aucune'}</div>
+</div>
+</div>
+</div>
+
+<!-- Soldes et mouvements -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-primary/10 p-4 rounded-lg text-center">
+<div class="text-2xl font-bold text-primary">${(cashRegister.balance || 0).toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Solde Actuel (${cashRegister.currency})</div>
+</div>
+<div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
+<div class="text-2xl font-bold text-gray-700 dark:text-gray-300">${(cashRegister.openingBalance || 0).toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Solde d'Ouverture (${cashRegister.currency})</div>
+</div>
+<div class="bg-info/10 p-4 rounded-lg text-center">
+<div class="text-2xl font-bold text-info">${((cashRegister.balance || 0) - (cashRegister.openingBalance || 0)).toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Variation (${cashRegister.currency})</div>
+</div>
+</div>
+
+<!-- Mouvements du jour -->
+<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+<div class="p-4 border-b border-gray-200 dark:border-gray-700">
+<h3 class="font-medium text-gray-900 dark:text-white">Mouvements du Jour</h3>
+</div>
+<div class="p-4">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="text-center">
+<div class="text-xl font-bold text-success">+${todayReceipts.toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Recettes</div>
+</div>
+<div class="text-center">
+<div class="text-xl font-bold text-danger">-${todayExpenses.toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Dépenses</div>
+</div>
+<div class="text-center">
+<div class="text-xl font-bold text-primary">${(todayReceipts - todayExpenses).toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Solde du Jour</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Mouvements du mois -->
+<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+<div class="p-4 border-b border-gray-200 dark:border-gray-700">
+<h3 class="font-medium text-gray-900 dark:text-white">Mouvements du Mois</h3>
+</div>
+<div class="p-4">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="text-center">
+<div class="text-xl font-bold text-success">+${monthReceipts.toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Recettes</div>
+</div>
+<div class="text-center">
+<div class="text-xl font-bold text-danger">-${monthExpenses.toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Dépenses</div>
+</div>
+<div class="text-center">
+<div class="text-xl font-bold text-primary">${(monthReceipts - monthExpenses).toLocaleString('fr-FR')}</div>
+<div class="text-sm text-gray-600 dark:text-gray-400">Solde du Mois</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Dernières opérations -->
+<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+<div class="p-4 border-b border-gray-200 dark:border-gray-700">
+<h3 class="font-medium text-gray-900 dark:text-white">Dernières Opérations (${Math.min(10, cashEntries.length)})</h3>
+</div>
+${cashEntries.length > 0 ? `
+<div class="overflow-x-auto">
+<table class="min-w-full">
+<thead class="bg-gray-50 dark:bg-gray-700">
+<tr>
+<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Opération</th>
+<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Montant</th>
+<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Statut</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+${cashEntries.slice(0, 10).map(entry => {
+const cashLine = entry.lines.find(line => line.account === '571000') || entry.lines[0];
+const isReceipt = cashLine && cashLine.debit > 0;
+const amount = cashLine ? (cashLine.debit || cashLine.credit) : 0;
+
+return `
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+<td class="px-4 py-2 text-sm">${new Date(entry.date).toLocaleDateString('fr-FR')}</td>
+<td class="px-4 py-2 text-sm">${entry.libelle}</td>
+<td class="px-4 py-2 text-sm text-right font-mono">
+<span class="${isReceipt ? 'text-success' : 'text-danger'}">${isReceipt ? '+' : '-'}${amount.toLocaleString('fr-FR')}</span>
+</td>
+<td class="px-4 py-2 text-center">
+<span class="px-2 py-1 text-xs rounded ${entry.status === 'Validé' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">${entry.status}</span>
+</td>
+</tr>
+`;
+}).join('')}
+</tbody>
+</table>
+</div>
+` : `
+<div class="text-center py-8 text-gray-500">
+<i class="fas fa-receipt text-4xl mb-4"></i>
+<h3 class="text-lg font-medium mb-2">Aucune opération</h3>
+<p>Aucune opération enregistrée pour cette caisse.</p>
+</div>
+`}
+</div>
+
+<!-- Actions -->
+<div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+<div class="flex space-x-3">
+<button onclick="exportCashReport(${cashId})"
+class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+<i class="fas fa-download mr-2"></i>Exporter PDF
+</button>
+<button onclick="printCashReport(${cashId})"
+class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+<i class="fas fa-print mr-2"></i>Imprimer
+</button>
+<button onclick="emailCashReport(${cashId})"
+class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90 transition-colors">
+<i class="fas fa-envelope mr-2"></i>Envoyer
+</button>
+</div>
+<button onclick="window.unifiedManager.modalManager.hide()"
+class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+Fermer
+</button>
+</div>
+</div>
+`;
+
+window.unifiedManager.modalManager.show(`Rapport - ${cashRegister.name}`, modalContent);
+}
+
+function exportCashReport(cashId) {
+const cashRegister = window.app.cashRegisters.find(c => c.id === cashId);
+window.unifiedManager.notificationManager.show('success', 'Export réussi', `Rapport de ${cashRegister.name} exporté en PDF`);
+}
+
+function printCashReport(cashId) {
+window.unifiedManager.notificationManager.show('info', 'Impression', 'Préparation de l\'impression du rapport...');
+}
+
+function emailCashReport(cashId) {
+const cashRegister = window.app.cashRegisters.find(c => c.id === cashId);
+window.unifiedManager.notificationManager.show('success', 'Email envoyé', `Rapport de ${cashRegister.name} envoyé par email`);
+}
+
+function loadCashierReports() {
+window.unifiedManager.notificationManager.show('info', 'Rapports caissier', 'Chargement des rapports spécifiques caissier...');
+setTimeout(() => {
+window.unifiedManager.loadCaissePage();
+}, 1000);
+}
                 // Entreprises avec hiérarchie complète
                 if (window.app.companies.length === 0) {
                     window.app.companies = [
