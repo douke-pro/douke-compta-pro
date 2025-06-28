@@ -958,16 +958,48 @@ window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Lis
             }
 
             initializeApplication() {
-                this.initializeData();
-                this.initializeTeamManagement();
-                window.notificationManager = this.notificationManager;
-                window.modalManager = this.modalManager;
-            }
+    try {
+        // 1. D'abord définir les gestionnaires globaux
+        window.notificationManager = this.notificationManager;
+        window.modalManager = this.modalManager;
+        window.unifiedManager = this;
+        
+        // 2. Initialiser les données de base
+        this.initializeData();
+        
+        // 3. Vérifier que window.app existe avant d'initialiser l'équipe
+        if (window.app && window.app.users && window.app.companies) {
+            this.initializeTeamManagement();
+        } else {
+            console.warn('⚠️ window.app non initialisé, report de initializeTeamManagement');
+            // Programmer une nouvelle tentative après un délai
+            setTimeout(() => {
+                if (window.app && window.app.users && window.app.companies) {
+                    this.initializeTeamManagement();
+                }
+            }, 100);
+        }
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'initialisation:', error);
+        if (this.notificationManager) {
+            this.notificationManager.show('error', 'Erreur d\'initialisation', 
+                'L\'application n\'a pas pu s\'initialiser correctement');
+        }
+    }
+}
 
             initializeData() {
                 // Plan comptable SYSCOHADA Révisé complet
-                if (window.app.accounts.length === 0) {
-                    window.app.accounts = [
+    if (!window.app) {
+        console.error('❌ window.app non défini lors de l\'initialisation des données');
+        return;
+    }
+    if (!window.app.accounts) {
+        window.app.accounts = [];
+    }
+    if (window.app.accounts.length === 0) {
+        window.app.accounts = [
+            
                         // Classe 1 - Comptes de ressources durables
                         { code: '101000', name: 'Capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
                         { code: '104000', name: 'Primes liées au capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
