@@ -959,7 +959,7 @@ window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Lis
 
             initializeApplication() {
                 this.initializeData();
-                // Exposer les gestionnaires globalement
+                this.initializeData();
                 window.notificationManager = this.notificationManager;
                 window.modalManager = this.modalManager;
             }
@@ -1041,6 +1041,74 @@ window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Lis
                     ];
                 }
 
+                /**
+* Filtre les comptes selon les critères sélectionnés
+*/
+function filterAccounts() {
+const searchTerm = document.getElementById('accountSearchInput').value.toLowerCase();
+const classFilter = document.getElementById('classFilter').value;
+const categoryFilter = document.getElementById('categoryFilter').value;
+
+const accountCards = document.querySelectorAll('.account-card');
+let visibleCount = 0;
+
+accountCards.forEach(card => {
+const accountCode = card.dataset.code.toLowerCase();
+const accountName = card.dataset.name.toLowerCase();
+const accountCategory = card.dataset.category.toLowerCase();
+const accountClass = card.dataset.class;
+
+const matchesSearch = !searchTerm || 
+accountCode.includes(searchTerm) || 
+accountName.includes(searchTerm);
+
+const matchesClass = !classFilter || accountClass === classFilter;
+const matchesCategory = !categoryFilter || accountCategory === categoryFilter.toLowerCase();
+
+const isVisible = matchesSearch && matchesClass && matchesCategory;
+card.style.display = isVisible ? 'block' : 'none';
+
+if (isVisible) visibleCount++;
+});
+
+// Mettre à jour le compteur
+updateAccountsCounter(visibleCount);
+}
+
+/**
+* Réinitialise tous les filtres des comptes
+*/
+function resetAccountFilters() {
+document.getElementById('accountSearchInput').value = '';
+document.getElementById('classFilter').value = '';
+document.getElementById('categoryFilter').value = '';
+
+document.querySelectorAll('.account-card').forEach(card => {
+card.style.display = 'block';
+});
+
+const totalAccounts = document.querySelectorAll('.account-card').length;
+updateAccountsCounter(totalAccounts);
+
+window.unifiedManager.notificationManager.show('info', 'Filtres réinitialisés', 'Tous les comptes sont maintenant affichés');
+}
+
+/**
+* Met à jour le compteur de comptes affichés
+*/
+function updateAccountsCounter(count) {
+const existing = document.querySelector('.accounts-counter');
+if (existing) existing.remove();
+
+const header = document.querySelector('#mainContent h2');
+if (header) {
+const counter = document.createElement('span');
+counter.className = 'accounts-counter text-sm font-medium text-primary-light bg-primary/10 px-3 py-1 rounded-lg ml-4';
+counter.innerHTML = `<i class="fas fa-calculator mr-2"></i>${count} compte(s) affiché(s)`;
+header.appendChild(counter);
+}
+}
+                
                 // Entreprises avec hiérarchie complète
                 if (window.app.companies.length === 0) {
                     window.app.companies = [
