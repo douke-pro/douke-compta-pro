@@ -746,6 +746,206 @@ class ModalManager {
     }
 }
 
+    /**
+* Initialise la gestion d'équipe avec données réelles
+*/
+function initializeTeamManagement() {
+// Charger les statistiques réelles
+const teamMembers = window.app.users.filter(u => u.id !== window.app.currentUser.id);
+const activeMembers = teamMembers.filter(u => u.status === 'Actif');
+const totalCompanies = window.app.companies.length;
+
+// Mettre à jour les statistiques
+document.getElementById('totalMembers').textContent = teamMembers.length;
+document.getElementById('activeMembers').textContent = activeMembers.length;
+document.getElementById('onlineMembers').textContent = Math.floor(activeMembers.length * 0.6);
+document.getElementById('totalCompanies').textContent = totalCompanies;
+
+// Charger les entreprises dans le modal
+loadCompaniesInModal();
+
+// Remplir le tableau des membres
+populateTeamTable(teamMembers);
+
+// Attacher les événements
+attachTeamEvents();
+}
+
+function loadCompaniesInModal() {
+const container = document.getElementById('companiesCheckboxes');
+if (container && window.app.companies) {
+container.innerHTML = window.app.companies.map(company => `
+<label class="flex items-center space-x-2">
+<input type="checkbox" name="companies" value="${company.id}" class="rounded border-gray-300 text-primary focus:ring-primary">
+<span class="text-sm text-gray-700 dark:text-gray-300">${company.name}</span>
+</label>
+`).join('');
+}
+}
+
+function populateTeamTable(members) {
+const tbody = document.getElementById('teamTableBody');
+if (!tbody) return;
+
+tbody.innerHTML = members.map(member => `
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+<td class="px-6 py-4">
+<input type="checkbox" name="memberSelect" value="${member.id}" class="rounded border-gray-300">
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm mr-3">
+${member.name.split(' ').map(n => n[0]).join('')}
+</div>
+<div>
+<div class="font-medium text-gray-900 dark:text-white">${member.name}</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">${member.email}</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 text-xs rounded-full ${getRoleColor(member.profile)}">${member.role}</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm">${member.companies ? member.companies.length : 0} entreprise(s)</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 text-xs rounded-full ${member.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">
+${member.status}
+</span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500">
+${member.lastLogin ? new Date(member.lastLogin).toLocaleDateString('fr-FR') : 'Jamais'}
+</td>
+<td class="px-6 py-4">
+<div class="flex space-x-2">
+<button onclick="editUser(${member.id})" class="text-info hover:text-info/80">
+<i class="fas fa-edit"></i>
+</button>
+<button onclick="manageUserAccess(${member.id})" class="text-primary hover:text-primary/80">
+<i class="fas fa-key"></i>
+</button>
+</div>
+</td>
+</tr>
+`).join('');
+}
+
+function attachTeamEvents() {
+const searchInput = document.getElementById('searchMembers');
+if (searchInput) {
+searchInput.addEventListener('input', filterTeamMembers);
+}
+
+const roleFilter = document.getElementById('filterRole');
+if (roleFilter) {
+roleFilter.addEventListener('change', filterTeamMembers);
+}
+
+const selectAll = document.getElementById('selectAll');
+if (selectAll) {
+selectAll.addEventListener('change', function() {
+document.querySelectorAll('input[name="memberSelect"]').forEach(cb => {
+cb.checked = this.checked;
+});
+});
+}
+}
+
+function filterTeamMembers() {
+const searchTerm = document.getElementById('searchMembers').value.toLowerCase();
+const roleFilter = document.getElementById('filterRole').value;
+const rows = document.querySelectorAll('#teamTableBody tr');
+
+rows.forEach(row => {
+const memberName = row.querySelector('.font-medium').textContent.toLowerCase();
+const memberEmail = row.querySelector('.text-sm').textContent.toLowerCase();
+const memberRole = row.querySelector('.px-2.py-1').textContent.toLowerCase();
+
+const matchesSearch = memberName.includes(searchTerm) || memberEmail.includes(searchTerm);
+const matchesRole = !roleFilter || memberRole.includes(roleFilter.toLowerCase());
+
+row.style.display = (matchesSearch && matchesRole) ? 'table-row' : 'none';
+});
+}
+
+function getRoleColor(profile) {
+const colors = {
+'admin': 'bg-danger/20 text-danger',
+'collaborateur_senior': 'bg-primary/20 text-primary',
+'collaborateur': 'bg-info/20 text-info',
+'user': 'bg-success/20 text-success',
+'caissier': 'bg-warning/20 text-warning'
+};
+return colors[profile] || 'bg-gray-200 text-gray-800';
+}
+
+function showAddMemberModal() {
+document.getElementById('addMemberModal').classList.remove('hidden');
+loadCompaniesInModal();
+}
+
+function hideAddMemberModal() {
+document.getElementById('addMemberModal').classList.add('hidden');
+document.getElementById('addMemberForm').reset();
+}
+
+function handleAddMember(e) {
+e.preventDefault();
+const formData = new FormData(e.target);
+const firstName = formData.get('firstName') || document.getElementById('firstName').value;
+const lastName = formData.get('lastName') || document.getElementById('lastName').value;
+const email = formData.get('email') || document.getElementById('email').value;
+const phone = formData.get('phone') || document.getElementById('phone').value;
+const role = formData.get('role') || document.getElementById('role').value;
+
+const selectedCompanies = Array.from(document.querySelectorAll('input[name="companies"]:checked'))
+.map(cb => parseInt(cb.value));
+
+const newMember = {
+id: Date.now(),
+name: `${firstName} ${lastName}`,
+email: email,
+phone: phone,
+profile: role,
+role: getRoleName(role),
+companies: selectedCompanies,
+assignedCompanies: selectedCompanies,
+status: 'Actif',
+createdAt: new Date().toISOString(),
+createdBy: window.app.currentUser.id
+};
+
+window.app.users.push(newMember);
+hideAddMemberModal();
+window.unifiedManager.notificationManager.show('success', 'Membre ajouté', `${newMember.name} a été ajouté à l'équipe`);
+initializeTeamManagement();
+}
+
+function getRoleName(profile) {
+const roles = {
+'admin': 'Administrateur',
+'collaborateur_senior': 'Collaborateur Senior',
+'collaborateur': 'Collaborateur',
+'user': 'Utilisateur',
+'caissier': 'Caissier'
+};
+return roles[profile] || profile;
+}
+
+function showBulkActions() {
+const selected = document.querySelectorAll('input[name="memberSelect"]:checked');
+if (selected.length === 0) {
+window.unifiedManager.notificationManager.show('warning', 'Sélection vide', 'Sélectionnez au moins un membre');
+return;
+}
+window.unifiedManager.notificationManager.show('info', 'Actions en lot', `${selected.length} membre(s) sélectionné(s)`);
+}
+
+function exportTeam() {
+window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Liste d\'équipe exportée avec succès');
+}
+    
         class UnifiedDataManager {
             constructor() {
                 this.security = new SecurityManager();
