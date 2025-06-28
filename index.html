@@ -1071,8 +1071,20 @@ window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Lis
                         { code: '754000', name: 'Produits exceptionnels', category: 'Produits exceptionnels', type: 'Produit', nature: 'Credit' },
                         { code: '771000', name: 'Intérêts de prêts', category: 'Produits financiers', type: 'Produit', nature: 'Credit' }
                     ];
-                }
-
+        initializeTeamManagement() {
+        try {
+            if (typeof initializeTeamManagement === 'function') {
+                initializeTeamManagement();
+            } else {
+                console.warn('⚠️ Fonction initializeTeamManagement non disponible');
+            }
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'initialisation de l\'équipe:', error);
+            this.notificationManager.show('warning', 'Initialisation partielle', 
+                'Certaines fonctionnalités d\'équipe ne sont pas disponibles');
+        }
+    }
+ }
                 /**
 * Filtre les comptes selon les critères sélectionnés
 */
