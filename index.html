@@ -946,130 +946,156 @@ function exportTeam() {
 window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Liste d\'équipe exportée avec succès');
 }
     
-               class UnifiedDataManager {
-            constructor() {
-                this.security = new SecurityManager();
-                this.data = new DataManager(this.security);
-                this.notificationManager = new NotificationManager();
-                this.modalManager = new ModalManager();
-                this.currentCompanyId = null;
-                this.initializeApplication();
-                console.log('🚀 UnifiedDataManager COMPLET initialisé');
+              class UnifiedDataManager {
+    constructor() {
+        this.security = new SecurityManager();
+        this.data = new DataManager(this.security);
+        this.notificationManager = new NotificationManager();
+        this.modalManager = new ModalManager();
+        this.currentCompanyId = null;
+        this.initializeApplication();
+        console.log('🚀 UnifiedDataManager COMPLET initialisé');
+    }
+
+    initializeApplication() {
+        this.initializeData();
+        this.initializeTeamManagement();
+        window.notificationManager = this.notificationManager;
+        window.modalManager = this.modalManager;
+    }
+
+    initializeData() {
+        // Plan comptable SYSCOHADA Révisé complet
+        if (!window.app) {
+            console.warn('⚠️ window.app non défini, création...');
+            window.app = { accounts: [] };
+        }
+        if (!window.app.accounts) {
+            window.app.accounts = [];
+        }
+        if (window.app.accounts.length === 0) {
+            window.app.accounts = [
+                // Classe 1 - Comptes de ressources durables
+                { code: '101000', name: 'Capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                { code: '104000', name: 'Primes liées au capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                { code: '106000', name: 'Réserves', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                { code: '131000', name: 'Subventions d\'équipement', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                { code: '140000', name: 'Provisions réglementées', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
+                { code: '151000', name: 'Provisions pour risques', category: 'Provisions', type: 'Passif', nature: 'Credit' },
+                { code: '161000', name: 'Emprunts et dettes', category: 'Dettes financières', type: 'Passif', nature: 'Credit' },
+                { code: '171000', name: 'Dettes de crédit-bail', category: 'Dettes financières', type: 'Passif', nature: 'Credit' },
+                
+                // Classe 2 - Comptes d'actif immobilisé
+                { code: '211000', name: 'Terrains', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                { code: '212000', name: 'Agencements et aménagements de terrains', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                { code: '213000', name: 'Constructions', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                { code: '215000', name: 'Installations techniques', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                { code: '218000', name: 'Matériel de transport', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                { code: '241000', name: 'Immobilisations incorporelles', category: 'Immobilisations incorporelles', type: 'Actif', nature: 'Debit' },
+                { code: '244000', name: 'Matériel et outillage', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                { code: '245000', name: 'Matériel et mobilier de bureau', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                { code: '246000', name: 'Matériel informatique', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
+                { code: '261000', name: 'Titres de participation', category: 'Immobilisations financières', type: 'Actif', nature: 'Debit' },
+                
+                // Classe 3 - Comptes de stocks
+                { code: '311000', name: 'Marchandises', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                { code: '321000', name: 'Matières premières', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                { code: '322000', name: 'Fournitures', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                { code: '331000', name: 'Produits en cours', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                { code: '341000', name: 'Produits finis', category: 'Stocks', type: 'Actif', nature: 'Debit' },
+                
+                // Classe 4 - Comptes de tiers
+                { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs', type: 'Passif', nature: 'Credit' },
+                { code: '409000', name: 'Fournisseurs débiteurs', category: 'Fournisseurs', type: 'Actif', nature: 'Debit' },
+                { code: '411000', name: 'Clients', category: 'Clients', type: 'Actif', nature: 'Debit' },
+                { code: '419000', name: 'Clients créditeurs', category: 'Clients', type: 'Passif', nature: 'Credit' },
+                { code: '421000', name: 'Personnel - avances et acomptes', category: 'Personnel', type: 'Actif', nature: 'Debit' },
+                { code: '422000', name: 'Personnel - rémunérations dues', category: 'Personnel', type: 'Passif', nature: 'Credit' },
+                { code: '431000', name: 'Sécurité sociale', category: 'Organismes sociaux', type: 'Passif', nature: 'Credit' },
+                { code: '441000', name: 'État et collectivités', category: 'État', type: 'Passif', nature: 'Credit' },
+                { code: '445000', name: 'TVA due', category: 'État', type: 'Passif', nature: 'Credit' },
+                { code: '449000', name: 'État - créances et dettes diverses', category: 'État', type: 'Actif', nature: 'Debit' },
+                
+                // Classe 5 - Comptes financiers
+                { code: '512000', name: 'Banques', category: 'Comptes bancaires', type: 'Actif', nature: 'Debit' },
+                { code: '521000', name: 'Chèques postaux', category: 'Comptes bancaires', type: 'Actif', nature: 'Debit' },
+                { code: '531000', name: 'Caisse siège social', category: 'Caisse', type: 'Actif', nature: 'Debit' },
+                { code: '571000', name: 'Caisse', category: 'Caisse', type: 'Actif', nature: 'Debit' },
+                
+                // Classe 6 - Comptes de charges
+                { code: '601000', name: 'Achats de marchandises', category: 'Achats', type: 'Charge', nature: 'Debit' },
+                { code: '602000', name: 'Achats de matières premières', category: 'Achats', type: 'Charge', nature: 'Debit' },
+                { code: '605000', name: 'Autres achats', category: 'Achats', type: 'Charge', nature: 'Debit' },
+                { code: '621000', name: 'Transports', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                { code: '622000', name: 'Rémunérations d\'intermédiaires', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                { code: '623000', name: 'Publicité, publications', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                { code: '624000', name: 'Télécommunications', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                { code: '625000', name: 'Frais de déplacement', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
+                { code: '641000', name: 'Rémunérations du personnel', category: 'Charges de personnel', type: 'Charge', nature: 'Debit' },
+                { code: '645000', name: 'Charges sociales', category: 'Charges de personnel', type: 'Charge', nature: 'Debit' },
+                { code: '661000', name: 'Intérêts des emprunts', category: 'Charges financières', type: 'Charge', nature: 'Debit' },
+                
+                // Classe 7 - Comptes de produits
+                { code: '701000', name: 'Ventes de marchandises', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                { code: '702000', name: 'Ventes de produits finis', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                { code: '704000', name: 'Travaux', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                { code: '706000', name: 'Services vendus', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                { code: '707000', name: 'Produits accessoires', category: 'Ventes', type: 'Produit', nature: 'Credit' },
+                { code: '754000', name: 'Produits exceptionnels', category: 'Produits exceptionnels', type: 'Produit', nature: 'Credit' },
+                { code: '771000', name: 'Intérêts de prêts', category: 'Produits financiers', type: 'Produit', nature: 'Credit' }
+            ];
+        }
+    }
+
+    initializeTeamManagement() {
+        try {
+            if (typeof initializeTeamManagement === 'function') {
+                initializeTeamManagement();
+            } else {
+                console.warn('⚠️ Fonction initializeTeamManagement non trouvée');
             }
+        } catch (error) {
+            console.error('❌ Erreur initializeTeamManagement:', error);
+        }
+    }
+}
 
-            initializeApplication() {
-                this.initializeData();
-                this.initializeTeamManagement();
-                window.notificationManager = this.notificationManager;
-                window.modalManager = this.modalManager;
-            }
-
-            initializeData() {
-                // Plan comptable SYSCOHADA Révisé complet
-                if (window.app.accounts.length === 0) {
-                    window.app.accounts = [
-                        // Classe 1 - Comptes de ressources durables
-                        { code: '101000', name: 'Capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                        { code: '104000', name: 'Primes liées au capital social', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                        { code: '106000', name: 'Réserves', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                        { code: '110000', name: 'Report à nouveau', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                        { code: '120000', name: 'Résultat de l\'exercice', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                        { code: '131000', name: 'Subventions d\'équipement', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                        { code: '140000', name: 'Provisions réglementées', category: 'Capitaux propres', type: 'Passif', nature: 'Credit' },
-                        { code: '151000', name: 'Provisions pour risques', category: 'Provisions', type: 'Passif', nature: 'Credit' },
-                        { code: '161000', name: 'Emprunts et dettes', category: 'Dettes financières', type: 'Passif', nature: 'Credit' },
-                        { code: '171000', name: 'Dettes de crédit-bail', category: 'Dettes financières', type: 'Passif', nature: 'Credit' },
-                        
-                        // Classe 2 - Comptes d'actif immobilisé
-                        { code: '211000', name: 'Terrains', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '212000', name: 'Agencements et aménagements de terrains', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '213000', name: 'Constructions', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '215000', name: 'Installations techniques', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '218000', name: 'Matériel de transport', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '241000', name: 'Immobilisations incorporelles', category: 'Immobilisations incorporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '244000', name: 'Matériel et outillage', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '245000', name: 'Matériel et mobilier de bureau', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '246000', name: 'Matériel informatique', category: 'Immobilisations corporelles', type: 'Actif', nature: 'Debit' },
-                        { code: '261000', name: 'Titres de participation', category: 'Immobilisations financières', type: 'Actif', nature: 'Debit' },
-                        
-                        // Classe 3 - Comptes de stocks
-                        { code: '311000', name: 'Marchandises', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                        { code: '321000', name: 'Matières premières', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                        { code: '322000', name: 'Fournitures', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                        { code: '331000', name: 'Produits en cours', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                        { code: '341000', name: 'Produits finis', category: 'Stocks', type: 'Actif', nature: 'Debit' },
-                        
-                        // Classe 4 - Comptes de tiers
-                        { code: '401000', name: 'Fournisseurs', category: 'Fournisseurs', type: 'Passif', nature: 'Credit' },
-                        { code: '409000', name: 'Fournisseurs débiteurs', category: 'Fournisseurs', type: 'Actif', nature: 'Debit' },
-                        { code: '411000', name: 'Clients', category: 'Clients', type: 'Actif', nature: 'Debit' },
-                        { code: '419000', name: 'Clients créditeurs', category: 'Clients', type: 'Passif', nature: 'Credit' },
-                        { code: '421000', name: 'Personnel - avances et acomptes', category: 'Personnel', type: 'Actif', nature: 'Debit' },
-                        { code: '422000', name: 'Personnel - rémunérations dues', category: 'Personnel', type: 'Passif', nature: 'Credit' },
-                        { code: '431000', name: 'Sécurité sociale', category: 'Organismes sociaux', type: 'Passif', nature: 'Credit' },
-                        { code: '441000', name: 'État et collectivités', category: 'État', type: 'Passif', nature: 'Credit' },
-                        { code: '445000', name: 'TVA due', category: 'État', type: 'Passif', nature: 'Credit' },
-                        { code: '449000', name: 'État - créances et dettes diverses', category: 'État', type: 'Actif', nature: 'Debit' },
-                        
-                        // Classe 5 - Comptes financiers
-                        { code: '512000', name: 'Banques', category: 'Comptes bancaires', type: 'Actif', nature: 'Debit' },
-                        { code: '521000', name: 'Chèques postaux', category: 'Comptes bancaires', type: 'Actif', nature: 'Debit' },
-                        { code: '531000', name: 'Caisse siège social', category: 'Caisse', type: 'Actif', nature: 'Debit' },
-                        { code: '571000', name: 'Caisse', category: 'Caisse', type: 'Actif', nature: 'Debit' },
-                        
-                        // Classe 6 - Comptes de charges
-                        { code: '601000', name: 'Achats de marchandises', category: 'Achats', type: 'Charge', nature: 'Debit' },
-                        { code: '602000', name: 'Achats de matières premières', category: 'Achats', type: 'Charge', nature: 'Debit' },
-                        { code: '605000', name: 'Autres achats', category: 'Achats', type: 'Charge', nature: 'Debit' },
-                        { code: '621000', name: 'Transports', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                        { code: '622000', name: 'Rémunérations d\'intermédiaires', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                        { code: '623000', name: 'Publicité, publications', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                        { code: '624000', name: 'Télécommunications', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                        { code: '625000', name: 'Frais de déplacement', category: 'Services extérieurs', type: 'Charge', nature: 'Debit' },
-                        { code: '641000', name: 'Rémunérations du personnel', category: 'Charges de personnel', type: 'Charge', nature: 'Debit' },
-                        { code: '645000', name: 'Charges sociales', category: 'Charges de personnel', type: 'Charge', nature: 'Debit' },
-                        { code: '661000', name: 'Intérêts des emprunts', category: 'Charges financières', type: 'Charge', nature: 'Debit' },
-                        
-                        // Classe 7 - Comptes de produits
-                        { code: '701000', name: 'Ventes de marchandises', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                        { code: '702000', name: 'Ventes de produits finis', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                        { code: '704000', name: 'Travaux', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                        { code: '706000', name: 'Services vendus', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                        { code: '707000', name: 'Produits accessoires', category: 'Ventes', type: 'Produit', nature: 'Credit' },
-                        { code: '754000', name: 'Produits exceptionnels', category: 'Produits exceptionnels', type: 'Produit', nature: 'Credit' },
-                        { code: '771000', name: 'Intérêts de prêts', category: 'Produits financiers', type: 'Produit', nature: 'Credit' }
-                    ];
-                }
-
-                /**
-* Filtre les comptes selon les critères sélectionnés
-*/
+/**
+ * Filtre les comptes selon les critères sélectionnés
+ */
 function filterAccounts() {
-const searchTerm = document.getElementById('accountSearchInput').value.toLowerCase();
-const classFilter = document.getElementById('classFilter').value;
-const categoryFilter = document.getElementById('categoryFilter').value;
+    const searchTerm = document.getElementById('accountSearchInput')?.value.toLowerCase() || '';
+    const classFilter = document.getElementById('classFilter')?.value || '';
+    const categoryFilter = document.getElementById('categoryFilter')?.value || '';
+    const accountCards = document.querySelectorAll('.account-card');
+    let visibleCount = 0;
 
-const accountCards = document.querySelectorAll('.account-card');
-let visibleCount = 0;
+    accountCards.forEach(card => {
+        const accountCode = card.dataset.code?.toLowerCase() || '';
+        const accountName = card.dataset.name?.toLowerCase() || '';
+        const accountCategory = card.dataset.category?.toLowerCase() || '';
+        const accountClass = card.dataset.class || '';
 
-accountCards.forEach(card => {
-const accountCode = card.dataset.code.toLowerCase();
-const accountName = card.dataset.name.toLowerCase();
-const accountCategory = card.dataset.category.toLowerCase();
-const accountClass = card.dataset.class;
+        const matchesSearch = !searchTerm ||
+            accountCode.includes(searchTerm) ||
+            accountName.includes(searchTerm);
 
-const matchesSearch = !searchTerm || 
-accountCode.includes(searchTerm) || 
-accountName.includes(searchTerm);
+        const matchesClass = !classFilter || accountClass === classFilter;
+        const matchesCategory = !categoryFilter || accountCategory === categoryFilter.toLowerCase();
 
-const matchesClass = !classFilter || accountClass === classFilter;
-const matchesCategory = !categoryFilter || accountCategory === categoryFilter.toLowerCase();
+        const isVisible = matchesSearch && matchesClass && matchesCategory;
+        card.style.display = isVisible ? 'block' : 'none';
 
-const isVisible = matchesSearch && matchesClass && matchesCategory;
-card.style.display = isVisible ? 'block' : 'none';
-
-if (isVisible) visibleCount++;
-});
+        if (isVisible) visibleCount++;
+    });
+    
+    // Mettre à jour le compteur si la fonction existe
+    if (typeof updateAccountsCounter === 'function') {
+        updateAccountsCounter(visibleCount);
+    }
+}
 
 // Mettre à jour le compteur
 updateAccountsCounter(visibleCount);
