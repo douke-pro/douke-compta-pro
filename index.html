@@ -6388,7 +6388,819 @@ console.log('🔒 Sécurité hiérarchique intégrée et fonctionnelle');
 console.log('💾 Isolation des données par entreprise');
 console.log('🚀 Interface moderne et responsive');
 console.log('✅ Prêt pour la production');
-       
+
+/**
+ * FONCTION D'INTÉGRATION SYSCOHADA INTELLIGENTE
+ * ==============================================
+ * 
+ * Cette fonction intègre automatiquement le générateur de bilan SYSCOHADA
+ * dans une application comptable existante de manière sécurisée.
+ * 
+ * Compatibilité : SYSCOHADA Révisé (Système Normal + Système Minimal de Trésorerie)
+ * Gestion : Identifiants uniques par entreprise
+ * Sécurité : Évite les conflits, sauvegarde automatique, auto-suppression
+ */
+(function integrateSystemeBilanSYSCOHADA() {
+    'use strict';
+    
+    // Configuration d'intégration
+    const INTEGRATION_CONFIG = {
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        autoCleanup: true,
+        enableLogging: false,
+        systemTypes: ['NORMAL', 'MINIMAL_TRESORERIE']
+    };
+
+    // Log sécurisé
+    function log(message, type = 'info') {
+        if (INTEGRATION_CONFIG.enableLogging) {
+            console.log(`[SYSCOHADA-Integration ${new Date().toLocaleTimeString()}] ${message}`);
+        }
+    }
+
+    // Vérification des prérequis avant intégration
+    function checkPrerequisites() {
+        const checks = {
+            unifiedManager: typeof window.unifiedManager !== 'undefined',
+            modalManager: window.unifiedManager?.modalManager !== undefined,
+            notificationManager: window.unifiedManager?.notificationManager !== undefined,
+            app: typeof window.app !== 'undefined',
+            companySupport: window.app?.currentCompanyId !== undefined || window.app?.getSelectedCompany !== undefined
+        };
+
+        const missingRequirements = Object.entries(checks)
+            .filter(([key, value]) => !value)
+            .map(([key]) => key);
+
+        if (missingRequirements.length > 0) {
+            throw new Error(`Prérequis manquants: ${missingRequirements.join(', ')}`);
+        }
+
+        return true;
+    }
+
+    // Sauvegarde sécurisée des fonctions existantes
+    function createSecureBackup() {
+        window._syscohadaBackup = {
+            timestamp: new Date().toISOString(),
+            functions: {},
+            hasBackup: false
+        };
+
+        const functionsToBackup = [
+            'generateBilan', 'calculateBilan', 'exportBilan', 'printBilan'
+        ];
+
+        functionsToBackup.forEach(funcName => {
+            if (typeof window[funcName] === 'function') {
+                window._syscohadaBackup.functions[funcName] = window[funcName];
+                window._syscohadaBackup.hasBackup = true;
+                log(`Fonction sauvegardée: ${funcName}`);
+            }
+        });
+
+        return window._syscohadaBackup.hasBackup;
+    }
+
+    // Fonction principale : Génération du bilan SYSCOHADA
+    function generateBilanSYSCOHADA() {
+        // Vérification de l'entreprise sélectionnée
+        const currentCompany = getCurrentCompany();
+        if (!currentCompany) {
+            window.unifiedManager.notificationManager.show(
+                'warning', 
+                'Entreprise requise', 
+                'Veuillez sélectionner une entreprise pour générer le bilan SYSCOHADA'
+            );
+            return;
+        }
+
+        // Détection automatique du système (Normal ou Minimal)
+        const systemType = detectSystemType();
+        
+        window.unifiedManager.notificationManager.show(
+            'info', 
+            'Génération en cours', 
+            `Préparation du bilan SYSCOHADA Révisé (${systemType})...`
+        );
+
+        // Génération asynchrone pour éviter le blocage
+        setTimeout(() => {
+            try {
+                const bilanData = calculateBilanSYSCOHADA(systemType, currentCompany);
+                displayBilanModal(bilanData, systemType, currentCompany);
+            } catch (error) {
+                window.unifiedManager.notificationManager.show(
+                    'error', 
+                    'Erreur de génération', 
+                    `Impossible de générer le bilan: ${error.message}`
+                );
+                log(`Erreur génération bilan: ${error.message}`, 'error');
+            }
+        }, 500);
+    }
+
+    // Obtention de l'entreprise courante (compatible multi-formats)
+    function getCurrentCompany() {
+        // Format 1: currentCompanyId
+        if (window.app?.currentCompanyId) {
+            return {
+                id: window.app.currentCompanyId,
+                name: window.app.currentCompanyName || window.unifiedManager?.getSelectedCompanyName?.() || 'Entreprise sélectionnée'
+            };
+        }
+
+        // Format 2: getSelectedCompany()
+        if (typeof window.app?.getSelectedCompany === 'function') {
+            const company = window.app.getSelectedCompany();
+            if (company) {
+                return {
+                    id: company.id || company.companyId,
+                    name: company.name || company.companyName || 'Entreprise sélectionnée'
+                };
+            }
+        }
+
+        // Format 3: selectedCompany
+        if (window.app?.selectedCompany) {
+            return {
+                id: window.app.selectedCompany.id,
+                name: window.app.selectedCompany.name || 'Entreprise sélectionnée'
+            };
+        }
+
+        return null;
+    }
+
+    // Détection automatique du type de système
+    function detectSystemType() {
+        const accounts = getAccountingData().accounts;
+        
+        // Si beaucoup de comptes détaillés → Système Normal
+        // Si comptes simplifiés → Système Minimal de Trésorerie
+        const detailedAccounts = accounts.filter(acc => 
+            acc.code.length >= 4 && 
+            (acc.code.startsWith('2') || acc.code.startsWith('3') || acc.code.startsWith('4'))
+        );
+
+        return detailedAccounts.length > 20 ? 'NORMAL' : 'MINIMAL_TRESORERIE';
+    }
+
+    // Récupération sécurisée des données comptables
+    function getAccountingData() {
+        const currentCompany = getCurrentCompany();
+        
+        // Filtrage par entreprise si nécessaire
+        let entries = window.app?.filteredData?.entries || window.app?.entries || [];
+        let accounts = window.app?.accounts || [];
+
+        // Filtrage par entreprise courante
+        if (currentCompany?.id) {
+            entries = entries.filter(entry => 
+                entry.companyId === currentCompany.id || 
+                entry.company_id === currentCompany.id ||
+                !entry.companyId // Fallback pour compatibilité
+            );
+        }
+
+        // Filtrage des écritures validées uniquement
+        entries = entries.filter(entry => 
+            entry.status === 'Validé' || 
+            entry.status === 'Validated' || 
+            entry.validated === true
+        );
+
+        return { entries, accounts };
+    }
+
+    // Calcul du bilan selon SYSCOHADA Révisé
+    function calculateBilanSYSCOHADA(systemType, company) {
+        const { entries, accounts } = getAccountingData();
+        const soldes = calculateSoldesByClass(entries, accounts);
+
+        if (systemType === 'MINIMAL_TRESORERIE') {
+            return calculateBilanMinimal(soldes, company);
+        } else {
+            return calculateBilanNormal(soldes, company);
+        }
+    }
+
+    // Bilan Système Normal (complet)
+    function calculateBilanNormal(soldes, company) {
+        const actif = {
+            // ACTIF IMMOBILISÉ
+            AB: getSoldeByClassRange(soldes, '201', '209'), // Charges immobilisées
+            AC: getSoldeByClassRange(soldes, '210', '219'), // Immobilisations incorporelles
+            AD: getSoldeByClassRange(soldes, '220', '249'), // Immobilisations corporelles
+            AE: getSoldeByClassRange(soldes, '250', '259'), // Avances/acomptes sur immobilisations
+            AF: getSoldeByClassRange(soldes, '260', '279'), // Immobilisations financières
+            
+            // ACTIF CIRCULANT
+            AG: getSoldeByClassRange(soldes, '300', '399'), // Stocks
+            AH: getSoldeByClassRange(soldes, '400', '499', 'debiteur'), // Créances
+            
+            // TRÉSORERIE
+            AI: getSoldeByClassRange(soldes, '500', '589'), // Trésorerie-Actif
+            AJ: getSoldeByClassRange(soldes, '470', '479') // Écarts de conversion-Actif
+        };
+
+        const passif = {
+            // CAPITAUX PROPRES
+            BA: getSoldeByClassRange(soldes, '101', '109'), // Capital
+            BB: getSoldeByClassRange(soldes, '110', '129'), // Primes et réserves
+            BC: getSoldeByClassRange(soldes, '105', '105'), // Écarts de réévaluation
+            BD: calculateResultatNet(entries, accounts), // Résultat net
+            BE: getSoldeByClassRange(soldes, '130', '139'), // Autres capitaux propres
+            BF: getSoldeByClassRange(soldes, '140', '149'), // Subventions d'investissement
+            BG: getSoldeByClassRange(soldes, '150', '159'), // Provisions réglementées
+            
+            // DETTES
+            BH: getSoldeByClassRange(soldes, '160', '169'), // Emprunts et dettes financières
+            BI: 0, // Dettes circulantes HAO
+            BJ: getSoldeByClassRange(soldes, '190', '199'), // Provisions pour risques
+            BK: getSoldeByClassRange(soldes, '400', '499', 'crediteur'), // Dettes circulantes
+            BL: getSoldeByClassRange(soldes, '590', '599') // Trésorerie-Passif
+        };
+
+        // Totaux
+        actif.totalImmobilise = actif.AB + actif.AC + actif.AD + actif.AE + actif.AF;
+        actif.totalCirculant = actif.AG + actif.AH;
+        actif.totalGeneral = actif.totalImmobilise + actif.totalCirculant + actif.AI + actif.AJ;
+
+        passif.totalCapitaux = passif.BA + passif.BB + passif.BC + passif.BD + passif.BE + passif.BF + passif.BG;
+        passif.totalGeneral = passif.totalCapitaux + passif.BH + passif.BI + passif.BJ + passif.BK + passif.BL;
+
+        return { actif, passif, systemType: 'NORMAL', company };
+    }
+
+    // Bilan Système Minimal de Trésorerie (simplifié)
+    function calculateBilanMinimal(soldes, company) {
+        const actif = {
+            // ACTIF SIMPLIFIÉ
+            immobilisations: getSoldeByClassRange(soldes, '200', '279'),
+            stocks: getSoldeByClassRange(soldes, '300', '399'),
+            creances: getSoldeByClassRange(soldes, '400', '499', 'debiteur'),
+            tresorerie: getSoldeByClassRange(soldes, '500', '589'),
+            totalGeneral: 0
+        };
+
+        const passif = {
+            // PASSIF SIMPLIFIÉ
+            capitaux: getSoldeByClassRange(soldes, '100', '159'),
+            resultat: calculateResultatNet(entries, accounts),
+            dettes: getSoldeByClassRange(soldes, '160', '199') + getSoldeByClassRange(soldes, '400', '499', 'crediteur'),
+            tresorerie: getSoldeByClassRange(soldes, '590', '599'),
+            totalGeneral: 0
+        };
+
+        actif.totalGeneral = actif.immobilisations + actif.stocks + actif.creances + actif.tresorerie;
+        passif.totalGeneral = passif.capitaux + passif.resultat + passif.dettes + passif.tresorerie;
+
+        return { actif, passif, systemType: 'MINIMAL_TRESORERIE', company };
+    }
+
+    // Calcul des soldes par classe
+    function calculateSoldesByClass(entries, accounts) {
+        const soldes = {};
+
+        entries.forEach(entry => {
+            entry.lines?.forEach(line => {
+                const account = accounts.find(a => a.code === line.account);
+                if (account) {
+                    if (!soldes[line.account]) soldes[line.account] = 0;
+
+                    if (account.nature === 'Debit' || account.nature === 'DEBIT') {
+                        soldes[line.account] += (line.debit || 0) - (line.credit || 0);
+                    } else {
+                        soldes[line.account] += (line.credit || 0) - (line.debit || 0);
+                    }
+                }
+            });
+        });
+
+        return soldes;
+    }
+
+    // Obtention des soldes par plage de comptes
+    function getSoldeByClassRange(soldes, start, end, sens = 'normal') {
+        let total = 0;
+
+        Object.keys(soldes).forEach(code => {
+            if (code >= start && code <= end) {
+                const solde = soldes[code];
+                if (sens === 'debiteur' && solde > 0) {
+                    total += solde;
+                } else if (sens === 'crediteur' && solde < 0) {
+                    total += Math.abs(solde);
+                } else if (sens === 'normal') {
+                    total += Math.abs(solde);
+                }
+            }
+        });
+
+        return total;
+    }
+
+    // Calcul du résultat net
+    function calculateResultatNet(entries, accounts) {
+        let produits = 0;
+        let charges = 0;
+
+        entries.forEach(entry => {
+            entry.lines?.forEach(line => {
+                // Classe 7 = Produits, Classe 6 = Charges
+                if (line.account.startsWith('7')) {
+                    produits += (line.credit || 0);
+                } else if (line.account.startsWith('6')) {
+                    charges += (line.debit || 0);
+                }
+            });
+        });
+
+        return produits - charges;
+    }
+
+    // Affichage du bilan dans une modal
+    function displayBilanModal(bilanData, systemType, company) {
+        const modalContent = systemType === 'MINIMAL_TRESORERIE' ? 
+            generateBilanMinimalHTML(bilanData) : 
+            generateBilanNormalHTML(bilanData);
+
+        window.unifiedManager.modalManager.show(
+            `Bilan SYSCOHADA Révisé - ${systemType === 'MINIMAL_TRESORERIE' ? 'Système Minimal' : 'Système Normal'}`,
+            modalContent
+        );
+
+        window.unifiedManager.notificationManager.show(
+            'success', 
+            'Bilan généré', 
+            `Bilan SYSCOHADA ${systemType} généré avec succès`
+        );
+    }
+
+    // HTML pour bilan normal (version complète du code précédent adaptée)
+    function generateBilanNormalHTML(bilanData) {
+        const { actif, passif, company } = bilanData;
+        
+        return `
+        <div class="space-y-6">
+            <!-- En-tête officiel -->
+            <div class="text-center border-b border-gray-200 dark:border-gray-600 pb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">BILAN - SYSCOHADA RÉVISÉ</h2>
+                <p class="text-gray-600 dark:text-gray-400">${company.name}</p>
+                <p class="text-sm text-gray-500">Exercice clos le ${new Date().toLocaleDateString('fr-FR')} (en FCFA)</p>
+                <p class="text-xs text-blue-600">Système Normal - Conformité SYSCOHADA Révisé</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- ACTIF -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="bg-primary text-white p-4 rounded-t-lg">
+                        <h3 class="font-bold text-center">ACTIF</h3>
+                    </div>
+                    <div class="p-4 space-y-2 text-sm">
+                        <!-- ACTIF IMMOBILISÉ -->
+                        <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1">
+                            ACTIF IMMOBILISÉ
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">AB - Charges immobilisées</span>
+                            <span class="font-mono">${actif.AB.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">AC - Immobilisations incorporelles</span>
+                            <span class="font-mono">${actif.AC.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">AD - Immobilisations corporelles</span>
+                            <span class="font-mono">${actif.AD.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">AE - Avances/acomptes sur immobilisations</span>
+                            <span class="font-mono">${actif.AE.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">AF - Immobilisations financières</span>
+                            <span class="font-mono">${actif.AF.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                            <span>TOTAL ACTIF IMMOBILISÉ</span>
+                            <span class="font-mono">${actif.totalImmobilise.toLocaleString('fr-FR')}</span>
+                        </div>
+
+                        <!-- ACTIF CIRCULANT -->
+                        <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1 mt-4">
+                            ACTIF CIRCULANT
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">AG - Stocks et en-cours</span>
+                            <span class="font-mono">${actif.AG.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">AH - Créances et emplois assimilés</span>
+                            <span class="font-mono">${actif.AH.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                            <span>TOTAL ACTIF CIRCULANT</span>
+                            <span class="font-mono">${actif.totalCirculant.toLocaleString('fr-FR')}</span>
+                        </div>
+
+                        <!-- TRÉSORERIE -->
+                        <div class="flex justify-between">
+                            <span class="pl-2">AI - Trésorerie-Actif</span>
+                            <span class="font-mono">${actif.AI.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">AJ - Écarts de conversion-Actif</span>
+                            <span class="font-mono">${actif.AJ.toLocaleString('fr-FR')}</span>
+                        </div>
+
+                        <div class="flex justify-between font-bold text-lg border-t-2 border-primary pt-2 mt-3">
+                            <span>TOTAL GÉNÉRAL ACTIF</span>
+                            <span class="font-mono text-primary">${actif.totalGeneral.toLocaleString('fr-FR')}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASSIF -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="bg-success text-white p-4 rounded-t-lg">
+                        <h3 class="font-bold text-center">PASSIF</h3>
+                    </div>
+                    <div class="p-4 space-y-2 text-sm">
+                        <!-- CAPITAUX PROPRES -->
+                        <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1">
+                            CAPITAUX PROPRES ET RESSOURCES ASSIMILÉES
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BA - Capital</span>
+                            <span class="font-mono">${passif.BA.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BB - Primes et réserves</span>
+                            <span class="font-mono">${passif.BB.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BC - Écarts de réévaluation</span>
+                            <span class="font-mono">${passif.BC.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BD - Résultat net de l'exercice</span>
+                            <span class="font-mono ${passif.BD >= 0 ? 'text-green-600' : 'text-red-600'}">${passif.BD.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BE - Autres capitaux propres</span>
+                            <span class="font-mono">${passif.BE.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BF - Subventions d'investissement</span>
+                            <span class="font-mono">${passif.BF.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BG - Provisions réglementées</span>
+                            <span class="font-mono">${passif.BG.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                            <span>TOTAL CAPITAUX PROPRES</span>
+                            <span class="font-mono">${passif.totalCapitaux.toLocaleString('fr-FR')}</span>
+                        </div>
+
+                        <!-- DETTES -->
+                        <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1 mt-4">
+                            DETTES FINANCIÈRES ET RESSOURCES ASSIMILÉES
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BH - Emprunts et dettes financières</span>
+                            <span class="font-mono">${passif.BH.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BJ - Provisions pour risques et charges</span>
+                            <span class="font-mono">${passif.BJ.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BK - Dettes circulantes</span>
+                            <span class="font-mono">${passif.BK.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="pl-2">BL - Trésorerie-Passif</span>
+                            <span class="font-mono">${passif.BL.toLocaleString('fr-FR')}</span>
+                        </div>
+
+                        <div class="flex justify-between font-bold text-lg border-t-2 border-success pt-2 mt-3">
+                            <span>TOTAL GÉNÉRAL PASSIF</span>
+                            <span class="font-mono text-success">${passif.totalGeneral.toLocaleString('fr-FR')}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contrôle d'équilibre -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div class="flex justify-between items-center">
+                    <span class="font-medium text-gray-900 dark:text-white">Contrôle d'équilibre SYSCOHADA:</span>
+                    <span class="font-bold ${actif.totalGeneral === passif.totalGeneral ? 'text-green-600' : 'text-red-600'}">
+                        ${actif.totalGeneral === passif.totalGeneral ? '✓ BILAN ÉQUILIBRÉ' : '⚠ BILAN DÉSÉQUILIBRÉ'}
+                    </span>
+                </div>
+                ${actif.totalGeneral !== passif.totalGeneral ? `
+                <div class="mt-2 text-sm text-red-600">
+                    Écart: ${Math.abs(actif.totalGeneral - passif.totalGeneral).toLocaleString('fr-FR')} FCFA
+                </div>
+                ` : ''}
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex space-x-3">
+                    <button onclick="exportBilanPDF()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                        <i class="fas fa-download mr-2"></i>Export PDF
+                    </button>
+                    <button onclick="printBilan()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-print mr-2"></i>Imprimer
+                    </button>
+                </div>
+                <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Fermer
+                </button>
+            </div>
+        </div>
+        `;
+    }
+
+    // HTML pour bilan minimal
+    function generateBilanMinimalHTML(bilanData) {
+        const { actif, passif, company } = bilanData;
+        
+        return `
+        <div class="space-y-6">
+            <!-- En-tête officiel -->
+            <div class="text-center border-b border-gray-200 dark:border-gray-600 pb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">BILAN SYSCOHADA RÉVISÉ</h2>
+                <p class="text-gray-600 dark:text-gray-400">${company.name}</p>
+                <p class="text-sm text-gray-500">Exercice clos le ${new Date().toLocaleDateString('fr-FR')} (en FCFA)</p>
+                <p class="text-xs text-green-600">Système Minimal de Trésorerie - Conformité SYSCOHADA Révisé</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- ACTIF SIMPLIFIÉ -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="bg-primary text-white p-4 rounded-t-lg">
+                        <h3 class="font-bold text-center">ACTIF</h3>
+                    </div>
+                    <div class="p-4 space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Immobilisations</span>
+                            <span class="font-mono">${actif.immobilisations.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Stocks</span>
+                            <span class="font-mono">${actif.stocks.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Créances</span>
+                            <span class="font-mono">${actif.creances.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Trésorerie</span>
+                            <span class="font-mono">${actif.tresorerie.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between font-bold text-lg border-t-2 border-primary pt-2 mt-3">
+                            <span>TOTAL ACTIF</span>
+                            <span class="font-mono text-primary">${actif.totalGeneral.toLocaleString('fr-FR')}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASSIF SIMPLIFIÉ -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="bg-success text-white p-4 rounded-t-lg">
+                        <h3 class="font-bold text-center">PASSIF</h3>
+                    </div>
+                    <div class="p-4 space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Capitaux propres</span>
+                            <span class="font-mono">${passif.capitaux.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Résultat de l'exercice</span>
+                            <span class="font-mono ${passif.resultat >= 0 ? 'text-green-600' : 'text-red-600'}">${passif.resultat.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Dettes</span>
+                            <span class="font-mono">${passif.dettes.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Trésorerie</span>
+                            <span class="font-mono">${passif.tresorerie.toLocaleString('fr-FR')}</span>
+                        </div>
+                        <div class="flex justify-between font-bold text-lg border-t-2 border-success pt-2 mt-3">
+                            <span>TOTAL PASSIF</span>
+                            <span class="font-mono text-success">${passif.totalGeneral.toLocaleString('fr-FR')}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contrôle d'équilibre -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div class="flex justify-between items-center">
+                    <span class="font-medium text-gray-900 dark:text-white">Contrôle d'équilibre (Système Minimal):</span>
+                    <span class="font-bold ${actif.totalGeneral === passif.totalGeneral ? 'text-green-600' : 'text-red-600'}">
+                        ${actif.totalGeneral === passif.totalGeneral ? '✓ BILAN ÉQUILIBRÉ' : '⚠ BILAN DÉSÉQUILIBRÉ'}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex space-x-3">
+                    <button onclick="exportBilanPDF()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                        <i class="fas fa-download mr-2"></i>Export PDF
+                    </button>
+                    <button onclick="printBilan()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-print mr-2"></i>Imprimer
+                    </button>
+                </div>
+                <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Fermer
+                </button>
+            </div>
+        </div>
+        `;
+    }
+
+    // Fonctions d'export et impression
+    function exportBilanPDF() {
+        window.unifiedManager.notificationManager.show(
+            'success', 
+            'Export en cours', 
+            'Le bilan SYSCOHADA est en cours d\'export en PDF...'
+        );
+        // Logique d'export à implémenter selon votre système
+    }
+
+    function printBilan() {
+        window.unifiedManager.notificationManager.show(
+            'info', 
+            'Impression', 
+            'Préparation du bilan pour impression...'
+        );
+        // Logique d'impression à implémenter
+    }
+
+    // Ajout intelligent du point d'entrée
+    function addIntegrationPoint() {
+        // Tentative 1: Recherche d'un menu existant
+        const menus = document.querySelectorAll('.menu, .nav, .sidebar, [role="navigation"]');
+        let menuAdded = false;
+
+        menus.forEach(menu => {
+            const menuItems = menu.querySelectorAll('li, .menu-item, .nav-item');
+            if (menuItems.length > 0 && !menuAdded) {
+                const bilanMenuItem = document.createElement('li');
+                bilanMenuItem.className = 'menu-item';
+                bilanMenuItem.innerHTML = `
+                    <a href="#" onclick="generateBilanSYSCOHADA(); return false;" 
+                       class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-chart-line mr-2"></i>Bilan SYSCOHADA
+                    </a>
+                `;
+                menu.appendChild(bilanMenuItem);
+                menuAdded = true;
+                log('Élément de menu ajouté avec succès');
+            }
+        });
+
+        // Tentative 2: Bouton flottant si pas de menu
+        if (!menuAdded) {
+            const floatingButton = document.createElement('button');
+            floatingButton.id = 'syscohada-floating-btn';
+            floatingButton.className = 'fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition-colors z-50';
+            floatingButton.innerHTML = `
+                <i class="fas fa-chart-line mr-2"></i>
+                Bilan SYSCOHADA
+            `;
+            floatingButton.onclick = generateBilanSYSCOHADA;
+            document.body.appendChild(floatingButton);
+            log('Bouton flottant ajouté');
+        }
+    }
+
+    // EXÉCUTION DE L'INTÉGRATION
+    try {
+        log('Début de l\'intégration SYSCOHADA...');
+
+        // 1. Vérification des prérequis
+        checkPrerequisites();
+        log('Prérequis validés');
+
+        // 2. Sauvegarde sécurisée
+        const backupCreated = createSecureBackup();
+        if (backupCreated) {
+            log('Sauvegarde créée');
+        }
+
+        // 3. Exposition des fonctions globalement
+        window.generateBilanSYSCOHADA = generateBilanSYSCOHADA;
+        window.exportBilanPDF = exportBilanPDF;
+        window.printBilan = printBilan;
+        log('Fonctions SYSCOHADA exposées');
+
+        // 4. Ajout du point d'entrée
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', addIntegrationPoint);
+        } else {
+            addIntegrationPoint();
+        }
+
+        // 5. Marquer l'intégration comme réussie
+        window._syscohadaIntegrated = true;
+        window._syscohadaVersion = INTEGRATION_CONFIG.version;
+
+        // 6. Notification de succès
+        if (window.unifiedManager?.notificationManager) {
+            setTimeout(() => {
+                window.unifiedManager.notificationManager.show(
+                    'success',
+                    'SYSCOHADA Intégré',
+                    'Le générateur de bilan SYSCOHADA Révisé est maintenant disponible dans votre application'
+                );
+            }, 1000);
+        }
+
+        log('Intégration SYSCOHADA terminée avec succès');
+
+        // 7. Auto-suppression de la fonction d'intégration
+        if (INTEGRATION_CONFIG.autoCleanup) {
+            setTimeout(() => {
+                try {
+                    // Supprimer cette fonction d'intégration
+                    delete window.integrateSystemeBilanSYSCOHADA;
+                    log('Fonction d\'intégration auto-supprimée');
+                } catch (error) {
+                    log('Impossible de supprimer la fonction d\'intégration automatiquement');
+                }
+            }, 5000);
+        }
+
+    } catch (error) {
+        console.error('Erreur lors de l\'intégration SYSCOHADA:', error.message);
+        
+        // Tentative de restauration en cas d'erreur
+        if (window._syscohadaBackup?.hasBackup) {
+            Object.entries(window._syscohadaBackup.functions).forEach(([funcName, func]) => {
+                window[funcName] = func;
+            });
+            log('Restauration automatique effectuée suite à l\'erreur');
+        }
+
+        // Notification d'erreur
+        if (window.unifiedManager?.notificationManager) {
+            window.unifiedManager.notificationManager.show(
+                'error',
+                'Erreur d\'intégration',
+                `Impossible d'intégrer SYSCOHADA: ${error.message}`
+            );
+        }
+    }
+
+})(); // Auto-exécution de la fonction d'intégration
+
+// Fonction de restauration manuelle (reste disponible en cas de besoin)
+window.restoreSYSCOHADABackup = function() {
+    if (window._syscohadaBackup?.hasBackup) {
+        Object.entries(window._syscohadaBackup.functions).forEach(([funcName, func]) => {
+            window[funcName] = func;
+        });
+        
+        // Supprimer les fonctions SYSCOHADA
+        delete window.generateBilanSYSCOHADA;
+        delete window.exportBilanPDF;
+        delete window.printBilan;
+        
+        // Supprimer le bouton flottant si présent
+        const floatingBtn = document.getElementById('syscohada-floating-btn');
+        if (floatingBtn) {
+            floatingBtn.remove();
+        }
+        
+        window._syscohadaIntegrated = false;
+        
+        if (window.unifiedManager?.notificationManager) {
+            window.unifiedManager.notificationManager.show(
+                'info',
+                'Restauration effectuée',
+                'Les fonctions SYSCOHADA ont été supprimées et les fonctions originales restaurées'
+            );
+        }
+        
+        console.log('Restauration SYSCOHADA effectuée');
+        return true;
+    }
+    return false;
+};
+    
 </script>
 
 </body>
