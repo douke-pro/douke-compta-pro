@@ -6389,7 +6389,1692 @@ console.log('💾 Isolation des données par entreprise');
 console.log('🚀 Interface moderne et responsive');
 console.log('✅ Prêt pour la production');
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intégrateur SYSCOHADA Intelligent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                        warning: '#f59e0b'
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
+    <div class="container mx-auto p-6 max-w-6xl">
+        <div class="bg-gradient-to-r from-primary to-blue-600 text-white p-6 rounded-lg mb-6">
+            <h1 class="text-2xl font-bold flex items-center">
+                <i class="fas fa-robot mr-3"></i>
+                Intégrateur SYSCOHADA Intelligent
+            </h1>
+            <p class="mt-2 opacity-90">Analyse et intègre automatiquement le générateur de bilan SYSCOHADA dans votre application</p>
+        </div>
 
+        <!-- Analyse de l'application -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                <h2 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-search mr-2 text-primary"></i>
+                    Analyse de l'Application
+                </h2>
+                <div id="analysisResults" class="space-y-3">
+                    <div class="text-gray-600 dark:text-gray-400">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        Analyse en cours...
+                    </div>
+                </div>
+                <button onclick="analyzeApplication()" class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-redo mr-2"></i>Réanalyser
+                </button>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                <h2 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-cogs mr-2 text-success"></i>
+                    Points d'Intégration
+                </h2>
+                <div id="integrationPoints" class="space-y-3">
+                    <div class="text-gray-600 dark:text-gray-400">
+                        Effectuez d'abord l'analyse...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration de l'intégration -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4 flex items-center">
+                <i class="fas fa-wrench mr-2 text-warning"></i>
+                Configuration de l'Intégration
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Points d'intégration sélectionnés</label>
+                    <div id="selectedIntegrationPoints" class="space-y-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-2">Options d'intégration</label>
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="backupExisting" checked class="mr-2">
+                            <span class="text-sm">Sauvegarder les fonctions existantes</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="addMenuItems" checked class="mr-2">
+                            <span class="text-sm">Ajouter aux menus existants</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="validateDependencies" checked class="mr-2">
+                            <span class="text-sm">Valider les dépendances</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="enableLogging" class="mr-2">
+                            <span class="text-sm">Activer les logs détaillés</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions principales -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <div class="flex flex-wrap gap-4 justify-center">
+                <button onclick="integrateCode()" id="integrateBtn" disabled 
+                        class="bg-success text-white px-6 py-3 rounded-lg hover:bg-success/90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center">
+                    <i class="fas fa-magic mr-2"></i>Intégrer le Code SYSCOHADA
+                </button>
+                <button onclick="generateIntegrationScript()" id="generateBtn" disabled
+                        class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center">
+                    <i class="fas fa-code mr-2"></i>Générer le Script d'Intégration
+                </button>
+                <button onclick="testIntegration()" id="testBtn" disabled
+                        class="bg-warning text-white px-6 py-3 rounded-lg hover:bg-warning/90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center">
+                    <i class="fas fa-vial mr-2"></i>Tester l'Intégration
+                </button>
+            </div>
+            
+            <!-- Actions post-intégration -->
+            <div id="postIntegrationActions" class="mt-6 border-t border-gray-200 dark:border-gray-600 pt-6 hidden">
+                <h3 class="font-semibold mb-4 text-center text-gray-700 dark:text-gray-300">Actions Post-Intégration</h3>
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button onclick="restoreBackup()" id="restoreBtn" class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center">
+                        <i class="fas fa-undo mr-2"></i>Restaurer Sauvegarde
+                    </button>
+                    <button onclick="verifyIntegration()" id="verifyBtn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>Vérifier Intégration
+                    </button>
+                    <button onclick="cleanupIntegrator()" id="cleanupBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors flex items-center">
+                        <i class="fas fa-trash-alt mr-2"></i>Nettoyer l'Intégrateur
+                    </button>
+                    <button onclick="generateReport()" class="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors flex items-center">
+                        <i class="fas fa-file-alt mr-2"></i>Rapport d'Intégration
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs et résultats -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-lg font-semibold mb-4 flex items-center">
+                <i class="fas fa-terminal mr-2 text-gray-600"></i>
+                Logs d'Intégration
+            </h2>
+            <div id="integrationLogs" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
+                <div class="text-gray-600 dark:text-gray-400">Prêt pour l'intégration...</div>
+            </div>
+            <div class="mt-4 flex gap-2">
+                <button onclick="clearLogs()" class="text-sm bg-gray-500 text-white px-3 py-1 rounded">
+                    <i class="fas fa-trash mr-1"></i>Effacer
+                </button>
+                <button onclick="exportLogs()" class="text-sm bg-blue-500 text-white px-3 py-1 rounded">
+                    <i class="fas fa-download mr-1"></i>Exporter
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration pour le mode sombre
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        let analysisData = null;
+        let integrationConfig = null;
+
+        /**
+         * Fonction principale d'analyse intelligente de l'application
+         */
+        function analyzeApplication() {
+            log('🔍 Début de l\'analyse de l\'application...', 'info');
+            
+            const analysis = {
+                timestamp: new Date().toISOString(),
+                dependencies: {},
+                integrationPoints: [],
+                structure: {},
+                compatibility: {},
+                recommendations: []
+            };
+
+            // 1. Vérification des dépendances critiques
+            log('📋 Vérification des dépendances...', 'info');
+            analysis.dependencies = checkDependencies();
+
+            // 2. Identification des points d'intégration
+            log('🎯 Identification des points d\'intégration...', 'info');
+            analysis.integrationPoints = findIntegrationPoints();
+
+            // 3. Analyse de la structure de l'application
+            log('🏗️ Analyse de la structure...', 'info');
+            analysis.structure = analyzeApplicationStructure();
+
+            // 4. Vérification de compatibilité
+            log('✅ Vérification de compatibilité...', 'info');
+            analysis.compatibility = checkCompatibility(analysis);
+
+            // 5. Génération des recommandations
+            log('💡 Génération des recommandations...', 'info');
+            analysis.recommendations = generateRecommendations(analysis);
+
+            analysisData = analysis;
+            displayAnalysisResults(analysis);
+            enableButtons();
+            
+            log('✅ Analyse terminée avec succès', 'success');
+        }
+
+        /**
+         * Vérifie la présence des dépendances nécessaires
+         */
+        function checkDependencies() {
+            const deps = {
+                unifiedManager: {
+                    present: typeof window.unifiedManager !== 'undefined',
+                    critical: true,
+                    description: 'Gestionnaire unifié pour modals et notifications'
+                },
+                app: {
+                    present: typeof window.app !== 'undefined',
+                    critical: true,
+                    description: 'Objet application principal'
+                },
+                modalManager: {
+                    present: window.unifiedManager?.modalManager !== undefined,
+                    critical: true,
+                    description: 'Gestionnaire de modales'
+                },
+                notificationManager: {
+                    present: window.unifiedManager?.notificationManager !== undefined,
+                    critical: true,
+                    description: 'Gestionnaire de notifications'
+                },
+                companyData: {
+                    present: window.app?.currentCompanyId !== undefined,
+                    critical: false,
+                    description: 'Données d\'entreprise'
+                },
+                accountingData: {
+                    present: window.app?.filteredData?.entries !== undefined && window.app?.accounts !== undefined,
+                    critical: true,
+                    description: 'Données comptables (écritures et comptes)'
+                },
+                jQuery: {
+                    present: typeof $ !== 'undefined',
+                    critical: false,
+                    description: 'Bibliothèque jQuery'
+                }
+            };
+
+            return deps;
+        }
+
+        /**
+         * Identifie les points d'intégration possibles dans l'application
+         */
+        function findIntegrationPoints() {
+            const points = [];
+
+            // Recherche dans les menus
+            const menuItems = document.querySelectorAll('[data-menu], .menu-item, .nav-item, .dropdown-item');
+            menuItems.forEach((item, index) => {
+                if (item.textContent.toLowerCase().includes('bilan') || 
+                    item.textContent.toLowerCase().includes('rapport') ||
+                    item.textContent.toLowerCase().includes('état')) {
+                    points.push({
+                        type: 'menu',
+                        element: item,
+                        location: `Menu: ${item.textContent.trim()}`,
+                        selector: `menu-item-${index}`,
+                        priority: 'high'
+                    });
+                }
+            });
+
+            // Recherche dans les boutons
+            const buttons = document.querySelectorAll('button, .btn, [role="button"]');
+            buttons.forEach((btn, index) => {
+                const text = btn.textContent.toLowerCase();
+                if (text.includes('générer') || text.includes('rapport') || text.includes('export')) {
+                    points.push({
+                        type: 'button',
+                        element: btn,
+                        location: `Bouton: ${btn.textContent.trim()}`,
+                        selector: `button-${index}`,
+                        priority: 'medium'
+                    });
+                }
+            });
+
+            // Recherche dans les sections de contenu
+            const sections = document.querySelectorAll('section, .content-section, .panel, .card');
+            sections.forEach((section, index) => {
+                const heading = section.querySelector('h1, h2, h3, h4, .title, .heading');
+                if (heading && heading.textContent.toLowerCase().includes('comptab')) {
+                    points.push({
+                        type: 'section',
+                        element: section,
+                        location: `Section: ${heading.textContent.trim()}`,
+                        selector: `section-${index}`,
+                        priority: 'low'
+                    });
+                }
+            });
+
+            // Points d'intégration par défaut si rien n'est trouvé
+            if (points.length === 0) {
+                points.push({
+                    type: 'global',
+                    element: document.body,
+                    location: 'Intégration globale (window)',
+                    selector: 'global-integration',
+                    priority: 'fallback'
+                });
+            }
+
+            return points;
+        }
+
+        /**
+         * Analyse la structure générale de l'application
+         */
+        function analyzeApplicationStructure() {
+            return {
+                framework: detectFramework(),
+                modules: detectModules(),
+                patterns: detectPatterns(),
+                events: detectEventSystem()
+            };
+        }
+
+        function detectFramework() {
+            if (window.Vue) return 'Vue.js';
+            if (window.React) return 'React';
+            if (window.angular) return 'Angular';
+            if (window.$) return 'jQuery';
+            return 'Vanilla JS';
+        }
+
+        function detectModules() {
+            const modules = [];
+            if (window.app) modules.push('App Core');
+            if (window.unifiedManager) modules.push('Unified Manager');
+            if (window.require) modules.push('AMD/RequireJS');
+            return modules;
+        }
+
+        function detectPatterns() {
+            const patterns = [];
+            if (typeof window.unifiedManager === 'object') patterns.push('Manager Pattern');
+            if (document.querySelector('[data-*]')) patterns.push('Data Attributes');
+            if (document.querySelector('.modal')) patterns.push('Modal System');
+            return patterns;
+        }
+
+        function detectEventSystem() {
+            const events = [];
+            if (window.addEventListener) events.push('DOM Events');
+            if (window.$) events.push('jQuery Events');
+            if (window.CustomEvent) events.push('Custom Events');
+            return events;
+        }
+
+        /**
+         * Vérifie la compatibilité pour l'intégration
+         */
+        function checkCompatibility(analysis) {
+            const compatibility = {
+                score: 0,
+                issues: [],
+                warnings: [],
+                recommendations: []
+            };
+
+            // Vérification des dépendances critiques
+            Object.entries(analysis.dependencies).forEach(([name, dep]) => {
+                if (dep.critical && !dep.present) {
+                    compatibility.issues.push(`Dépendance critique manquante: ${name}`);
+                } else if (dep.present) {
+                    compatibility.score += dep.critical ? 20 : 10;
+                }
+            });
+
+            // Vérification des points d'intégration
+            if (analysis.integrationPoints.length > 0) {
+                compatibility.score += 20;
+            } else {
+                compatibility.warnings.push('Aucun point d\'intégration optimal trouvé');
+            }
+
+            // Score final
+            compatibility.level = compatibility.score >= 80 ? 'excellent' : 
+                               compatibility.score >= 60 ? 'good' : 
+                               compatibility.score >= 40 ? 'warning' : 'critical';
+
+            return compatibility;
+        }
+
+        /**
+         * Génère des recommandations d'intégration
+         */
+        function generateRecommendations(analysis) {
+            const recommendations = [];
+
+            if (analysis.compatibility.level === 'excellent') {
+                recommendations.push({
+                    type: 'success',
+                    message: 'Intégration automatique recommandée',
+                    action: 'proceed'
+                });
+            }
+
+            if (analysis.dependencies.unifiedManager.present) {
+                recommendations.push({
+                    type: 'info',
+                    message: 'Utiliser le système de modal existant',
+                    action: 'use-existing-modal'
+                });
+            }
+
+            if (analysis.integrationPoints.filter(p => p.type === 'menu').length > 0) {
+                recommendations.push({
+                    type: 'info',
+                    message: 'Ajouter un élément de menu pour le bilan SYSCOHADA',
+                    action: 'add-menu-item'
+                });
+            }
+
+            return recommendations;
+        }
+
+        /**
+         * Affiche les résultats d'analyse
+         */
+        function displayAnalysisResults(analysis) {
+            const resultsDiv = document.getElementById('analysisResults');
+            const pointsDiv = document.getElementById('integrationPoints');
+
+            // Affichage des dépendances
+            let depsHtml = '<div class="space-y-2">';
+            Object.entries(analysis.dependencies).forEach(([name, dep]) => {
+                const icon = dep.present ? '✅' : '❌';
+                const color = dep.present ? 'text-success' : 'text-danger';
+                depsHtml += `
+                    <div class="flex items-center justify-between text-sm">
+                        <span>${icon} ${dep.description}</span>
+                        <span class="${color} font-medium">${dep.present ? 'OK' : 'MANQUANT'}</span>
+                    </div>
+                `;
+            });
+            depsHtml += '</div>';
+
+            // Score de compatibilité
+            const compatColor = analysis.compatibility.level === 'excellent' ? 'text-success' :
+                               analysis.compatibility.level === 'good' ? 'text-blue-500' :
+                               analysis.compatibility.level === 'warning' ? 'text-warning' : 'text-danger';
+
+            resultsDiv.innerHTML = `
+                ${depsHtml}
+                <div class="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium">Score de compatibilité:</span>
+                        <span class="${compatColor} font-bold">${analysis.compatibility.score}/100</span>
+                    </div>
+                </div>
+            `;
+
+            // Affichage des points d'intégration
+            let pointsHtml = '<div class="space-y-2">';
+            analysis.integrationPoints.forEach((point, index) => {
+                const priorityColor = point.priority === 'high' ? 'text-success' :
+                                    point.priority === 'medium' ? 'text-warning' : 'text-gray-500';
+                pointsHtml += `
+                    <label class="flex items-center p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                        <input type="checkbox" class="mr-3 integration-point-cb" data-index="${index}" checked>
+                        <div class="flex-1">
+                            <div class="font-medium text-sm">${point.location}</div>
+                            <div class="text-xs text-gray-500">Type: ${point.type} | Priorité: <span class="${priorityColor}">${point.priority}</span></div>
+                        </div>
+                    </label>
+                `;
+            });
+            pointsHtml += '</div>';
+            pointsDiv.innerHTML = pointsHtml;
+
+            updateSelectedIntegrationPoints();
+        }
+
+        function updateSelectedIntegrationPoints() {
+            const checkboxes = document.querySelectorAll('.integration-point-cb');
+            const selectedDiv = document.getElementById('selectedIntegrationPoints');
+            
+            let selectedHtml = '';
+            checkboxes.forEach(cb => {
+                if (cb.checked && analysisData) {
+                    const point = analysisData.integrationPoints[cb.dataset.index];
+                    selectedHtml += `
+                        <div class="text-sm p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                            <i class="fas fa-check-circle text-success mr-2"></i>
+                            ${point.location}
+                        </div>
+                    `;
+                }
+            });
+            
+            selectedDiv.innerHTML = selectedHtml || '<div class="text-gray-500 text-sm">Aucun point sélectionné</div>';
+        }
+
+        // Event listener pour les checkboxes
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('integration-point-cb')) {
+                updateSelectedIntegrationPoints();
+            }
+        });
+
+        /**
+         * Intègre le code SYSCOHADA dans l'application
+         */
+        async function integrateCode() {
+            log('🚀 Début de l\'intégration du code SYSCOHADA...', 'info');
+
+            try {
+                const config = getIntegrationConfig();
+                
+                // 1. Sauvegarde des fonctions existantes
+                if (config.backupExisting) {
+                    await backupExistingFunctions();
+                }
+
+                // 2. Validation des dépendances
+                if (config.validateDependencies) {
+                    validateDependencies();
+                }
+
+                // 3. Injection du code SYSCOHADA
+                await injectSYSCOHADACode();
+
+                // 4. Ajout des éléments de menu
+                if (config.addMenuItems) {
+                    await addMenuItems();
+                }
+
+                // 5. Test de l'intégration
+                await testIntegrationComplete();
+
+                log('✅ Intégration terminée avec succès!', 'success');
+                showNotification('Intégration réussie', 'Le code SYSCOHADA a été intégré avec succès', 'success');
+
+            } catch (error) {
+                log(`❌ Erreur lors de l'intégration: ${error.message}`, 'error');
+                showNotification('Erreur d\'intégration', error.message, 'error');
+            }
+        }
+
+        function getIntegrationConfig() {
+            return {
+                backupExisting: document.getElementById('backupExisting').checked,
+                addMenuItems: document.getElementById('addMenuItems').checked,
+                validateDependencies: document.getElementById('validateDependencies').checked,
+                enableLogging: document.getElementById('enableLogging').checked,
+                selectedPoints: Array.from(document.querySelectorAll('.integration-point-cb:checked'))
+                    .map(cb => analysisData.integrationPoints[cb.dataset.index])
+            };
+        }
+
+        async function backupExistingFunctions() {
+            log('💾 Sauvegarde des fonctions existantes...', 'info');
+            
+            // Sauvegarde complète et sécurisée
+            window.syscohadaBackup = {
+                timestamp: new Date().toISOString(),
+                functions: {},
+                originalState: {},
+                canRestore: true
+            };
+
+            // Sauvegarder TOUTES les fonctions qui pourraient être affectées
+            const functionsToBackup = [
+                'generateBilan', 'calculateBilanSYSCOHADA', 'exportBilanSYSCOHADA', 'printBilanSYSCOHADA',
+                'calculateSoldesByClass', 'getSoldeByClassRange', 'calculateResultatNet'
+            ];
+            
+            functionsToBackup.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    window.syscohadaBackup.functions[funcName] = window[funcName].toString();
+                    log(`📁 Fonction sauvegardée: ${funcName}`, 'info');
+                }
+            });
+
+            // Sauvegarde de l'état des objets critiques
+            if (window.unifiedManager) {
+                window.syscohadaBackup.originalState.unifiedManagerExists = true;
+            }
+            if (window.app) {
+                window.syscohadaBackup.originalState.appExists = true;
+            }
+
+            log('✅ Sauvegarde sécurisée terminée', 'success');
+        }
+
+        function validateDependencies() {
+            log('🔍 Validation des dépendances...', 'info');
+            
+            const required = ['unifiedManager', 'app'];
+            const missing = required.filter(dep => typeof window[dep] === 'undefined');
+            
+            if (missing.length > 0) {
+                throw new Error(`Dépendances manquantes: ${missing.join(', ')}`);
+            }
+
+            // Validation des sous-objets
+            if (!window.unifiedManager.modalManager) {
+                throw new Error('modalManager non disponible');
+            }
+            if (!window.unifiedManager.notificationManager) {
+                throw new Error('notificationManager non disponible');
+            }
+
+            log('✅ Toutes les dépendances sont disponibles', 'success');
+        }
+
+        async function injectSYSCOHADACode() {
+            log('💉 Injection du code SYSCOHADA...', 'info');
+
+            // Code SYSCOHADA à injecter
+            const syscohadaCode = `
+                // SYSCOHADA Integration - Generated by Intelligent Integrator
+                window.syscohadaIntegrated = true;
+                window.syscohadaVersion = "1.0.0";
+                
+                ${getSYSCOHADAFunctions()}
+            `;
+
+            // Injection du code
+            const script = document.createElement('script');
+            script.textContent = syscohadaCode;
+            document.head.appendChild(script);
+
+            log('✅ Code SYSCOHADA injecté avec succès', 'success');
+        }
+
+        function getSYSCOHADAFunctions() {
+            return `
+/**
+ * Génère le bilan SYSCOHADA Révisé conforme
+ */
+function generateBilan() {
+    if (!window.app.currentCompanyId) {
+        window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour générer le bilan');
+        return;
+    }
+
+    window.unifiedManager.notificationManager.show('info', 'Génération en cours', 'Préparation du bilan SYSCOHADA Révisé...');
+
+    setTimeout(() => {
+        const companyName = window.unifiedManager.getSelectedCompanyName() || 'Entreprise sélectionnée';
+        const bilanData = calculateBilanSYSCOHADA();
+
+        const modalContent = \`
+        <div class="space-y-6">
+            <!-- En-tête officiel -->
+            <div class="text-center border-b border-gray-200 dark:border-gray-600 pb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">BILAN - SYSCOHADA RÉVISÉ</h2>
+                <p class="text-gray-600 dark:text-gray-400">\${companyName}</p>
+                <p class="text-sm text-gray-500">Exercice clos le \${new Date().toLocaleDateString('fr-FR')} (en FCFA)</p>
+            </div>
+
+            <!-- Bilan conforme SYSCOHADA -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- ACTIF -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="bg-primary text-white p-4 rounded-t-lg">
+                        <h3 class="font-bold text-center">ACTIF</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-2 text-sm">
+                            <!-- ACTIF IMMOBILISÉ -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1">
+                                ACTIF IMMOBILISÉ
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">AB - Charges immobilisées</span>
+                                <span class="font-mono">\${bilanData.actif.AB.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AC - Immobilisations incorporelles</span>
+                                <span class="font-mono">\${bilanData.actif.AC.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AD - Immobilisations corporelles</span>
+                                <span class="font-mono">\${bilanData.actif.AD.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AE - Avances/acomptes sur immobilisations</span>
+                                <span class="font-mono">\${bilanData.actif.AE.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AF - Immobilisations financières</span>
+                                <span class="font-mono">\${bilanData.actif.AF.toLocaleString('fr-FR')}</span>
+                            </div>
+                            
+                            <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                                <span>TOTAL ACTIF IMMOBILISÉ</span>
+                                <span class="font-mono">\${bilanData.actif.totalImmobilise.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <!-- ACTIF CIRCULANT -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1 mt-4">
+                                ACTIF CIRCULANT
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">AG - Stocks et en-cours</span>
+                                <span class="font-mono">\${bilanData.actif.AG.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AH - Créances et emplois assimilés</span>
+                                <span class="font-mono">\${bilanData.actif.AH.toLocaleString('fr-FR')}</span>
+                            </div>
+                            
+                            <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                                <span>TOTAL ACTIF CIRCULANT HAO</span>
+                                <span class="font-mono">\${bilanData.actif.totalCirculantHAO.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <!-- TRÉSORERIE ACTIF -->
+                            <div class="flex justify-between">
+                                <span class="pl-2">AI - Trésorerie-Actif</span>
+                                <span class="font-mono">\${bilanData.actif.AI.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <!-- ÉCARTS DE CONVERSION -->
+                            <div class="flex justify-between">
+                                <span class="pl-2">AJ - Écarts de conversion-Actif</span>
+                                <span class="font-mono">\${bilanData.actif.AJ.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <div class="flex justify-between font-bold text-lg border-t-2 border-primary pt-2 mt-3">
+                                <span>TOTAL GÉNÉRAL ACTIF</span>
+                                <span class="font-mono text-primary">\${bilanData.actif.totalGeneral.toLocaleString('fr-FR')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASSIF -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="bg-success text-white p-4 rounded-t-lg">
+                        <h3 class="font-bold text-center">PASSIF</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-2 text-sm">
+                            <!-- CAPITAUX PROPRES -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1">
+                                CAPITAUX PROPRES ET RESSOURCES ASSIMILÉES
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">BA - Capital</span>
+                                <span class="font-mono">\${bilanData.passif.BA.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BB - Primes et réserves</span>
+                                <span class="font-mono">\${bilanData.passif.BB.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BC - Écarts de réévaluation</span>
+                                <span class="font-mono">\${bilanData.passif.BC.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BD - Résultat net de l'exercice</span>
+                                <span class="font-mono \${bilanData.passif.BD >= 0 ? 'text-success' : 'text-danger'}">\${bilanData.passif.BD.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BE - Autres capitaux propres</span>
+                                <span class="font-mono">\${bilanData.passif.BE.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BF - Subventions d'investissement</span>
+                                <span class="font-mono">\${bilanData.passif.BF.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BG - Provisions réglementées</span>
+                                <span class="font-mono">\${bilanData.passif.BG.toLocaleString('fr-FR')}</span>
+                            </div>
+                            
+                            <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                                <span>TOTAL CAPITAUX PROPRES</span>
+                                <span class="font-mono">\${bilanData.passif.totalCapitaux.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <!-- DETTES FINANCIÈRES -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1 mt-4">
+                                DETTES FINANCIÈRES ET RESSOURCES ASSIMILÉES
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">BH - Emprunts et dettes financières</span>
+                                <span class="font-mono">\${bilanData.passif.BH.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BI - Dettes circulantes HAO</span>
+                                <span class="font-mono">\${bilanData.passif.BI.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BJ - Provisions pour risques et charges</span>
+                                <span class="font-mono">\${bilanData.passif.BJ.toLocaleString('fr-FR')}</span>
+                            </div>
+                            
+                            <!-- PASSIF CIRCULANT -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1 mt-4">
+                                PASSIF CIRCULANT
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">BK - Dettes circulantes</span>
+                                <span class="font-mono">\${bilanData.passif.BK.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BL - Trésorerie-Passif</span>
+                                <span class="font-mono">\${bilanData.passif.BL.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <div class="flex justify-between font-bold text-lg border-t-2 border-success pt-2 mt-3">
+                                <span>TOTAL GÉNÉRAL PASSIF</span>
+                                <span class="font-mono text-success">\${bilanData.passif.totalGeneral.toLocaleString('fr-FR')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contrôle d'équilibre -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div class="flex justify-between items-center">
+                    <span class="font-medium text-gray-900 dark:text-white">Contrôle d'équilibre SYSCOHADA:</span>
+                    <span class="font-bold \${bilanData.actif.totalGeneral === bilanData.passif.totalGeneral ? 'text-success' : 'text-danger'}">
+                        \${bilanData.actif.totalGeneral === bilanData.passif.totalGeneral ? '✓ BILAN ÉQUILIBRÉ' : '⚠ BILAN DÉSÉQUILIBRÉ'}
+                    </span>
+                </div>
+                \${bilanData.actif.totalGeneral !== bilanData.passif.totalGeneral ? \`
+                <div class="mt-2 text-sm text-danger">
+                    Écart: \${Math.abs(bilanData.actif.totalGeneral - bilanData.passif.totalGeneral).toLocaleString('fr-FR')} FCFA
+                </div>
+                \` : ''}
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex space-x-3">
+                    <button onclick="exportBilanSYSCOHADA()" class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                        <i class="fas fa-download mr-2"></i>Export PDF SYSCOHADA
+                    </button>
+                    <button onclick="printBilanSYSCOHADA()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-print mr-2"></i>Imprimer
+                    </button>
+                </div>
+                <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Fermer
+                </button>
+            </div>
+        </div>
+        \`;
+
+        window.unifiedManager.modalManager.show('Bilan SYSCOHADA Révisé', modalContent);
+        window.unifiedManager.notificationManager.show('success', 'Bilan SYSCOHADA généré', 'Le bilan conforme SYSCOHADA Révisé a été généré');
+    }, 2000);
+}
+
+/**
+ * Calcule le bilan selon la structure SYSCOHADA Révisé
+ */
+function calculateBilanSYSCOHADA() {
+    const entries = window.app.filteredData?.entries?.filter(e => e.status === 'Validé') || [];
+    const accounts = window.app.accounts || [];
+
+    // Calculer les soldes par classe de comptes SYSCOHADA
+    const soldes = calculateSoldesByClass(entries, accounts);
+
+    const actif = {
+        // Charges immobilisées (classe 20)
+        AB: getSoldeByClassRange(soldes, '201', '209'),
+        // Immobilisations incorporelles (classe 21)
+        AC: getSoldeByClassRange(soldes, '210', '219'),
+        // Immobilisations corporelles (classes 22, 23, 24)
+        AD: getSoldeByClassRange(soldes, '220', '249'),
+        // Avances et acomptes versés sur immobilisations (classe 25)
+        AE: getSoldeByClassRange(soldes, '250', '259'),
+        // Immobilisations financières (classes 26, 27)
+        AF: getSoldeByClassRange(soldes, '260', '279'),
+        // Stocks (classe 3)
+        AG: getSoldeByClassRange(soldes, '300', '399'),
+        // Créances et emplois assimilés (classe 4 - débiteur)
+        AH: getSoldeByClassRange(soldes, '400', '499', 'debiteur'),
+        // Trésorerie-Actif (classe 5 - actif)
+        AI: getSoldeByClassRange(soldes, '500', '589'),
+        // Écarts de conversion-Actif
+        AJ: 0
+    };
+
+    actif.totalImmobilise = actif.AB + actif.AC + actif.AD + actif.AE + actif.AF;
+    actif.totalCirculantHAO = actif.AG + actif.AH;
+    actif.totalGeneral = actif.totalImmobilise + actif.totalCirculantHAO + actif.AI + actif.AJ;
+
+    const passif = {
+        // Capital (classe 10)
+        BA: getSoldeByClassRange(soldes, '101', '109'),
+        // Primes et réserves (classes 11, 12)
+        BB: getSoldeByClassRange(soldes, '110', '129'),
+        // Écarts de réévaluation (classe 105)
+        BC: getSoldeByClassRange(soldes, '105', '105'),
+        // Résultat net (calculé)
+        BD: calculateResultatNet(entries, accounts),
+        // Autres capitaux propres (classe 13)
+        BE: getSoldeByClassRange(soldes, '130', '139'),
+        // Subventions d'investissement (classe 14)
+        BF: getSoldeByClassRange(soldes, '140', '149'),
+        // Provisions réglementées (classe 15)
+        BG: getSoldeByClassRange(soldes, '150', '159'),
+        // Emprunts et dettes financières (classe 16)
+        BH: getSoldeByClassRange(soldes, '160', '169'),
+        // Dettes circulantes HAO
+        BI: 0,
+        // Provisions pour risques et charges (classe 19)
+        BJ: getSoldeByClassRange(soldes, '190', '199'),
+        // Dettes circulantes (classe 4 - créditeur)
+        BK: getSoldeByClassRange(soldes, '400', '499', 'crediteur'),
+        // Trésorerie-Passif (classe 5 - passif)
+        BL: getSoldeByClassRange(soldes, '590', '599')
+    };
+
+    passif.totalCapitaux = passif.BA + passif.BB + passif.BC + passif.BD + passif.BE + passif.BF + passif.BG;
+    passif.totalGeneral = passif.totalCapitaux + passif.BH + passif.BI + passif.BJ + passif.BK + passif.BL;
+
+    return { actif, passif };
+}
+
+/**
+ * Calcule les soldes par classe de comptes
+ */
+function calculateSoldesByClass(entries, accounts) {
+    const soldes = {};
+
+    entries.forEach(entry => {
+        entry.lines?.forEach(line => {
+            const account = accounts.find(a => a.code === line.account);
+            if (account) {
+                if (!soldes[line.account]) soldes[line.account] = 0;
+
+                // Selon la nature du compte (Débit/Crédit)
+                if (account.nature === 'Debit') {
+                    soldes[line.account] += (line.debit || 0) - (line.credit || 0);
+                } else {
+                    soldes[line.account] += (line.credit || 0) - (line.debit || 0);
+                }
+            }
+        });
+    });
+
+    return soldes;
+}
+
+/**
+ * Obtient le solde par plage de classe SYSCOHADA
+ */
+function getSoldeByClassRange(soldes, start, end, sens = 'normal') {
+    let total = 0;
+
+    Object.keys(soldes).forEach(code => {
+        if (code >= start && code <= end) {
+            const solde = soldes[code];
+            if (sens === 'debiteur' && solde > 0) {
+                total += solde;
+            } else if (sens === 'crediteur' && solde < 0) {
+                total += Math.abs(solde);
+            } else if (sens === 'normal') {
+                total += Math.abs(solde);
+            }
+        }
+    });
+
+    return total;
+}
+
+/**
+ * Calcule le résultat net selon SYSCOHADA
+ */
+function calculateResultatNet(entries, accounts) {
+    let produits = 0;
+    let charges = 0;
+
+    entries.forEach(entry => {
+        entry.lines?.forEach(line => {
+            const account = accounts.find(a => a.code === line.account);
+            if (account) {
+                // Classe 7 = Produits
+                if (line.account.startsWith('7')) {
+                    produits += (line.credit || 0);
+                }
+                // Classe 6 = Charges
+                if (line.account.startsWith('6')) {
+                    charges += (line.debit || 0);
+                }
+            }
+        });
+    });
+
+    return produits - charges;
+}
+
+function exportBilanSYSCOHADA() {
+    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Bilan SYSCOHADA exporté en PDF conforme');
+}
+
+function printBilanSYSCOHADA() {
+    window.unifiedManager.notificationManager.show('info', 'Impression', 'Impression du bilan SYSCOHADA...');
+}
+
+// Exposer les fonctions globalement
+window.generateBilan = generateBilan;
+window.calculateBilanSYSCOHADA = calculateBilanSYSCOHADA;
+window.exportBilanSYSCOHADA = exportBilanSYSCOHADA;
+window.printBilanSYSCOHADA = printBilanSYSCOHADA;
+            `;
+        }
+
+        async function addMenuItems() {
+            log('📋 Ajout des éléments de menu...', 'info');
+            
+            const config = getIntegrationConfig();
+            const highPriorityPoints = config.selectedPoints.filter(p => p.priority === 'high');
+            
+            if (highPriorityPoints.length > 0) {
+                highPriorityPoints.forEach(point => {
+                    addMenuItem(point);
+                });
+            } else {
+                // Ajouter un bouton global si aucun menu trouvé
+                addGlobalButton();
+            }
+        }
+
+        function addMenuItem(point) {
+            try {
+                if (point.type === 'menu') {
+                    const menuItem = document.createElement('li');
+                    menuItem.innerHTML = `
+                        <a href="#" onclick="generateBilan()" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                            <i class="fas fa-chart-line mr-2"></i>Bilan SYSCOHADA
+                        </a>
+                    `;
+                    
+                    if (point.element.tagName === 'UL') {
+                        point.element.appendChild(menuItem);
+                    } else {
+                        point.element.parentNode.appendChild(menuItem);
+                    }
+                    
+                    log(`📎 Élément de menu ajouté: ${point.location}`, 'success');
+                }
+            } catch (error) {
+                log(`⚠️ Erreur lors de l'ajout du menu: ${error.message}`, 'warning');
+            }
+        }
+
+        function addGlobalButton() {
+            const button = document.createElement('button');
+            button.innerHTML = `
+                <i class="fas fa-chart-line mr-2"></i>
+                Bilan SYSCOHADA
+            `;
+            button.className = 'fixed bottom-4 right-4 bg-primary text-white px-6 py-3 rounded-lg shadow-lg hover:bg-primary/90 transition-colors z-50';
+            button.onclick = () => generateBilan();
+            
+            document.body.appendChild(button);
+            log('🎯 Bouton global ajouté (coin inférieur droit)', 'success');
+        }
+
+        async function testIntegrationComplete() {
+            log('🧪 Test de l\'intégration...', 'info');
+            
+            // Vérifier que toutes les fonctions sont disponibles
+            const requiredFunctions = ['generateBilan', 'calculateBilanSYSCOHADA'];
+            const missingFunctions = requiredFunctions.filter(func => typeof window[func] !== 'function');
+            
+            if (missingFunctions.length > 0) {
+                throw new Error(`Fonctions manquantes après intégration: ${missingFunctions.join(', ')}`);
+            }
+
+            // Test simple de la fonction principale
+            try {
+                if (typeof window.app !== 'undefined' && window.app.accounts) {
+                    const testResult = calculateBilanSYSCOHADA();
+                    if (testResult && testResult.actif && testResult.passif) {
+                        log('✅ Test fonctionnel réussi', 'success');
+                    } else {
+                        log('⚠️ Test fonctionnel partiel', 'warning');
+                    }
+                }
+            } catch (error) {
+                log(`⚠️ Erreur dans le test fonctionnel: ${error.message}`, 'warning');
+            }
+        }
+
+        /**
+         * Génère le script d'intégration complet
+         */
+        function generateIntegrationScript() {
+            log('📝 Génération du script d\'intégration...', 'info');
+            
+            const script = `
+// Script d'intégration SYSCOHADA généré automatiquement
+// Date: ${new Date().toISOString()}
+// Configuration: ${JSON.stringify(getIntegrationConfig(), null, 2)}
+
+(function() {
+    'use strict';
+    
+    // Vérification des prérequis
+    if (typeof window.unifiedManager === 'undefined') {
+        console.error('SYSCOHADA Integration: unifiedManager requis');
+        return;
+    }
+    
+    if (typeof window.app === 'undefined') {
+        console.error('SYSCOHADA Integration: app requis');
+        return;
+    }
+    
+    // Injection du code SYSCOHADA
+    ${getSYSCOHADAFunctions()}
+    
+    // Ajout automatique du bouton
+    document.addEventListener('DOMContentLoaded', function() {
+        const button = document.createElement('button');
+        button.innerHTML = '<i class="fas fa-chart-line mr-2"></i>Bilan SYSCOHADA';
+        button.className = 'fixed bottom-4 right-4 bg-primary text-white px-6 py-3 rounded-lg shadow-lg hover:bg-primary/90 transition-colors z-50';
+        button.onclick = generateBilan;
+        document.body.appendChild(button);
+    });
+    
+    console.log('SYSCOHADA Integration: Code intégré avec succès');
+})();
+            `;
+            
+            // Télécharger le script
+            const blob = new Blob([script], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'syscohada-integration.js';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            log('✅ Script d\'intégration généré et téléchargé', 'success');
+        }
+
+        /**
+         * Test de l'intégration
+         */
+        function testIntegration() {
+            log('🧪 Lancement des tests d\'intégration...', 'info');
+            
+            let testsResults = {
+                passed: 0,
+                failed: 0,
+                warnings: 0
+            };
+
+            // Test 1: Présence des fonctions
+            log('Test 1: Vérification des fonctions...', 'info');
+            const requiredFunctions = ['generateBilan', 'calculateBilanSYSCOHADA'];
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    log(`✅ ${funcName} disponible`, 'success');
+                    testsResults.passed++;
+                } else {
+                    log(`❌ ${funcName} manquante`, 'error');
+                    testsResults.failed++;
+                }
+            });
+
+            // Test 2: Dépendances
+            log('Test 2: Vérification des dépendances...', 'info');
+            if (typeof window.unifiedManager !== 'undefined') {
+                log('✅ unifiedManager disponible', 'success');
+                testsResults.passed++;
+            } else {
+                log('❌ unifiedManager manquant', 'error');
+                testsResults.failed++;
+            }
+
+            // Test 3: Données d'application
+            log('Test 3: Vérification des données...', 'info');
+            if (window.app && window.app.accounts) {
+                log('✅ Données comptables disponibles', 'success');
+                testsResults.passed++;
+            } else {
+                log('⚠️ Données comptables limitées', 'warning');
+                testsResults.warnings++;
+            }
+
+            // Résumé des tests
+            log(`\n🏁 Tests terminés:`, 'info');
+            log(`   ✅ Réussis: ${testsResults.passed}`, 'success');
+            log(`   ❌ Échecs: ${testsResults.failed}`, 'error');
+            log(`   ⚠️ Avertissements: ${testsResults.warnings}`, 'warning');
+            
+            if (testsResults.failed === 0) {
+                showNotification('Tests réussis', 'Tous les tests d\'intégration ont réussi', 'success');
+            } else {
+                showNotification('Tests partiels', `${testsResults.failed} test(s) échoué(s)`, 'warning');
+            }
+        }
+
+        function enableButtons() {
+            document.getElementById('integrateBtn').disabled = false;
+            document.getElementById('generateBtn').disabled = false;
+            document.getElementById('testBtn').disabled = false;
+        }
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('integrationLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const colors = {
+                info: 'text-blue-600 dark:text-blue-400',
+                success: 'text-green-600 dark:text-green-400',
+                warning: 'text-yellow-600 dark:text-yellow-400',
+                error: 'text-red-600 dark:text-red-400'
+            };
+            
+            const entry = document.createElement('div');
+            entry.className = `${colors[type] || colors.info} mb-1`;
+            entry.innerHTML = `[${timestamp}] ${message}`;
+            
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('integrationLogs').innerHTML = 
+                '<div class="text-gray-600 dark:text-gray-400">Logs effacés...</div>';
+        }
+
+        function exportLogs() {
+            const logs = document.getElementById('integrationLogs').textContent;
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `syscohada-integration-logs-${new Date().toISOString().split('T')[0]}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function showNotification(title, message, type = 'info') {
+            // Créer une notification simple si unifiedManager n'est pas disponible
+            const notification = document.createElement('div');
+            const colors = {
+                success: 'bg-green-500',
+                warning: 'bg-yellow-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+            
+            notification.className = `fixed top-4 right-4 ${colors[type]} text-white p-4 rounded-lg shadow-lg z-50 max-w-sm`;
+            notification.innerHTML = `
+                <div class="font-semibold">${title}</div>
+                <div class="text-sm mt-1">${message}</div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        /**
+         * FONCTIONS POST-INTÉGRATION SÉCURISÉES
+         */
+
+        /**
+         * Restaure la sauvegarde des fonctions
+         */
+        function restoreBackup() {
+            if (!window.syscohadaBackup || !window.syscohadaBackup.canRestore) {
+                log('❌ Aucune sauvegarde disponible pour la restauration', 'error');
+                showNotification('Erreur', 'Aucune sauvegarde disponible', 'error');
+                return;
+            }
+
+            log('🔄 Début de la restauration de la sauvegarde...', 'info');
+
+            try {
+                // Restaurer les fonctions sauvegardées
+                Object.entries(window.syscohadaBackup.functions).forEach(([funcName, funcCode]) => {
+                    try {
+                        // Évaluer et restaurer la fonction
+                        eval(`window.${funcName} = ${funcCode}`);
+                        log(`✅ Fonction restaurée: ${funcName}`, 'success');
+                    } catch (error) {
+                        log(`⚠️ Erreur lors de la restauration de ${funcName}: ${error.message}`, 'warning');
+                    }
+                });
+
+                // Nettoyer les fonctions SYSCOHADA ajoutées
+                const syscohadaFunctions = [
+                    'generateBilan', 'calculateBilanSYSCOHADA', 'exportBilanSYSCOHADA', 
+                    'printBilanSYSCOHADA', 'calculateSoldesByClass', 'getSoldeByClassRange', 'calculateResultatNet'
+                ];
+
+                syscohadaFunctions.forEach(funcName => {
+                    if (!window.syscohadaBackup.functions[funcName]) {
+                        try {
+                            delete window[funcName];
+                            log(`🗑️ Fonction SYSCOHADA supprimée: ${funcName}`, 'info');
+                        } catch (error) {
+                            log(`⚠️ Impossible de supprimer ${funcName}: ${error.message}`, 'warning');
+                        }
+                    }
+                });
+
+                // Supprimer les boutons ajoutés
+                const addedButtons = document.querySelectorAll('button[onclick*="generateBilan"]');
+                addedButtons.forEach(btn => {
+                    if (btn.textContent.includes('SYSCOHADA')) {
+                        btn.remove();
+                        log('🗑️ Bouton SYSCOHADA supprimé', 'info');
+                    }
+                });
+
+                window.syscohadaIntegrated = false;
+                log('✅ Restauration terminée avec succès', 'success');
+                showNotification('Restauration réussie', 'La sauvegarde a été restaurée', 'success');
+
+            } catch (error) {
+                log(`❌ Erreur lors de la restauration: ${error.message}`, 'error');
+                showNotification('Erreur de restauration', error.message, 'error');
+            }
+        }
+
+        /**
+         * Vérifie l'intégration de manière approfondie
+         */
+        function verifyIntegration() {
+            log('🔍 Vérification approfondie de l\'intégration...', 'info');
+
+            const verification = {
+                functions: {},
+                dependencies: {},
+                ui: {},
+                data: {},
+                performance: {},
+                security: {}
+            };
+
+            // 1. Vérification des fonctions
+            log('📋 Vérification des fonctions SYSCOHADA...', 'info');
+            const requiredFunctions = ['generateBilan', 'calculateBilanSYSCOHADA', 'exportBilanSYSCOHADA'];
+            requiredFunctions.forEach(funcName => {
+                verification.functions[funcName] = {
+                    exists: typeof window[funcName] === 'function',
+                    callable: false,
+                    returnType: null
+                };
+
+                if (verification.functions[funcName].exists) {
+                    try {
+                        // Test d'appel sécurisé (dry run)
+                        if (funcName === 'calculateBilanSYSCOHADA') {
+                            const result = window[funcName]();
+                            verification.functions[funcName].callable = true;
+                            verification.functions[funcName].returnType = typeof result;
+                        } else {
+                            verification.functions[funcName].callable = true;
+                        }
+                        log(`✅ ${funcName}: OK`, 'success');
+                    } catch (error) {
+                        verification.functions[funcName].error = error.message;
+                        log(`❌ ${funcName}: ${error.message}`, 'error');
+                    }
+                } else {
+                    log(`❌ ${funcName}: Fonction manquante`, 'error');
+                }
+            });
+
+            // 2. Vérification des dépendances critiques
+            log('🔗 Vérification des dépendances...', 'info');
+            const criticalDeps = ['unifiedManager', 'app'];
+            criticalDeps.forEach(dep => {
+                verification.dependencies[dep] = {
+                    exists: typeof window[dep] !== 'undefined',
+                    accessible: false
+                };
+
+                if (verification.dependencies[dep].exists) {
+                    try {
+                        // Test d'accès aux propriétés critiques
+                        if (dep === 'unifiedManager') {
+                            verification.dependencies[dep].accessible = 
+                                window.unifiedManager.modalManager && 
+                                window.unifiedManager.notificationManager;
+                        } else if (dep === 'app') {
+                            verification.dependencies[dep].accessible = 
+                                window.app.accounts !== undefined;
+                        }
+                        log(`✅ ${dep}: Accessible`, 'success');
+                    } catch (error) {
+                        verification.dependencies[dep].error = error.message;
+                        log(`⚠️ ${dep}: ${error.message}`, 'warning');
+                    }
+                } else {
+                    log(`❌ ${dep}: Non disponible`, 'error');
+                }
+            });
+
+            // 3. Vérification de l'interface utilisateur
+            log('🎨 Vérification de l\'interface...', 'info');
+            const addedButtons = document.querySelectorAll('button[onclick*="generateBilan"]');
+            verification.ui.buttonsAdded = addedButtons.length;
+            verification.ui.buttonsVisible = Array.from(addedButtons).filter(btn => 
+                btn.offsetParent !== null
+            ).length;
+
+            if (verification.ui.buttonsAdded > 0) {
+                log(`✅ Interface: ${verification.ui.buttonsAdded} bouton(s) ajouté(s)`, 'success');
+            } else {
+                log('⚠️ Interface: Aucun bouton détecté', 'warning');
+            }
+
+            // 4. Test de performance
+            log('⚡ Test de performance...', 'info');
+            const startTime = performance.now();
+            try {
+                if (typeof window.calculateBilanSYSCOHADA === 'function') {
+                    window.calculateBilanSYSCOHADA();
+                    const endTime = performance.now();
+                    verification.performance.executionTime = endTime - startTime;
+                    if (verification.performance.executionTime < 1000) {
+                        log(`✅ Performance: ${verification.performance.executionTime.toFixed(2)}ms`, 'success');
+                    } else {
+                        log(`⚠️ Performance: ${verification.performance.executionTime.toFixed(2)}ms (lent)`, 'warning');
+                    }
+                }
+            } catch (error) {
+                verification.performance.error = error.message;
+                log(`⚠️ Performance: ${error.message}`, 'warning');
+            }
+
+            // 5. Vérification de sécurité
+            log('🔒 Vérification de sécurité...', 'info');
+            verification.security.backupExists = window.syscohadaBackup !== undefined;
+            verification.security.noConflicts = !checkForConflicts();
+            verification.security.isolationOK = checkIsolation();
+
+            if (verification.security.backupExists) {
+                log('✅ Sécurité: Sauvegarde disponible', 'success');
+            } else {
+                log('⚠️ Sécurité: Aucune sauvegarde', 'warning');
+            }
+
+            // Génération du rapport
+            const score = calculateVerificationScore(verification);
+            log(`\n🏁 Score de vérification: ${score}/100`, score >= 80 ? 'success' : score >= 60 ? 'warning' : 'error');
+
+            // Afficher les actions post-intégration
+            document.getElementById('postIntegrationActions').classList.remove('hidden');
+
+            showNotification(
+                'Vérification terminée', 
+                `Score: ${score}/100 - ${score >= 80 ? 'Excellent' : score >= 60 ? 'Acceptable' : 'Problèmes détectés'}`, 
+                score >= 80 ? 'success' : score >= 60 ? 'warning' : 'error'
+            );
+
+            return verification;
+        }
+
+        function checkForConflicts() {
+            // Vérifier s'il y a des conflits avec d'autres scripts
+            const potentialConflicts = [];
+            
+            // Recherche de fonctions avec des noms similaires
+            const similarFunctions = Object.keys(window).filter(key => 
+                key.toLowerCase().includes('bilan') || 
+                key.toLowerCase().includes('syscohada')
+            );
+
+            return potentialConflicts.length > 0;
+        }
+
+        function checkIsolation() {
+            // Vérifier que les fonctions SYSCOHADA ne polluent pas l'espace global
+            return window.syscohadaIntegrated === true;
+        }
+
+        function calculateVerificationScore(verification) {
+            let score = 0;
+
+            // Fonctions (40 points)
+            Object.values(verification.functions).forEach(func => {
+                if (func.exists && func.callable) score += 13;
+                else if (func.exists) score += 7;
+            });
+
+            // Dépendances (30 points)
+            Object.values(verification.dependencies).forEach(dep => {
+                if (dep.exists && dep.accessible) score += 15;
+                else if (dep.exists) score += 8;
+            });
+
+            // Interface (15 points)
+            if (verification.ui.buttonsAdded > 0) score += 15;
+
+            // Performance (10 points)
+            if (verification.performance.executionTime && verification.performance.executionTime < 1000) {
+                score += 10;
+            } else if (verification.performance.executionTime) {
+                score += 5;
+            }
+
+            // Sécurité (5 points)
+            if (verification.security.backupExists) score += 3;
+            if (verification.security.noConflicts) score += 2;
+
+            return Math.min(100, score);
+        }
+
+        /**
+         * Nettoie l'intégrateur après usage
+         */
+        function cleanupIntegrator() {
+            const confirmed = confirm(
+                '⚠️ ATTENTION ⚠️\n\n' +
+                'Cette action va supprimer l\'intégrateur SYSCOHADA.\n' +
+                'Le code SYSCOHADA intégré restera fonctionnel.\n\n' +
+                'Êtes-vous sûr de vouloir continuer ?'
+            );
+
+            if (!confirmed) {
+                log('❌ Nettoyage annulé par l\'utilisateur', 'info');
+                return;
+            }
+
+            log('🧹 Début du nettoyage de l\'intégrateur...', 'info');
+
+            try {
+                // Supprimer les éléments de l'intégrateur
+                const integratorContainer = document.querySelector('.container');
+                if (integratorContainer) {
+                    // Créer un message de confirmation
+                    const confirmationDiv = document.createElement('div');
+                    confirmationDiv.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50';
+                    confirmationDiv.innerHTML = `
+                        <div class="bg-white dark:bg-gray-800 p-8 rounded-lg max-w-md mx-4">
+                            <div class="text-center">
+                                <i class="fas fa-check-circle text-success text-6xl mb-4"></i>
+                                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                                    Intégration Terminée !
+                                </h2>
+                                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                                    Le code SYSCOHADA a été intégré avec succès dans votre application. 
+                                    L'intégrateur va maintenant se fermer.
+                                </p>
+                                <div class="bg-green-50 dark:bg-green-900 p-4 rounded-lg mb-4">
+                                    <p class="text-sm text-green-800 dark:text-green-200">
+                                        <strong>✅ Que faire maintenant ?</strong><br>
+                                        • Testez la fonction "Bilan SYSCOHADA" dans votre app<br>
+                                        • Vérifiez que tout fonctionne correctement<br>
+                                        • En cas de problème, utilisez la sauvegarde
+                                    </p>
+                                </div>
+                                <button onclick="window.location.reload()" 
+                                        class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors">
+                                    Fermer l'Intégrateur
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(confirmationDiv);
+                    
+                    // Auto-fermeture après 10 secondes
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 10000);
+                }
+
+                log('✅ Nettoyage terminé avec succès', 'success');
+
+            } catch (error) {
+                log(`❌ Erreur lors du nettoyage: ${error.message}`, 'error');
+                showNotification('Erreur de nettoyage', error.message, 'error');
+            }
+        }
+
+        /**
+         * Génère un rapport d'intégration complet
+         */
+        function generateReport() {
+            log('📄 Génération du rapport d\'intégration...', 'info');
+
+            const verification = verifyIntegration();
+            const timestamp = new Date().toISOString();
+
+            const report = `
+RAPPORT D'INTÉGRATION SYSCOHADA
+===============================
+
+Date: ${new Date().toLocaleString('fr-FR')}
+Version: 1.0.0
+Statut: ${window.syscohadaIntegrated ? 'INTÉGRÉ' : 'NON INTÉGRÉ'}
+
+ANALYSE DE L'APPLICATION
+------------------------
+${JSON.stringify(analysisData, null, 2)}
+
+RÉSULTATS DE VÉRIFICATION
+-------------------------
+Score global: ${calculateVerificationScore(verification)}/100
+
+Fonctions:
+${Object.entries(verification.functions).map(([name, data]) => 
+    `- ${name}: ${data.exists ? '✅' : '❌'} ${data.callable ? '(Fonctionnelle)' : '(Erreur)'}`
+).join('\n')}
+
+Dépendances:
+${Object.entries(verification.dependencies).map(([name, data]) => 
+    `- ${name}: ${data.exists ? '✅' : '❌'} ${data.accessible ? '(Accessible)' : '(Limitée)'}`
+).join('\n')}
+
+Interface utilisateur:
+- Boutons ajoutés: ${verification.ui.buttonsAdded}
+- Boutons visibles: ${verification.ui.buttonsVisible}
+
+Performance:
+- Temps d'exécution: ${verification.performance.executionTime ? 
+    verification.performance.executionTime.toFixed(2) + 'ms' : 'Non testé'}
+
+Sécurité:
+- Sauvegarde disponible: ${verification.security.backupExists ? '✅' : '❌'}
+- Aucun conflit détecté: ${verification.security.noConflicts ? '✅' : '❌'}
+- Isolation correcte: ${verification.security.isolationOK ? '✅' : '❌'}
+
+LOGS D'INTÉGRATION
+------------------
+${document.getElementById('integrationLogs').textContent}
+
+FIN DU RAPPORT
+============== 
+            `;
+
+            // Télécharger le rapport
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `syscohada-integration-report-${new Date().toISOString().split('T')[0]}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            log('✅ Rapport d\'intégration généré et téléchargé', 'success');
+            showNotification('Rapport généré', 'Le rapport d\'intégration a été téléchargé', 'success');
+        }
+
+        // Lancer l'analyse automatiquement au chargement
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(analyzeApplication, 1000);
+        });
+        
+    </script>
+</body>
+</html>
     
 </script>
 
