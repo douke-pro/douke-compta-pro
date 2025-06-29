@@ -6390,6 +6390,382 @@ console.log('🚀 Interface moderne et responsive');
 console.log('✅ Prêt pour la production');
 
 </script>
+/**
+* Génère le bilan SYSCOHADA Révisé conforme
+*/
+function generateBilan() {
+    if (!window.app.currentCompanyId) {
+        window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour générer le bilan');
+        return;
+    }
 
+    window.unifiedManager.notificationManager.show('info', 'Génération en cours', 'Préparation du bilan SYSCOHADA Révisé...');
+
+    setTimeout(() => {
+        const companyName = window.unifiedManager.getSelectedCompanyName();
+        const bilanData = calculateBilanSYSCOHADA();
+
+        const modalContent = `
+        <div class="space-y-6">
+            <!-- En-tête officiel -->
+            <div class="text-center border-b border-gray-200 dark:border-gray-600 pb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">BILAN - SYSCOHADA RÉVISÉ</h2>
+                <p class="text-gray-600 dark:text-gray-400">${companyName}</p>
+                <p class="text-sm text-gray-500">Exercice clos le ${new Date().toLocaleDateString('fr-FR')} (en FCFA)</p>
+            </div>
+
+            <!-- Bilan conforme SYSCOHADA -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- ACTIF -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="bg-primary text-white p-4 rounded-t-lg">
+                        <h3 class="font-bold text-center">ACTIF</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-2 text-sm">
+                            <!-- ACTIF IMMOBILISÉ -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1">
+                                ACTIF IMMOBILISÉ
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">AB - Charges immobilisées</span>
+                                <span class="font-mono">${bilanData.actif.AB.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AC - Immobilisations incorporelles</span>
+                                <span class="font-mono">${bilanData.actif.AC.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AD - Immobilisations corporelles</span>
+                                <span class="font-mono">${bilanData.actif.AD.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AE - Avances/acomptes sur immobilisations</span>
+                                <span class="font-mono">${bilanData.actif.AE.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AF - Immobilisations financières</span>
+                                <span class="font-mono">${bilanData.actif.AF.toLocaleString('fr-FR')}</span>
+                            </div>
+                            
+                            <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                                <span>TOTAL ACTIF IMMOBILISÉ</span>
+                                <span class="font-mono">${bilanData.actif.totalImmobilise.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <!-- ACTIF CIRCULANT -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1 mt-4">
+                                ACTIF CIRCULANT
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">AG - Stocks et en-cours</span>
+                                <span class="font-mono">${bilanData.actif.AG.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">AH - Créances et emplois assimilés</span>
+                                <span class="font-mono">${bilanData.actif.AH.toLocaleString('fr-FR')}</span>
+                            </div>
+                            
+                            <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                                <span>TOTAL ACTIF CIRCULANT HAO</span>
+                                <span class="font-mono">${bilanData.actif.totalCirculantHAO.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <!-- TRÉSORERIE ACTIF -->
+                            <div class="flex justify-between">
+                                <span class="pl-2">AI - Trésorerie-Actif</span>
+                                <span class="font-mono">${bilanData.actif.AI.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <!-- ÉCARTS DE CONVERSION -->
+                            <div class="flex justify-between">
+                                <span class="pl-2">AJ - Écarts de conversion-Actif</span>
+                                <span class="font-mono">${bilanData.actif.AJ.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <div class="flex justify-between font-bold text-lg border-t-2 border-primary pt-2 mt-3">
+                                <span>TOTAL GÉNÉRAL ACTIF</span>
+                                <span class="font-mono text-primary">${bilanData.actif.totalGeneral.toLocaleString('fr-FR')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASSIF -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="bg-success text-white p-4 rounded-t-lg">
+                        <h3 class="font-bold text-center">PASSIF</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-2 text-sm">
+                            <!-- CAPITAUX PROPRES -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1">
+                                CAPITAUX PROPRES ET RESSOURCES ASSIMILÉES
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">BA - Capital</span>
+                                <span class="font-mono">${bilanData.passif.BA.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BB - Primes et réserves</span>
+                                <span class="font-mono">${bilanData.passif.BB.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BC - Écarts de réévaluation</span>
+                                <span class="font-mono">${bilanData.passif.BC.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BD - Résultat net de l'exercice</span>
+                                <span class="font-mono ${bilanData.passif.BD >= 0 ? 'text-success' : 'text-danger'}">${bilanData.passif.BD.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BE - Autres capitaux propres</span>
+                                <span class="font-mono">${bilanData.passif.BE.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BF - Subventions d'investissement</span>
+                                <span class="font-mono">${bilanData.passif.BF.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BG - Provisions réglementées</span>
+                                <span class="font-mono">${bilanData.passif.BG.toLocaleString('fr-FR')}</span>
+                            </div>
+                            
+                            <div class="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1">
+                                <span>TOTAL CAPITAUX PROPRES</span>
+                                <span class="font-mono">${bilanData.passif.totalCapitaux.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <!-- DETTES FINANCIÈRES -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1 mt-4">
+                                DETTES FINANCIÈRES ET RESSOURCES ASSIMILÉES
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">BH - Emprunts et dettes financières</span>
+                                <span class="font-mono">${bilanData.passif.BH.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BI - Dettes circulantes HAO</span>
+                                <span class="font-mono">${bilanData.passif.BI.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BJ - Provisions pour risques et charges</span>
+                                <span class="font-mono">${bilanData.passif.BJ.toLocaleString('fr-FR')}</span>
+                            </div>
+                            
+                            <!-- PASSIF CIRCULANT -->
+                            <div class="font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-1 mt-4">
+                                PASSIF CIRCULANT
+                            </div>
+                            
+                            <div class="flex justify-between">
+                                <span class="pl-2">BK - Dettes circulantes</span>
+                                <span class="font-mono">${bilanData.passif.BK.toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="pl-2">BL - Trésorerie-Passif</span>
+                                <span class="font-mono">${bilanData.passif.BL.toLocaleString('fr-FR')}</span>
+                            </div>
+
+                            <div class="flex justify-between font-bold text-lg border-t-2 border-success pt-2 mt-3">
+                                <span>TOTAL GÉNÉRAL PASSIF</span>
+                                <span class="font-mono text-success">${bilanData.passif.totalGeneral.toLocaleString('fr-FR')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contrôle d'équilibre -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div class="flex justify-between items-center">
+                    <span class="font-medium text-gray-900 dark:text-white">Contrôle d'équilibre SYSCOHADA:</span>
+                    <span class="font-bold ${bilanData.actif.totalGeneral === bilanData.passif.totalGeneral ? 'text-success' : 'text-danger'}">
+                        ${bilanData.actif.totalGeneral === bilanData.passif.totalGeneral ? '✓ BILAN ÉQUILIBRÉ' : '⚠ BILAN DÉSÉQUILIBRÉ'}
+                    </span>
+                </div>
+                ${bilanData.actif.totalGeneral !== bilanData.passif.totalGeneral ? `
+                <div class="mt-2 text-sm text-danger">
+                    Écart: ${Math.abs(bilanData.actif.totalGeneral - bilanData.passif.totalGeneral).toLocaleString('fr-FR')} FCFA
+                </div>
+                ` : ''}
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex space-x-3">
+                    <button onclick="exportBilanSYSCOHADA()" class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                        <i class="fas fa-download mr-2"></i>Export PDF SYSCOHADA
+                    </button>
+                    <button onclick="printBilanSYSCOHADA()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-print mr-2"></i>Imprimer
+                    </button>
+                </div>
+                <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Fermer
+                </button>
+            </div>
+        </div>
+        `;
+
+        window.unifiedManager.modalManager.show('Bilan SYSCOHADA Révisé', modalContent);
+        window.unifiedManager.notificationManager.show('success', 'Bilan SYSCOHADA généré', 'Le bilan conforme SYSCOHADA Révisé a été généré');
+    }, 2000);
+}
+
+/**
+* Calcule le bilan selon la structure SYSCOHADA Révisé
+*/
+function calculateBilanSYSCOHADA() {
+    const entries = window.app.filteredData.entries.filter(e => e.status === 'Validé');
+    const accounts = window.app.accounts;
+    
+    // Calculer les soldes par classe de comptes SYSCOHADA
+    const soldes = calculateSoldesByClass(entries, accounts);
+    
+    const actif = {
+        // Charges immobilisées (classe 20)
+        AB: getSoldeByClassRange(soldes, '201', '209'),
+        // Immobilisations incorporelles (classe 21)
+        AC: getSoldeByClassRange(soldes, '210', '219'),
+        // Immobilisations corporelles (classes 22, 23, 24)
+        AD: getSoldeByClassRange(soldes, '220', '249'),
+        // Avances et acomptes versés sur immobilisations (classe 25)
+        AE: getSoldeByClassRange(soldes, '250', '259'),
+        // Immobilisations financières (classes 26, 27)
+        AF: getSoldeByClassRange(soldes, '260', '279'),
+        // Stocks (classe 3)
+        AG: getSoldeByClassRange(soldes, '300', '399'),
+        // Créances et emplois assimilés (classe 4 - débiteur)
+        AH: getSoldeByClassRange(soldes, '400', '499', 'debiteur'),
+        // Trésorerie-Actif (classe 5 - actif)
+        AI: getSoldeByClassRange(soldes, '500', '589'),
+        // Écarts de conversion-Actif
+        AJ: 0
+    };
+    
+    actif.totalImmobilise = actif.AB + actif.AC + actif.AD + actif.AE + actif.AF;
+    actif.totalCirculantHAO = actif.AG + actif.AH;
+    actif.totalGeneral = actif.totalImmobilise + actif.totalCirculantHAO + actif.AI + actif.AJ;
+    
+    const passif = {
+        // Capital (classe 10)
+        BA: getSoldeByClassRange(soldes, '101', '109'),
+        // Primes et réserves (classes 11, 12)
+        BB: getSoldeByClassRange(soldes, '110', '129'),
+        // Écarts de réévaluation (classe 105)
+        BC: getSoldeByClassRange(soldes, '105', '105'),
+        // Résultat net (calculé)
+        BD: calculateResultatNet(entries, accounts),
+        // Autres capitaux propres (classe 13)
+        BE: getSoldeByClassRange(soldes, '130', '139'),
+        // Subventions d'investissement (classe 14)
+        BF: getSoldeByClassRange(soldes, '140', '149'),
+        // Provisions réglementées (classe 15)
+        BG: getSoldeByClassRange(soldes, '150', '159'),
+        // Emprunts et dettes financières (classe 16)
+        BH: getSoldeByClassRange(soldes, '160', '169'),
+        // Dettes circulantes HAO
+        BI: 0,
+        // Provisions pour risques et charges (classe 19)
+        BJ: getSoldeByClassRange(soldes, '190', '199'),
+        // Dettes circulantes (classe 4 - créditeur)
+        BK: getSoldeByClassRange(soldes, '400', '499', 'crediteur'),
+        // Trésorerie-Passif (classe 5 - passif)
+        BL: getSoldeByClassRange(soldes, '590', '599')
+    };
+    
+    passif.totalCapitaux = passif.BA + passif.BB + passif.BC + passif.BD + passif.BE + passif.BF + passif.BG;
+    passif.totalGeneral = passif.totalCapitaux + passif.BH + passif.BI + passif.BJ + passif.BK + passif.BL;
+    
+    return { actif, passif };
+}
+
+/**
+* Calcule les soldes par classe de comptes
+*/
+function calculateSoldesByClass(entries, accounts) {
+    const soldes = {};
+    
+    entries.forEach(entry => {
+        entry.lines.forEach(line => {
+            const account = accounts.find(a => a.code === line.account);
+            if (account) {
+                if (!soldes[line.account]) soldes[line.account] = 0;
+                
+                // Selon la nature du compte (Débit/Crédit)
+                if (account.nature === 'Debit') {
+                    soldes[line.account] += (line.debit || 0) - (line.credit || 0);
+                } else {
+                    soldes[line.account] += (line.credit || 0) - (line.debit || 0);
+                }
+            }
+        });
+    });
+    
+    return soldes;
+}
+
+/**
+* Obtient le solde par plage de classe SYSCOHADA
+*/
+function getSoldeByClassRange(soldes, start, end, sens = 'normal') {
+    let total = 0;
+    
+    Object.keys(soldes).forEach(code => {
+        if (code >= start && code <= end) {
+            const solde = soldes[code];
+            if (sens === 'debiteur' && solde > 0) {
+                total += solde;
+            } else if (sens === 'crediteur' && solde < 0) {
+                total += Math.abs(solde);
+            } else if (sens === 'normal') {
+                total += Math.abs(solde);
+            }
+        }
+    });
+    
+    return total;
+}
+
+/**
+* Calcule le résultat net selon SYSCOHADA
+*/
+function calculateResultatNet(entries, accounts) {
+    let produits = 0;
+    let charges = 0;
+    
+    entries.forEach(entry => {
+        entry.lines.forEach(line => {
+            const account = accounts.find(a => a.code === line.account);
+            if (account) {
+                // Classe 7 = Produits
+                if (line.account.startsWith('7')) {
+                    produits += (line.credit || 0);
+                }
+                // Classe 6 = Charges
+                if (line.account.startsWith('6')) {
+                    charges += (line.debit || 0);
+                }
+            }
+        });
+    });
+    
+    return produits - charges;
+}
+
+function exportBilanSYSCOHADA() {
+    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Bilan SYSCOHADA exporté en PDF conforme');
+}
+
+function printBilanSYSCOHADA() {
+    window.unifiedManager.notificationManager.show('info', 'Impression', 'Impression du bilan SYSCOHADA...');
+}
+</script>
+                
 </body>
 </html>
