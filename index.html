@@ -6390,9 +6390,8 @@ console.log('🚀 Interface moderne et responsive');
 console.log('✅ Prêt pour la production');
 
 /**
-/**
  * =============================================================================
- * INTÉGRATION SYSCOHADA RÉVISÉ - CODE À INSÉRER
+ * INTÉGRATION SYSCOHADA RÉVISÉ - VERSION CORRIGÉE
  * =============================================================================
  * 
  * Support complet : Système Normal + Système Minimal de Trésorerie
@@ -6405,102 +6404,105 @@ console.log('✅ Prêt pour la production');
 (function integrateSystemeBilanSYSCOHADA() {
     'use strict';
     
-    // Vérification des prérequis
-    if (typeof window.unifiedManager === 'undefined' || typeof window.app === 'undefined') {
-        console.warn('SYSCOHADA: Prérequis manquants (unifiedManager ou app)');
+    // Configuration
+    const SYSCOHADA_CONFIG = {
+        VERSION: '2.0.0',
+        PREFIX: 'SYSCOHADA_',
+        DELAY: 1000
+    };
+    
+    // Vérification sécurisée des prérequis
+    function checkPrerequisites() {
+        try {
+            return window.unifiedManager && 
+                   window.unifiedManager.notificationManager && 
+                   window.unifiedManager.modalManager && 
+                   window.app;
+        } catch (error) {
+            return false;
+        }
+    }
+    
+    if (!checkPrerequisites()) {
+        console.warn('SYSCOHADA: Prérequis manquants - intégration différée');
+        setTimeout(() => {
+            if (checkPrerequisites()) {
+                integrateSystemeBilanSYSCOHADA();
+            }
+        }, 2000);
         return;
     }
 
     /**
-     * Point d'entrée principal pour génération de bilan
-     */
-    function generateBilan() {
-        const currentCompany = getCurrentCompany();
-        
-        if (!currentCompany) {
-            window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour générer le bilan SYSCOHADA');
-            return;
-        }
-
-        // Détection automatique du système comptable
-        const systemType = detectSystemType();
-        
-        window.unifiedManager.notificationManager.show('info', 'Génération en cours', `Préparation du bilan SYSCOHADA Révisé (${systemType})...`);
-
-        setTimeout(() => {
-            try {
-                const bilanData = calculateBilanSYSCOHADA(systemType, currentCompany);
-                displayBilanModal(bilanData, systemType, currentCompany);
-            } catch (error) {
-                window.unifiedManager.notificationManager.show('error', 'Erreur de génération', `Impossible de générer le bilan: ${error.message}`);
-                console.error('Erreur génération bilan:', error);
-            }
-        }, 1000);
-    }
-
-    /**
-     * Obtention de l'entreprise courante (multi-format compatible)
+     * Obtention sécurisée de l'entreprise courante
      */
     function getCurrentCompany() {
-        // Format 1: currentCompanyId
-        if (window.app?.currentCompanyId) {
-            return {
-                id: window.app.currentCompanyId,
-                name: window.app.currentCompanyName || window.unifiedManager?.getSelectedCompanyName?.() || 'Entreprise sélectionnée'
-            };
-        }
-
-        // Format 2: getSelectedCompany()
-        if (typeof window.app?.getSelectedCompany === 'function') {
-            const company = window.app.getSelectedCompany();
-            if (company) {
+        try {
+            // Méthode 1: currentCompanyId
+            if (window.app?.currentCompanyId) {
                 return {
-                    id: company.id || company.companyId,
-                    name: company.name || company.companyName || 'Entreprise sélectionnée'
+                    id: window.app.currentCompanyId,
+                    name: window.app.currentCompanyName || 'Entreprise sélectionnée'
                 };
             }
-        }
 
-        // Format 3: selectedCompany
-        if (window.app?.selectedCompany) {
-            return {
-                id: window.app.selectedCompany.id,
-                name: window.app.selectedCompany.name || 'Entreprise sélectionnée'
-            };
-        }
+            // Méthode 2: getSelectedCompany()
+            if (typeof window.app?.getSelectedCompany === 'function') {
+                const company = window.app.getSelectedCompany();
+                if (company) {
+                    return {
+                        id: company.id || company.companyId,
+                        name: company.name || company.companyName || 'Entreprise sélectionnée'
+                    };
+                }
+            }
 
-        // Format 4: Recherche dans l'interface utilisateur
-        const companySelect = document.querySelector('select[name*="company"], select[id*="company"], .company-selector select');
-        if (companySelect && companySelect.value) {
-            return {
-                id: companySelect.value,
-                name: companySelect.selectedOptions[0]?.textContent || 'Entreprise sélectionnée'
-            };
-        }
+            // Méthode 3: selectedCompany
+            if (window.app?.selectedCompany) {
+                return {
+                    id: window.app.selectedCompany.id,
+                    name: window.app.selectedCompany.name || 'Entreprise sélectionnée'
+                };
+            }
 
-        return null;
+            // Méthode 4: Interface utilisateur
+            const companySelect = document.querySelector('select[name*="company" i], select[id*="company" i], .company-selector select');
+            if (companySelect?.value) {
+                return {
+                    id: companySelect.value,
+                    name: companySelect.selectedOptions[0]?.textContent?.trim() || 'Entreprise sélectionnée'
+                };
+            }
+
+            return null;
+        } catch (error) {
+            console.error('SYSCOHADA getCurrentCompany:', error);
+            return null;
+        }
     }
 
     /**
      * Détection automatique du type de système comptable
      */
     function detectSystemType() {
-        const { accounts } = getAccountingData();
-        
-        // Analyse de la complexité du plan comptable
-        const detailedAccounts = accounts.filter(acc => 
-            acc.code.length >= 4 && 
-            (acc.code.startsWith('2') || acc.code.startsWith('3') || acc.code.startsWith('4'))
-        );
-        
-        const hasSubAccounts = accounts.some(acc => acc.code.length > 6);
-        const hasAdvancedClasses = accounts.some(acc => 
-            acc.code.startsWith('26') || acc.code.startsWith('27') || acc.code.startsWith('28')
-        );
+        try {
+            const { accounts } = getAccountingData();
+            
+            if (!accounts || accounts.length === 0) return 'MINIMAL_TRESORERIE';
+            
+            const detailedAccounts = accounts.filter(acc => 
+                acc.code && acc.code.length >= 4 && 
+                /^[2-4]/.test(acc.code)
+            );
+            
+            const hasComplexAccounts = accounts.some(acc => 
+                acc.code && (acc.code.length > 6 || 
+                /^(26|27|28|19)/.test(acc.code))
+            );
 
-        if (detailedAccounts.length > 50 || hasSubAccounts || hasAdvancedClasses) {
-            return 'NORMAL';
-        } else {
+            return (detailedAccounts.length > 50 || hasComplexAccounts) ? 'NORMAL' : 'MINIMAL_TRESORERIE';
+        } catch (error) {
+            console.error('SYSCOHADA detectSystemType:', error);
             return 'MINIMAL_TRESORERIE';
         }
     }
@@ -6509,114 +6511,119 @@ console.log('✅ Prêt pour la production');
      * Récupération sécurisée des données comptables avec filtrage par entreprise
      */
     function getAccountingData() {
-        const currentCompany = getCurrentCompany();
-        
-        // Sources multiples de données
-        let entries = window.app?.filteredData?.entries || 
-                      window.app?.entries || 
-                      window.app?.data?.entries || 
-                      [];
-        
-        let accounts = window.app?.accounts || 
-                       window.app?.chartOfAccounts || 
-                       window.app?.data?.accounts || 
-                       [];
-
-        // Filtrage par entreprise si ID disponible
-        if (currentCompany?.id) {
-            entries = entries.filter(entry => {
-                return entry.companyId === currentCompany.id || 
-                       entry.company_id === currentCompany.id ||
-                       entry.entreprise_id === currentCompany.id ||
-                       !entry.companyId; // Fallback pour compatibilité
-            });
+        try {
+            const currentCompany = getCurrentCompany();
             
-            // Filtrage des comptes par entreprise si applicable
-            if (accounts.length > 0 && accounts[0].companyId) {
-                accounts = accounts.filter(account => 
-                    account.companyId === currentCompany.id || 
-                    account.company_id === currentCompany.id ||
-                    !account.companyId
-                );
+            let entries = window.app?.filteredData?.entries || 
+                          window.app?.entries || 
+                          window.app?.data?.entries || 
+                          [];
+            
+            let accounts = window.app?.accounts || 
+                           window.app?.chartOfAccounts || 
+                           window.app?.data?.accounts || 
+                           [];
+
+            // Filtrage par entreprise si ID disponible
+            if (currentCompany?.id && Array.isArray(entries)) {
+                entries = entries.filter(entry => {
+                    return !entry.companyId || 
+                           entry.companyId === currentCompany.id || 
+                           entry.company_id === currentCompany.id ||
+                           entry.entreprise_id === currentCompany.id;
+                });
+                
+                // Filtrage des comptes par entreprise si applicable
+                if (accounts.length > 0 && accounts[0].companyId) {
+                    accounts = accounts.filter(account => 
+                        !account.companyId ||
+                        account.companyId === currentCompany.id || 
+                        account.company_id === currentCompany.id
+                    );
+                }
             }
+
+            // Filtrage des écritures validées uniquement
+            if (Array.isArray(entries)) {
+                entries = entries.filter(entry => {
+                    const status = entry.status || entry.state || entry.validated;
+                    return status === 'Validé' || 
+                           status === 'Validated' || 
+                           status === 'VALIDATED' ||
+                           status === true ||
+                           entry.validated === true;
+                });
+            }
+
+            return { 
+                entries: Array.isArray(entries) ? entries : [], 
+                accounts: Array.isArray(accounts) ? accounts : [] 
+            };
+        } catch (error) {
+            console.error('SYSCOHADA getAccountingData:', error);
+            return { entries: [], accounts: [] };
         }
-
-        // Filtrage des écritures validées uniquement
-        entries = entries.filter(entry => {
-            const status = entry.status || entry.state || entry.validated;
-            return status === 'Validé' || 
-                   status === 'Validated' || 
-                   status === 'VALIDATED' ||
-                   status === true ||
-                   entry.validated === true;
-        });
-
-        return { entries, accounts };
     }
 
     /**
      * Calcul du bilan selon le système détecté
      */
     function calculateBilanSYSCOHADA(systemType, company) {
-        const { entries, accounts } = getAccountingData();
-        
-        if (entries.length === 0) {
-            throw new Error('Aucune écriture comptable validée trouvée pour cette entreprise');
-        }
-        
-        if (accounts.length === 0) {
-            throw new Error('Plan comptable non disponible');
-        }
+        try {
+            const { entries, accounts } = getAccountingData();
+            
+            if (entries.length === 0) {
+                throw new Error('Aucune écriture comptable validée trouvée pour cette entreprise');
+            }
+            
+            if (accounts.length === 0) {
+                throw new Error('Plan comptable non disponible');
+            }
 
-        const soldes = calculateSoldesByClass(entries, accounts);
-        
-        if (systemType === 'MINIMAL_TRESORERIE') {
-            return calculateBilanMinimal(soldes, company, entries, accounts);
-        } else {
-            return calculateBilanNormal(soldes, company, entries, accounts);
+            const soldes = calculateSoldesByClass(entries, accounts);
+            
+            if (systemType === 'MINIMAL_TRESORERIE') {
+                return calculateBilanMinimal(soldes, company, entries, accounts);
+            } else {
+                return calculateBilanNormal(soldes, company, entries, accounts);
+            }
+        } catch (error) {
+            console.error('SYSCOHADA calculateBilan:', error);
+            throw error;
         }
     }
 
     /**
-     * Calcul bilan Système Normal (complet SYSCOHADA)
+     * Calcul bilan Système Normal
      */
     function calculateBilanNormal(soldes, company, entries, accounts) {
         const actif = {
-            // ACTIF IMMOBILISÉ
-            AB: getSoldeByClassRange(soldes, '201', '209'), // Charges immobilisées
-            AC: getSoldeByClassRange(soldes, '210', '219'), // Immobilisations incorporelles
-            AD: getSoldeByClassRange(soldes, '220', '249'), // Immobilisations corporelles
-            AE: getSoldeByClassRange(soldes, '250', '259'), // Avances/acomptes sur immobilisations
-            AF: getSoldeByClassRange(soldes, '260', '279'), // Immobilisations financières
-            
-            // ACTIF CIRCULANT
-            AG: getSoldeByClassRange(soldes, '300', '399'), // Stocks et en-cours
-            AH: getSoldeByClassRange(soldes, '400', '499', 'debiteur'), // Créances
-            
-            // TRÉSORERIE
-            AI: getSoldeByClassRange(soldes, '500', '589'), // Trésorerie-Actif
-            AJ: getSoldeByClassRange(soldes, '470', '479') // Écarts de conversion-Actif
+            AB: getSoldeByClassRange(soldes, '201', '209'),
+            AC: getSoldeByClassRange(soldes, '210', '219'),
+            AD: getSoldeByClassRange(soldes, '220', '249'),
+            AE: getSoldeByClassRange(soldes, '250', '259'),
+            AF: getSoldeByClassRange(soldes, '260', '279'),
+            AG: getSoldeByClassRange(soldes, '300', '399'),
+            AH: getSoldeByClassRange(soldes, '400', '499', 'debiteur'),
+            AI: getSoldeByClassRange(soldes, '500', '589'),
+            AJ: getSoldeByClassRange(soldes, '470', '479')
         };
 
         const passif = {
-            // CAPITAUX PROPRES
-            BA: getSoldeByClassRange(soldes, '101', '109'), // Capital
-            BB: getSoldeByClassRange(soldes, '110', '129'), // Primes et réserves
-            BC: getSoldeByClassRange(soldes, '105', '105'), // Écarts de réévaluation
-            BD: calculateResultatNet(entries, accounts), // Résultat net
-            BE: getSoldeByClassRange(soldes, '130', '139'), // Autres capitaux propres
-            BF: getSoldeByClassRange(soldes, '140', '149'), // Subventions d'investissement
-            BG: getSoldeByClassRange(soldes, '150', '159'), // Provisions réglementées
-            
-            // DETTES
-            BH: getSoldeByClassRange(soldes, '160', '169'), // Emprunts et dettes financières
-            BI: 0, // Dettes circulantes HAO (calculé séparément)
-            BJ: getSoldeByClassRange(soldes, '190', '199'), // Provisions pour risques
-            BK: getSoldeByClassRange(soldes, '400', '499', 'crediteur'), // Dettes circulantes
-            BL: getSoldeByClassRange(soldes, '590', '599') // Trésorerie-Passif
+            BA: getSoldeByClassRange(soldes, '101', '109'),
+            BB: getSoldeByClassRange(soldes, '110', '129'),
+            BC: getSoldeByClassRange(soldes, '105', '105'),
+            BD: calculateResultatNet(entries, accounts),
+            BE: getSoldeByClassRange(soldes, '130', '139'),
+            BF: getSoldeByClassRange(soldes, '140', '149'),
+            BG: getSoldeByClassRange(soldes, '150', '159'),
+            BH: getSoldeByClassRange(soldes, '160', '169'),
+            BI: 0,
+            BJ: getSoldeByClassRange(soldes, '190', '199'),
+            BK: getSoldeByClassRange(soldes, '400', '499', 'crediteur'),
+            BL: getSoldeByClassRange(soldes, '590', '599')
         };
 
-        // Calcul des totaux
         actif.totalImmobilise = actif.AB + actif.AC + actif.AD + actif.AE + actif.AF;
         actif.totalCirculant = actif.AG + actif.AH;
         actif.totalGeneral = actif.totalImmobilise + actif.totalCirculant + actif.AI + actif.AJ;
@@ -6638,7 +6645,7 @@ console.log('✅ Prêt pour la production');
     }
 
     /**
-     * Calcul bilan Système Minimal de Trésorerie (simplifié)
+     * Calcul bilan Système Minimal
      */
     function calculateBilanMinimal(soldes, company, entries, accounts) {
         const actif = {
@@ -6678,39 +6685,46 @@ console.log('✅ Prêt pour la production');
         const soldes = {};
         const accountMap = {};
         
-        // Créer un mapping rapide des comptes
-        accounts.forEach(account => {
-            accountMap[account.code] = account;
-        });
-
-        entries.forEach(entry => {
-            const lines = entry.lines || entry.lignes || entry.entryLines || [];
-            
-            lines.forEach(line => {
-                const accountCode = line.account || line.accountCode || line.compte;
-                const account = accountMap[accountCode];
-                
-                if (account && accountCode) {
-                    if (!soldes[accountCode]) soldes[accountCode] = 0;
-
-                    const debit = parseFloat(line.debit || line.debitAmount || 0);
-                    const credit = parseFloat(line.credit || line.creditAmount || 0);
-
-                    // Détermination de la nature du compte
-                    const nature = account.nature || account.accountNature || account.type;
-                    
-                    if (nature === 'Debit' || nature === 'DEBIT' || nature === 'D' || 
-                        accountCode.startsWith('1') || accountCode.startsWith('2') || 
-                        accountCode.startsWith('3') || accountCode.startsWith('6')) {
-                        soldes[accountCode] += debit - credit;
-                    } else {
-                        soldes[accountCode] += credit - debit;
-                    }
+        try {
+            // Créer un mapping rapide des comptes
+            accounts.forEach(account => {
+                if (account.code) {
+                    accountMap[account.code] = account;
                 }
             });
-        });
 
-        return soldes;
+            entries.forEach(entry => {
+                const lines = entry.lines || entry.lignes || entry.entryLines || [];
+                
+                lines.forEach(line => {
+                    const accountCode = line.account || line.accountCode || line.compte;
+                    const account = accountMap[accountCode];
+                    
+                    if (account && accountCode) {
+                        if (!soldes[accountCode]) soldes[accountCode] = 0;
+
+                        const debit = parseFloat(line.debit || line.debitAmount || 0) || 0;
+                        const credit = parseFloat(line.credit || line.creditAmount || 0) || 0;
+
+                        // Détermination de la nature du compte
+                        const nature = account.nature || account.accountNature || account.type;
+                        
+                        if (nature === 'Debit' || nature === 'DEBIT' || nature === 'D' || 
+                            accountCode.startsWith('1') || accountCode.startsWith('2') || 
+                            accountCode.startsWith('3') || accountCode.startsWith('6')) {
+                            soldes[accountCode] += debit - credit;
+                        } else {
+                            soldes[accountCode] += credit - debit;
+                        }
+                    }
+                });
+            });
+
+            return soldes;
+        } catch (error) {
+            console.error('SYSCOHADA calculateSoldesByClass:', error);
+            return {};
+        }
     }
 
     /**
@@ -6719,22 +6733,26 @@ console.log('✅ Prêt pour la production');
     function getSoldeByClassRange(soldes, start, end, sens = 'normal') {
         let total = 0;
 
-        Object.keys(soldes).forEach(code => {
-            if (code >= start && code <= end) {
-                const solde = parseFloat(soldes[code]) || 0;
-                
-                switch(sens) {
-                    case 'debiteur':
-                        if (solde > 0) total += solde;
-                        break;
-                    case 'crediteur':
-                        if (solde < 0) total += Math.abs(solde);
-                        break;
-                    default:
-                        total += Math.abs(solde);
+        try {
+            Object.keys(soldes).forEach(code => {
+                if (code >= start && code <= end) {
+                    const solde = parseFloat(soldes[code]) || 0;
+                    
+                    switch(sens) {
+                        case 'debiteur':
+                            if (solde > 0) total += solde;
+                            break;
+                        case 'crediteur':
+                            if (solde < 0) total += Math.abs(solde);
+                            break;
+                        default:
+                            total += Math.abs(solde);
+                    }
                 }
-            }
-        });
+            });
+        } catch (error) {
+            console.error('SYSCOHADA getSoldeByClassRange:', error);
+        }
 
         return total;
     }
@@ -6746,42 +6764,85 @@ console.log('✅ Prêt pour la production');
         let produits = 0;
         let charges = 0;
 
-        entries.forEach(entry => {
-            const lines = entry.lines || entry.lignes || entry.entryLines || [];
-            
-            lines.forEach(line => {
-                const accountCode = line.account || line.accountCode || line.compte;
-                const debit = parseFloat(line.debit || line.debitAmount || 0);
-                const credit = parseFloat(line.credit || line.creditAmount || 0);
+        try {
+            entries.forEach(entry => {
+                const lines = entry.lines || entry.lignes || entry.entryLines || [];
                 
-                if (accountCode) {
-                    // Classe 7 = Produits
-                    if (accountCode.startsWith('7')) {
-                        produits += credit;
+                lines.forEach(line => {
+                    const accountCode = line.account || line.accountCode || line.compte;
+                    const debit = parseFloat(line.debit || line.debitAmount || 0) || 0;
+                    const credit = parseFloat(line.credit || line.creditAmount || 0) || 0;
+                    
+                    if (accountCode) {
+                        // Classe 7 = Produits
+                        if (accountCode.startsWith('7')) {
+                            produits += credit;
+                        }
+                        // Classe 6 = Charges
+                        if (accountCode.startsWith('6')) {
+                            charges += debit;
+                        }
                     }
-                    // Classe 6 = Charges
-                    if (accountCode.startsWith('6')) {
-                        charges += debit;
-                    }
-                }
+                });
             });
-        });
+        } catch (error) {
+            console.error('SYSCOHADA calculateResultatNet:', error);
+        }
 
         return produits - charges;
+    }
+
+    /**
+     * Point d'entrée principal pour génération de bilan
+     */
+    function generateBilan() {
+        try {
+            const currentCompany = getCurrentCompany();
+            
+            if (!currentCompany) {
+                window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour générer le bilan SYSCOHADA');
+                return;
+            }
+
+            // Détection automatique du système comptable
+            const systemType = detectSystemType();
+            
+            window.unifiedManager.notificationManager.show('info', 'Génération en cours', `Préparation du bilan SYSCOHADA Révisé (${systemType})...`);
+
+            setTimeout(() => {
+                try {
+                    const bilanData = calculateBilanSYSCOHADA(systemType, currentCompany);
+                    displayBilanModal(bilanData, systemType, currentCompany);
+                } catch (error) {
+                    window.unifiedManager.notificationManager.show('error', 'Erreur de génération', `Impossible de générer le bilan: ${error.message}`);
+                    console.error('SYSCOHADA generateBilan:', error);
+                }
+            }, SYSCOHADA_CONFIG.DELAY);
+        } catch (error) {
+            console.error('SYSCOHADA generateBilan:', error);
+            if (window.unifiedManager?.notificationManager) {
+                window.unifiedManager.notificationManager.show('error', 'Erreur système', 'Une erreur inattendue s\'est produite');
+            }
+        }
     }
 
     /**
      * Affichage du bilan dans une modal responsive
      */
     function displayBilanModal(bilanData, systemType, company) {
-        const modalContent = systemType === 'MINIMAL_TRESORERIE' ? 
-            generateBilanMinimalHTML(bilanData) : 
-            generateBilanNormalHTML(bilanData);
+        try {
+            const modalContent = systemType === 'MINIMAL_TRESORERIE' ? 
+                generateBilanMinimalHTML(bilanData) : 
+                generateBilanNormalHTML(bilanData);
 
-        const title = `Bilan SYSCOHADA Révisé - ${systemType === 'MINIMAL_TRESORERIE' ? 'Système Minimal' : 'Système Normal'}`;
-        
-        window.unifiedManager.modalManager.show(title, modalContent);
-        window.unifiedManager.notificationManager.show('success', 'Bilan généré', `Bilan SYSCOHADA ${systemType} généré avec succès`);
+            const title = `Bilan SYSCOHADA Révisé - ${systemType === 'MINIMAL_TRESORERIE' ? 'Système Minimal' : 'Système Normal'}`;
+            
+            window.unifiedManager.modalManager.show(title, modalContent);
+            window.unifiedManager.notificationManager.show('success', 'Bilan généré', 'Bilan SYSCOHADA généré avec succès');
+        } catch (error) {
+            console.error('SYSCOHADA displayBilanModal:', error);
+            window.unifiedManager.notificationManager.show('error', 'Erreur d\'affichage', 'Impossible d\'afficher le bilan');
+        }
     }
 
     /**
@@ -6959,15 +7020,7 @@ console.log('✅ Prêt pour la production');
             </div>
 
             <!-- Actions -->
-            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
-                <div class="flex space-x-3">
-                    <button onclick="exportBilanSYSCOHADA()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-                        <i class="fas fa-download mr-2"></i>Export PDF
-                    </button>
-                    <button onclick="printBilanSYSCOHADA()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
-                        <i class="fas fa-print mr-2"></i>Imprimer
-                    </button>
-                </div>
+            <div class="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-600">
                 <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
                     Fermer
                 </button>
@@ -7069,15 +7122,7 @@ console.log('✅ Prêt pour la production');
             </div>
 
             <!-- Actions -->
-            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
-                <div class="flex space-x-3">
-                    <button onclick="exportBilanSYSCOHADA()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-                        <i class="fas fa-download mr-2"></i>Export PDF
-                    </button>
-                    <button onclick="printBilanSYSCOHADA()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
-                        <i class="fas fa-print mr-2"></i>Imprimer
-                    </button>
-                </div>
+            <div class="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-600">
                 <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
                     Fermer
                 </button>
@@ -7087,75 +7132,93 @@ console.log('✅ Prêt pour la production');
     }
 
     /**
-     * Fonctions d'export et impression (à personnaliser selon votre système)
-     */
-    function exportBilanSYSCOHADA() {
-        window.unifiedManager.notificationManager.show('success', 'Export en cours', 'Le bilan SYSCOHADA est en cours d\'export en PDF...');
-        // TODO: Implémenter la logique d'export PDF selon votre système
-    }
-
-    function printBilanSYSCOHADA() {
-        window.unifiedManager.notificationManager.show('info', 'Impression', 'Préparation du bilan pour impression...');
-        // TODO: Implémenter la logique d'impression selon votre système
-    }
-
-    /**
-     * AJOUT AUTOMATIQUE DU POINT D'ENTRÉE
+     * Ajout sécurisé du point d'entrée dans l'interface
      */
     function addIntegrationPoint() {
-        // Tentative 1: Recherche d'un menu existant
-        const menus = document.querySelectorAll('.menu, .nav, .sidebar, [role="navigation"]');
-        let menuAdded = false;
+        try {
+            let menuAdded = false;
 
-        menus.forEach(menu => {
-            const menuItems = menu.querySelectorAll('li, .menu-item, .nav-item');
-            if (menuItems.length > 0 && !menuAdded) {
-                const bilanMenuItem = document.createElement('li');
-                bilanMenuItem.className = 'menu-item';
-                bilanMenuItem.innerHTML = `
-                    <a href="#" onclick="generateBilan(); return false;" 
-                       class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                        <i class="fas fa-chart-line mr-2"></i>Bilan SYSCOHADA
-                    </a>
+            // Tentative 1: Recherche d'un menu existant
+            const menus = document.querySelectorAll('.menu, .nav, .sidebar, [role="navigation"], .nav-menu, .main-nav');
+            menus.forEach(menu => {
+                const menuItems = menu.querySelectorAll('li, .menu-item, .nav-item, a');
+                if (menuItems.length > 0 && !menuAdded && !menu.querySelector('[data-syscohada-menu]')) {
+                    const bilanMenuItem = document.createElement('li');
+                    bilanMenuItem.className = 'menu-item';
+                    bilanMenuItem.setAttribute('data-syscohada-menu', 'true');
+                    bilanMenuItem.innerHTML = `
+                        <a href="#" onclick="generateBilan(); return false;" 
+                           class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                            <i class="fas fa-chart-line mr-2"></i>Bilan SYSCOHADA
+                        </a>
+                    `;
+                    menu.appendChild(bilanMenuItem);
+                    menuAdded = true;
+                }
+            });
+
+            // Tentative 2: Bouton flottant si pas de menu
+            if (!menuAdded && !document.getElementById('syscohada-floating-btn')) {
+                const floatingButton = document.createElement('button');
+                floatingButton.id = 'syscohada-floating-btn';
+                floatingButton.className = 'fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition-colors z-50';
+                floatingButton.innerHTML = `
+                    <i class="fas fa-chart-line mr-2"></i>
+                    Bilan SYSCOHADA
                 `;
-                menu.appendChild(bilanMenuItem);
-                menuAdded = true;
-                console.log('SYSCOHADA: Élément de menu ajouté avec succès');
+                floatingButton.onclick = generateBilan;
+                document.body.appendChild(floatingButton);
             }
-        });
-
-        // Tentative 2: Bouton flottant si pas de menu
-        if (!menuAdded) {
-            const floatingButton = document.createElement('button');
-            floatingButton.id = 'syscohada-floating-btn';
-            floatingButton.className = 'fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition-colors z-50';
-            floatingButton.innerHTML = `
-                <i class="fas fa-chart-line mr-2"></i>
-                Bilan SYSCOHADA
-            `;
-            floatingButton.onclick = generateBilan;
-            document.body.appendChild(floatingButton);
-            console.log('SYSCOHADA: Bouton flottant ajouté');
+        } catch (error) {
+            console.error('SYSCOHADA addIntegrationPoint:', error);
         }
     }
 
-    // Exposer les fonctions globalement
+    // Exposition sécurisée des fonctions globalement (avec préfixe pour éviter les conflits)
     window.generateBilan = generateBilan;
-    window.calculateBilanSYSCOHADA = calculateBilanSYSCOHADA;
-    window.exportBilanSYSCOHADA = exportBilanSYSCOHADA;
-    window.printBilanSYSCOHADA = printBilanSYSCOHADA;
-    window.getCurrentCompany = getCurrentCompany;
-    window.detectSystemType = detectSystemType;
+    window.SYSCOHADA_calculateBilan = calculateBilanSYSCOHADA;
+    window.SYSCOHADA_getCurrentCompany = getCurrentCompany;
+    window.SYSCOHADA_detectSystemType = detectSystemType;
+
+    // Fonction de nettoyage pour désinstaller l'intégration
+    window.SYSCOHADA_removeIntegration = function() {
+        try {
+            // Supprimer les fonctions globales
+            delete window.generateBilan;
+            delete window.SYSCOHADA_calculateBilan;
+            delete window.SYSCOHADA_getCurrentCompany;
+            delete window.SYSCOHADA_detectSystemType;
+            delete window.SYSCOHADA_removeIntegration;
+            
+            // Supprimer les éléments d'interface
+            const floatingBtn = document.getElementById('syscohada-floating-btn');
+            if (floatingBtn) floatingBtn.remove();
+            
+            const menuItems = document.querySelectorAll('[data-syscohada-menu]');
+            menuItems.forEach(item => item.remove());
+            
+            console.log('SYSCOHADA: Intégration supprimée avec succès');
+            return true;
+        } catch (error) {
+            console.error('SYSCOHADA removeIntegration:', error);
+            return false;
+        }
+    };
 
     // Ajout du point d'entrée quand le DOM est prêt
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', addIntegrationPoint);
-    } else {
-        addIntegrationPoint();
+    function waitForDOM() {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', addIntegrationPoint);
+        } else {
+            addIntegrationPoint();
+        }
     }
 
-    // Notification de succès
+    // Initialisation différée pour éviter les conflits
     setTimeout(() => {
+        waitForDOM();
+        
+        // Notification de succès
         if (window.unifiedManager?.notificationManager) {
             window.unifiedManager.notificationManager.show(
                 'success',
@@ -7163,29 +7226,11 @@ console.log('✅ Prêt pour la production');
                 'Le générateur de bilan SYSCOHADA Révisé est maintenant disponible'
             );
         }
-    }, 2000);
-
-    console.log('SYSCOHADA Integration: Code intégré avec succès');
+        
+        console.log(`SYSCOHADA Integration v${SYSCOHADA_CONFIG.VERSION}: Code intégré avec succès`);
+    }, SYSCOHADA_CONFIG.DELAY);
 
 })(); // Auto-exécution de l'intégration
-
-// Fonction de restauration manuelle (optionnelle)
-window.removeSYSCOHADAIntegration = function() {
-    // Supprimer les fonctions
-    delete window.generateBilan;
-    delete window.calculateBilanSYSCOHADA;
-    delete window.exportBilanSYSCOHADA;
-    delete window.printBilanSYSCOHADA;
-    delete window.getCurrentCompany;
-    delete window.detectSystemType;
-    
-    // Supprimer le bouton flottant
-    const floatingBtn = document.getElementById('syscohada-floating-btn');
-    if (floatingBtn) floatingBtn.remove();
-    
-    console.log('SYSCOHADA Integration: Supprimée avec succès');
-    return true;
-};
 
 /**
  * =============================================================================
