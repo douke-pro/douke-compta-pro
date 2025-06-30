@@ -1852,7 +1852,7 @@ loadNavigationMenu() {
         } else if (item.isSpecial) {
             // Fonctions spéciales (Production/Backend) - via unifiedManager
             menuHtml += `
-                <a href="#" onclick="window.unifiedManager.${item.handler}(); return false;" 
+    <a href="#" onclick="safeNavigation('${item.handler}', this); return false;"
                    class="flex items-center px-6 py-3 ${item.specialClass} transition-colors rounded-lg mx-2">
                     <i class="${item.icon} w-5 h-5 mr-3"></i>
                     <span>${item.text}</span>
@@ -3447,7 +3447,116 @@ loadTeamManagementPage() {
                     mainContent.innerHTML = content;
                 }
             }
+
+    // =============================================================================
+// CORRECTIONS ONCLICK - NAVIGATION SÉCURISÉE
+// =============================================================================
+
+// Navigation sécurisée pour les menus dynamiques
+function safeNavigation(handlerName, element) {
+    try {
+        if (window.unifiedManager && typeof window.unifiedManager[handlerName] === 'function') {
+            window.unifiedManager[handlerName]();
+            if (typeof window.unifiedManager.setActiveMenuItem === 'function') {
+                window.unifiedManager.setActiveMenuItem(element);
+            } else if (typeof setActiveMenuItem === 'function') {
+                setActiveMenuItem(element);
+            }
+        } else {
+            console.warn('Navigation handler non disponible:', handlerName);
+        }
+    } catch (error) {
+        console.error('Erreur navigation:', error);
+    }
+}
+
+// Fonction pour viewAccountHistory (manquante dans le scope global)
+function viewAccountHistory(accountCode) {
+    if (!window.unifiedManager) return;
     
+    const account = window.app.accounts.find(a => a.code === accountCode);
+    if (!account) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Compte introuvable');
+        return;
+    }
+    
+    const entries = window.app.filteredData.entries.filter(entry => 
+        entry.lines.some(line => line.account === accountCode)
+    );
+    
+    const modalContent = `
+        <div class="space-y-4">
+            <div class="text-center">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Historique du compte</h3>
+                <p class="text-primary font-mono">${accountCode} - ${account.name}</p>
+            </div>
+            <div class="max-h-96 overflow-y-auto">
+                ${entries.length > 0 ? entries.map(entry => `
+                    <div class="border border-gray-200 dark:border-gray-700 rounded p-3 mb-2">
+                        <div class="flex justify-between">
+                            <span class="font-medium">${entry.libelle}</span>
+                            <span class="text-sm text-gray-500">${new Date(entry.date).toLocaleDateString('fr-FR')}</span>
+                        </div>
+                    </div>
+                `).join('') : '<p class="text-center text-gray-500">Aucune écriture trouvée</p>'}
+            </div>
+            <div class="flex justify-end">
+                <button onclick="window.unifiedManager.modalManager.hide()" 
+                        class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    `;
+    
+    window.unifiedManager.modalManager.show(`Historique - ${accountCode}`, modalContent);
+}
+
+// Fonctions de filtrage pour la page des comptes
+function filterAccounts() {
+    const searchInput = document.getElementById('accountSearchInput');
+    const classFilter = document.getElementById('classFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
+    
+    if (!searchInput || !classFilter || !categoryFilter) return;
+    
+    const searchTerm = searchInput.value.toLowerCase();
+    const selectedClass = classFilter.value;
+    const selectedCategory = categoryFilter.value;
+    
+    document.querySelectorAll('.account-card').forEach(card => {
+        const code = card.dataset.code || '';
+        const name = card.dataset.name || '';
+        const category = card.dataset.category || '';
+        const cardClass = card.dataset.class || '';
+        
+        const matchesSearch = !searchTerm || 
+            code.toLowerCase().includes(searchTerm) || 
+            name.toLowerCase().includes(searchTerm);
+        const matchesClass = !selectedClass || cardClass === selectedClass;
+        const matchesCategory = !selectedCategory || category === selectedCategory;
+        
+        if (matchesSearch && matchesClass && matchesCategory) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function resetAccountFilters() {
+    const searchInput = document.getElementById('accountSearchInput');
+    const classFilter = document.getElementById('classFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
+    
+    if (searchInput) searchInput.value = '';
+    if (classFilter) classFilter.value = '';
+    if (categoryFilter) categoryFilter.value = '';
+    
+    document.querySelectorAll('.account-card').forEach(card => {
+        card.style.display = '';
+    });
+}        
 // =============================================================================
 // FONCTIONS UTILITAIRES
 // =============================================================================
