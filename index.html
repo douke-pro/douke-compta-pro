@@ -1859,18 +1859,18 @@ loadNavigationMenu() {
                 </a>
             `;
         } else {
-            // Menu normal (votre logique existante INTACTE)
-            const isFirst = !activeSet && index === 0;
-            if (isFirst) activeSet = true;
-            
-            menuHtml += `
-                <a href="#" onclick="window.unifiedManager.${item.handler}(); window.unifiedManager.setActiveMenuItem(this); return false;" 
-                   class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${isFirst ? 'bg-primary text-white' : ''}">
-                    <i class="${item.icon} w-5 h-5 mr-3"></i>
-                    <span>${item.text}</span>
-                </a>
-            `;
-        }
+    // Menu normal (votre logique existante INTACTE)
+    const isFirst = !activeSet && index === 0;
+    if (isFirst) activeSet = true;
+    
+    menuHtml += `
+        <a href="#" onclick="safeNavigation('${item.handler}', this); return false;" 
+           class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors ${isFirst ? 'bg-primary text-white' : ''}">
+            <i class="${item.icon} w-5 h-5 mr-3"></i>
+            <span>${item.text}</span>
+        </a>
+    `;
+}
     });
 
     const navElement = document.getElementById('navigationMenu');
@@ -3448,7 +3448,7 @@ loadTeamManagementPage() {
                 }
             }
 
-    // =============================================================================
+// =============================================================================
 // CORRECTIONS ONCLICK - NAVIGATION SÉCURISÉE
 // =============================================================================
 
@@ -3556,12 +3556,13 @@ function resetAccountFilters() {
     document.querySelectorAll('.account-card').forEach(card => {
         card.style.display = '';
     });
-}        
+}
+
 // =============================================================================
 // FONCTIONS UTILITAIRES
 // =============================================================================
 
-setActiveMenuItem(element) {
+function setActiveMenuItem(element) {
     // Supprimer la classe active de tous les éléments
     const menuItems = document.querySelectorAll('#navigationMenu a');
     menuItems.forEach(item => {
@@ -3575,39 +3576,35 @@ setActiveMenuItem(element) {
         element.classList.remove('text-gray-700', 'dark:text-gray-300');
     }
 }
-    // =============================================================================
-    // FONCTIONS UTILITAIRES
-    // =============================================================================
 
-    updateSecurityIndicators() {
-        const profile = window.app.currentProfile;
-        const user = window.app.currentUser;
+function updateSecurityIndicators() {
+    const profile = window.app.currentProfile;
+    const user = window.app.currentUser;
 
-        // Mettre à jour le niveau de sécurité
-        const securityLevel = document.getElementById('securityLevel');
-        const securityLevelText = document.getElementById('securityLevelText');
-        const sidebarUserHierarchy = document.getElementById('sidebarUserHierarchy');
-        const accessIndicator = document.getElementById('accessIndicator');
+    // Mettre à jour le niveau de sécurité
+    const securityLevel = document.getElementById('securityLevel');
+    const securityLevelText = document.getElementById('securityLevelText');
+    const sidebarUserHierarchy = document.getElementById('sidebarUserHierarchy');
+    const accessIndicator = document.getElementById('accessIndicator');
 
-        if (securityLevel && securityLevelText) {
-            const levels = {
-                'admin': { class: 'bg-danger/10 text-danger', text: 'Niveau 5 - Admin', icon: 'fa-crown' },
-                'collaborateur_senior': { class: 'bg-primary/10 text-primary', text: 'Niveau 4 - Senior', icon: 'fa-star' },
-                'collaborateur': { class: 'bg-info/10 text-info', text: 'Niveau 3 - Collaborateur', icon: 'fa-users' },
-                'user': { class: 'bg-success/10 text-success', text: 'Niveau 2 - Utilisateur', icon: 'fa-user' },
-                'caissier': { class: 'bg-warning/10 text-warning', text: 'Niveau 1 - Caissier', icon: 'fa-cash-register' }
-            };
+    if (securityLevel && securityLevelText) {
+        const levels = {
+            'admin': { class: 'bg-danger/10 text-danger', text: 'Niveau 5 - Admin', icon: 'fa-crown' },
+            'collaborateur_senior': { class: 'bg-primary/10 text-primary', text: 'Niveau 4 - Senior', icon: 'fa-star' },
+            'collaborateur': { class: 'bg-info/10 text-info', text: 'Niveau 3 - Collaborateur', icon: 'fa-users' },
+            'user': { class: 'bg-success/10 text-success', text: 'Niveau 2 - Utilisateur', icon: 'fa-user' },
+            'caissier': { class: 'bg-warning/10 text-warning', text: 'Niveau 1 - Caissier', icon: 'fa-cash-register' }
+        };
 
-            const level = levels[profile] || levels['user'];
-            securityLevel.className = `flex items-center space-x-2 px-3 py-1 rounded-lg ${level.class}`;
-            securityLevelText.textContent = level.text;
+        const level = levels[profile] || levels['user'];
+        securityLevel.className = `flex items-center space-x-2 px-3 py-1 rounded-lg ${level.class}`;
+        securityLevelText.textContent = level.text;
 
-            const icon = securityLevel.querySelector('i');
-            if (icon) {
-                icon.className = `fas ${level.icon} text-sm`;
-            }
+        const icon = securityLevel.querySelector('i');
+        if (icon) {
+            icon.className = `fas ${level.icon} text-sm`;
         }
-
+    }
         // Mettre à jour la hiérarchie dans la sidebar
         if (sidebarUserHierarchy) {
             const hierarchyTexts = {
