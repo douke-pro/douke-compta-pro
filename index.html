@@ -3455,18 +3455,27 @@ loadTeamManagementPage() {
 // Navigation sécurisée pour les menus dynamiques
 function safeNavigation(handlerName, element) {
     try {
-        if (window.unifiedManager && typeof window.unifiedManager[handlerName] === 'function') {
+        // Attendre que unifiedManager soit disponible
+        if (!window.unifiedManager) {
+            console.warn('UnifiedManager pas encore initialisé, handler:', handlerName);
+            return false;
+        }
+        
+        if (typeof window.unifiedManager[handlerName] === 'function') {
             window.unifiedManager[handlerName]();
-            if (typeof window.unifiedManager.setActiveMenuItem === 'function') {
-                window.unifiedManager.setActiveMenuItem(element);
-            } else if (typeof setActiveMenuItem === 'function') {
+            
+            // Gestion du menu actif
+            if (element && typeof setActiveMenuItem === 'function') {
                 setActiveMenuItem(element);
             }
+            return true;
         } else {
             console.warn('Navigation handler non disponible:', handlerName);
+            return false;
         }
     } catch (error) {
         console.error('Erreur navigation:', error);
+        return false;
     }
 }
 
@@ -3805,22 +3814,37 @@ function fillCredentials(profile) {
 
     const cred = credentials[profile];
     if (cred) {
-        document.getElementById('loginEmail').value = cred.email;
-        document.getElementById('loginPassword').value = cred.password;
-        window.unifiedManager.notificationManager.show('info', 'Identifiants pré-remplis', `Profil ${profile} sélectionné`);
+        const emailField = document.getElementById('loginEmail');
+        const passwordField = document.getElementById('loginPassword');
+        
+        if (emailField && passwordField) {
+            emailField.value = cred.email;
+            passwordField.value = cred.password;
+            
+            // Notification seulement si le gestionnaire est disponible
+            if (window.unifiedManager && window.unifiedManager.notificationManager) {
+                window.unifiedManager.notificationManager.show('info', 'Identifiants pré-remplis', `Profil ${profile} sélectionné`);
+            }
+        }
     }
 }
 
 function togglePassword() {
-    const passwordInput = document.getElementById('loginPassword');
-    const toggleIcon = document.getElementById('passwordToggleIcon');
-    
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        toggleIcon.className = 'fas fa-eye-slash';
-    } else {
-        passwordInput.type = 'password';
-        toggleIcon.className = 'fas fa-eye';
+    try {
+        const passwordInput = document.getElementById('loginPassword');
+        const toggleIcon = document.getElementById('passwordToggleIcon');
+
+        if (passwordInput && toggleIcon) {
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.className = 'fas fa-eye';
+            }
+        }
+    } catch (error) {
+        console.error('Erreur togglePassword:', error);
     }
 }
 
