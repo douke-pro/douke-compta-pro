@@ -10,6 +10,45 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
 
     <script>
+     // =============================================================================
+// 🔧 CORRECTIF URGENT POUR LES ONCLICK
+// =============================================================================
+
+// ✅ SOLUTION 1: Initialisation IMMÉDIATE (pas d'attente du DOM)
+console.log('🚀 Démarrage immédiat du système...');
+
+// ✅ SOLUTION 2: Wrapper de sécurité pour tous les onclick
+window.safeExecute = function(functionName, ...args) {
+    console.log(`🔍 Exécution: ${functionName}`, args);
+    try {
+        // Chercher la fonction partout
+        if (typeof window[functionName] === 'function') {
+            return window[functionName](...args);
+        } else if (window.unifiedManager && typeof window.unifiedManager[functionName] === 'function') {
+            return window.unifiedManager[functionName](...args);
+        } else if (typeof window[functionName] !== 'undefined') {
+            return window[functionName];
+        } else {
+            console.error(`❌ Fonction ${functionName} introuvable`);
+            alert(`Fonction ${functionName} non disponible. Veuillez recharger la page.`);
+        }
+    } catch (error) {
+        console.error(`❌ Erreur dans ${functionName}:`, error);
+        alert(`Erreur: ${error.message}`);
+    }
+};
+
+// ✅ SOLUTION 3: Exposer toutes les fonctions critiques IMMÉDIATEMENT
+window.showNewUserModal = () => safeExecute('showNewUserModal');
+window.showNewCompanyModal = () => safeExecute('showNewCompanyModal');  
+window.showNewEntryModal = () => safeExecute('showNewEntryModal');
+window.fillCredentials = (profile) => safeExecute('fillCredentials', profile);
+window.handleSecureLogin = () => safeExecute('handleSecureLogin');
+window.confirmSecureLogout = () => safeExecute('confirmSecureLogout');
+window.togglePassword = () => safeExecute('togglePassword');
+window.toggleThemeMenu = () => safeExecute('toggleThemeMenu');
+window.setTheme = (theme) => safeExecute('setTheme', theme);
+        
         tailwind.config = {
             darkMode: 'class',
             theme: {
