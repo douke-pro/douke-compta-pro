@@ -3398,6 +3398,587 @@
 
         // Note: Les fonctions onclick additionnelles nécessaires pour le fonctionnement complet 
         // sont incluses et disponibles via le système safeExecute()
+
+        // =============================================================================
+// FONCTIONS UTILITAIRES DE SÉCURITÉ MANQUANTES
+// =============================================================================
+
+/**
+ * Vérifie si l'utilisateur actuel peut gérer un autre utilisateur
+ */
+UnifiedDataManager.prototype.canManageUser = function(targetUser) {
+    const currentUser = window.app.currentUser;
+    if (!currentUser || !targetUser) return false;
+    
+    const currentLevel = this.security.profileHierarchy[currentUser.profile] || 0;
+    const targetLevel = this.security.profileHierarchy[targetUser.profile] || 0;
+    
+    // Admin peut tout gérer
+    if (currentUser.profile === 'admin') return true;
+    
+    // Senior peut gérer collaborateur, user, caissier
+    if (currentUser.profile === 'collaborateur_senior') {
+        return ['collaborateur', 'user', 'caissier'].includes(targetUser.profile);
+    }
+    
+    // Collaborateur peut gérer user et caissier
+    if (currentUser.profile === 'collaborateur') {
+        return ['user', 'caissier'].includes(targetUser.profile);
+    }
+    
+    return false;
+};
+
+/**
+ * Retourne les rôles disponibles selon le profil actuel
+ */
+UnifiedDataManager.prototype.getAvailableRoles = function() {
+    const currentProfile = window.app.currentProfile;
+    
+    const allRoles = [
+        { profile: 'admin', name: 'Administrateur' },
+        { profile: 'collaborateur_senior', name: 'Collaborateur Senior' },
+        { profile: 'collaborateur', name: 'Collaborateur' },
+        { profile: 'user', name: 'Utilisateur' },
+        { profile: 'caissier', name: 'Caissier' }
+    ];
+    
+    if (currentProfile === 'admin') {
+        return allRoles;
+    } else if (currentProfile === 'collaborateur_senior') {
+        return allRoles.filter(r => ['collaborateur', 'user', 'caissier'].includes(r.profile));
+    } else if (currentProfile === 'collaborateur') {
+        return allRoles.filter(r => ['user', 'caissier'].includes(r.profile));
+    }
+    
+    return [];
+};
+
+/**
+ * Retourne les entreprises accessibles selon le profil
+ */
+UnifiedDataManager.prototype.getAccessibleCompanies = function() {
+    const currentUser = window.app.currentUser;
+    if (!currentUser) return [];
+    
+    if (currentUser.profile === 'admin') {
+        return window.app.companies || [];
+    }
+    
+    return window.app.companies.filter(company => {
+        if (currentUser.profile === 'user' || currentUser.profile === 'caissier') {
+            return company.id === currentUser.companyId;
+        }
+        
+        return currentUser.assignedCompanies && 
+               currentUser.assignedCompanies.includes(company.id);
+    });
+};
+
+/**
+ * Retourne les permissions par défaut selon le profil
+ */
+UnifiedDataManager.prototype.getDefaultPermissions = function(profile) {
+    const permissionSets = {
+        'admin': ['all', 'read', 'write', 'delete', 'validate', 'manage_users', 'manage_companies'],
+        'collaborateur_senior': ['read', 'write', 'validate', 'manage_team', 'reports'],
+        'collaborateur': ['read', 'write', 'validate', 'reports'],
+        'user': ['read', 'write', 'reports'],
+        'caissier': ['cash_operations', 'read']
+    };
+    
+    return permissionSets[profile] || ['read'];
+};
+
+/**
+ * Retourne le libellé d'une permission
+ */
+UnifiedDataManager.prototype.getPermissionLabel = function(permission) {
+    const labels = {
+        'all': 'Accès total',
+        'read': 'Lecture',
+        'write': 'Écriture',
+        'delete': 'Suppression',
+        'validate': 'Validation',
+        'manage_users': 'Gestion utilisateurs',
+        'manage_companies': 'Gestion entreprises',
+        'manage_team': 'Gestion équipe',
+        'reports': 'Rapports',
+        'cash_operations': 'Opérations de caisse'
+    };
+    
+    return labels[permission] || permission;
+};
+
+/**
+ * Retourne les classes CSS pour le statut
+ */
+UnifiedDataManager.prototype.getStatusColor = function(status) {
+    const colors = {
+        'Actif': 'bg-success/20 text-success',
+        'Inactif': 'bg-gray-500/20 text-gray-500',
+        'Suspendu': 'bg-danger/20 text-danger',
+        'Période d\'essai': 'bg-warning/20 text-warning'
+    };
+    
+    return colors[status] || 'bg-gray-200 text-gray-800';
+};
+
+   // =============================================================================
+// FONCTIONS DE GESTION D'ÉQUIPE AVANCÉES
+// =============================================================================
+
+/**
+ * Initialise la gestion d'équipe après chargement de la page
+ */
+function initializeTeamManagement() {
+    // Populer la liste des membres
+    populateTeamTable();
+    
+    // Populer la liste des entreprises pour le modal
+    populateCompaniesCheckboxes();
+    
+    // Attacher les événements
+    attachTeamEvents();
+    
+    // Mettre à jour les statistiques
+    updateTeamStatistics();
+    
+    console.log('🎯 Gestion d\'équipe initialisée');
+}
+
+/**
+ * Affiche le modal d'ajout de membre
+ */
+function showAddMemberModal() {
+    const modal = document.getElementById('addMemberModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        
+        // Focus sur le premier champ
+        setTimeout(() => {
+            const firstInput = modal.querySelector('#firstName');
+            if (firstInput) firstInput.focus();
+        }, 100);
+    }
+}
+
+/**
+ * Cache le modal d'ajout de membre
+ */
+function hideAddMemberModal() {
+    const modal = document.getElementById('addMemberModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        
+        // Réinitialiser le formulaire
+        const form = modal.querySelector('#addMemberForm');
+        if (form) form.reset();
+    }
+}
+
+/**
+ * Affiche le menu des actions en lot
+ */
+function showBulkActions() {
+    const selectedMembers = getSelectedMembers();
+    
+    if (selectedMembers.length === 0) {
+        window.unifiedManager.notificationManager.show('warning', 'Sélection requise', 
+            'Sélectionnez au moins un membre pour effectuer des actions en lot');
+        return;
+    }
+    
+    const modalContent = `
+    <div class="space-y-4">
+        <div class="text-center">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Actions en lot</h3>
+            <p class="text-gray-600 dark:text-gray-400">${selectedMembers.length} membre(s) sélectionné(s)</p>
+        </div>
+        
+        <div class="space-y-3">
+            <button onclick="bulkActivateUsers(); window.unifiedManager.modalManager.hide()"
+                class="w-full text-left p-3 bg-success/10 hover:bg-success/20 rounded-lg transition-colors">
+                <i class="fas fa-user-check mr-3 text-success"></i>Activer les comptes
+            </button>
+            <button onclick="bulkDeactivateUsers(); window.unifiedManager.modalManager.hide()"
+                class="w-full text-left p-3 bg-warning/10 hover:bg-warning/20 rounded-lg transition-colors">
+                <i class="fas fa-user-times mr-3 text-warning"></i>Désactiver les comptes
+            </button>
+            <button onclick="bulkResetPasswords(); window.unifiedManager.modalManager.hide()"
+                class="w-full text-left p-3 bg-info/10 hover:bg-info/20 rounded-lg transition-colors">
+                <i class="fas fa-key mr-3 text-info"></i>Réinitialiser mots de passe
+            </button>
+            <button onclick="bulkAssignCompanies(); window.unifiedManager.modalManager.hide()"
+                class="w-full text-left p-3 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
+                <i class="fas fa-building mr-3 text-primary"></i>Assigner entreprises
+            </button>
+            <button onclick="bulkSendNotifications(); window.unifiedManager.modalManager.hide()"
+                class="w-full text-left p-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg transition-colors">
+                <i class="fas fa-envelope mr-3 text-purple-500"></i>Envoyer notifications
+            </button>
+        </div>
+        
+        <div class="flex justify-end pt-4">
+            <button onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400">
+                Fermer
+            </button>
+        </div>
+    </div>
+    `;
+    
+    window.unifiedManager.modalManager.show('Actions en lot', modalContent);
+}
+
+/**
+ * Exporte la liste d'équipe
+ */
+function exportTeam() {
+    window.unifiedManager.notificationManager.show('info', 'Export en cours', 
+        'Préparation de l\'export de l\'équipe...');
+    
+    setTimeout(() => {
+        // Simuler l'export
+        const teamData = {
+            exportDate: new Date().toISOString(),
+            exportedBy: window.app.currentUser.name,
+            totalMembers: window.app.users.length,
+            members: window.app.users.map(user => ({
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                status: user.status,
+                companies: user.assignedCompanies?.length || 0,
+                lastLogin: user.lastLogin
+            }))
+        };
+        
+        console.log('📊 Données équipe exportées:', teamData);
+        
+        window.unifiedManager.notificationManager.show('success', 'Export terminé', 
+            `Liste d'équipe exportée avec succès (${teamData.totalMembers} membres)`);
+    }, 2000);
+}
+
+/**
+ * Remplit le tableau des membres d'équipe
+ */
+function populateTeamTable() {
+    const tbody = document.getElementById('teamTableBody');
+    if (!tbody) return;
+    
+    const users = window.app.users.filter(u => u.id !== window.app.currentUser?.id);
+    
+    tbody.innerHTML = users.map(user => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-4">
+                <input type="checkbox" class="member-checkbox rounded border-gray-300 dark:border-gray-600" 
+                       data-user-id="${user.id}">
+            </td>
+            <td class="px-6 py-4">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm mr-3">
+                        ${user.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">${user.name}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">${user.email}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-4">
+                <span class="px-2 py-1 text-xs rounded-full ${getRoleColor(user.profile)}">
+                    ${user.role}
+                </span>
+            </td>
+            <td class="px-6 py-4">
+                <div class="text-sm">${user.assignedCompanies?.length || 0} entreprise(s)</div>
+            </td>
+            <td class="px-6 py-4">
+                <span class="px-2 py-1 text-xs rounded-full ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">
+                    ${user.status}
+                </span>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-500">
+                ${user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('fr-FR') : 'Jamais'}
+            </td>
+            <td class="px-6 py-4">
+                <div class="flex space-x-2">
+                    <button onclick="viewUserDetails(${user.id})" 
+                            class="text-info hover:text-info/80" title="Voir détails">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button onclick="editUser(${user.id})" 
+                            class="text-primary hover:text-primary/80" title="Modifier">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="manageUserAccess(${user.id})" 
+                            class="text-warning hover:text-warning/80" title="Gérer accès">
+                        <i class="fas fa-key"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+/**
+ * Remplit les cases à cocher des entreprises
+ */
+function populateCompaniesCheckboxes() {
+    const container = document.getElementById('companiesCheckboxes');
+    if (!container) return;
+    
+    container.innerHTML = window.app.companies.map(company => `
+        <label class="flex items-center space-x-2">
+            <input type="checkbox" name="companies" value="${company.id}" 
+                   class="rounded border-gray-300 dark:border-gray-600">
+            <span class="text-sm text-gray-700 dark:text-gray-300">${company.name}</span>
+        </label>
+    `).join('');
+}
+
+/**
+ * Attache les événements de gestion d'équipe
+ */
+function attachTeamEvents() {
+    // Sélection globale
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const memberCheckboxes = document.querySelectorAll('.member-checkbox');
+            memberCheckboxes.forEach(cb => cb.checked = this.checked);
+        });
+    }
+    
+    // Gestionnaire du formulaire d'ajout
+    const addMemberForm = document.getElementById('addMemberForm');
+    if (addMemberForm) {
+        addMemberForm.addEventListener('submit', handleAddMemberSubmit);
+    }
+    
+    // Recherche en temps réel
+    const searchInput = document.getElementById('searchMembers');
+    if (searchInput) {
+        searchInput.addEventListener('input', filterTeamMembers);
+    }
+    
+    // Filtre par rôle
+    const roleFilter = document.getElementById('filterRole');
+    if (roleFilter) {
+        roleFilter.addEventListener('change', filterTeamMembers);
+    }
+}
+
+/**
+ * Met à jour les statistiques d'équipe
+ */
+function updateTeamStatistics() {
+    const totalMembersEl = document.getElementById('totalMembers');
+    const activeMembersEl = document.getElementById('activeMembers');
+    const onlineMembersEl = document.getElementById('onlineMembers');
+    const totalCompaniesEl = document.getElementById('totalCompanies');
+    
+    const users = window.app.users || [];
+    const companies = window.app.companies || [];
+    
+    if (totalMembersEl) totalMembersEl.textContent = users.length;
+    if (activeMembersEl) activeMembersEl.textContent = users.filter(u => u.status === 'Actif').length;
+    if (onlineMembersEl) onlineMembersEl.textContent = Math.floor(Math.random() * users.length) + 1; // Simulé
+    if (totalCompaniesEl) totalCompaniesEl.textContent = companies.length;
+}
+
+// =============================================================================
+// FONCTIONS D'ACTIONS EN LOT
+// =============================================================================
+
+/**
+ * Récupère les membres sélectionnés
+ */
+function getSelectedMembers() {
+    const checkboxes = document.querySelectorAll('.member-checkbox:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.dataset.userId));
+}
+
+/**
+ * Active en lot les utilisateurs sélectionnés
+ */
+function bulkActivateUsers() {
+    const selectedIds = getSelectedMembers();
+    let activatedCount = 0;
+    
+    selectedIds.forEach(userId => {
+        const user = window.app.users.find(u => u.id === userId);
+        if (user && user.status !== 'Actif') {
+            user.status = 'Actif';
+            activatedCount++;
+        }
+    });
+    
+    window.unifiedManager.notificationManager.show('success', 'Activation terminée', 
+        `${activatedCount} compte(s) activé(s)`);
+    
+    populateTeamTable();
+    updateTeamStatistics();
+}
+
+/**
+ * Désactive en lot les utilisateurs sélectionnés
+ */
+function bulkDeactivateUsers() {
+    const selectedIds = getSelectedMembers();
+    let deactivatedCount = 0;
+    
+    selectedIds.forEach(userId => {
+        const user = window.app.users.find(u => u.id === userId);
+        if (user && user.status === 'Actif') {
+            user.status = 'Inactif';
+            deactivatedCount++;
+        }
+    });
+    
+    window.unifiedManager.notificationManager.show('success', 'Désactivation terminée', 
+        `${deactivatedCount} compte(s) désactivé(s)`);
+    
+    populateTeamTable();
+    updateTeamStatistics();
+}
+
+/**
+ * Réinitialise les mots de passe en lot
+ */
+function bulkResetPasswords() {
+    const selectedIds = getSelectedMembers();
+    const newPassword = 'temp123';
+    
+    selectedIds.forEach(userId => {
+        const user = window.app.users.find(u => u.id === userId);
+        if (user) {
+            user.passwordHash = window.unifiedManager.hashPassword(newPassword);
+            user.forcePasswordChange = true;
+        }
+    });
+    
+    window.unifiedManager.notificationManager.show('success', 'Mots de passe réinitialisés', 
+        `${selectedIds.length} mot(s) de passe réinitialisé(s) (nouveau: ${newPassword})`);
+}
+
+/**
+ * Envoie des notifications en lot
+ */
+function bulkSendNotifications() {
+    const selectedIds = getSelectedMembers();
+    
+    window.unifiedManager.notificationManager.show('success', 'Notifications envoyées', 
+        `Notifications envoyées à ${selectedIds.length} membre(s)`);
+}
+
+/**
+ * Filtre les membres d'équipe
+ */
+function filterTeamMembers() {
+    const searchTerm = document.getElementById('searchMembers')?.value.toLowerCase() || '';
+    const roleFilter = document.getElementById('filterRole')?.value || '';
+    
+    const rows = document.querySelectorAll('#teamTableBody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const nameEmail = row.querySelector('td:nth-child(2)')?.textContent.toLowerCase() || '';
+        const role = row.querySelector('td:nth-child(3)')?.textContent.toLowerCase() || '';
+        
+        const matchesSearch = !searchTerm || nameEmail.includes(searchTerm);
+        const matchesRole = !roleFilter || role.includes(roleFilter.toLowerCase());
+        
+        if (matchesSearch && matchesRole) {
+            row.style.display = 'table-row';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Mettre à jour le compteur
+    const showingTo = document.getElementById('showingTo');
+    const totalResults = document.getElementById('totalResults');
+    if (showingTo) showingTo.textContent = visibleCount;
+    if (totalResults) totalResults.textContent = window.app.users.length;
+}
+
+/**
+ * Gère la soumission du formulaire d'ajout de membre
+ */
+function handleAddMemberSubmit(e) {
+    e.preventDefault();
+    
+    const formData = {
+        firstName: document.getElementById('firstName')?.value,
+        lastName: document.getElementById('lastName')?.value,
+        email: document.getElementById('email')?.value,
+        phone: document.getElementById('phone')?.value,
+        role: document.getElementById('role')?.value,
+        sendWelcomeEmail: document.getElementById('sendWelcomeEmail')?.checked
+    };
+    
+    // Validation
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.role) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 
+            'Tous les champs obligatoires doivent être remplis');
+        return;
+    }
+    
+    // Vérifier l'email unique
+    const existingUser = window.app.users.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
+    if (existingUser) {
+        window.unifiedManager.notificationManager.show('error', 'Email existant', 
+            'Cet email est déjà utilisé par un autre utilisateur');
+        return;
+    }
+    
+    // Créer le nouvel utilisateur
+    const newUser = {
+        id: Date.now(),
+        name: `${formData.firstName} ${formData.lastName}`,
+        email: formData.email,
+        phone: formData.phone,
+        profile: formData.role,
+        role: window.unifiedManager.getAvailableRoles().find(r => r.profile === formData.role)?.name || formData.role,
+        passwordHash: window.unifiedManager.hashPassword('temp123'),
+        status: 'Actif',
+        assignedCompanies: [],
+        companies: [],
+        permissions: window.unifiedManager.getDefaultPermissions(formData.role),
+        forcePasswordChange: true,
+        createdAt: new Date().toISOString(),
+        createdBy: window.app.currentUser.id
+    };
+    
+    window.app.users.push(newUser);
+    
+    hideAddMemberModal();
+    populateTeamTable();
+    updateTeamStatistics();
+    
+    window.unifiedManager.notificationManager.show('success', 'Membre ajouté', 
+        `${newUser.name} a été ajouté à l'équipe${formData.sendWelcomeEmail ? ' (email envoyé)' : ''}`);
+}
+
+/**
+ * Retourne la couleur CSS selon le rôle
+ */
+function getRoleColor(profile) {
+    const colors = {
+        'admin': 'bg-danger/20 text-danger',
+        'collaborateur_senior': 'bg-primary/20 text-primary',
+        'collaborateur': 'bg-info/20 text-info',
+        'user': 'bg-success/20 text-success',
+        'caissier': 'bg-warning/20 text-warning'
+    };
+    
+    return colors[profile] || 'bg-gray-200 text-gray-800';
+}
+        
     </script>
 
 <script src="etats-financiers-syscohada.js"></script>       
