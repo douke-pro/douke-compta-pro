@@ -4111,6 +4111,839 @@ function showNewAccountModal() {
         });
     }, 100);
 }       
+
+// FONCTION 5: showNewCashRegisterModal() - EXTRACTION COMPLÈTE
+
+function showNewCashRegisterModal() {
+    if (!window.app.currentCompanyId) {
+        window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour créer une caisse');
+        return;
+    }
+
+    const users = window.unifiedManager.data.getCompanyUsers(window.app.currentCompanyId);
+    const availableUsers = users.filter(u => u.profile === 'caissier' || u.profile === 'user');
+
+    const modalContent = `
+    <form id="newCashRegisterForm" class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom de la caisse*</label>
+            <input type="text" id="cashName" required
+                placeholder="Ex: Caisse Principale, Caisse Ventes..."
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Responsable</label>
+            <select id="cashResponsible"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                <option value="">Aucun responsable assigné</option>
+                ${availableUsers.map(user => `
+                <option value="${user.id}">${user.name} (${user.role})</option>
+                `).join('')}
+            </select>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Solde d'ouverture (FCFA)</label>
+                <input type="number" id="openingBalance" min="0" step="0.01" value="0"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Limite maximum (FCFA)</label>
+                <input type="number" id="maxLimit" min="0" step="0.01" value="1000000"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type de caisse</label>
+            <select id="cashType"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                <option value="Principale">Caisse Principale</option>
+                <option value="Secondaire">Caisse Secondaire</option>
+                <option value="Petite monnaie">Petite Monnaie</option>
+                <option value="Recettes">Caisse Recettes</option>
+                <option value="Dépenses">Caisse Dépenses</option>
+            </select>
+        </div>
+
+        <div class="flex items-center">
+            <input type="checkbox" id="cashActive" checked class="rounded border-gray-300 dark:border-gray-600">
+            <label for="cashActive" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                Ouvrir immédiatement cette caisse
+            </label>
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-4">
+            <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400">
+                Annuler
+            </button>
+            <button type="submit"
+                class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90">
+                <i class="fas fa-save mr-2"></i>Créer la caisse
+            </button>
+        </div>
+    </form>
+    `;
+
+    window.unifiedManager.modalManager.show('Nouvelle Caisse', modalContent);
+
+    setTimeout(() => {
+        document.getElementById('newCashRegisterForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('cashName').value;
+            const responsibleId = document.getElementById('cashResponsible').value;
+            const openingBalance = parseFloat(document.getElementById('openingBalance').value) || 0;
+            const maxLimit = parseFloat(document.getElementById('maxLimit').value) || 1000000;
+            const type = document.getElementById('cashType').value;
+            const isActive = document.getElementById('cashActive').checked;
+
+            const responsible = responsibleId ? users.find(u => u.id == responsibleId) : null;
+
+            const newCashRegister = {
+                id: Date.now(),
+                name: name,
+                companyId: window.app.currentCompanyId,
+                responsibleId: responsibleId || null,
+                responsibleName: responsible ? responsible.name : 'Non assigné',
+                balance: openingBalance,
+                openingBalance: openingBalance,
+                dailyReceipts: 0,
+                dailyExpenses: 0,
+                status: isActive ? 'Ouvert' : 'Fermé',
+                type: type,
+                maxLimit: maxLimit,
+                currency: 'FCFA',
+                lastOperation: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                createdBy: window.app.currentUser.id
+            };
+
+            window.app.cashRegisters.push(newCashRegister);
+            window.unifiedManager.modalManager.hide();
+            window.unifiedManager.notificationManager.show('success', 'Caisse créée', `La caisse "${name}" a été créée avec succès`);
+
+            if (document.getElementById('mainContent').innerHTML.includes('Gestion des Caisses')) {
+                window.unifiedManager.loadCaissePage();
+            }
+        });
+    }, 100);
+}
+
+// FONCTION GESTION UTILISATEURS 1: editUser(id) - EXTRACTION COMPLÈTE
+
+function editUser(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canManageUser(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas modifier cet utilisateur');
+        return;
+    }
+
+    const availableRoles = window.unifiedManager.getAvailableRoles();
+    const accessibleCompanies = window.unifiedManager.getAccessibleCompanies();
+
+    // Fonction d'échappement pour sécuriser l'injection HTML
+    const escapeHTML = (str) => str.replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+    }[tag]));
+
+    const modalContent = `
+    <form id="editUserForm" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nom complet*</label>
+                <input type="text" id="editUserName" value="${escapeHTML(user.name)}" required
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email*</label>
+                <input type="email" id="editUserEmail" value="${escapeHTML(user.email)}" required
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Téléphone</label>
+                <input type="tel" id="editUserPhone" value="${escapeHTML(user.phone || '')}"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Statut</label>
+                <select id="editUserStatus"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                    ${['Actif', 'Inactif', 'Suspendu'].map(status =>
+                        `<option value="${status}" ${user.status === status ? 'selected' : ''}>${status}</option>`
+                    ).join('')}
+                </select>
+            </div>
+        </div>
+
+        ${window.app.currentUser.profile === 'admin' ? `
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rôle</label>
+            <select id="editUserRole"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white text-base">
+                <option value="${escapeHTML(user.profile)}">${escapeHTML(user.role)}</option>
+                ${availableRoles.map(role =>
+                    role.profile !== user.profile ? `<option value="${role.profile}">${escapeHTML(role.name)}</option>` : ''
+                ).join('')}
+            </select>
+        </div>` : `
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rôle actuel</label>
+            <input type="text" value="${escapeHTML(user.role)}" readonly
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-base">
+        </div>`}
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Entreprises assignées</label>
+            <div class="space-y-2 max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                ${accessibleCompanies.map(company => `
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" name="companies" value="${company.id}"
+                        ${user.companies && user.companies.includes(company.id) ? 'checked' : ''}
+                        class="rounded border-gray-300 text-primary focus:ring-primary">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">${escapeHTML(company.name)}</span>
+                </label>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-4">
+            <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                Annuler
+            </button>
+            <button type="submit"
+                class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                Sauvegarder
+            </button>
+        </div>
+    </form>
+    `;
+
+    window.unifiedManager.modalManager.show(`Modifier ${escapeHTML(user.name)}`, modalContent);
+
+    document.getElementById('editUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const name = document.getElementById('editUserName').value.trim();
+        const email = document.getElementById('editUserEmail').value.trim();
+        const phone = document.getElementById('editUserPhone').value.trim();
+        const status = document.getElementById('editUserStatus').value;
+        const roleElement = document.getElementById('editUserRole');
+        const newRole = roleElement ? roleElement.value : user.profile;
+        const selectedCompanies = Array.from(document.querySelectorAll('input[name="companies"]:checked'))
+            .map(input => parseInt(input.value));
+
+        if (!name || !email) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le nom et l\'email sont obligatoires');
+            return;
+        }
+
+        const existingUser = window.app.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.id !== id);
+        if (existingUser) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Cet email est déjà utilisé');
+            return;
+        }
+
+        user.name = name;
+        user.email = email;
+        user.phone = phone;
+        user.status = status;
+        user.companies = selectedCompanies;
+        user.assignedCompanies = selectedCompanies;
+
+        if (newRole !== user.profile && window.app.currentUser.profile === 'admin') {
+            const roleInfo = availableRoles.find(r => r.profile === newRole) ||
+                { name: user.role, profile: user.profile };
+            user.profile = roleInfo.profile;
+            user.role = roleInfo.name;
+            user.permissions = window.unifiedManager.getDefaultPermissions(roleInfo.profile);
+        }
+
+        window.unifiedManager.modalManager.hide();
+        window.unifiedManager.notificationManager.show('success', 'Utilisateur modifié', `${escapeHTML(name)} a été mis à jour avec succès`);
+
+        if (document.getElementById('mainContent').innerHTML.includes('Gestion d\'Équipe')) {
+            window.unifiedManager.showTeamManagement();
+        }
+    });
+}
+
+// FONCTION GESTION UTILISATEURS 2: manageUserAccess(id) - EXTRACTION COMPLÈTE
+
+function manageUserAccess(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canManageUser(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas gérer les accès de cet utilisateur');
+        return;
+    }
+
+    const escapeHTML = (str) => str ? str.toString().replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag])) : '';
+
+    const modalContent = `
+    <div class="space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-key text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Gestion des Accès</h3>
+            <p class="text-gray-600 dark:text-gray-400">${escapeHTML(user.name)} • ${escapeHTML(user.role)}</p>
+            <span class="inline-block px-3 py-1 mt-2 text-xs rounded-full ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">
+                ${escapeHTML(user.status)}
+            </span>
+        </div>
+
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <h4 class="font-medium text-gray-900 dark:text-white mb-3">Niveau de Sécurité</h4>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <span class="text-gray-600 dark:text-gray-400">Niveau hiérarchique:</span>
+                    <span class="font-bold text-primary ml-2">Niveau ${window.unifiedManager.security.profileHierarchy[user.profile]}</span>
+                </div>
+                <div>
+                    <span class="text-gray-600 dark:text-gray-400">Profil:</span>
+                    <span class="font-medium ml-2">${escapeHTML(user.role)}</span>
+                </div>
+                <div>
+                    <span class="text-gray-600 dark:text-gray-400">Dernière connexion:</span>
+                    <span class="font-medium ml-2">${user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('fr-FR') : 'Jamais'}</span>
+                </div>
+                <div>
+                    <span class="text-gray-600 dark:text-gray-400">Membre depuis:</span>
+                    <span class="font-medium ml-2">${user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : 'N/A'}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <h4 class="font-medium text-gray-900 dark:text-white mb-3">Permissions Actuelles</h4>
+            <div class="space-y-2">
+                ${user.permissions.map(permission => `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-check text-success"></i>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">${escapeHTML(window.unifiedManager.getPermissionLabel(permission))}</span>
+                </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <h4 class="font-medium text-gray-900 dark:text-white mb-3">Entreprises Accessibles (${user.companies ? user.companies.length : 0})</h4>
+            <div class="space-y-2 max-h-32 overflow-y-auto">
+                ${user.companies && user.companies.length > 0 ? user.companies.map(companyId => {
+                    const company = window.app.companies.find(c => c.id === companyId);
+                    return company ? `
+                    <div class="flex items-center justify-between p-2 bg-white dark:bg-gray-600 rounded">
+                        <span class="text-sm text-gray-700 dark:text-gray-300">${escapeHTML(company.name)}</span>
+                        <span class="px-2 py-1 text-xs rounded-full ${window.unifiedManager.getStatusColor(company.status)}">${escapeHTML(company.status)}</span>
+                    </div>
+                    ` : '';
+                }).join('') : '<p class="text-sm text-gray-500">Aucune entreprise assignée</p>'}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onclick="resetUserPassword(${user.id})"
+                class="bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90 transition-colors">
+                <i class="fas fa-unlock mr-2"></i>Réinitialiser mot de passe
+            </button>
+            <button onclick="toggleUserStatus(${user.id})"
+                class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90 transition-colors">
+                <i class="fas fa-toggle-on mr-2"></i>Changer statut
+            </button>
+            <button onclick="generateUserReport(${user.id})"
+                class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                <i class="fas fa-chart-bar mr-2"></i>Rapport d'activité
+            </button>
+            <button onclick="sendNotificationToUser(${user.id})"
+                class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                <i class="fas fa-envelope mr-2"></i>Envoyer notification
+            </button>
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button onclick="editUser(${user.id}); window.unifiedManager.modalManager.hide()"
+                class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                <i class="fas fa-edit mr-2"></i>Modifier utilisateur
+            </button>
+            <button onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                Fermer
+            </button>
+        </div>
+    </div>
+    `;
+
+    window.unifiedManager.modalManager.show(`Accès - ${escapeHTML(user.name)}`, modalContent);
+}
+
+// FONCTION GESTION UTILISATEURS 3: viewUserDetails(id) - EXTRACTION COMPLÈTE
+
+function viewUserDetails(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canViewUserDetails(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas consulter les détails de cet utilisateur');
+        return;
+    }
+
+    const escapeHTML = (str) => str ? str.toString().replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag])) : '';
+
+    const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('fr-FR', {
+        year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) : 'Non défini';
+
+    const getActivityStatus = (lastLogin) => {
+        if (!lastLogin) return { class: 'bg-gray-500', text: 'Jamais connecté' };
+        const daysSince = Math.floor((Date.now() - new Date(lastLogin)) / (1000 * 60 * 60 * 24));
+        if (daysSince === 0) return { class: 'bg-success', text: 'Actif aujourd\'hui' };
+        if (daysSince <= 7) return { class: 'bg-warning', text: `Actif il y a ${daysSince} jour(s)` };
+        if (daysSince <= 30) return { class: 'bg-orange-500', text: `Actif il y a ${daysSince} jour(s)` };
+        return { class: 'bg-danger', text: `Inactif depuis ${daysSince} jours` };
+    };
+
+    const activityStatus = getActivityStatus(user.lastLogin);
+
+    const modalContent = `
+    <div class="space-y-6">
+        <div class="text-center">
+            <div class="relative inline-block">
+                <div class="w-20 h-20 bg-gradient-to-br from-primary to-primary/70 text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-user text-3xl"></i>
+                </div>
+                <div class="absolute -bottom-1 -right-1 w-6 h-6 ${activityStatus.class} rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                    <i class="fas fa-circle text-xs text-white"></i>
+                </div>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">${escapeHTML(user.name)}</h3>
+            <p class="text-primary font-medium">${escapeHTML(user.role)}</p>
+            <span class="inline-block px-3 py-1 mt-2 text-sm rounded-full ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">
+                ${escapeHTML(user.status)}
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Informations Personnelles -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <i class="fas fa-user-circle mr-2 text-primary"></i>
+                    Informations Personnelles
+                </h4>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Email:</span>
+                        <span class="font-medium text-right">${escapeHTML(user.email)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Téléphone:</span>
+                        <span class="font-medium text-right">${escapeHTML(user.phone || 'Non renseigné')}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Département:</span>
+                        <span class="font-medium text-right">${escapeHTML(user.department || 'Non assigné')}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Manager:</span>
+                        <span class="font-medium text-right">${escapeHTML(user.manager || 'Aucun')}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activité & Sécurité -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <i class="fas fa-shield-alt mr-2 text-primary"></i>
+                    Activité & Sécurité
+                </h4>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 dark:text-gray-400">Statut d'activité:</span>
+                        <span class="px-2 py-1 text-xs rounded-full ${activityStatus.class} text-white">
+                            ${activityStatus.text}
+                        </span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Dernière connexion:</span>
+                        <span class="font-medium text-right">${formatDate(user.lastLogin)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Membre depuis:</span>
+                        <span class="font-medium text-right">${formatDate(user.createdAt)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Niveau hiérarchique:</span>
+                        <span class="font-bold text-primary">Niveau ${window.unifiedManager.security.profileHierarchy[user.profile]}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Permissions Détaillées -->
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <h4 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <i class="fas fa-key mr-2 text-primary"></i>
+                Permissions Détaillées (${user.permissions.length})
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                ${user.permissions.map(permission => `
+                <div class="flex items-center space-x-2 p-2 bg-white dark:bg-gray-600 rounded">
+                    <i class="fas fa-check-circle text-success text-sm"></i>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">${escapeHTML(window.unifiedManager.getPermissionLabel(permission))}</span>
+                </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <!-- Entreprises et Accès -->
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <h4 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <i class="fas fa-building mr-2 text-primary"></i>
+                Entreprises Accessibles (${user.companies ? user.companies.length : 0})
+            </h4>
+            <div class="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                ${user.companies && user.companies.length > 0 ? user.companies.map(companyId => {
+                    const company = window.app.companies.find(c => c.id === companyId);
+                    return company ? `
+                    <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-primary/20 text-primary rounded-full flex items-center justify-center">
+                                <i class="fas fa-building text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-900 dark:text-white text-sm">${escapeHTML(company.name)}</p>
+                                <p class="text-xs text-gray-500">${escapeHTML(company.sector || 'Secteur non défini')}</p>
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 text-xs rounded-full ${window.unifiedManager.getStatusColor(company.status)}">${escapeHTML(company.status)}</span>
+                    </div>
+                    ` : '';
+                }).join('') : '<p class="text-sm text-gray-500 text-center py-4">Aucune entreprise assignée</p>'}
+            </div>
+        </div>
+
+        <!-- Statistiques d'utilisation -->
+        <div class="bg-gradient-to-r from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 p-4 rounded-lg border border-primary/20">
+            <h4 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <i class="fas fa-chart-line mr-2 text-primary"></i>
+                Statistiques d'Utilisation
+            </h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div>
+                    <p class="text-2xl font-bold text-primary">${user.stats?.logins || 0}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">Connexions</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-primary">${user.stats?.actions || 0}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">Actions</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-primary">${user.stats?.documents || 0}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">Documents</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-primary">${user.stats?.reports || 0}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">Rapports</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+            <div class="flex space-x-2">
+                <button onclick="manageUserAccess(${user.id}); window.unifiedManager.modalManager.hide()"
+                    class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors text-sm">
+                    <i class="fas fa-key mr-2"></i>Gérer Accès
+                </button>
+                <button onclick="editUser(${user.id}); window.unifiedManager.modalManager.hide()"
+                    class="bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90 transition-colors text-sm">
+                    <i class="fas fa-edit mr-2"></i>Modifier
+                </button>
+            </div>
+            <button onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                Fermer
+            </button>
+        </div>
+    </div>
+    `;
+
+    window.unifiedManager.modalManager.show(`Détails - ${escapeHTML(user.name)}`, modalContent, 'large');
+}
+
+// FONCTION GESTION UTILISATEURS 4: updateUserProfile() - EXTRACTION COMPLÈTE
+
+function updateUserProfile() {
+    const currentUser = window.unifiedManager.getCurrentUser();
+    if (!currentUser) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Session utilisateur invalide');
+        return;
+    }
+
+    const escapeHTML = (str) => str ? str.toString().replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag])) : '';
+
+    const modalContent = `
+    <div class="space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-gradient-to-br from-primary to-primary/70 text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-user-edit text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Mon Profil</h3>
+            <p class="text-gray-600 dark:text-gray-400">Modifier mes informations personnelles</p>
+        </div>
+
+        <form id="updateProfileForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-user mr-1"></i>Nom complet *
+                    </label>
+                    <input type="text" id="profileName" value="${escapeHTML(currentUser.name)}" required
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-envelope mr-1"></i>Email *
+                    </label>
+                    <input type="email" id="profileEmail" value="${escapeHTML(currentUser.email)}" required
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-phone mr-1"></i>Téléphone
+                    </label>
+                    <input type="tel" id="profilePhone" value="${escapeHTML(currentUser.phone || '')}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-building mr-1"></i>Département
+                    </label>
+                    <select id="profileDepartment"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="">Sélectionner un département</option>
+                        <option value="Direction" ${currentUser.department === 'Direction' ? 'selected' : ''}>Direction</option>
+                        <option value="Ressources Humaines" ${currentUser.department === 'Ressources Humaines' ? 'selected' : ''}>Ressources Humaines</option>
+                        <option value="Comptabilité" ${currentUser.department === 'Comptabilité' ? 'selected' : ''}>Comptabilité</option>
+                        <option value="Commercial" ${currentUser.department === 'Commercial' ? 'selected' : ''}>Commercial</option>
+                        <option value="Technique" ${currentUser.department === 'Technique' ? 'selected' : ''}>Technique</option>
+                        <option value="Support" ${currentUser.department === 'Support' ? 'selected' : ''}>Support</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-info-circle mr-1"></i>Bio / Description
+                </label>
+                <textarea id="profileBio" rows="3" placeholder="Quelques mots sur vous..."
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base resize-none">${escapeHTML(currentUser.bio || '')}</textarea>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
+                    <i class="fas fa-cog mr-2"></i>Préférences
+                </h4>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm text-gray-700 dark:text-gray-300">Notifications par email</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="emailNotifications" ${currentUser.preferences?.emailNotifications !== false ? 'checked' : ''}
+                                class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 dark:peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm text-gray-700 dark:text-gray-300">Notifications push</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="pushNotifications" ${currentUser.preferences?.pushNotifications !== false ? 'checked' : ''}
+                                class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 dark:peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm text-gray-700 dark:text-gray-300">Mode sombre automatique</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="autoDarkMode" ${currentUser.preferences?.autoDarkMode === true ? 'checked' : ''}
+                                class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 dark:peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 p-4 rounded-lg">
+                <h4 class="font-medium text-yellow-800 dark:text-yellow-200 mb-2 flex items-center">
+                    <i class="fas fa-lock mr-2"></i>Modifier le mot de passe
+                </h4>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-yellow-700 dark:text-yellow-300 mb-1">Mot de passe actuel</label>
+                        <input type="password" id="currentPassword" placeholder="Saisir le mot de passe actuel"
+                            class="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-yellow-700 dark:text-yellow-300 mb-1">Nouveau mot de passe</label>
+                            <input type="password" id="newPassword" placeholder="Nouveau mot de passe"
+                                class="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-yellow-700 dark:text-yellow-300 mb-1">Confirmer nouveau mot de passe</label>
+                            <input type="password" id="confirmPassword" placeholder="Confirmer le mot de passe"
+                                class="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        </div>
+                    </div>
+                    <p class="text-xs text-yellow-600 dark:text-yellow-400">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Laissez vide pour conserver le mot de passe actuel
+                    </p>
+                </div>
+            </div>
+        </form>
+
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                Annuler
+            </button>
+            <div class="flex space-x-3">
+                <button type="button" onclick="resetProfileForm()"
+                    class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                    <i class="fas fa-undo mr-2"></i>Réinitialiser
+                </button>
+                <button type="button" onclick="saveUserProfile()"
+                    class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-save mr-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+    `;
+
+    window.unifiedManager.modalManager.show('Mon Profil', modalContent, 'large');
+}
+
+// Fonction auxiliaire pour réinitialiser le formulaire
+function resetProfileForm() {
+    const currentUser = window.unifiedManager.getCurrentUser();
+    document.getElementById('profileName').value = currentUser.name;
+    document.getElementById('profileEmail').value = currentUser.email;
+    document.getElementById('profilePhone').value = currentUser.phone || '';
+    document.getElementById('profileDepartment').value = currentUser.department || '';
+    document.getElementById('profileBio').value = currentUser.bio || '';
+    document.getElementById('emailNotifications').checked = currentUser.preferences?.emailNotifications !== false;
+    document.getElementById('pushNotifications').checked = currentUser.preferences?.pushNotifications !== false;
+    document.getElementById('autoDarkMode').checked = currentUser.preferences?.autoDarkMode === true;
+    document.getElementById('currentPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
+}
+
+// Fonction auxiliaire pour sauvegarder le profil
+function saveUserProfile() {
+    const formData = {
+        name: document.getElementById('profileName').value.trim(),
+        email: document.getElementById('profileEmail').value.trim(),
+        phone: document.getElementById('profilePhone').value.trim(),
+        department: document.getElementById('profileDepartment').value,
+        bio: document.getElementById('profileBio').value.trim(),
+        preferences: {
+            emailNotifications: document.getElementById('emailNotifications').checked,
+            pushNotifications: document.getElementById('pushNotifications').checked,
+            autoDarkMode: document.getElementById('autoDarkMode').checked
+        }
+    };
+
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    // Validation basique
+    if (!formData.name || !formData.email) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le nom et l\'email sont obligatoires');
+        return;
+    }
+
+    // Validation email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Format d\'email invalide');
+        return;
+    }
+
+    // Validation mot de passe si fourni
+    if (currentPassword || newPassword || confirmPassword) {
+        if (!currentPassword) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Mot de passe actuel requis');
+            return;
+        }
+        if (!newPassword) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Nouveau mot de passe requis');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Les mots de passe ne correspondent pas');
+            return;
+        }
+        if (newPassword.length < 8) {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le mot de passe doit contenir au moins 8 caractères');
+            return;
+        }
+        formData.passwordData = { currentPassword, newPassword };
+    }
+
+    // Simulation de la sauvegarde
+    const currentUser = window.unifiedManager.getCurrentUser();
+    
+    try {
+        // Mise à jour des données utilisateur
+        Object.assign(currentUser, formData);
+        
+        // Simulation d'appel API
+        setTimeout(() => {
+            window.unifiedManager.notificationManager.show('success', 'Succès', 'Profil mis à jour avec succès');
+            window.unifiedManager.modalManager.hide();
+            
+            // Rafraîchir l'affichage si nécessaire
+            if (typeof refreshUserInterface === 'function') {
+                refreshUserInterface();
+            }
+        }, 500);
+        
+    } catch (error) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur lors de la mise à jour du profil');
+    }
+}
     </script>
 
 <script src="etats-financiers-syscohada.js"></script>       
