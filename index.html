@@ -5597,6 +5597,890 @@ function saveUserProfile() {
         window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur lors de la mise à jour du profil');
     }
 }
+
+// FONCTION AUXILIAIRE 1: resetUserPassword(id) - EXTRACTION COMPLÈTE
+
+function resetUserPassword(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canManageUser(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas réinitialiser le mot de passe de cet utilisateur');
+        return;
+    }
+
+    const escapeHTML = (str) => str ? str.toString().replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag])) : '';
+
+    const modalContent = `
+    <div class="space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-warning text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-unlock-alt text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Réinitialiser le Mot de Passe</h3>
+            <p class="text-gray-600 dark:text-gray-400">${escapeHTML(user.name)} • ${escapeHTML(user.role)}</p>
+        </div>
+
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 p-4 rounded-lg">
+            <div class="flex items-start space-x-3">
+                <i class="fas fa-exclamation-triangle text-yellow-600 dark:text-yellow-400 mt-1"></i>
+                <div>
+                    <h4 class="font-medium text-yellow-800 dark:text-yellow-200">Attention</h4>
+                    <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                        Cette action va générer un nouveau mot de passe temporaire qui sera envoyé à l'utilisateur par email.
+                        L'utilisateur devra le changer lors de sa prochaine connexion.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <form id="resetPasswordForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-key mr-1"></i>Type de réinitialisation
+                    </label>
+                    <select id="resetType" 
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-warning focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="temporary">Mot de passe temporaire</option>
+                        <option value="custom">Mot de passe personnalisé</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-clock mr-1"></i>Expiration
+                    </label>
+                    <select id="expiration"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-warning focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="24h">24 heures</option>
+                        <option value="72h">72 heures</option>
+                        <option value="7d">7 jours</option>
+                        <option value="30d">30 jours</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="customPasswordSection" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-lock mr-1"></i>Mot de passe personnalisé
+                </label>
+                <input type="password" id="customPassword" placeholder="Saisir le nouveau mot de passe"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-warning focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                <p class="text-xs text-gray-500 mt-1">Minimum 8 caractères avec au moins une majuscule, une minuscule et un chiffre</p>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="forceChange" checked class="rounded border-gray-300 text-warning focus:ring-warning">
+                    <label for="forceChange" class="text-sm text-gray-700 dark:text-gray-300">
+                        Forcer le changement à la prochaine connexion
+                    </label>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="sendEmail" checked class="rounded border-gray-300 text-warning focus:ring-warning">
+                    <label for="sendEmail" class="text-sm text-gray-700 dark:text-gray-300">
+                        Envoyer le nouveau mot de passe par email
+                    </label>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="revokeOtherSessions" class="rounded border-gray-300 text-warning focus:ring-warning">
+                    <label for="revokeOtherSessions" class="text-sm text-gray-700 dark:text-gray-300">
+                        Déconnecter toutes les autres sessions actives
+                    </label>
+                </div>
+            </div>
+        </form>
+
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <h4 class="font-medium text-gray-900 dark:text-white mb-2 flex items-center">
+                <i class="fas fa-info-circle mr-2 text-primary"></i>
+                Informations de Sécurité
+            </h4>
+            <div class="text-sm space-y-1 text-gray-600 dark:text-gray-400">
+                <p>• Cette action sera enregistrée dans les logs de sécurité</p>
+                <p>• L'utilisateur recevra une notification de changement de mot de passe</p>
+                <p>• Le mot de passe actuel sera immédiatement invalidé</p>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                Annuler
+            </button>
+            <button type="button" onclick="executePasswordReset(${user.id})"
+                class="bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90 transition-colors">
+                <i class="fas fa-unlock-alt mr-2"></i>Réinitialiser le Mot de Passe
+            </button>
+        </div>
+    </div>
+    `;
+
+    window.unifiedManager.modalManager.show(`Réinitialiser - ${escapeHTML(user.name)}`, modalContent);
+
+    // Gestion du changement de type
+    document.getElementById('resetType').addEventListener('change', function() {
+        const customSection = document.getElementById('customPasswordSection');
+        if (this.value === 'custom') {
+            customSection.classList.remove('hidden');
+        } else {
+            customSection.classList.add('hidden');
+        }
+    });
+}
+
+function executePasswordReset(userId) {
+    const user = window.app.users.find(u => u.id === userId);
+    const resetType = document.getElementById('resetType').value;
+    const expiration = document.getElementById('expiration').value;
+    const customPassword = document.getElementById('customPassword')?.value;
+    const forceChange = document.getElementById('forceChange').checked;
+    const sendEmail = document.getElementById('sendEmail').checked;
+    const revokeOtherSessions = document.getElementById('revokeOtherSessions').checked;
+
+    // Validation
+    if (resetType === 'custom' && (!customPassword || customPassword.length < 8)) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Le mot de passe personnalisé doit contenir au moins 8 caractères');
+        return;
+    }
+
+    try {
+        // Simulation de réinitialisation
+        const newPassword = resetType === 'custom' ? customPassword : generateTemporaryPassword();
+        
+        // Mise à jour des données utilisateur
+        user.passwordReset = {
+            date: new Date().toISOString(),
+            byUser: window.unifiedManager.getCurrentUser().id,
+            forceChange: forceChange,
+            expiration: expiration
+        };
+
+        window.unifiedManager.notificationManager.show('success', 'Succès', 
+            `Mot de passe réinitialisé pour ${user.name}. ${sendEmail ? 'Email envoyé.' : 'Nouveau mot de passe: ' + newPassword}`);
+        
+        window.unifiedManager.modalManager.hide();
+        
+        // Log de sécurité
+        console.log(`Password reset for user ${userId} by ${window.unifiedManager.getCurrentUser().id}`);
+        
+    } catch (error) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur lors de la réinitialisation du mot de passe');
+    }
+}
+
+function generateTemporaryPassword() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+}
+
+// FONCTION AUXILIAIRE 2: toggleUserStatus(id) - EXTRACTION COMPLÈTE
+
+function toggleUserStatus(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canManageUser(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas modifier le statut de cet utilisateur');
+        return;
+    }
+
+    const escapeHTML = (str) => str ? str.toString().replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag])) : '';
+
+    const newStatus = user.status === 'Actif' ? 'Inactif' : 'Actif';
+    const actionColor = newStatus === 'Actif' ? 'success' : 'warning';
+    const actionIcon = newStatus === 'Actif' ? 'fa-check-circle' : 'fa-pause-circle';
+
+    const modalContent = `
+    <div class="space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-${actionColor} text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas ${actionIcon} text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                ${newStatus === 'Actif' ? 'Activer' : 'Désactiver'} l'Utilisateur
+            </h3>
+            <p class="text-gray-600 dark:text-gray-400">${escapeHTML(user.name)} • ${escapeHTML(user.role)}</p>
+            <div class="flex items-center justify-center space-x-3 mt-4">
+                <span class="px-3 py-1 text-sm rounded-full ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">
+                    Statut actuel: ${escapeHTML(user.status)}
+                </span>
+                <i class="fas fa-arrow-right text-gray-400"></i>
+                <span class="px-3 py-1 text-sm rounded-full ${newStatus === 'Actif' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">
+                    Nouveau statut: ${newStatus}
+                </span>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <h4 class="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
+                <i class="fas fa-info-circle mr-2 text-primary"></i>
+                Conséquences de cette action
+            </h4>
+            ${newStatus === 'Inactif' ? `
+            <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-times-circle text-danger"></i>
+                    <span>L'utilisateur ne pourra plus se connecter</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-times-circle text-danger"></i>
+                    <span>Toutes les sessions actives seront fermées</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-times-circle text-danger"></i>
+                    <span>Les accès aux ressources seront révoqués</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-envelope text-info"></i>
+                    <span>L'utilisateur recevra une notification de désactivation</span>
+                </div>
+            </div>
+            ` : `
+            <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <span>L'utilisateur pourra de nouveau se connecter</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <span>Les permissions seront restaurées</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <span>L'accès aux ressources autorisées sera rétabli</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-envelope text-info"></i>
+                    <span>L'utilisateur recevra une notification de réactivation</span>
+                </div>
+            </div>
+            `}
+        </div>
+
+        <form id="statusChangeForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-comment mr-1"></i>Motif du changement de statut
+                </label>
+                <textarea id="statusReason" rows="3" placeholder="Indiquez la raison de ce changement de statut..."
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base resize-none"></textarea>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="notifyUser" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                    <label for="notifyUser" class="text-sm text-gray-700 dark:text-gray-300">
+                        Notifier l'utilisateur par email
+                    </label>
+                </div>
+                ${newStatus === 'Inactif' ? `
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="closeActiveSessions" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                    <label for="closeActiveSessions" class="text-sm text-gray-700 dark:text-gray-300">
+                        Fermer toutes les sessions actives
+                    </label>
+                </div>
+                ` : ''}
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="logAction" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                    <label for="logAction" class="text-sm text-gray-700 dark:text-gray-300">
+                        Enregistrer dans les logs d'audit
+                    </label>
+                </div>
+            </div>
+        </form>
+
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                Annuler
+            </button>
+            <button type="button" onclick="executeStatusChange(${user.id}, '${newStatus}')"
+                class="bg-${actionColor} text-white px-4 py-2 rounded-lg hover:bg-${actionColor}/90 transition-colors">
+                <i class="fas ${actionIcon} mr-2"></i>${newStatus === 'Actif' ? 'Activer' : 'Désactiver'} l'Utilisateur
+            </button>
+        </div>
+    </div>
+    `;
+
+    window.unifiedManager.modalManager.show(`${newStatus === 'Actif' ? 'Activer' : 'Désactiver'} - ${escapeHTML(user.name)}`, modalContent);
+}
+
+function executeStatusChange(userId, newStatus) {
+    const user = window.app.users.find(u => u.id === userId);
+    const reason = document.getElementById('statusReason').value.trim();
+    const notifyUser = document.getElementById('notifyUser').checked;
+    const closeActiveSessions = document.getElementById('closeActiveSessions')?.checked || false;
+    const logAction = document.getElementById('logAction').checked;
+
+    if (!reason) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Veuillez indiquer le motif du changement de statut');
+        return;
+    }
+
+    try {
+        // Mise à jour du statut
+        const oldStatus = user.status;
+        user.status = newStatus;
+        user.statusHistory = user.statusHistory || [];
+        user.statusHistory.push({
+            date: new Date().toISOString(),
+            oldStatus: oldStatus,
+            newStatus: newStatus,
+            reason: reason,
+            changedBy: window.unifiedManager.getCurrentUser().id
+        });
+
+        // Actions spécifiques selon le statut
+        if (newStatus === 'Inactif' && closeActiveSessions) {
+            // Simulation de fermeture des sessions
+            user.activeSessions = [];
+        }
+
+        window.unifiedManager.notificationManager.show('success', 'Succès', 
+            `Statut de ${user.name} changé vers "${newStatus}" avec succès`);
+        
+        window.unifiedManager.modalManager.hide();
+
+        // Log d'audit
+        if (logAction) {
+            console.log(`User status changed: ${userId} from ${oldStatus} to ${newStatus} by ${window.unifiedManager.getCurrentUser().id}`);
+        }
+
+        // Rafraîchir l'affichage si nécessaire
+        if (typeof refreshUserList === 'function') {
+            refreshUserList();
+        }
+        
+    } catch (error) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur lors du changement de statut');
+    }
+}
+
+// FONCTION AUXILIAIRE 3: generateUserReport(id) - EXTRACTION COMPLÈTE
+
+function generateUserReport(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canViewUserDetails(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas générer de rapport pour cet utilisateur');
+        return;
+    }
+
+    const escapeHTML = (str) => str ? str.toString().replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag])) : '';
+
+    const modalContent = `
+    <div class="space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-success text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-chart-bar text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Rapport d'Activité</h3>
+            <p class="text-gray-600 dark:text-gray-400">${escapeHTML(user.name)} • ${escapeHTML(user.role)}</p>
+        </div>
+
+        <form id="reportForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-calendar-alt mr-1"></i>Période de début
+                    </label>
+                    <input type="date" id="startDate" value="${new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0]}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-calendar-alt mr-1"></i>Période de fin
+                    </label>
+                    <input type="date" id="endDate" value="${new Date().toISOString().split('T')[0]}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-list mr-1"></i>Type de rapport
+                </label>
+                <select id="reportType" 
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                    <option value="complete">Rapport complet</option>
+                    <option value="activity">Activité seulement</option>
+                    <option value="security">Sécurité et accès</option>
+                    <option value="permissions">Permissions et droits</option>
+                    <option value="performance">Performance</option>
+                </select>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Sections à inclure</h4>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="includeLogins" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="includeLogins" class="text-sm text-gray-700 dark:text-gray-300">Connexions</label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="includeActions" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="includeActions" class="text-sm text-gray-700 dark:text-gray-300">Actions effectuées</label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="includePermissions" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="includePermissions" class="text-sm text-gray-700 dark:text-gray-300">Permissions</label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="includeCompanies" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="includeCompanies" class="text-sm text-gray-700 dark:text-gray-300">Entreprises</label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="includeErrors" class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="includeErrors" class="text-sm text-gray-700 dark:text-gray-300">Erreurs/Incidents</label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="includeChanges" class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="includeChanges" class="text-sm text-gray-700 dark:text-gray-300">Modifications</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-file-alt mr-1"></i>Format de sortie
+                    </label>
+                    <select id="outputFormat"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="pdf">PDF</option>
+                        <option value="excel">Excel (XLSX)</option>
+                        <option value="csv">CSV</option>
+                        <option value="html">HTML</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-cog mr-1"></i>Options
+                    </label>
+                    <select id="reportOptions"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="detailed">Détaillé</option>
+                        <option value="summary">Résumé</option>
+                        <option value="executive">Synthèse exécutive</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-4 rounded-lg">
+            <h4 class="font-medium text-blue-800 dark:text-blue-200 mb-2 flex items-center">
+                <i class="fas fa-info-circle mr-2"></i>Aperçu du rapport
+            </h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-sm">
+                <div>
+                    <p class="text-2xl font-bold text-blue-600">${user.stats?.logins || 0}</p>
+                    <p class="text-blue-700 dark:text-blue-300">Connexions</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-blue-600">${user.stats?.actions || 0}</p>
+                    <p class="text-blue-700 dark:text-blue-300">Actions</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-blue-600">${user.permissions?.length || 0}</p>
+                    <p class="text-blue-700 dark:text-blue-300">Permissions</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-blue-600">${user.companies?.length || 0}</p>
+                    <p class="text-blue-700 dark:text-blue-300">Entreprises</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                Annuler
+            </button>
+            <div class="flex space-x-3">
+                <button type="button" onclick="previewUserReport(${user.id})"
+                    class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90 transition-colors">
+                    <i class="fas fa-eye mr-2"></i>Aperçu
+                </button>
+                <button type="button" onclick="executeReportGeneration(${user.id})"
+                    class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                    <i class="fas fa-download mr-2"></i>Générer le Rapport
+                </button>
+            </div>
+        </div>
+    </div>
+    `;
+
+    window.unifiedManager.modalManager.show(`Rapport - ${escapeHTML(user.name)}`, modalContent, 'large');
+}
+
+function executeReportGeneration(userId) {
+    const user = window.app.users.find(u => u.id === userId);
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const reportType = document.getElementById('reportType').value;
+    const outputFormat = document.getElementById('outputFormat').value;
+    const reportOptions = document.getElementById('reportOptions').value;
+
+    const sections = {
+        logins: document.getElementById('includeLogins').checked,
+        actions: document.getElementById('includeActions').checked,
+        permissions: document.getElementById('includePermissions').checked,
+        companies: document.getElementById('includeCompanies').checked,
+        errors: document.getElementById('includeErrors').checked,
+        changes: document.getElementById('includeChanges').checked
+    };
+
+    if (!startDate || !endDate) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Veuillez sélectionner une période valide');
+        return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'La date de début doit être antérieure à la date de fin');
+        return;
+    }
+
+    try {
+        // Simulation de génération de rapport
+        const reportData = {
+            user: user,
+            period: { start: startDate, end: endDate },
+            type: reportType,
+            format: outputFormat,
+            options: reportOptions,
+            sections: sections,
+            generatedBy: window.unifiedManager.getCurrentUser().id,
+            generatedAt: new Date().toISOString()
+        };
+
+        // Simulation du téléchargement
+        const fileName = `rapport_${user.name.replace(/\s+/g, '_')}_${startDate}_${endDate}.${outputFormat}`;
+        
+        window.unifiedManager.notificationManager.show('success', 'Succès', 
+            `Rapport généré avec succès: ${fileName}`);
+        
+        window.unifiedManager.modalManager.hide();
+
+        // Simulation du téléchargement de fichier
+        setTimeout(() => {
+            console.log(`Downloading report: ${fileName}`, reportData);
+        }, 1000);
+        
+    } catch (error) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur lors de la génération du rapport');
+    }
+}
+
+function previewUserReport(userId) {
+    window.unifiedManager.notificationManager.show('info', 'Aperçu', 'Fonctionnalité d\'aperçu en cours de développement');
+}
+
+// FONCTION AUXILIAIRE 4: sendNotificationToUser(id) - EXTRACTION COMPLÈTE
+
+function sendNotificationToUser(id) {
+    const user = window.app.users.find(u => u.id === id);
+    if (!user) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Utilisateur introuvable');
+        return;
+    }
+
+    if (!window.unifiedManager.canManageUser(user)) {
+        window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous ne pouvez pas envoyer de notification à cet utilisateur');
+        return;
+    }
+
+    const escapeHTML = (str) => str ? str.toString().replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag])) : '';
+
+    const modalContent = `
+    <div class="space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-envelope text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Envoyer une Notification</h3>
+            <p class="text-gray-600 dark:text-gray-400">${escapeHTML(user.name)} • ${escapeHTML(user.email)}</p>
+        </div>
+
+        <form id="notificationForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-tag mr-1"></i>Type de notification
+                    </label>
+                    <select id="notificationType"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="info">Information</option>
+                        <option value="warning">Avertissement</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="reminder">Rappel</option>
+                        <option value="security">Sécurité</option>
+                        <option value="system">Système</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-star mr-1"></i>Priorité
+                    </label>
+                    <select id="priority"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="low">Basse</option>
+                        <option value="normal" selected>Normale</option>
+                        <option value="high">Élevée</option>
+                        <option value="critical">Critique</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-heading mr-1"></i>Objet *
+                </label>
+                <input type="text" id="notificationSubject" placeholder="Objet de la notification" required
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-align-left mr-1"></i>Message *
+                </label>
+                <textarea id="notificationMessage" rows="5" placeholder="Contenu de la notification..." required
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base resize-none"></textarea>
+                <p class="text-xs text-gray-500 mt-1">Vous pouvez utiliser du markdown pour la mise en forme</p>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-3">Canaux de diffusion</h4>
+                <div class="space-y-3">
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="sendEmail" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="sendEmail" class="text-sm text-gray-700 dark:text-gray-300">
+                            <i class="fas fa-envelope mr-1"></i>Email
+                        </label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="sendInApp" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="sendInApp" class="text-sm text-gray-700 dark:text-gray-300">
+                            <i class="fas fa-bell mr-1"></i>Notification dans l'application
+                        </label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="sendSMS" class="rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="sendSMS" class="text-sm text-gray-700 dark:text-gray-300">
+                            <i class="fas fa-sms mr-1"></i>SMS (si urgent ou critique)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-clock mr-1"></i>Programmation
+                    </label>
+                    <select id="scheduleOption"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                        <option value="now">Envoyer maintenant</option>
+                        <option value="schedule">Programmer l'envoi</option>
+                    </select>
+                </div>
+                <div id="scheduleDateTime" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-calendar-alt mr-1"></i>Date et heure
+                    </label>
+                    <input type="datetime-local" id="scheduledTime"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="requireAcknowledgment" class="rounded border-gray-300 text-primary focus:ring-primary">
+                    <label for="requireAcknowledgment" class="text-sm text-gray-700 dark:text-gray-300">
+                        Demander un accusé de réception
+                    </label>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="trackOpening" class="rounded border-gray-300 text-primary focus:ring-primary">
+                    <label for="trackOpening" class="text-sm text-gray-700 dark:text-gray-300">
+                        Suivre l'ouverture de la notification
+                    </label>
+                </div>
+            </div>
+        </form>
+
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-4 rounded-lg">
+            <h4 class="font-medium text-blue-800 dark:text-blue-200 mb-2 flex items-center">
+                <i class="fas fa-eye mr-2"></i>Aperçu de la notification
+            </h4>
+            <div id="notificationPreview" class="bg-white dark:bg-gray-800 p-3 rounded border">
+                <p class="text-sm text-gray-500">L'aperçu apparaîtra ici...</p>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button type="button" onclick="window.unifiedManager.modalManager.hide()"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                Annuler
+            </button>
+            <div class="flex space-x-3">
+                <button type="button" onclick="previewNotification()"
+                    class="bg-info text-white px-4 py-2 rounded-lg hover:bg-info/90 transition-colors">
+                    <i class="fas fa-eye mr-2"></i>Aperçu
+                </button>
+                <button type="button" onclick="executeSendNotification(${user.id})"
+                    class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-paper-plane mr-2"></i>Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+    `;
+
+    window.unifiedManager.modalManager.show(`Notification - ${escapeHTML(user.name)}`, modalContent, 'large');
+
+    // Gestion de la programmation
+    document.getElementById('scheduleOption').addEventListener('change', function() {
+        const scheduleDiv = document.getElementById('scheduleDateTime');
+        if (this.value === 'schedule') {
+            scheduleDiv.classList.remove('hidden');
+        } else {
+            scheduleDiv.classList.add('hidden');
+        }
+    });
+
+    // Aperçu en temps réel
+    ['notificationSubject', 'notificationMessage'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateNotificationPreview);
+    });
+}
+
+function updateNotificationPreview() {
+    const subject = document.getElementById('notificationSubject').value;
+    const message = document.getElementById('notificationMessage').value;
+    const type = document.getElementById('notificationType').value;
+    
+    const preview = document.getElementById('notificationPreview');
+    
+    if (subject || message) {
+        const typeIcons = {
+            info: 'fa-info-circle text-blue-500',
+            warning: 'fa-exclamation-triangle text-yellow-500',
+            urgent: 'fa-exclamation-circle text-red-500',
+            reminder: 'fa-bell text-purple-500',
+            security: 'fa-shield-alt text-orange-500',
+            system: 'fa-cog text-gray-500'
+        };
+        
+        preview.innerHTML = `
+            <div class="flex items-start space-x-3">
+                <i class="fas ${typeIcons[type]} mt-1"></i>
+                <div class="flex-1">
+                    <h5 class="font-medium text-gray-900 dark:text-white">${subject || 'Objet de la notification'}</h5>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${message || 'Message de la notification...'}</p>
+                </div>
+            </div>
+        `;
+    } else {
+        preview.innerHTML = '<p class="text-sm text-gray-500">L\'aperçu apparaîtra ici...</p>';
+    }
+}
+
+function previewNotification() {
+    updateNotificationPreview();
+    window.unifiedManager.notificationManager.show('info', 'Aperçu', 'Aperçu mis à jour dans la section correspondante');
+}
+
+function executeSendNotification(userId) {
+    const user = window.app.users.find(u => u.id === userId);
+    const subject = document.getElementById('notificationSubject').value.trim();
+    const message = document.getElementById('notificationMessage').value.trim();
+    const type = document.getElementById('notificationType').value;
+    const priority = document.getElementById('priority').value;
+    const scheduleOption = document.getElementById('scheduleOption').value;
+    const scheduledTime = document.getElementById('scheduledTime')?.value;
+
+    const channels = {
+        email: document.getElementById('sendEmail').checked,
+        inApp: document.getElementById('sendInApp').checked,
+        sms: document.getElementById('sendSMS').checked
+    };
+
+    const options = {
+        requireAcknowledgment: document.getElementById('requireAcknowledgment').checked,
+        trackOpening: document.getElementById('trackOpening').checked
+    };
+
+    // Validation
+    if (!subject || !message) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'L\'objet et le message sont obligatoires');
+        return;
+    }
+
+    if (!channels.email && !channels.inApp && !channels.sms) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Veuillez sélectionner au moins un canal de diffusion');
+        return;
+    }
+
+    if (scheduleOption === 'schedule' && !scheduledTime) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Veuillez spécifier la date et l\'heure d\'envoi');
+        return;
+    }
+
+    try {
+        const notificationData = {
+            to: userId,
+            subject: subject,
+            message: message,
+            type: type,
+            priority: priority,
+            channels: channels,
+            options: options,
+            sentBy: window.unifiedManager.getCurrentUser().id,
+            sentAt: scheduleOption === 'now' ? new Date().toISOString() : scheduledTime
+        };
+
+        // Simulation d'envoi
+        if (scheduleOption === 'now') {
+            window.unifiedManager.notificationManager.show('success', 'Succès', 
+                `Notification envoyée à ${user.name} avec succès`);
+        } else {
+            window.unifiedManager.notificationManager.show('success', 'Programmé', 
+                `Notification programmée pour ${new Date(scheduledTime).toLocaleString('fr-FR')}`);
+        }
+
+        window.unifiedManager.modalManager.hide();
+
+        // Log de l'envoi
+        console.log(`Notification sent to user ${userId}:`, notificationData);
+        
+    } catch (error) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur lors de l\'envoi de la notification');
+    }
+}
     </script>
 
 <script src="etats-financiers-syscohada.js"></script>       
