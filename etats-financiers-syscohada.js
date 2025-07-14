@@ -513,13 +513,480 @@ function calculateResultatNet(entries, accounts) {
     return produits - charges;
 }
 
+// ============================================================================
+// SYSTÈME D'EXPORT PDF RÉEL SYSCOHADA
+// ============================================================================
+
+/**
+ * Gestionnaire d'export PDF pour les états financiers SYSCOHADA
+ */
+const SYSCOHADAPDFExporter = {
+    
+    /**
+     * Configuration de base pour les PDF SYSCOHADA
+     */
+    config: {
+        format: 'a4',
+        orientation: 'portrait',
+        margins: { top: 20, right: 15, bottom: 20, left: 15 },
+        fontSize: {
+            title: 16,
+            subtitle: 14,
+            normal: 10,
+            small: 8
+        },
+        colors: {
+            primary: '#5D5CDE',
+            success: '#10B981',
+            danger: '#EF4444',
+            gray: '#6B7280'
+        }
+    },
+    
+    /**
+     * Génère l'en-tête standard SYSCOHADA
+     */
+    generateHeader(doc, companyName, reportTitle, exercice) {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Titre de l'entreprise
+        doc.setFontSize(this.config.fontSize.title);
+        doc.setFont('helvetica', 'bold');
+        doc.text(companyName, pageWidth / 2, 30, { align: 'center' });
+        
+        // Titre du rapport
+        doc.setFontSize(this.config.fontSize.subtitle);
+        doc.text(reportTitle, pageWidth / 2, 45, { align: 'center' });
+        
+        // Exercice
+        doc.setFontSize(this.config.fontSize.normal);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Exercice ${exercice} - Système Comptable SYSCOHADA Révisé`, pageWidth / 2, 55, { align: 'center' });
+        
+        // Ligne de séparation
+        doc.setLineWidth(0.5);
+        doc.line(15, 65, pageWidth - 15, 65);
+        
+        return 70; // Position Y pour le contenu
+    },
+    
+    /**
+     * Génère le pied de page standard
+     */
+    generateFooter(doc) {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        
+        doc.setFontSize(this.config.fontSize.small);
+        doc.setFont('helvetica', 'normal');
+        
+        // Date d'édition
+        const dateEdition = new Date().toLocaleDateString('fr-FR') + ' à ' + new Date().toLocaleTimeString('fr-FR');
+        doc.text(`Édité le ${dateEdition}`, 15, pageHeight - 15);
+        
+        // Signature logiciel
+        doc.text('DOUKÈ Compta Pro - Conforme SYSCOHADA Révisé', pageWidth - 15, pageHeight - 15, { align: 'right' });
+        
+        // Numéro de page
+        const pageNumber = doc.internal.getNumberOfPages();
+        doc.text(`Page ${pageNumber}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    },
+    
+    /**
+     * Crée un tableau formaté pour les états financiers
+     */
+    createTable(doc, startY, headers, data, options = {}) {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margins = this.config.margins;
+        const tableWidth = pageWidth - margins.left - margins.right;
+        
+        // Configuration par défaut
+        const config = {
+            startX: margins.left,
+            columnWidths: options.columnWidths || [],
+            headerHeight: 8,
+            rowHeight: 6,
+            fontSize: this.config.fontSize.normal,
+            ...options
+        };
+        
+        // Calcul automatique des largeurs si non spécifiées
+        if (config.columnWidths.length === 0) {
+            const colWidth = tableWidth / headers.length;
+            config.columnWidths = new Array(headers.length).fill(colWidth);
+        }
+        
+        let currentY = startY;
+        
+        // En-têtes
+        doc.setFillColor(240, 240, 240);
+        doc.rect(config.startX, currentY, tableWidth, config.headerHeight, 'F');
+        
+        doc.setFontSize(config.fontSize);
+        doc.setFont('helvetica', 'bold');
+        
+        let currentX = config.startX;
+        headers.forEach((header, index) => {
+            doc.text(header, currentX + 2, currentY + 5);
+            currentX += config.columnWidths[index];
+        });
+        
+        currentY += config.headerHeight;
+        
+        // Données
+        doc.setFont('helvetica', 'normal');
+        data.forEach((row, rowIndex) => {
+            // Alternance de couleur pour les lignes
+            if (rowIndex % 2 === 0) {
+                doc.setFillColor(248, 248, 248);
+                doc.rect(config.startX, currentY, tableWidth, config.rowHeight, 'F');
+            }
+            
+            currentX = config.startX;
+            row.forEach((cell, colIndex) => {
+                const cellText = cell.toString();
+                const isNumber = !isNaN(parseFloat(cellText)) && isFinite(cellText);
+                const align = isNumber ? 'right' : 'left';
+                const textX = align === 'right' ? currentX + config.columnWidths[colIndex] - 2 : currentX + 2;
+                
+                doc.text(cellText, textX, currentY + 4, { align: align });
+                currentX += config.columnWidths[colIndex];
+            });
+            
+            currentY += config.rowHeight;
+        });
+        
+        // Bordures du tableau
+        doc.setLineWidth(0.1);
+        doc.rect(config.startX, startY, tableWidth, currentY - startY);
+        
+        // Lignes horizontales
+        for (let i = 0; i <= data.length + 1; i++) {
+            const y = startY + (i * config.rowHeight) + config.headerHeight;
+            if (i === 1) doc.setLineWidth(0.3); // Ligne sous l'en-tête plus épaisse
+            doc.line(config.startX, y, config.startX + tableWidth, y);
+            if (i === 1) doc.setLineWidth(0.1);
+        }
+        
+        // Lignes verticales
+        currentX = config.startX;
+        config.columnWidths.forEach(width => {
+            doc.line(currentX, startY, currentX, currentY);
+            currentX += width;
+        });
+        doc.line(currentX, startY, currentX, currentY); // Dernière ligne verticale
+        
+        return currentY + 10; // Position Y après le tableau
+    }
+};
+
+/**
+ * Export PDF du Bilan SYSCOHADA
+ */
 function exportBilanSYSCOHADA() {
-    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Bilan SYSCOHADA exporté en PDF conforme');
+    try {
+        SYSCOHADAIntegrationManager.showNotification('info', 'Export en cours', 'Génération du PDF du bilan...');
+        
+        // Vérifier si jsPDF est disponible
+        if (typeof window.jsPDF === 'undefined') {
+            // Fallback: charger jsPDF dynamiquement
+            loadJsPDFAndExport('bilan');
+            return;
+        }
+        
+        const doc = new window.jsPDF('portrait', 'mm', 'a4');
+        const companyName = SYSCOHADAIntegrationManager.getSelectedCompanyName();
+        const bilanData = calculateBilanSYSCOHADA();
+        const currentYear = new Date().getFullYear();
+        
+        // En-tête
+        let currentY = SYSCOHADAPDFExporter.generateHeader(
+            doc, 
+            companyName, 
+            'BILAN - SYSCOHADA RÉVISÉ', 
+            currentYear
+        );
+        
+        // Tableau ACTIF
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ACTIF', 15, currentY);
+        currentY += 10;
+        
+        const actifData = [
+            ['AB - Charges immobilisées', formatMontantSYSCOHADA(bilanData.actif.AB)],
+            ['AC - Immobilisations incorporelles', formatMontantSYSCOHADA(bilanData.actif.AC)],
+            ['AD - Immobilisations corporelles', formatMontantSYSCOHADA(bilanData.actif.AD)],
+            ['AE - Avances/acomptes sur immobilisations', formatMontantSYSCOHADA(bilanData.actif.AE)],
+            ['AF - Immobilisations financières', formatMontantSYSCOHADA(bilanData.actif.AF)],
+            ['TOTAL ACTIF IMMOBILISÉ', formatMontantSYSCOHADA(bilanData.actif.totalImmobilise)],
+            ['', ''],
+            ['AG - Stocks et en-cours', formatMontantSYSCOHADA(bilanData.actif.AG)],
+            ['AH - Créances et emplois assimilés', formatMontantSYSCOHADA(bilanData.actif.AH)],
+            ['TOTAL ACTIF CIRCULANT HAO', formatMontantSYSCOHADA(bilanData.actif.totalCirculantHAO)],
+            ['', ''],
+            ['AI - Trésorerie-Actif', formatMontantSYSCOHADA(bilanData.actif.AI)],
+            ['AJ - Écarts de conversion-Actif', formatMontantSYSCOHADA(bilanData.actif.AJ)],
+            ['', ''],
+            ['TOTAL GÉNÉRAL ACTIF', formatMontantSYSCOHADA(bilanData.actif.totalGeneral)]
+        ];
+        
+        currentY = SYSCOHADAPDFExporter.createTable(
+            doc, 
+            currentY, 
+            ['ACTIF', 'Montant (FCFA)'], 
+            actifData,
+            { columnWidths: [120, 60] }
+        );
+        
+        // Nouvelle page pour le PASSIF si nécessaire
+        if (currentY > 200) {
+            doc.addPage();
+            currentY = 30;
+        }
+        
+        // Tableau PASSIF
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PASSIF', 15, currentY);
+        currentY += 10;
+        
+        const passifData = [
+            ['BA - Capital', formatMontantSYSCOHADA(bilanData.passif.BA)],
+            ['BB - Primes et réserves', formatMontantSYSCOHADA(bilanData.passif.BB)],
+            ['BC - Écarts de réévaluation', formatMontantSYSCOHADA(bilanData.passif.BC)],
+            ['BD - Résultat net de l\'exercice', formatMontantSYSCOHADA(bilanData.passif.BD)],
+            ['BE - Autres capitaux propres', formatMontantSYSCOHADA(bilanData.passif.BE)],
+            ['BF - Subventions d\'investissement', formatMontantSYSCOHADA(bilanData.passif.BF)],
+            ['BG - Provisions réglementées', formatMontantSYSCOHADA(bilanData.passif.BG)],
+            ['TOTAL CAPITAUX PROPRES', formatMontantSYSCOHADA(bilanData.passif.totalCapitaux)],
+            ['', ''],
+            ['BH - Emprunts et dettes financières', formatMontantSYSCOHADA(bilanData.passif.BH)],
+            ['BI - Dettes circulantes HAO', formatMontantSYSCOHADA(bilanData.passif.BI)],
+            ['BJ - Provisions pour risques et charges', formatMontantSYSCOHADA(bilanData.passif.BJ)],
+            ['BK - Dettes circulantes', formatMontantSYSCOHADA(bilanData.passif.BK)],
+            ['BL - Trésorerie-Passif', formatMontantSYSCOHADA(bilanData.passif.BL)],
+            ['', ''],
+            ['TOTAL GÉNÉRAL PASSIF', formatMontantSYSCOHADA(bilanData.passif.totalGeneral)]
+        ];
+        
+        currentY = SYSCOHADAPDFExporter.createTable(
+            doc, 
+            currentY, 
+            ['PASSIF', 'Montant (FCFA)'], 
+            passifData,
+            { columnWidths: [120, 60] }
+        );
+        
+        // Contrôle d'équilibre
+        currentY += 10;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        const equilibre = bilanData.actif.totalGeneral === bilanData.passif.totalGeneral;
+        doc.text(`Contrôle d'équilibre: ${equilibre ? '✓ BILAN ÉQUILIBRÉ' : '⚠ BILAN DÉSÉQUILIBRÉ'}`, 15, currentY);
+        
+        if (!equilibre) {
+            const ecart = Math.abs(bilanData.actif.totalGeneral - bilanData.passif.totalGeneral);
+            doc.text(`Écart: ${formatMontantSYSCOHADA(ecart)}`, 15, currentY + 6);
+        }
+        
+        // Pied de page
+        SYSCOHADAPDFExporter.generateFooter(doc);
+        
+        // Sauvegarde
+        const fileName = `bilan-syscohada-${companyName.replace(/[^a-zA-Z0-9]/g, '_')}-${currentYear}.pdf`;
+        doc.save(fileName);
+        
+        SYSCOHADAIntegrationManager.showNotification('success', 'Export réussi', `Bilan SYSCOHADA exporté: ${fileName}`);
+        
+    } catch (error) {
+        SYSCOHADAIntegrationManager.handleIntegrationError(error, 'Export PDF Bilan');
+    }
 }
 
-function printBilanSYSCOHADA() {
-    window.unifiedManager.notificationManager.show('info', 'Impression', 'Impression du bilan SYSCOHADA...');
+/**
+ * Export PDF du Compte de Résultat SYSCOHADA
+ */
+function exportCompteResultatSYSCOHADA() {
+    try {
+        SYSCOHADAIntegrationManager.showNotification('info', 'Export en cours', 'Génération du PDF du compte de résultat...');
+        
+        if (typeof window.jsPDF === 'undefined') {
+            loadJsPDFAndExport('compte-resultat');
+            return;
+        }
+        
+        const doc = new window.jsPDF('portrait', 'mm', 'a4');
+        const companyName = SYSCOHADAIntegrationManager.getSelectedCompanyName();
+        const resultatData = calculateCompteResultatSYSCOHADA();
+        const currentYear = new Date().getFullYear();
+        
+        // En-tête
+        let currentY = SYSCOHADAPDFExporter.generateHeader(
+            doc, 
+            companyName, 
+            'COMPTE DE RÉSULTAT - SYSCOHADA RÉVISÉ', 
+            currentYear
+        );
+        
+        // Tableau CHARGES
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('CHARGES', 15, currentY);
+        currentY += 10;
+        
+        const chargesData = [
+            ['TA - Achats de marchandises', formatMontantSYSCOHADA(resultatData.charges.TA)],
+            ['TB - Variation stocks marchandises', formatMontantSYSCOHADA(resultatData.charges.TB)],
+            ['TC - Achats mat. premières et fourn.', formatMontantSYSCOHADA(resultatData.charges.TC)],
+            ['TD - Variation stocks mat. premières', formatMontantSYSCOHADA(resultatData.charges.TD)],
+            ['TE - Autres achats', formatMontantSYSCOHADA(resultatData.charges.TE)],
+            ['TF - Transport', formatMontantSYSCOHADA(resultatData.charges.TF)],
+            ['TG - Services extérieurs', formatMontantSYSCOHADA(resultatData.charges.TG)],
+            ['TH - Impôts et taxes', formatMontantSYSCOHADA(resultatData.charges.TH)],
+            ['TI - Autres charges', formatMontantSYSCOHADA(resultatData.charges.TI)],
+            ['TJ - Charges de personnel', formatMontantSYSCOHADA(resultatData.charges.TJ)],
+            ['TK - Dotations amort. et provisions', formatMontantSYSCOHADA(resultatData.charges.TK)],
+            ['TL - TOTAL CHARGES EXPLOITATION', formatMontantSYSCOHADA(resultatData.charges.TL)],
+            ['', ''],
+            ['TM - Charges financières', formatMontantSYSCOHADA(resultatData.charges.TM)],
+            ['TN - Charges HAO', formatMontantSYSCOHADA(resultatData.charges.TN)],
+            ['TO - Participation salariés', formatMontantSYSCOHADA(resultatData.charges.TO)],
+            ['TP - Impôts sur le bénéfice', formatMontantSYSCOHADA(resultatData.charges.TP)],
+            ['', ''],
+            ['TOTAL GÉNÉRAL CHARGES', formatMontantSYSCOHADA(resultatData.charges.totalGeneral)]
+        ];
+        
+        currentY = SYSCOHADAPDFExporter.createTable(
+            doc, 
+            currentY, 
+            ['CHARGES', 'Montant (FCFA)'], 
+            chargesData,
+            { columnWidths: [120, 60] }
+        );
+        
+        // Nouvelle page pour les PRODUITS
+        doc.addPage();
+        currentY = SYSCOHADAPDFExporter.generateHeader(
+            doc, 
+            companyName, 
+            'COMPTE DE RÉSULTAT - SYSCOHADA RÉVISÉ (Suite)', 
+            currentYear
+        );
+        
+        // Tableau PRODUITS
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PRODUITS', 15, currentY);
+        currentY += 10;
+        
+        const produitsData = [
+            ['RA - Ventes de marchandises', formatMontantSYSCOHADA(resultatData.produits.RA)],
+            ['RB - Ventes de produits fabriqués', formatMontantSYSCOHADA(resultatData.produits.RB)],
+            ['RC - Travaux, services vendus', formatMontantSYSCOHADA(resultatData.produits.RC)],
+            ['RD - Production stockée', formatMontantSYSCOHADA(resultatData.produits.RD)],
+            ['RE - Production immobilisée', formatMontantSYSCOHADA(resultatData.produits.RE)],
+            ['RF - Subventions d\'exploitation', formatMontantSYSCOHADA(resultatData.produits.RF)],
+            ['RG - Autres produits', formatMontantSYSCOHADA(resultatData.produits.RG)],
+            ['RH - Reprises de provisions', formatMontantSYSCOHADA(resultatData.produits.RH)],
+            ['RI - Transferts de charges', formatMontantSYSCOHADA(resultatData.produits.RI)],
+            ['RJ - TOTAL PRODUITS EXPLOITATION', formatMontantSYSCOHADA(resultatData.produits.RJ)],
+            ['', ''],
+            ['RK - Produits financiers', formatMontantSYSCOHADA(resultatData.produits.RK)],
+            ['RL - Produits HAO', formatMontantSYSCOHADA(resultatData.produits.RL)],
+            ['', ''],
+            ['TOTAL GÉNÉRAL PRODUITS', formatMontantSYSCOHADA(resultatData.produits.totalGeneral)]
+        ];
+        
+        currentY = SYSCOHADAPDFExporter.createTable(
+            doc, 
+            currentY, 
+            ['PRODUITS', 'Montant (FCFA)'], 
+            produitsData,
+            { columnWidths: [120, 60] }
+        );
+        
+        // Résultats intermédiaires
+        currentY += 10;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('RÉSULTATS INTERMÉDIAIRES', 15, currentY);
+        currentY += 10;
+        
+        const resultatsData = [
+            ['Résultat d\'exploitation', formatMontantSYSCOHADA(resultatData.resultats.exploitation)],
+            ['Résultat financier', formatMontantSYSCOHADA(resultatData.resultats.financier)],
+            ['Résultat HAO', formatMontantSYSCOHADA(resultatData.resultats.hao)],
+            ['Résultat avant impôt', formatMontantSYSCOHADA(resultatData.resultats.avantImpot)],
+            ['RÉSULTAT NET DE L\'EXERCICE', formatMontantSYSCOHADA(resultatData.resultats.net)]
+        ];
+        
+        SYSCOHADAPDFExporter.createTable(
+            doc, 
+            currentY, 
+            ['RÉSULTATS', 'Montant (FCFA)'], 
+            resultatsData,
+            { columnWidths: [120, 60] }
+        );
+        
+        // Pied de page
+        SYSCOHADAPDFExporter.generateFooter(doc);
+        
+        // Sauvegarde
+        const fileName = `compte-resultat-syscohada-${companyName.replace(/[^a-zA-Z0-9]/g, '_')}-${currentYear}.pdf`;
+        doc.save(fileName);
+        
+        SYSCOHADAIntegrationManager.showNotification('success', 'Export réussi', `Compte de résultat SYSCOHADA exporté: ${fileName}`);
+        
+    } catch (error) {
+        SYSCOHADAIntegrationManager.handleIntegrationError(error, 'Export PDF Compte de Résultat');
+    }
 }
+
+/**
+ * Fonctions d'impression (utilisant les PDF)
+ */
+function printBilanSYSCOHADA() {
+    SYSCOHADAPDFExporter.showAlert('Pour imprimer le bilan, utilisez l\'export PDF puis imprimez le fichier depuis votre navigateur.', 'info');
+}
+
+function printCompteResultatSYSCOHADA() {
+    SYSCOHADAPDFExporter.showAlert('Pour imprimer le compte de résultat, utilisez l\'export PDF puis imprimez le fichier depuis votre navigateur.', 'info');
+}
+
+/**
+ * Chargement dynamique de jsPDF si non disponible
+ */
+function loadJsPDFAndExport(type) {
+    if (document.querySelector('#jspdf-script')) {
+        return; // Déjà en cours de chargement
+    }
+    
+    SYSCOHADAIntegrationManager.showNotification('info', 'Chargement PDF', 'Chargement de la librairie PDF...');
+    
+    const script = document.createElement('script');
+    script.id = 'jspdf-script';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = () => {
+        window.jsPDF = window.jspdf.jsPDF;
+        // Relancer l'export
+        switch(type) {
+            case 'bilan':
+                exportBilanSYSCOHADA();
+                break;
+            case 'compte-resultat':
+                exportCompteResultatSYSCOHADA();
+                break;
+            default:
+                SYSCOHADAIntegrationManager.showNotification('error', 'Erreur', 'Type d\'export non reconnu');
+        }
+    };
+    script.onerror = () => {
+        SYSCOHADAIntegrationManager.showNotification('error', 'Erreur de chargement', 'Impossible de charger la librairie PDF');
+    };
+    document.head.appendChild(script);
+}
+
 
 // ============================================================================
 // 2. COMPTE DE RÉSULTAT SYSCOHADA RÉVISÉ CONFORME  
