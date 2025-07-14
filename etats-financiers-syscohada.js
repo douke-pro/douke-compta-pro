@@ -2210,9 +2210,151 @@ function exportBalanceExcel() {
 }
 
 // ============================================================================
-// FONCTIONS UTILITAIRES SYSCOHADA
+// FONCTIONS UTILITAIRES SYSCOHADA COMPLÈTES
 // ============================================================================
-function getClassTitle(classe) { ... }
+
+/**
+ * Retourne le titre officiel d'une classe de comptes SYSCOHADA
+ * @param {string} classe - Numéro de classe (1-7)
+ * @returns {string} Titre officiel de la classe
+ */
+function getClassTitle(classe) {
+    const titresSYSCOHADA = {
+        '1': 'Comptes de ressources durables',
+        '2': 'Comptes d\'actif immobilisé',
+        '3': 'Comptes de stocks',
+        '4': 'Comptes de tiers',
+        '5': 'Comptes financiers',
+        '6': 'Comptes de charges par nature',
+        '7': 'Comptes de produits par nature',
+        '8': 'Comptes des autres charges et autres produits'
+    };
+    
+    return titresSYSCOHADA[classe] || `Classe ${classe} (non définie)`;
+}
+
+/**
+ * Formate un montant selon les standards SYSCOHADA
+ * @param {number} montant - Montant à formater
+ * @param {string} devise - Devise (par défaut FCFA)
+ * @returns {string} Montant formaté
+ */
+function formatMontantSYSCOHADA(montant, devise = 'FCFA') {
+    if (typeof montant !== 'number' || isNaN(montant)) {
+        return '0 ' + devise;
+    }
+    return montant.toLocaleString('fr-FR') + ' ' + devise;
+}
+
+/**
+ * Valide qu'un compte appartient à une classe SYSCOHADA
+ * @param {string} codeCompte - Code du compte
+ * @param {string} classe - Classe attendue
+ * @returns {boolean} True si le compte appartient à la classe
+ */
+function validateAccountClass(codeCompte, classe) {
+    if (!codeCompte || !classe) return false;
+    return codeCompte.toString().charAt(0) === classe.toString();
+}
+
+/**
+ * Obtient la nature d'un compte selon SYSCOHADA
+ * @param {string} codeCompte - Code du compte
+ * @returns {string} Nature du compte (Actif, Passif, Charge, Produit)
+ */
+function getAccountNatureSYSCOHADA(codeCompte) {
+    if (!codeCompte) return 'Indéfini';
+    
+    const premierChiffre = codeCompte.toString().charAt(0);
+    const natureSYSCOHADA = {
+        '1': 'Passif', // Ressources durables
+        '2': 'Actif',  // Actif immobilisé
+        '3': 'Actif',  // Stocks
+        '4': 'Mixte',  // Tiers (peut être actif ou passif)
+        '5': 'Mixte',  // Financiers (peut être actif ou passif)
+        '6': 'Charge', // Charges
+        '7': 'Produit', // Produits
+        '8': 'Mixte'   // Autres charges et produits
+    };
+    
+    return natureSYSCOHADA[premierChiffre] || 'Indéfini';
+}
+
+/**
+ * Calcule la période d'exercice SYSCOHADA
+ * @param {Date} dateDebut - Date de début d'exercice
+ * @param {Date} dateFin - Date de fin d'exercice
+ * @returns {Object} Informations sur la période
+ */
+function getPeriodeExercice(dateDebut = null, dateFin = null) {
+    const maintenant = new Date();
+    const anneeActuelle = maintenant.getFullYear();
+    
+    // Par défaut : exercice civil (1er janvier au 31 décembre)
+    const debut = dateDebut || new Date(anneeActuelle, 0, 1); // 1er janvier
+    const fin = dateFin || new Date(anneeActuelle, 11, 31);   // 31 décembre
+    
+    return {
+        dateDebut: debut,
+        dateFin: fin,
+        exercice: anneeActuelle,
+        duree: Math.ceil((fin - debut) / (1000 * 60 * 60 * 24)), // Durée en jours
+        libelle: `Exercice ${anneeActuelle}`,
+        periode: `du ${debut.toLocaleDateString('fr-FR')} au ${fin.toLocaleDateString('fr-FR')}`
+    };
+}
+
+/**
+ * Valide l'équilibrage d'une écriture SYSCOHADA
+ * @param {Array} lignes - Lignes d'écriture
+ * @returns {Object} Résultat de validation
+ */
+function validateEcritureEquilibrage(lignes) {
+    if (!Array.isArray(lignes) || lignes.length === 0) {
+        return { 
+            valide: false, 
+            erreur: 'Aucune ligne d\'écriture fournie',
+            totalDebit: 0,
+            totalCredit: 0,
+            ecart: 0
+        };
+    }
+    
+    let totalDebit = 0;
+    let totalCredit = 0;
+    
+    lignes.forEach(ligne => {
+        totalDebit += (ligne.debit || 0);
+        totalCredit += (ligne.credit || 0);
+    });
+    
+    const ecart = Math.abs(totalDebit - totalCredit);
+    const tolerance = 0.01; // Tolérance de 1 centime
+    
+    return {
+        valide: ecart <= tolerance,
+        erreur: ecart > tolerance ? `Écriture non équilibrée - Écart: ${ecart.toFixed(2)} FCFA` : null,
+        totalDebit: totalDebit,
+        totalCredit: totalCredit,
+        ecart: ecart
+    };
+}
+
+/**
+ * Génère un numéro de pièce SYSCOHADA conforme
+ * @param {string} journal - Code journal
+ * @param {number} numero - Numéro séquentiel
+ * @param {Date} date - Date de l'écriture
+ * @returns {string} Numéro de pièce formaté
+ */
+function generateNumeroPiece(journal, numero, date = new Date()) {
+    const annee = date.getFullYear();
+    const mois = String(date.getMonth() + 1).padStart(2, '0');
+    const numeroFormate = String(numero).padStart(4, '0');
+    
+    return `${journal}-${annee}${mois}-${numeroFormate}`;
+}
+
 function exportPDF() { ... }
 
 // ============================================================================
@@ -2237,4 +2379,229 @@ function closeModal() {
     } catch (error) {
         console.error('Erreur fermeture modal:', error);
     }
+}
+
+// ============================================================================
+// SYSTÈME DE MODALES PERSONNALISÉES SYSCOHADA
+// ============================================================================
+
+/**
+ * Gestionnaire de modales personnalisées pour SYSCOHADA
+ */
+const SYSCOHADAModalManager = {
+    /**
+     * Affiche une modal de confirmation
+     * @param {string} message - Message de confirmation
+     * @param {Function} onConfirm - Callback de confirmation
+     * @param {Function} onCancel - Callback d'annulation (optionnel)
+     */
+    showConfirmDialog(message, onConfirm, onCancel = null) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.style.zIndex = '9999';
+        
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4 animate-fade-in">
+                <div class="flex items-center mb-4">
+                    <div class="bg-warning/20 p-2 rounded-full mr-3">
+                        <i class="fas fa-exclamation-triangle text-warning text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Confirmation requise</h3>
+                </div>
+                <p class="text-gray-700 dark:text-gray-300 mb-6">${message}</p>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancelBtn" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                        Annuler
+                    </button>
+                    <button id="confirmBtn" class="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg transition-colors">
+                        Confirmer
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Gestion des événements
+        modal.querySelector('#confirmBtn').onclick = () => {
+            modal.remove();
+            if (typeof onConfirm === 'function') onConfirm();
+        };
+        
+        modal.querySelector('#cancelBtn').onclick = () => {
+            modal.remove();
+            if (typeof onCancel === 'function') onCancel();
+        };
+        
+        // Fermer avec Escape
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', handleEscape);
+                if (typeof onCancel === 'function') onCancel();
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Fermer en cliquant à l'extérieur
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                if (typeof onCancel === 'function') onCancel();
+            }
+        };
+    },
+    
+    /**
+     * Affiche une modal d'alerte
+     * @param {string} message - Message d'alerte
+     * @param {string} type - Type d'alerte (success, error, warning, info)
+     * @param {Function} onClose - Callback de fermeture (optionnel)
+     */
+    showAlert(message, type = 'info', onClose = null) {
+        const typeConfig = {
+            success: { icon: 'fa-check-circle', color: 'text-success', bg: 'bg-success/20' },
+            error: { icon: 'fa-times-circle', color: 'text-danger', bg: 'bg-danger/20' },
+            warning: { icon: 'fa-exclamation-triangle', color: 'text-warning', bg: 'bg-warning/20' },
+            info: { icon: 'fa-info-circle', color: 'text-info', bg: 'bg-info/20' }
+        };
+        
+        const config = typeConfig[type] || typeConfig.info;
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.style.zIndex = '9999';
+        
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4 animate-fade-in">
+                <div class="flex items-center mb-4">
+                    <div class="${config.bg} p-2 rounded-full mr-3">
+                        <i class="fas ${config.icon} ${config.color} text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Information</h3>
+                </div>
+                <p class="text-gray-700 dark:text-gray-300 mb-6">${message}</p>
+                <div class="flex justify-end">
+                    <button id="closeBtn" class="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg transition-colors">
+                        OK
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Gestion des événements
+        const closeModal = () => {
+            modal.remove();
+            if (typeof onClose === 'function') onClose();
+        };
+        
+        modal.querySelector('#closeBtn').onclick = closeModal;
+        
+        // Fermer avec Escape
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Fermer en cliquant à l'extérieur
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+    },
+    
+    /**
+     * Affiche une modal de saisie
+     * @param {string} message - Message de demande
+     * @param {string} placeholder - Placeholder du champ de saisie
+     * @param {Function} onSubmit - Callback avec la valeur saisie
+     * @param {Function} onCancel - Callback d'annulation (optionnel)
+     */
+    showPrompt(message, placeholder = '', onSubmit, onCancel = null) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.style.zIndex = '9999';
+        
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4 animate-fade-in">
+                <div class="flex items-center mb-4">
+                    <div class="bg-info/20 p-2 rounded-full mr-3">
+                        <i class="fas fa-edit text-info text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Saisie requise</h3>
+                </div>
+                <p class="text-gray-700 dark:text-gray-300 mb-4">${message}</p>
+                <input type="text" id="promptInput" 
+                       placeholder="${placeholder}" 
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent mb-6">
+                <div class="flex justify-end space-x-3">
+                    <button id="cancelBtn" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                        Annuler
+                    </button>
+                    <button id="submitBtn" class="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg transition-colors">
+                        Valider
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const input = modal.querySelector('#promptInput');
+        input.focus();
+        
+        // Gestion des événements
+        const submitValue = () => {
+            const value = input.value.trim();
+            modal.remove();
+            if (typeof onSubmit === 'function') onSubmit(value);
+        };
+        
+        const cancelPrompt = () => {
+            modal.remove();
+            if (typeof onCancel === 'function') onCancel();
+        };
+        
+        modal.querySelector('#submitBtn').onclick = submitValue;
+        modal.querySelector('#cancelBtn').onclick = cancelPrompt;
+        
+        // Submit avec Entrée
+        input.onkeypress = (e) => {
+            if (e.key === 'Enter') submitValue();
+        };
+        
+        // Fermer avec Escape
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                cancelPrompt();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Fermer en cliquant à l'extérieur
+        modal.onclick = (e) => {
+            if (e.target === modal) cancelPrompt();
+        };
+    }
+};
+
+// CSS pour l'animation
+if (!document.querySelector('#syscohada-modal-styles')) {
+    const style = document.createElement('style');
+    style.id = 'syscohada-modal-styles';
+    style.textContent = `
+        @keyframes fade-in {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.2s ease-out;
+        }
+    `;
+    document.head.appendChild(style);
 }
