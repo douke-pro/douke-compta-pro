@@ -1817,12 +1817,19 @@ function calculateTafireSYSCOHADA() {
     };
 }
 
+/**
+ * Export PDF du TAFIRE SYSCOHADA
+ */
 function exportTafireSYSCOHADA() {
-    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'TAFIRE SYSCOHADA exporté en PDF conforme');
+    SYSCOHADAIntegrationManager.showNotification('info', 'Export TAFIRE', 'Fonction d\'export TAFIRE PDF en développement');
+    // TODO: Implémenter l'export PDF TAFIRE
 }
 
+/**
+ * Fonctions d'impression utilisant les PDF
+ */
 function printTafireSYSCOHADA() {
-    window.unifiedManager.notificationManager.show('info', 'Impression', 'Impression du TAFIRE SYSCOHADA...');
+    SYSCOHADAModalManager.showAlert('Utilisez l\'export PDF pour imprimer le TAFIRE.', 'info');
 }
 
 // ============================================================================
@@ -2236,17 +2243,23 @@ function generatePrintableGrandLivre() {
     `).join('');
 }
 
-// Fonctions d'export
+/**
+ * Export PDF du Grand Livre SYSCOHADA
+ */
 function exportGrandLivreSYSCOHADA() {
-    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Grand livre SYSCOHADA exporté en PDF');
+    SYSCOHADAIntegrationManager.showNotification('info', 'Export Grand Livre', 'Fonction d\'export Grand Livre PDF en développement');
+    // TODO: Implémenter l'export PDF Grand Livre
 }
 
 function printGrandLivreSYSCOHADA() {
-    previewGrandLivre();
+    previewGrandLivre(); // Utilise la fonction d'aperçu existante
 }
 
+/**
+ * Exports Excel (placeholders pour développement futur)
+ */
 function exportGrandLivreExcel() {
-    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Grand livre exporté en Excel');
+    SYSCOHADAIntegrationManager.showNotification('info', 'Export Excel', 'Export Excel Grand Livre à venir');
 }
 
 // ============================================================================
@@ -2664,16 +2677,20 @@ function analyseBalance() {
     window.unifiedManager.notificationManager.show('info', 'Analyse', 'Analyse de la balance en cours...');
 }
 
+/**
+ * Export PDF de la Balance SYSCOHADA
+ */
 function exportBalanceSYSCOHADA() {
-    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Balance SYSCOHADA exportée en PDF');
+    SYSCOHADAIntegrationManager.showNotification('info', 'Export Balance', 'Fonction d\'export Balance PDF en développement');
+    // TODO: Implémenter l'export PDF Balance
 }
 
 function printBalanceSYSCOHADA() {
-    previewBalance();
+    previewBalance(); // Utilise la fonction d'aperçu existante
 }
 
 function exportBalanceExcel() {
-    window.unifiedManager.notificationManager.show('success', 'Export réussi', 'Balance exportée en Excel');
+    SYSCOHADAIntegrationManager.showNotification('info', 'Export Excel', 'Export Excel Balance à venir');
 }
 
 // ============================================================================
