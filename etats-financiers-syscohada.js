@@ -994,7 +994,7 @@ function loadJsPDFAndExport(type) {
 /**
 * Génère le Compte de Résultat SYSCOHADA Révisé conforme
 */
-function generateCompteResultat() {
+function generateCompteResultatSYSCOHADA() {
     if (!window.app.currentCompanyId) {
         window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour générer le compte de résultat');
         return;
@@ -1434,7 +1434,7 @@ function printCompteResultatSYSCOHADA() {
 /**
 * Génère le TAFIRE SYSCOHADA Révisé conforme
 */
-function generateTafire() {
+function generateTafireSYSCOHADA() {
     if (!window.app.currentCompanyId) {
         window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour générer le TAFIRE');
         return;
@@ -1838,7 +1838,7 @@ function printTafireSYSCOHADA() {
 /**
 * Génère le Grand Livre SYSCOHADA Révisé conforme
 */
-function generateGrandLivre() {
+function generateGrandLivreSYSCOHADA() {
     if (!window.app.currentCompanyId) {
         window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour générer le grand livre');
         return;
@@ -2268,7 +2268,7 @@ function exportGrandLivreExcel() {
 /**
 * Génère la Balance SYSCOHADA Révisé conforme
 */
-function generateBalance() {
+function generateBalanceSYSCOHADA() {
     if (!window.app.currentCompanyId) {
         window.unifiedManager.notificationManager.show('warning', 'Entreprise requise', 'Sélectionnez une entreprise pour générer la balance');
         return;
