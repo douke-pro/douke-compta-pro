@@ -138,7 +138,7 @@ const SYSCOHADAIntegrationManager = {
 /**
 * Génère le bilan SYSCOHADA Révisé conforme
 */
-function generateBilan() {
+function generateBilanSYSCOHADA() {
     try {
         // Vérification sécurisée des dépendances
         if (!SYSCOHADAIntegrationManager.checkDataAvailability()) {
