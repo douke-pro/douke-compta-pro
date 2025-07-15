@@ -3089,3 +3089,59 @@ if (!document.querySelector('#syscohada-modal-styles')) {
     `;
     document.head.appendChild(style);
 }
+
+// 🔧 FONCTION DE CORRECTION AUTOMATIQUE - À exécuter une seule fois
+function applyCorrectionsToCode() {
+    console.log('🚀 Application des corrections SYSCOHADA...');
+    
+    // Mapping des corrections à appliquer
+    const corrections = {
+        "safeExecute('generateBilan')": "safeExecute('generateBilanSYSCOHADA')",
+        "safeExecute('generateTafire')": "safeExecute('generateTafireSYSCOHADA')",
+        "safeExecute('generateCompteResultat')": "safeExecute('generateCompteResultatSYSCOHADA')",
+        "safeExecute('generateGrandLivre')": "safeExecute('generateGrandLivreSYSCOHADA')",
+        "safeExecute('generateBalance')": "safeExecute('generateBalanceSYSCOHADA')",
+        "safeExecute('generateJournal')": "safeExecute('generateJournalSYSCOHADA')",
+        "safeExecute('generateJournalReport')": "safeExecute('generateJournalReportSYSCOHADA')"
+    };
+    
+    let correctionsApplied = 0;
+    
+    // Parcourir tous les scripts de la page
+    document.querySelectorAll('script').forEach(script => {
+        if (script.innerHTML.trim()) {
+            let originalCode = script.innerHTML;
+            let modifiedCode = originalCode;
+            
+            // Appliquer chaque correction
+            Object.entries(corrections).forEach(([ancien, nouveau]) => {
+                if (modifiedCode.includes(ancien)) {
+                    modifiedCode = modifiedCode.replace(new RegExp(ancien.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), nouveau);
+                    correctionsApplied++;
+                    console.log(`✅ Correction appliquée: ${ancien} → ${nouveau}`);
+                }
+            });
+            
+            // Remplacer le contenu du script si modifié
+            if (originalCode !== modifiedCode) {
+                script.innerHTML = modifiedCode;
+            }
+        }
+    });
+    
+    console.log(`🎯 Total: ${correctionsApplied} corrections appliquées avec succès!`);
+    console.log('💡 Actualisez la page pour voir les changements pris en compte.');
+    
+    // Marquer les corrections comme appliquées
+    localStorage.setItem('syscohada_corrections_applied', 'true');
+}
+
+// Auto-exécution au chargement si pas encore appliquées
+if (!localStorage.getItem('syscohada_corrections_applied')) {
+    // Attendre que le DOM soit chargé
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyCorrectionsToCode);
+    } else {
+        applyCorrectionsToCode();
+    }
+}
