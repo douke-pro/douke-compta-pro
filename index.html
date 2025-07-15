@@ -6480,7 +6480,12 @@ function executeSendNotification(userId) {
     } catch (error) {
         window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur lors de l\'envoi de la notification');
     }
-}
+}        
+    </script>
+
+<script src="etats-financiers-syscohada.js"></script>       
+</body>
+</html>
 
 // 🔧 FONCTION DE CORRECTION AUTOMATIQUE - À exécuter une seule fois
 function applyCorrectionsToCode() {
@@ -6536,9 +6541,4 @@ if (!localStorage.getItem('syscohada_corrections_applied')) {
     } else {
         applyCorrectionsToCode();
     }
-}        
-    </script>
-
-<script src="etats-financiers-syscohada.js"></script>       
-</body>
-</html>
+}
