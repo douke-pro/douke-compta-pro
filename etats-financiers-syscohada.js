@@ -4111,3 +4111,58 @@ window.SYSCOHADAFunctions = {
 };
 
 console.log('✅ Toutes les fonctions SYSCOHADA manquantes ont été développées et intégrées avec succès !');
+
+(function exposeModuleFunctionsToWindow(moduleFileName = 'etats-financiers-syscohada.js') {
+    // Cette fonction s'exécute automatiquement au chargement
+    try {
+        // Récupère tous les noms de fonctions définies dans ce fichier JS
+        const functionNames = [];
+        // On parcourt tous les éléments déclarés dans le scope global du script
+        for (const prop in window) {
+            try {
+                // Filtre les fonctions natives ou déjà globales, on veut celles du script
+                if (
+                    typeof window[prop] === "function" &&
+                    window.hasOwnProperty(prop) &&
+                    window[prop].toString().includes(moduleFileName.replace('.js',''))
+                ) {
+                    functionNames.push(prop);
+                }
+            } catch (e) { /* Ignore erreurs d'accès */ }
+        }
+
+        // Recherche dans le script toutes les fonctions non encore globales
+        if (typeof window[moduleFileName + '_loaded'] === 'undefined') {
+            // Récupère le script source actuel
+            const scripts = document.getElementsByTagName('script');
+            let targetScript = null;
+            for (let s of scripts) {
+                if (s.src && s.src.includes(moduleFileName)) {
+                    targetScript = s;
+                    break;
+                }
+            }
+            if (targetScript) {
+                fetch(targetScript.src)
+                    .then(r => r.text())
+                    .then(js => {
+                        const regex = /function\s+([a-zA-Z0-9_]+)\s*\(/g;
+                        let match;
+                        while ((match = regex.exec(js)) !== null) {
+                            const fnName = match[1];
+                            // Si elle n'est pas déjà globale, l'attacher à window
+                            if (!window[fnName] && typeof eval(fnName) === "function") {
+                                window[fnName] = eval(fnName);
+                            }
+                        }
+                        // Marqueur pour éviter de refaire l'opération
+                        window[moduleFileName + '_loaded'] = true;
+                    });
+            }
+        }
+    } catch (err) {
+        // Pour le debug, affiche une erreur claire dans la console si souci
+        console.error("Erreur lors de l'exposition globale des fonctions : ", err);
+    }
+})();
+// Cette fonction s'auto-exécute à chaque rechargement de la page
