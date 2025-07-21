@@ -6481,6 +6481,256 @@ function executeSendNotification(userId) {
         window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur lors de l\'envoi de la notification');
     }
 }
+
+/**
+ * Affiche les détails d'une écriture comptable dans une modale.
+ * @param {number} id - L'ID de l'écriture à visualiser.
+ */
+function viewEntry(id) {
+    const entry = window.app.entries.find(e => e.id === id);
+    if (!entry) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Écriture introuvable.');
+        return;
+    }
+
+    const content = `
+        <div class="space-y-4 text-sm">
+            <div class="grid grid-cols-3 gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div><strong>Date:</strong> ${new Date(entry.date).toLocaleDateString('fr-FR')}</div>
+                <div><strong>Journal:</strong> ${entry.journal}</div>
+                <div><strong>N° Pièce:</strong> ${entry.piece}</div>
+            </div>
+            <p><strong>Libellé:</strong> ${entry.libelle}</p>
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Compte</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Libellé Ligne</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Débit</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Crédit</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    ${entry.lines.map(line => `
+                        <tr>
+                            <td class="px-4 py-2">${line.account} - ${line.accountName}</td>
+                            <td class="px-4 py-2">${line.libelle}</td>
+                            <td class="px-4 py-2 text-right font-mono">${line.debit > 0 ? line.debit.toLocaleString('fr-FR') : ''}</td>
+                            <td class="px-4 py-2 text-right font-mono">${line.credit > 0 ? line.credit.toLocaleString('fr-FR') : ''}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+                 <tfoot class="bg-gray-50 dark:bg-gray-700 font-bold">
+                    <tr>
+                        <td colspan="2" class="px-4 py-2 text-right">Total</td>
+                        <td class="px-4 py-2 text-right font-mono">${entry.lines.reduce((sum, l) => sum + l.debit, 0).toLocaleString('fr-FR')}</td>
+                        <td class="px-4 py-2 text-right font-mono">${entry.lines.reduce((sum, l) => sum + l.credit, 0).toLocaleString('fr-FR')}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div class="text-right">
+                <span class="px-3 py-1 rounded-full text-sm ${window.unifiedManager.getEntryStatusColor(entry.status)}">${entry.status}</span>
+            </div>
+        </div>
+    `;
+    window.unifiedManager.modalManager.show(`Détail Écriture: ${entry.piece}`, content);
+}
+
+/**
+ * Ouvre la modale pour modifier une écriture (simulé).
+ * @param {number} id - L'ID de l'écriture à modifier.
+ */
+function editEntry(id) {
+    // Pour une application réelle, ceci ouvrirait une modale similaire à showNewEntryModal pré-remplie.
+    window.unifiedManager.notificationManager.show('info', 'Fonctionnalité en développement', `La modification de l'écriture ${id} sera bientôt disponible.`);
+}
+
+/**
+ * Valide une écriture en attente.
+ * @param {number} id - L'ID de l'écriture à valider.
+ */
+function validateEntry(id) {
+    const onConfirm = () => {
+        const entry = window.app.entries.find(e => e.id === id);
+        if (entry && entry.status === 'En attente') {
+            entry.status = 'Validé';
+            entry.validatedBy = window.app.currentUser.id;
+            entry.validatedAt = new Date().toISOString();
+            window.unifiedManager.notificationManager.show('success', 'Validation réussie', `L'écriture ${entry.piece} a été validée.`);
+            window.unifiedManager.loadEntriesPage(); // Recharger la vue
+        } else {
+            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Cette écriture ne peut pas être validée.');
+        }
+    };
+
+    window.unifiedManager.modalManager.confirm(
+        'Confirmation de Validation',
+        'Voulez-vous vraiment valider cette écriture ? Cette action est irréversible.',
+        onConfirm
+    );
+}
+
+/**
+ * Filtre la liste des comptes affichée à l'écran.
+ */
+function filterAccounts() {
+    const search = document.getElementById('accountSearchInput').value.toLowerCase();
+    const classFilter = document.getElementById('classFilter').value;
+    const categoryFilter = document.getElementById('categoryFilter').value;
+
+    const accountCards = document.querySelectorAll('.account-card');
+    accountCards.forEach(card => {
+        const name = card.dataset.name || '';
+        const code = card.dataset.code || '';
+        const cardClass = card.dataset.class || '';
+        const cardCategory = card.dataset.category || '';
+
+        const matchesSearch = name.includes(search) || code.includes(search);
+        const matchesClass = !classFilter || cardClass === classFilter;
+        const matchesCategory = !categoryFilter || cardCategory === categoryFilter;
+
+        if (matchesSearch && matchesClass && matchesCategory) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+/**
+ * Réinitialise tous les filtres du plan comptable.
+ */
+function resetAccountFilters() {
+    document.getElementById('accountSearchInput').value = '';
+    document.getElementById('classFilter').value = '';
+    document.getElementById('categoryFilter').value = '';
+    filterAccounts(); // Appliquer le filtre vide pour tout réafficher
+    window.unifiedManager.notificationManager.show('info', 'Filtres réinitialisés', 'Tous les comptes sont maintenant affichés.');
+}
+
+/**
+ * Affiche l'historique d'un compte (simulé).
+ * @param {string} code - Le code du compte.
+ */
+function viewAccountHistory(code) {
+    const account = window.app.accounts.find(a => a.code === code);
+    const accountName = account ? account.name : 'Inconnu';
+
+    const content = `
+        <p class="text-gray-600 dark:text-gray-400">
+            Historique des mouvements pour le compte <strong>${code} - ${accountName}</strong>.
+        </p>
+        <div class="mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg text-center">
+            Cette fonctionnalité est en cours de développement et affichera bientôt
+            toutes les écritures liées à ce compte.
+        </div>
+    `;
+    window.unifiedManager.modalManager.show(`Historique du compte ${code}`, content);
+}
+
+/**
+ * Ouvre une modale pour une nouvelle opération de caisse (simulé).
+ * @param {number} id - L'ID de la caisse.
+ */
+function openCashOperations(id) {
+    const cashRegister = window.app.cashRegisters.find(c => c.id === id);
+    if (!cashRegister) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Caisse introuvable.');
+        return;
+    }
+    // Cette fonction ouvrirait une modale simplifiée pour une écriture de type Dépense/Recette.
+    // Pour la démonstration, nous utilisons la modale d'écriture générale.
+    window.unifiedManager.notificationManager.show('info', 'Opération de caisse', `Ouverture du module d'opération pour la caisse "${cashRegister.name}".`);
+    showNewEntryModal();
+}
+
+/**
+ * Ouvre une modale pour modifier une caisse (simulé).
+ * @param {number} id - L'ID de la caisse à modifier.
+ */
+function editCashRegister(id) {
+    window.unifiedManager.notificationManager.show('info', 'Fonctionnalité en développement', `La modification de la caisse ${id} sera bientôt disponible.`);
+}
+
+/**
+ * Génère un rapport d'état pour une caisse (simulé).
+ * @param {number} id - L'ID de la caisse.
+ */
+function generateCashReport(id) {
+    const cashRegister = window.app.cashRegisters.find(c => c.id === id);
+    if (!cashRegister) {
+        window.unifiedManager.notificationManager.show('error', 'Erreur', 'Caisse introuvable.');
+        return;
+    }
+
+    const content = `
+        <div class="space-y-3">
+            <p>Rapport généré le ${new Date().toLocaleString('fr-FR')}</p>
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <h4 class="font-semibold text-lg mb-2">${cashRegister.name}</h4>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <span>Responsable:</span> <strong>${cashRegister.responsibleName}</strong>
+                    <span>Solde actuel:</span> <strong class="text-primary">${cashRegister.balance.toLocaleString('fr-FR')} ${cashRegister.currency}</strong>
+                    <span>Recettes du jour:</span> <strong class="text-success">+${cashRegister.dailyReceipts.toLocaleString('fr-FR')} ${cashRegister.currency}</strong>
+                    <span>Dépenses du jour:</span> <strong class="text-warning">-${cashRegister.dailyExpenses.toLocaleString('fr-FR')} ${cashRegister.currency}</strong>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <i class="fas fa-print text-3xl text-gray-400"></i>
+                <p class="text-gray-500 text-sm mt-2">La fonctionnalité d'impression sera bientôt disponible.</p>
+            </div>
+        </div>
+    `;
+    const actions = `
+        <button onclick="window.unifiedManager.modalManager.hide()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
+            Fermer
+        </button>
+    `;
+    window.unifiedManager.modalManager.show(`État de la Caisse - ${cashRegister.name}`, content, { actions });
+}
+
+/**
+ * Simule la génération d'un rapport global pour l'administrateur.
+ */
+function generateGlobalReport() {
+    if (window.app.currentProfile !== 'admin') {
+        window.unifiedManager.showSecurityAlert('🚫 Accès refusé - Administrateur requis');
+        return;
+    }
+    window.unifiedManager.notificationManager.show('info', 'Génération de rapport', 'Le rapport global consolidé est en cours de préparation...');
+}
+
+/**
+ * Simule un audit de sécurité.
+ */
+function showSecurityAudit() {
+    if (window.app.currentProfile !== 'admin') {
+        window.unifiedManager.showSecurityAlert('🚫 Accès refusé - Administrateur requis');
+        return;
+    }
+    window.unifiedManager.notificationManager.show('warning', 'Audit de Sécurité', 'Lancement de l\'audit de sécurité du système...');
+}
+
+/**
+ * Simule la validation de toutes les écritures en attente.
+ */
+function validatePendingEntries() {
+    const pendingCount = window.app.entries.filter(e => e.status === 'En attente').length;
+    if (pendingCount === 0) {
+        window.unifiedManager.notificationManager.show('info', 'Information', 'Aucune écriture en attente de validation.');
+        return;
+    }
+    window.unifiedManager.notificationManager.show('info', 'Validation en masse', `Validation de ${pendingCount} écritures en attente...`);
+}
+
+/**
+ * Simule la génération d'un rapport de journal spécifique.
+ * @param {string} journal - L'acronyme du journal (ex: 'JA', 'JV').
+ */
+function generateJournalReport(journal) {
+    window.unifiedManager.notificationManager.show('info', 'Génération de rapport', `Préparation du rapport pour le journal ${journal}...`);
+}
+        
 console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRATIONNEL');        
     </script>     
 
