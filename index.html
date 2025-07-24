@@ -2771,53 +2771,7 @@
                 }
             }
 
-/**
- * Met à jour le profil de l'utilisateur actuellement connecté.
- * Gère la modification des informations personnelles et le changement de mot de passe.
- */
-UnifiedDataManager.prototype.updateUserProfile = function() {
-    const user = this.security.getCurrentUser();
-    if (!user) {
-        this.notificationManager.show('error', 'Erreur', 'Aucun utilisateur connecté.');
-        return;
-    }
 
-    const name = document.getElementById('userFullName').value;
-    const phone = document.getElementById('userPhone').value;
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-
-    if (!name) {
-        this.notificationManager.show('error', 'Champ requis', 'Le nom complet ne peut pas être vide.');
-        return;
-    }
-
-    // Mise à jour des informations de base
-    user.name = name;
-    user.phone = phone;
-
-    // Logique de changement de mot de passe
-    if (newPassword || confirmPassword) {
-        if (newPassword.length < 6) {
-            this.notificationManager.show('error', 'Mot de passe trop court', 'Le nouveau mot de passe doit contenir au moins 6 caractères.');
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            this.notificationManager.show('error', 'Mots de passe non identiques', 'Les nouveaux mots de passe ne correspondent pas.');
-            return;
-        }
-        // Dans une application réelle, il faudrait demander l'ancien mot de passe.
-        // Ici, nous simplifions et mettons à jour directement.
-        user.passwordHash = this.hashPassword(newPassword);
-        this.notificationManager.show('success', 'Profil mis à jour', 'Vos informations et votre mot de passe ont été mis à jour.');
-    } else {
-        this.notificationManager.show('success', 'Profil mis à jour', 'Vos informations ont été mises à jour avec succès.');
-    }
-
-    // Mettre à jour l'affichage dans l'interface
-    updateSecureUserInfo();
-};
-            
             // =============================================================================
             // FONCTIONS UTILITAIRES ET STATISTIQUES
             // =============================================================================
