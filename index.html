@@ -608,6 +608,127 @@
             syncCount: 0
         };
 
+    // =============================================================================
+        // CLASSE: VALIDATEUR DE DONNÉES
+        // =============================================================================
+        class DataValidator {
+            static schemas = {
+                entry: {
+                    date: { required: true, type: 'date' },
+                    journal: { required: true, type: 'string', minLength: 2 },
+                    libelle: { required: true, type: 'string', minLength: 3 },
+                    lines: { required: true, type: 'array', minLength: 2 }
+                },
+                user: {
+                    name: { required: true, type: 'string', minLength: 2 },
+                    email: { required: true, type: 'email' },
+                    profile: { required: true, type: 'string', enum: ['admin', 'collaborateur_senior', 'collaborateur', 'user', 'caissier'] }
+                },
+                company: {
+                    name: { required: true, type: 'string', minLength: 3 },
+                    type: { required: true, type: 'string' },
+                    phone: { required: true, type: 'phone' }
+                },
+                account: {
+                    code: { required: true, type: 'string', pattern: /^\d{6}$/ },
+                    name: { required: true, type: 'string', minLength: 3 },
+                    category: { required: true, type: 'string' }
+                }
+            };
+
+            static validate(data, schemaName) {
+                const schema = this.schemas[schemaName];
+                if (!schema) {
+                    throw new Error(`Schéma de validation "${schemaName}" introuvable`);
+                }
+
+                const errors = [];
+
+                for (const [field, rules] of Object.entries(schema)) {
+                    const value = data[field];
+
+                    // Vérification required
+                    if (rules.required && (value === undefined || value === null || value === '')) {
+                        errors.push(`Le champ "${field}" est obligatoire`);
+                        continue;
+                    }
+
+                    if (value === undefined || value === null || value === '') continue;
+
+                    // Vérification type
+                    if (rules.type && !this.validateType(value, rules.type)) {
+                        errors.push(`Le champ "${field}" doit être de type ${rules.type}`);
+                    }
+
+                    // Vérification longueur minimale
+                    if (rules.minLength && value.length < rules.minLength) {
+                        errors.push(`Le champ "${field}" doit contenir au moins ${rules.minLength} caractères`);
+                    }
+
+                    // Vérification pattern
+                    if (rules.pattern && !rules.pattern.test(value)) {
+                        errors.push(`Le format du champ "${field}" est invalide`);
+                    }
+
+                    // Vérification enum
+                    if (rules.enum && !rules.enum.includes(value)) {
+                        errors.push(`Le champ "${field}" doit être l'une des valeurs: ${rules.enum.join(', ')}`);
+                    }
+
+                    // Vérification min/max pour numbers
+                    if (rules.min !== undefined && value < rules.min) {
+                        errors.push(`Le champ "${field}" doit être supérieur ou égal à ${rules.min}`);
+                    }
+                    if (rules.max !== undefined && value > rules.max) {
+                        errors.push(`Le champ "${field}" doit être inférieur ou égal à ${rules.max}`);
+                    }
+                }
+
+                return {
+                    isValid: errors.length === 0,
+                    errors: errors
+                };
+            }
+
+            static validateType(value, type) {
+                switch (type) {
+                    case 'string':
+                        return typeof value === 'string';
+                    case 'number':
+                        return typeof value === 'number' && !isNaN(value);
+                    case 'date':
+                        return !isNaN(Date.parse(value));
+                    case 'email':
+                        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+                    case 'phone':
+                        return /^[\+]?[\d\s\-\(\)]{8,}$/.test(value);
+                    case 'array':
+                        return Array.isArray(value);
+                    case 'boolean':
+                        return typeof value === 'boolean';
+                    default:
+                        return true;
+                }
+            }
+
+            static validateEntry(data) {
+                const validation = this.validate(data, 'entry');
+                
+                // Validation spécifique pour les écritures
+                if (validation.isValid && data.lines) {
+                    const totalDebit = data.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
+                    const totalCredit = data.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+                    
+                    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                        validation.isValid = false;
+                        validation.errors.push('L\'écriture doit être équilibrée (débit = crédit)');
+                    }
+                }
+
+                return validation;
+            }
+        }
+        
         // =============================================================================
         // CLASSE: GESTIONNAIRE DE SÉCURITÉ HIÉRARCHIQUE
         // =============================================================================
@@ -815,6 +936,112 @@
             }
         }
 
+    // =============================================================================
+        // CLASSE: GESTIONNAIRE D'ÉTATS DE CHARGEMENT
+        // =============================================================================
+        class LoadingManager {
+            static activeLoading = new Set();
+
+            static show(operation = 'default', target = null) {
+                this.activeLoading.add(operation);
+                
+                if (target) {
+                    this.showTargetLoading(target);
+                } else {
+                    this.showGlobalLoading();
+                }
+                
+                console.log(`🔄 Loading started: ${operation}`);
+            }
+
+            static hide(operation = 'default', target = null) {
+                this.activeLoading.delete(operation);
+                
+                if (target) {
+                    this.hideTargetLoading(target);
+                } else if (this.activeLoading.size === 0) {
+                    this.hideGlobalLoading();
+                }
+                
+                console.log(`✅ Loading finished: ${operation}`);
+            }
+
+            static showGlobalLoading() {
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                }
+            }
+
+            static hideGlobalLoading() {
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) {
+                    overlay.classList.add('hidden');
+                }
+            }
+
+            static showTargetLoading(target) {
+                if (typeof target === 'string') {
+                    target = document.getElementById(target);
+                }
+                
+                if (target) {
+                    target.classList.add('opacity-50', 'pointer-events-none');
+                    
+                    const spinner = document.createElement('div');
+                    spinner.className = 'loading-spinner absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2';
+                    spinner.dataset.loadingSpinner = 'true';
+                    
+                    if (target.style.position !== 'relative' && target.style.position !== 'absolute') {
+                        target.style.position = 'relative';
+                    }
+                    
+                    target.appendChild(spinner);
+                }
+            }
+
+            static hideTargetLoading(target) {
+                if (typeof target === 'string') {
+                    target = document.getElementById(target);
+                }
+                
+                if (target) {
+                    target.classList.remove('opacity-50', 'pointer-events-none');
+                    
+                    const spinner = target.querySelector('[data-loading-spinner="true"]');
+                    if (spinner) {
+                        spinner.remove();
+                    }
+                }
+            }
+
+            static showSkeleton(target, lines = 3) {
+                if (typeof target === 'string') {
+                    target = document.getElementById(target);
+                }
+                
+                if (target) {
+                    const skeletonHtml = Array(lines).fill().map(() => 
+                        `<div class="skeleton h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>`
+                    ).join('');
+                    
+                    target.innerHTML = `<div class="skeleton-container">${skeletonHtml}</div>`;
+                }
+            }
+
+            static hideSkeleton(target) {
+                if (typeof target === 'string') {
+                    target = document.getElementById(target);
+                }
+                
+                if (target) {
+                    const skeleton = target.querySelector('.skeleton-container');
+                    if (skeleton) {
+                        skeleton.remove();
+                    }
+                }
+            }
+        }
         // =============================================================================
         // CLASSE: GESTIONNAIRE DE NOTIFICATIONS
         // =============================================================================
@@ -6848,6 +7075,7 @@ console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRA
        
 </body>
 </html>
+
 
 
 
