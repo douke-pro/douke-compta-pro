@@ -4,7 +4,446 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DOUKÈ Compta Pro - Système Comptable SYSCOHADA Intégré</title>
-    
+
+// ============================================================================
+// GESTIONNAIRE DE MODULES UNIFIÉ - À ajouter au début du fichier principal
+// ============================================================================
+
+/**
+ * Gestionnaire central de communication inter-modules
+ * Assure le chargement, l'intégration et la communication sécurisée
+ */
+class DoukeModuleManager {
+    constructor() {
+        this.modules = new Map();
+        this.pendingCalls = [];
+        this.dependencies = new Map();
+        this.loadingPromises = new Map();
+        this.retryAttempts = new Map();
+        this.maxRetries = 3;
+        
+        console.log('🚀 DoukeModuleManager initialisé');
+        this.initializeCore();
+    }
+
+    /**
+     * Initialise le système de base
+     */
+    initializeCore() {
+        // Détecter les modules déjà chargés
+        this.detectLoadedModules();
+        
+        // Configurer l'intercepteur de fonctions manquantes
+        this.setupFunctionInterceptor();
+        
+        // Gérer les dépendances
+        this.setupDependencyManagement();
+        
+        // Auto-retry pour les fonctions en échec
+        this.setupAutoRetry();
+    }
+
+    /**
+     * Enregistre un module avec ses fonctions
+     */
+    registerModule(name, moduleObject, dependencies = []) {
+        console.log(`📦 Enregistrement module: ${name}`);
+        
+        this.modules.set(name, {
+            name,
+            object: moduleObject,
+            dependencies,
+            loaded: true,
+            functions: this.extractFunctions(moduleObject),
+            loadedAt: new Date()
+        });
+
+        // Vérifier les dépendances
+        this.validateDependencies(name, dependencies);
+        
+        // Traiter les appels en attente
+        this.processPendingCalls(name);
+        
+        // Exposer globalement les fonctions
+        this.exposeModuleFunctions(name, moduleObject);
+        
+        console.log(`✅ Module ${name} enregistré avec succès`);
+    }
+
+    /**
+     * Appel sécurisé de fonction inter-modules
+     */
+    async safeCall(functionName, ...args) {
+        console.log(`🔍 Appel sécurisé: ${functionName}`, args);
+        
+        try {
+            // 1. Chercher la fonction dans les modules chargés
+            const moduleFunction = this.findFunction(functionName);
+            
+            if (moduleFunction) {
+                return await moduleFunction.apply(moduleFunction.context, args);
+            }
+            
+            // 2. Si non trouvée, chercher dans window
+            if (typeof window[functionName] === 'function') {
+                return await window[functionName].apply(window, args);
+            }
+            
+            // 3. Si toujours pas trouvée, tenter le chargement différé
+            return await this.deferredCall(functionName, args);
+            
+        } catch (error) {
+            console.error(`❌ Erreur appel ${functionName}:`, error);
+            this.handleCallError(functionName, error, args);
+            throw error;
+        }
+    }
+
+    /**
+     * Trouve une fonction dans les modules enregistrés
+     */
+    findFunction(functionName) {
+        for (const [moduleName, module] of this.modules) {
+            if (module.functions.includes(functionName)) {
+                const func = module.object[functionName];
+                if (typeof func === 'function') {
+                    return { 
+                        func, 
+                        context: module.object, 
+                        module: moduleName 
+                    };
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Appel différé pour fonctions pas encore chargées
+     */
+    async deferredCall(functionName, args) {
+        console.log(`⏳ Appel différé: ${functionName}`);
+        
+        return new Promise((resolve, reject) => {
+            const callInfo = {
+                functionName,
+                args,
+                resolve,
+                reject,
+                timestamp: Date.now(),
+                attempts: 0
+            };
+            
+            this.pendingCalls.push(callInfo);
+            
+            // Timeout après 10 secondes
+            setTimeout(() => {
+                const index = this.pendingCalls.indexOf(callInfo);
+                if (index > -1) {
+                    this.pendingCalls.splice(index, 1);
+                    reject(new Error(`Timeout: ${functionName} non trouvée après 10s`));
+                }
+            }, 10000);
+            
+            // Tenter de charger le module contenant la fonction
+            this.attemptModuleLoad(functionName);
+        });
+    }
+
+    /**
+     * Traite les appels en attente après chargement d'un module
+     */
+    processPendingCalls(moduleName) {
+        const moduleInfo = this.modules.get(moduleName);
+        if (!moduleInfo) return;
+        
+        const processed = [];
+        
+        this.pendingCalls.forEach((call, index) => {
+            if (moduleInfo.functions.includes(call.functionName)) {
+                try {
+                    const result = this.findFunction(call.functionName);
+                    if (result) {
+                        call.resolve(result.func.apply(result.context, call.args));
+                        processed.push(index);
+                        console.log(`✅ Appel différé résolu: ${call.functionName}`);
+                    }
+                } catch (error) {
+                    call.reject(error);
+                    processed.push(index);
+                }
+            }
+        });
+        
+        // Nettoyer les appels traités
+        processed.reverse().forEach(index => {
+            this.pendingCalls.splice(index, 1);
+        });
+    }
+
+    /**
+     * Extrait les noms des fonctions d'un objet
+     */
+    extractFunctions(obj) {
+        const functions = [];
+        
+        if (typeof obj === 'object' && obj !== null) {
+            Object.getOwnPropertyNames(obj).forEach(prop => {
+                if (typeof obj[prop] === 'function') {
+                    functions.push(prop);
+                }
+            });
+        }
+        
+        return functions;
+    }
+
+    /**
+     * Expose les fonctions d'un module globalement
+     */
+    exposeModuleFunctions(moduleName, moduleObject) {
+        const functions = this.extractFunctions(moduleObject);
+        
+        functions.forEach(funcName => {
+            if (!window[funcName]) {
+                window[funcName] = (...args) => {
+                    return this.safeCall(funcName, ...args);
+                };
+                console.log(`🌐 Fonction exposée globalement: ${funcName}`);
+            }
+        });
+    }
+
+    /**
+     * Intercepteur pour les fonctions manquantes
+     */
+    setupFunctionInterceptor() {
+        // Proxy pour window.safeExecute
+        const originalSafeExecute = window.safeExecute;
+        
+        window.safeExecute = (functionName, ...args) => {
+            console.log(`🔄 safeExecute intercepté: ${functionName}`);
+            
+            // Essayer l'original d'abord
+            if (originalSafeExecute && typeof window[functionName] === 'function') {
+                return originalSafeExecute(functionName, ...args);
+            }
+            
+            // Sinon utiliser notre système
+            return this.safeCall(functionName, ...args);
+        };
+    }
+
+    /**
+     * Gestion des dépendances entre modules
+     */
+    validateDependencies(moduleName, dependencies) {
+        const missing = dependencies.filter(dep => !this.modules.has(dep));
+        
+        if (missing.length > 0) {
+            console.warn(`⚠️ Module ${moduleName}: Dépendances manquantes:`, missing);
+            this.dependencies.set(moduleName, missing);
+            
+            // Tenter de charger les dépendances manquantes
+            missing.forEach(dep => this.loadModuleByName(dep));
+        }
+    }
+
+    /**
+     * Charge un module par son nom
+     */
+    async loadModuleByName(moduleName) {
+        if (this.loadingPromises.has(moduleName)) {
+            return this.loadingPromises.get(moduleName);
+        }
+        
+        const loadPromise = this.attemptModuleLoad(moduleName);
+        this.loadingPromises.set(moduleName, loadPromise);
+        
+        try {
+            await loadPromise;
+        } finally {
+            this.loadingPromises.delete(moduleName);
+        }
+    }
+
+    /**
+     * Tente de charger un module contenant une fonction
+     */
+    async attemptModuleLoad(functionName) {
+        console.log(`🔄 Tentative chargement pour fonction: ${functionName}`);
+        
+        // Mapping des fonctions vers leurs modules
+        const functionModuleMap = {
+            'generateBilanSYSCOHADA': 'syscohada-states',
+            'generateCompteResultatSYSCOHADA': 'syscohada-states',
+            'generateTafireSYSCOHADA': 'syscohada-states',
+            'generateGrandLivreSYSCOHADA': 'syscohada-states',
+            'generateBalanceSYSCOHADA': 'syscohada-states',
+            'exportBilanSYSCOHADA': 'syscohada-states',
+            'exportCompteResultatSYSCOHADA': 'syscohada-states'
+        };
+        
+        const moduleName = functionModuleMap[functionName];
+        if (moduleName && !this.modules.has(moduleName)) {
+            return this.loadSYSCOHADAModule();
+        }
+        
+        return Promise.resolve();
+    }
+
+    /**
+     * Charge le module SYSCOHADA spécifiquement
+     */
+    async loadSYSCOHADAModule() {
+        return new Promise((resolve, reject) => {
+            console.log('📥 Chargement module SYSCOHADA...');
+            
+            // Si le module est déjà dans le DOM, l'exécuter
+            const syscohadaScript = document.querySelector('script[data-module="syscohada"]');
+            if (syscohadaScript) {
+                try {
+                    eval(syscohadaScript.textContent);
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+                return;
+            }
+            
+            // Sinon attendre un délai puis réessayer
+            setTimeout(() => {
+                this.detectLoadedModules();
+                resolve();
+            }, 1000);
+        });
+    }
+
+    /**
+     * Détecte les modules déjà chargés
+     */
+    detectLoadedModules() {
+        // Détecter le module principal
+        if (window.unifiedManager) {
+            this.registerModule('main-app', window.unifiedManager, []);
+        }
+        
+        // Détecter le module SYSCOHADA
+        if (window.SYSCOHADAIntegrationManager) {
+            const syscohadaModule = {
+                SYSCOHADAIntegrationManager: window.SYSCOHADAIntegrationManager,
+                generateBilanSYSCOHADA: window.generateBilanSYSCOHADA,
+                generateCompteResultatSYSCOHADA: window.generateCompteResultatSYSCOHADA,
+                generateTafireSYSCOHADA: window.generateTafireSYSCOHADA,
+                generateGrandLivreSYSCOHADA: window.generateGrandLivreSYSCOHADA,
+                generateBalanceSYSCOHADA: window.generateBalanceSYSCOHADA
+            };
+            
+            this.registerModule('syscohada-states', syscohadaModule, ['main-app']);
+        }
+    }
+
+    /**
+     * Auto-retry pour les fonctions en échec
+     */
+    setupAutoRetry() {
+        const originalConsoleError = console.error;
+        
+        console.error = (...args) => {
+            originalConsoleError.apply(console, args);
+            
+            // Détecter les erreurs de fonction non trouvée
+            const errorMsg = args.join(' ');
+            if (errorMsg.includes('fonction') && errorMsg.includes('introuvable')) {
+                this.scheduleRetry();
+            }
+        };
+    }
+
+    /**
+     * Programme un retry automatique
+     */
+    scheduleRetry() {
+        setTimeout(() => {
+            console.log('🔄 Retry automatique des fonctions en échec...');
+            this.detectLoadedModules();
+        }, 2000);
+    }
+
+    /**
+     * Gestion d'erreur pour les appels de fonction
+     */
+    handleCallError(functionName, error, args) {
+        const retryCount = this.retryAttempts.get(functionName) || 0;
+        
+        if (retryCount < this.maxRetries) {
+            this.retryAttempts.set(functionName, retryCount + 1);
+            
+            console.log(`🔄 Retry ${retryCount + 1}/${this.maxRetries} pour ${functionName}`);
+            
+            setTimeout(() => {
+                this.safeCall(functionName, ...args);
+            }, 1000 * (retryCount + 1));
+        } else {
+            console.error(`💥 Échec définitif pour ${functionName} après ${this.maxRetries} tentatives`);
+            
+            // Notification utilisateur
+            if (window.unifiedManager?.notificationManager) {
+                window.unifiedManager.notificationManager.show('error', 
+                    'Erreur Système', 
+                    `Fonction ${functionName} temporairement indisponible`);
+            }
+        }
+    }
+
+    /**
+     * Diagnostics et état du système
+     */
+    getSystemStatus() {
+        return {
+            modules: Array.from(this.modules.keys()),
+            pendingCalls: this.pendingCalls.length,
+            dependencies: Array.from(this.dependencies.entries()),
+            retryAttempts: Array.from(this.retryAttempts.entries())
+        };
+    }
+
+    /**
+     * Debug et logging avancé
+     */
+    enableDebugMode() {
+        window.doukeDebug = {
+            status: () => this.getSystemStatus(),
+            modules: () => this.modules,
+            pending: () => this.pendingCalls,
+            retry: (func) => this.safeCall(func),
+            clear: () => {
+                this.pendingCalls = [];
+                this.retryAttempts.clear();
+            }
+        };
+        
+        console.log('🔧 Mode debug activé. Utiliser window.doukeDebug');
+    }
+}
+
+// ============================================================================
+// INITIALISATION AUTOMATIQUE
+// ============================================================================
+
+// Initialiser le gestionnaire dès que possible
+window.doukeModuleManager = new DoukeModuleManager();
+
+// Activer le mode debug en développement
+if (window.location.hostname === 'localhost' || window.location.hostname.includes('dev')) {
+    window.doukeModuleManager.enableDebugMode();
+}
+
+// Exposition globale pour compatibilité
+window.DoukeModuleManager = DoukeModuleManager;
+
+console.log('🎯 Système de communication inter-modules initialisé');
+            
     <!-- ========================================= -->
     <!-- RESSOURCES EXTERNES                      -->
     <!-- ========================================= -->
@@ -7101,6 +7540,7 @@ console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRA
        
 </body>
 </html>
+
 
 
 
