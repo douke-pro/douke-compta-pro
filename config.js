@@ -1,271 +1,403 @@
 // =============================================================================
-// DOUKÈ Compta Pro - Fichier de Configuration
-// config.js - Constantes et paramètres système
+// 🔧 DOUKÈ Compta Pro - Configuration Avancée v3.2
 // =============================================================================
 
-window.DOUKE_CONFIG = {
-    // Configuration générale
-    APP: {
-        name: 'DOUKÈ Compta Pro',
-        version: '3.2.0',
-        environment: 'production', // 'development' | 'staging' | 'production'
-        debug: false,
-        supportEmail: 'support@doukecompta.ci',
-        companyWebsite: 'https://doukecompta.ci'
-    },
+(function() {
+    'use strict';
 
-    // Configuration API Backend
-    API: {
-        baseUrl: 'https://api.doukecompta.com/v1',
-        timeout: 30000,
-        retryAttempts: 3,
-        retryDelay: 1000,
-        endpoints: {
-            auth: '/auth',
-            users: '/users',
-            companies: '/companies',
-            entries: '/entries',
-            accounts: '/accounts',
-            cashRegisters: '/cash-registers',
-            reports: '/reports',
-            sync: '/sync',
-            backup: '/backup'
+    console.log('🔧 Chargement du module Configuration...');
+
+    // =============================================================================
+    // 🌍 CONFIGURATION MULTI-ENVIRONNEMENTS
+    // =============================================================================
+    window.ADVANCED_CONFIG = {
+        // Environnements
+        environments: {
+            development: {
+                apiBaseUrl: 'http://localhost:3000/api/v1',
+                debug: true,
+                enableMocking: true,
+                logLevel: 'debug'
+            },
+            staging: {
+                apiBaseUrl: 'https://staging-api.doukecompta.com/v1',
+                debug: true,
+                enableMocking: false,
+                logLevel: 'info'
+            },
+            production: {
+                apiBaseUrl: 'https://api.doukecompta.com/v1',
+                debug: false,
+                enableMocking: false,
+                logLevel: 'error'
+            }
+        },
+
+        // Configuration comptable SYSCOHADA
+        accounting: {
+            currency: {
+                primary: 'FCFA',
+                symbol: 'FCFA',
+                decimalPlaces: 0,
+                thousandSeparator: ' ',
+                decimalSeparator: ','
+            },
+            
+            exercice: {
+                startMonth: 1, // Janvier
+                endMonth: 12,  // Décembre
+                defaultDuration: 12 // mois
+            },
+
+            journals: {
+                'AC': { name: 'Achats', color: '#ef4444', prefix: 'FC' },
+                'VE': { name: 'Ventes', color: '#22c55e', prefix: 'FA' },
+                'BQ': { name: 'Banque', color: '#3b82f6', prefix: 'BQ' },
+                'CA': { name: 'Caisse', color: '#f59e0b', prefix: 'CA' },
+                'OD': { name: 'Opérations Diverses', color: '#8b5cf6', prefix: 'OD' },
+                'AN': { name: 'A-nouveaux', color: '#6b7280', prefix: 'AN' },
+                'EX': { name: 'Extourne', color: '#dc2626', prefix: 'EX' }
+            },
+
+            classes: {
+                1: { name: 'Ressources durables', type: 'Passif', nature: 'Credit' },
+                2: { name: 'Actif immobilisé', type: 'Actif', nature: 'Debit' },
+                3: { name: 'Stocks', type: 'Actif', nature: 'Debit' },
+                4: { name: 'Tiers', type: 'Mixte', nature: 'Mixte' },
+                5: { name: 'Trésorerie', type: 'Actif', nature: 'Debit' },
+                6: { name: 'Charges', type: 'Charge', nature: 'Debit' },
+                7: { name: 'Produits', type: 'Produit', nature: 'Credit' },
+                8: { name: 'Résultats', type: 'Résultat', nature: 'Mixte' }
+            }
+        },
+
+        // Permissions et rôles
+        roles: {
+            admin: {
+                label: 'Administrateur',
+                level: 5,
+                permissions: ['ALL'],
+                color: '#dc2626',
+                icon: 'fas fa-crown'
+            },
+            collaborateur_senior: {
+                label: 'Collaborateur Senior',
+                level: 4,
+                permissions: ['MANAGE_TEAM', 'VALIDATE_ALL', 'CREATE_REPORTS', 'MANAGE_COMPANIES'],
+                color: '#7c3aed',
+                icon: 'fas fa-star'
+            },
+            collaborateur: {
+                label: 'Collaborateur',
+                level: 3,
+                permissions: ['VALIDATE_ENTRIES', 'CREATE_REPORTS', 'VIEW_ALL'],
+                color: '#2563eb',
+                icon: 'fas fa-users'
+            },
+            user: {
+                label: 'Utilisateur',
+                level: 2,
+                permissions: ['CREATE_ENTRIES', 'VIEW_REPORTS', 'VIEW_OWN'],
+                color: '#059669',
+                icon: 'fas fa-user'
+            },
+            caissier: {
+                label: 'Caissier',
+                level: 1,
+                permissions: ['CASH_OPERATIONS', 'VIEW_CASH_REPORTS'],
+                color: '#ea580c',
+                icon: 'fas fa-cash-register'
+            }
+        },
+
+        // Limites et quotas
+        limits: {
+            maxEntriesPerBatch: 1000,
+            maxFileSize: 10 * 1024 * 1024, // 10MB
+            maxUsers: 100,
+            maxCompanies: 50,
+            sessionTimeout: 8 * 60 * 60 * 1000, // 8 heures
+            maxLoginAttempts: 5,
+            lockoutDuration: 15 * 60 * 1000 // 15 minutes
+        },
+
+        // Configuration UI
+        ui: {
+            pagination: {
+                defaultPageSize: 20,
+                pageSizeOptions: [10, 20, 50, 100]
+            },
+            
+            dateFormats: {
+                display: 'DD/MM/YYYY',
+                input: 'YYYY-MM-DD',
+                storage: 'YYYY-MM-DDTHH:mm:ssZ'
+            },
+
+            themes: {
+                light: {
+                    primary: '#5D5CDE',
+                    secondary: '#64748b',
+                    success: '#22c55e',
+                    warning: '#f59e0b',
+                    danger: '#ef4444',
+                    info: '#3b82f6'
+                },
+                dark: {
+                    primary: '#6366f1',
+                    secondary: '#94a3b8',
+                    success: '#10b981',
+                    warning: '#f59e0b',
+                    danger: '#f87171',
+                    info: '#60a5fa'
+                }
+            }
+        },
+
+        // Configuration des rapports
+        reports: {
+            formats: ['PDF', 'Excel', 'CSV'],
+            templates: {
+                bilan: 'template_bilan_syscohada.html',
+                resultat: 'template_resultat_syscohada.html',
+                balance: 'template_balance_generale.html',
+                grand_livre: 'template_grand_livre.html'
+            },
+            
+            exportOptions: {
+                pdf: {
+                    format: 'A4',
+                    orientation: 'portrait',
+                    margin: { top: 20, right: 20, bottom: 20, left: 20 }
+                },
+                excel: {
+                    sheetName: 'Données',
+                    includeFormulas: true,
+                    autoWidth: true
+                }
+            }
+        },
+
+        // Configuration de sécurité
+        security: {
+            passwordPolicy: {
+                minLength: 8,
+                requireUppercase: true,
+                requireLowercase: true,
+                requireNumbers: true,
+                requireSpecialChars: false,
+                maxAge: 90 * 24 * 60 * 60 * 1000 // 90 jours
+            },
+
+            encryption: {
+                algorithm: 'AES-256-GCM',
+                keyLength: 32,
+                ivLength: 16
+            },
+
+            audit: {
+                enabled: true,
+                logLevel: 'info',
+                maxLogSize: 50 * 1024 * 1024, // 50MB
+                retentionDays: 365
+            }
+        },
+
+        // Configuration de synchronisation
+        sync: {
+            enabled: true,
+            interval: 5 * 60 * 1000, // 5 minutes
+            batchSize: 100,
+            retryAttempts: 3,
+            retryDelay: 2000,
+            
+            endpoints: {
+                users: '/users/sync',
+                companies: '/companies/sync',
+                entries: '/entries/sync',
+                accounts: '/accounts/sync',
+                cashRegisters: '/cash-registers/sync'
+            }
         }
-    },
+    };
 
-    // Configuration de sécurité
-    SECURITY: {
-        sessionTimeout: 3600000, // 1 heure en ms
-        passwordMinLength: 6,
-        maxLoginAttempts: 5,
-        lockoutDuration: 900000, // 15 minutes
-        requirePasswordChange: false,
-        encryptionAlgorithm: 'AES-256-GCM'
-    },
-
-    // Hiérarchie des rôles SYSCOHADA
-    ROLES: {
-        ADMIN: {
-            level: 5,
-            name: 'Administrateur',
-            permissions: ['ALL'],
-            canManage: ['admin', 'collaborateur_senior', 'collaborateur', 'user', 'caissier'],
-            maxCompanies: -1, // illimité
-            icon: 'fas fa-crown',
-            color: '#DC2626'
-        },
-        COLLABORATEUR_SENIOR: {
-            level: 4,
-            name: 'Collaborateur Senior',
-            permissions: ['MANAGE_TEAM', 'VALIDATE_ALL', 'CREATE_REPORTS', 'ASSIGN_COMPANIES'],
-            canManage: ['collaborateur', 'user', 'caissier'],
-            maxCompanies: 10,
-            icon: 'fas fa-star',
-            color: '#7C3AED'
-        },
-        COLLABORATEUR: {
-            level: 3,
-            name: 'Collaborateur',
-            permissions: ['VALIDATE_ENTRIES', 'CREATE_REPORTS', 'MANAGE_USERS'],
-            canManage: ['user', 'caissier'],
-            maxCompanies: 5,
-            icon: 'fas fa-users',
-            color: '#2563EB'
-        },
-        USER: {
-            level: 2,
-            name: 'Utilisateur',
-            permissions: ['CREATE_ENTRIES', 'VIEW_REPORTS', 'MANAGE_CASH'],
-            canManage: [],
-            maxCompanies: 1,
-            icon: 'fas fa-user',
-            color: '#059669'
-        },
-        CAISSIER: {
-            level: 1,
-            name: 'Caissier',
-            permissions: ['CASH_OPERATIONS'],
-            canManage: [],
-            maxCompanies: 1,
-            icon: 'fas fa-cash-register',
-            color: '#D97706'
+    // =============================================================================
+    // 🛠️ GESTIONNAIRE DE CONFIGURATION
+    // =============================================================================
+    class ConfigurationManager {
+        constructor() {
+            this.currentEnv = PRODUCTION_CONFIG.environment || 'production';
+            this.config = this.mergeConfigs();
+            this.watchers = new Map();
         }
-    },
 
-    // Types d'entreprises OHADA
-    COMPANY_TYPES: {
-        'SA': 'Société Anonyme',
-        'SARL': 'Société à Responsabilité Limitée',
-        'EURL': 'Entreprise Unipersonnelle à Responsabilité Limitée',
-        'SAS': 'Société par Actions Simplifiée',
-        'SASU': 'Société par Actions Simplifiée Unipersonnelle',
-        'SNC': 'Société en Nom Collectif',
-        'SCS': 'Société en Commandite Simple',
-        'GIE': 'Groupement d\'Intérêt Économique',
-        'EI': 'Entreprise Individuelle'
-    },
-
-    // Secteurs d'activité
-    SECTORS: [
-        'Agriculture', 'Industrie', 'BTP', 'Commerce', 'Transport',
-        'Télécommunications', 'Services financiers', 'Services aux entreprises',
-        'Services aux particuliers', 'Administration', 'Enseignement',
-        'Santé', 'Autres services', 'Informatique', 'Consulting'
-    ],
-
-    // Configuration SYSCOHADA
-    SYSCOHADA: {
-        classes: {
-            1: 'Comptes de ressources durables',
-            2: 'Comptes d\'actif immobilisé',
-            3: 'Comptes de stocks',
-            4: 'Comptes de tiers',
-            5: 'Comptes de trésorerie',
-            6: 'Comptes de charges',
-            7: 'Comptes de produits',
-            8: 'Comptes de résultats'
-        },
-        journaux: {
-            'AC': 'Achats',
-            'VE': 'Ventes',
-            'BQ': 'Banque',
-            'CA': 'Caisse',
-            'OD': 'Opérations diverses',
-            'AN': 'À nouveau'
-        },
-        devise: 'FCFA',
-        exerciceStart: '01/01',
-        exerciceEnd: '31/12'
-    },
-
-    // Configuration interface
-    UI: {
-        theme: {
-            primary: '#5D5CDE',
-            secondary: '#1D4ED8',
-            success: '#10B981',
-            warning: '#F59E0B',
-            danger: '#EF4444',
-            info: '#3B82F6'
-        },
-        pagination: {
-            defaultPageSize: 20,
-            pageSizes: [10, 20, 50, 100]
-        },
-        dateFormat: 'DD/MM/YYYY',
-        timeFormat: 'HH:mm',
-        currency: {
-            symbol: 'FCFA',
-            decimals: 0,
-            thousandsSeparator: ' ',
-            decimalSeparator: ','
+        mergeConfigs() {
+            const envConfig = window.ADVANCED_CONFIG.environments[this.currentEnv];
+            return {
+                ...window.ADVANCED_CONFIG,
+                ...envConfig,
+                environment: this.currentEnv
+            };
         }
-    },
 
-    // Configuration des notifications
-    NOTIFICATIONS: {
-        position: 'top-right',
-        duration: 5000,
-        maxVisible: 5,
-        enableSound: true,
-        enablePush: false
-    },
-
-    // Configuration cache et stockage
-    STORAGE: {
-        prefix: 'douke_',
-        cacheTimeout: 300000, // 5 minutes
-        maxCacheSize: 50 * 1024 * 1024, // 50MB
-        enableOffline: true,
-        syncInterval: 300000, // 5 minutes
-        autoSaveInterval: 60000 // 1 minute
-    },
-
-    // Limites système
-    LIMITS: {
-        maxFileSize: 10 * 1024 * 1024, // 10MB
-        maxEntriesPerPage: 100,
-        maxAccountsPerLevel: 1000,
-        maxUsersPerCompany: 50,
-        maxCashRegistersPerCompany: 10
-    },
-
-    // Messages système
-    MESSAGES: {
-        success: {
-            login: 'Connexion réussie',
-            logout: 'Déconnexion effectuée',
-            save: 'Données sauvegardées',
-            delete: 'Élément supprimé',
-            update: 'Modification effectuée'
-        },
-        error: {
-            network: 'Erreur de connexion réseau',
-            unauthorized: 'Accès non autorisé',
-            validation: 'Données invalides',
-            server: 'Erreur serveur',
-            notFound: 'Élément introuvable'
-        },
-        confirm: {
-            delete: 'Êtes-vous sûr de vouloir supprimer cet élément ?',
-            logout: 'Voulez-vous vraiment vous déconnecter ?',
-            unsaved: 'Des modifications non sauvegardées seront perdues'
+        get(key, defaultValue = null) {
+            const keys = key.split('.');
+            let value = this.config;
+            
+            for (const k of keys) {
+                if (value && typeof value === 'object' && k in value) {
+                    value = value[k];
+                } else {
+                    return defaultValue;
+                }
+            }
+            
+            return value;
         }
-    },
 
-    // Configuration développement
-    DEV: {
-        enableLogging: true,
-        enableProfiler: true,
-        showPerformanceMetrics: true,
-        enableMockData: true,
-        bypassAuth: false
-    },
+        set(key, value) {
+            const keys = key.split('.');
+            let obj = this.config;
+            
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (!(keys[i] in obj) || typeof obj[keys[i]] !== 'object') {
+                    obj[keys[i]] = {};
+                }
+                obj = obj[keys[i]];
+            }
+            
+            obj[keys[keys.length - 1]] = value;
+            this.notifyWatchers(key, value);
+        }
 
-    // Validation des données
-    VALIDATION: {
-        account: {
-            codeLength: 6,
-            nameMaxLength: 100,
-            requiredFields: ['code', 'name', 'category', 'type']
-        },
-        entry: {
-            maxLines: 50,
-            maxAmount: 999999999999,
-            requiredFields: ['date', 'journal', 'libelle', 'lines']
-        },
-        user: {
-            nameMaxLength: 100,
-            emailMaxLength: 255,
-            phonePattern: /^(\+225\s?)?[0-9\s-]{8,15}$/
-        },
-        company: {
-            nameMaxLength: 100,
-            rccmPattern: /^CI-[A-Z]{3}-[0-9]{4}-[A-Z]-[0-9]{5}$/,
-            nifPattern: /^[0-9]{10}$/
+        watch(key, callback) {
+            if (!this.watchers.has(key)) {
+                this.watchers.set(key, []);
+            }
+            this.watchers.get(key).push(callback);
+        }
+
+        notifyWatchers(key, value) {
+            if (this.watchers.has(key)) {
+                this.watchers.get(key).forEach(callback => {
+                    try {
+                        callback(value, key);
+                    } catch (error) {
+                        console.error('Erreur dans watcher de configuration:', error);
+                    }
+                });
+            }
+        }
+
+        getRoleConfig(roleKey) {
+            return this.get(`roles.${roleKey}`, null);
+        }
+
+        getPermissions(roleKey) {
+            const role = this.getRoleConfig(roleKey);
+            return role ? role.permissions : [];
+        }
+
+        hasPermission(userRole, permission) {
+            const permissions = this.getPermissions(userRole);
+            return permissions.includes('ALL') || permissions.includes(permission);
+        }
+
+        getJournalConfig(journalCode) {
+            return this.get(`accounting.journals.${journalCode}`, null);
+        }
+
+        getClassConfig(classNumber) {
+            return this.get(`accounting.classes.${classNumber}`, null);
+        }
+
+        formatCurrency(amount) {
+            const currency = this.get('accounting.currency');
+            return new Intl.NumberFormat('fr-FR', {
+                style: 'decimal',
+                minimumFractionDigits: currency.decimalPlaces,
+                maximumFractionDigits: currency.decimalPlaces
+            }).format(amount) + ' ' + currency.symbol;
+        }
+
+        validatePassword(password) {
+            const policy = this.get('security.passwordPolicy');
+            const errors = [];
+
+            if (password.length < policy.minLength) {
+                errors.push(`Le mot de passe doit contenir au moins ${policy.minLength} caractères`);
+            }
+
+            if (policy.requireUppercase && !/[A-Z]/.test(password)) {
+                errors.push('Le mot de passe doit contenir au moins une majuscule');
+            }
+
+            if (policy.requireLowercase && !/[a-z]/.test(password)) {
+                errors.push('Le mot de passe doit contenir au moins une minuscule');
+            }
+
+            if (policy.requireNumbers && !/\d/.test(password)) {
+                errors.push('Le mot de passe doit contenir au moins un chiffre');
+            }
+
+            if (policy.requireSpecialChars && !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+                errors.push('Le mot de passe doit contenir au moins un caractère spécial');
+            }
+
+            return {
+                valid: errors.length === 0,
+                errors: errors
+            };
+        }
+
+        getTheme(themeName = 'light') {
+            return this.get(`ui.themes.${themeName}`, this.get('ui.themes.light'));
+        }
+
+        exportConfig() {
+            return JSON.stringify(this.config, null, 2);
+        }
+
+        importConfig(configJSON) {
+            try {
+                const newConfig = JSON.parse(configJSON);
+                this.config = { ...this.config, ...newConfig };
+                return true;
+            } catch (error) {
+                console.error('Erreur lors de l\'import de configuration:', error);
+                return false;
+            }
         }
     }
-};
 
-// Fonctions utilitaires de configuration
-window.DOUKE_CONFIG.getRoleConfig = function(roleKey) {
-    return this.ROLES[roleKey.toUpperCase()] || null;
-};
+    // =============================================================================
+    // 🎯 INITIALISATION ET INTÉGRATION
+    // =============================================================================
+    
+    // Créer l'instance globale
+    window.configManager = new ConfigurationManager();
 
-window.DOUKE_CONFIG.getApiUrl = function(endpoint) {
-    return this.API.baseUrl + (this.API.endpoints[endpoint] || '');
-};
+    // Intégrer au système unifié si disponible
+    if (window.unifiedManager) {
+        window.unifiedManager.configManager = window.configManager;
+        console.log('✅ Configuration Manager intégré au système unifié');
+    }
 
-window.DOUKE_CONFIG.formatCurrency = function(amount) {
-    return new Intl.NumberFormat('fr-FR', {
-        style: 'decimal',
-        minimumFractionDigits: this.UI.currency.decimals,
-        maximumFractionDigits: this.UI.currency.decimals
-    }).format(amount) + ' ' + this.UI.currency.symbol;
-};
+    // Mise à jour des configurations existantes
+    if (window.PRODUCTION_CONFIG) {
+        // Synchroniser avec la configuration de production
+        Object.assign(window.PRODUCTION_CONFIG, {
+            roles: window.ADVANCED_CONFIG.roles,
+            limits: window.ADVANCED_CONFIG.limits,
+            security: window.ADVANCED_CONFIG.security
+        });
+    }
 
-window.DOUKE_CONFIG.formatDate = function(date) {
-    return new Date(date).toLocaleDateString('fr-FR');
-};
+    // Événements de configuration
+    window.addEventListener('configurationChanged', (event) => {
+        console.log('Configuration modifiée:', event.detail);
+    });
 
-console.log('✅ Configuration DOUKÈ Compta Pro chargée');
+    console.log('✅ Module Configuration chargé avec succès');
+
+})();
