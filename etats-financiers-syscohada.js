@@ -4158,3 +4158,35 @@ console.log('✅ Toutes les fonctions SYSCOHADA manquantes ont été développé
     }
 })();
 // Cette fonction s'auto-exécute à chaque rechargement de la page
+
+// ============================================================================
+// ENREGISTREMENT DU MODULE SYSCOHADA
+// ============================================================================
+
+// Attendre que le système soit prêt
+function registerSYSCOHADAModule() {
+    if (window.doukeModuleManager) {
+        const syscohadaModule = {
+            SYSCOHADAIntegrationManager,
+            generateBilanSYSCOHADA,
+            generateCompteResultatSYSCOHADA,
+            generateTafireSYSCOHADA,
+            generateGrandLivreSYSCOHADA,
+            generateBalanceSYSCOHADA,
+            exportBilanSYSCOHADA,
+            exportCompteResultatSYSCOHADA,
+            calculateBilanSYSCOHADA,
+            calculateCompteResultatSYSCOHADA,
+            // ... toutes les autres fonctions
+        };
+        
+        window.doukeModuleManager.registerModule('syscohada-states', syscohadaModule, ['main-app']);
+        console.log('✅ Module SYSCOHADA enregistré');
+    } else {
+        // Retry si le gestionnaire n'est pas encore prêt
+        setTimeout(registerSYSCOHADAModule, 500);
+    }
+}
+
+// Enregistrer le module
+registerSYSCOHADAModule();
