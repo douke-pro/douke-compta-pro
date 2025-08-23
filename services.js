@@ -1,457 +1,637 @@
 // =============================================================================
-// DOUKÈ Compta Pro - Services et API
-// services.js - Couche de services pour l'API et la logique métier
+// 🌐 DOUKÈ Compta Pro - Services et API v3.2
 // =============================================================================
 
-class ApiService {
-    constructor() {
-        this.baseUrl = DOUKE_CONFIG.API.baseUrl;
-        this.timeout = DOUKE_CONFIG.API.timeout;
-        this.retryAttempts = DOUKE_CONFIG.API.retryAttempts;
-        this.authToken = null;
-    }
+(function() {
+    'use strict';
+
+    console.log('🌐 Chargement du module Services...');
 
     // =============================================================================
-    // MÉTHODES HTTP DE BASE
+    // 🔌 SERVICE API PRINCIPAL
     // =============================================================================
-
-    async request(method, url, data = null, options = {}) {
-        const config = {
-            method: method.toUpperCase(),
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                ...options.headers
-            },
-            timeout: options.timeout || this.timeout
-        };
-
-        if (this.authToken) {
-            config.headers['Authorization'] = `Bearer ${this.authToken}`;
+    class APIService {
+        constructor() {
+            this.baseURL = window.configManager?.get('apiBaseUrl') || 'https://api.doukecompta.com/v1';
+            this.timeout = window.configManager?.get('timeout') || 30000;
+            this.retryAttempts = window.configManager?.get('maxRetries') || 3;
+            this.requestQueue = [];
+            this.isOnline = navigator.onLine;
+            
+            this.setupEventListeners();
         }
 
-        if (data) {
-            config.body = JSON.stringify(data);
+        setupEventListeners() {
+            window.addEventListener('online', () => {
+                this.isOnline = true;
+                this.processQueue();
+            });
+
+            window.addEventListener('offline', () => {
+                this.isOnline = false;
+            });
         }
 
-        let lastError;
-        for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+        async request(endpoint, options = {}) {
+            const config = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    ...this.getAuthHeaders(),
+                    ...options.headers
+                },
+                timeout: this.timeout,
+                ...options
+            };
+
+            const url = `${this.baseURL}${endpoint}`;
+
             try {
-                const response = await fetch(url, config);
+                if (!this.isOnline) {
+                    throw new Error('Hors ligne - Requête mise en file d\'attente');
+                }
+
+                const response = await this.fetchWithTimeout(url, config);
                 
-                if (response.ok) {
-                    return await response.json();
-                } else {
+                if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+
+                const data = await response.json();
+                return { success: true, data };
+
             } catch (error) {
-                lastError = error;
-                if (attempt < this.retryAttempts) {
-                    await this.delay(DOUKE_CONFIG.API.retryDelay * attempt);
+                console.error(`Erreur API ${endpoint}:`, error);
+                
+                if (!this.isOnline) {
+                    this.queueRequest(endpoint, config);
+                }
+
+                return { success: false, error: error.message };
+            }
+        }
+
+        async fetchWithTimeout(url, config) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+
+            try {
+                const response = await fetch(url, {
+                    ...config,
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
+            }
+        }
+
+        getAuthHeaders() {
+            const token = window.unifiedManager?.securityManager?.sessionToken;
+            return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+
+        queueRequest(endpoint, config) {
+            this.requestQueue.push({ endpoint, config, timestamp: Date.now() });
+        }
+
+        async processQueue() {
+            while (this.requestQueue.length > 0 && this.isOnline) {
+                const request = this.requestQueue.shift();
+                try {
+                    await this.request(request.endpoint, request.config);
+                } catch (error) {
+                    console.error('Erreur lors du traitement de la queue:', error);
                 }
             }
         }
-        throw lastError;
-    }
 
-    async get(endpoint, params = {}) {
-        const url = new URL(this.baseUrl + endpoint);
-        Object.keys(params).forEach(key => 
-            url.searchParams.append(key, params[key])
-        );
-        return this.request('GET', url.toString());
-    }
+        // Méthodes HTTP spécialisées
+        async get(endpoint, params = {}) {
+            const queryString = new URLSearchParams(params).toString();
+            const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+            return this.request(url);
+        }
 
-    async post(endpoint, data) {
-        return this.request('POST', this.baseUrl + endpoint, data);
-    }
+        async post(endpoint, data) {
+            return this.request(endpoint, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+        }
 
-    async put(endpoint, data) {
-        return this.request('PUT', this.baseUrl + endpoint, data);
-    }
+        async put(endpoint, data) {
+            return this.request(endpoint, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            });
+        }
 
-    async delete(endpoint) {
-        return this.request('DELETE', this.baseUrl + endpoint);
-    }
+        async delete(endpoint) {
+            return this.request(endpoint, {
+                method: 'DELETE'
+            });
+        }
 
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    setAuthToken(token) {
-        this.authToken = token;
+        async patch(endpoint, data) {
+            return this.request(endpoint, {
+                method: 'PATCH',
+                body: JSON.stringify(data)
+            });
+        }
     }
 
     // =============================================================================
-    // SERVICES D'AUTHENTIFICATION
+    // 🔐 SERVICE D'AUTHENTIFICATION
     // =============================================================================
+    class AuthenticationService {
+        constructor(apiService) {
+            this.api = apiService;
+            this.tokenRefreshInterval = null;
+        }
 
-    async login(email, password) {
-        try {
-            const response = await this.post('/auth/login', { email, password });
-            if (response.token) {
-                this.setAuthToken(response.token);
+        async login(credentials) {
+            try {
+                const response = await this.api.post('/auth/login', credentials);
+                
+                if (response.success) {
+                    this.handleLoginSuccess(response.data);
+                    return response;
+                }
+                
+                return response;
+            } catch (error) {
+                return { success: false, error: error.message };
             }
+        }
+
+        async logout() {
+            try {
+                await this.api.post('/auth/logout');
+            } catch (error) {
+                console.error('Erreur lors de la déconnexion:', error);
+            } finally {
+                this.clearSession();
+            }
+        }
+
+        async refreshToken() {
+            try {
+                const response = await this.api.post('/auth/refresh');
+                
+                if (response.success) {
+                    this.updateToken(response.data.token);
+                    return true;
+                }
+                
+                return false;
+            } catch (error) {
+                console.error('Erreur lors du rafraîchissement du token:', error);
+                return false;
+            }
+        }
+
+        async resetPassword(email) {
+            return this.api.post('/auth/reset-password', { email });
+        }
+
+        async changePassword(currentPassword, newPassword) {
+            return this.api.put('/auth/change-password', {
+                currentPassword,
+                newPassword
+            });
+        }
+
+        handleLoginSuccess(data) {
+            const { token, user, expiresIn } = data;
+            
+            // Stocker les informations de session
+            window.SandboxStorage.setItem('authToken', token);
+            window.SandboxStorage.setItem('user', JSON.stringify(user));
+            window.SandboxStorage.setItem('tokenExpiry', Date.now() + expiresIn);
+            
+            // Programmer le rafraîchissement automatique
+            this.scheduleTokenRefresh(expiresIn);
+        }
+
+        updateToken(token) {
+            window.SandboxStorage.setItem('authToken', token);
+        }
+
+        clearSession() {
+            window.SandboxStorage.removeItem('authToken');
+            window.SandboxStorage.removeItem('user');
+            window.SandboxStorage.removeItem('tokenExpiry');
+            
+            if (this.tokenRefreshInterval) {
+                clearInterval(this.tokenRefreshInterval);
+                this.tokenRefreshInterval = null;
+            }
+        }
+
+        scheduleTokenRefresh(expiresIn) {
+            // Rafraîchir 5 minutes avant expiration
+            const refreshTime = expiresIn - (5 * 60 * 1000);
+            
+            this.tokenRefreshInterval = setTimeout(() => {
+                this.refreshToken();
+            }, refreshTime);
+        }
+
+        isAuthenticated() {
+            const token = window.SandboxStorage.getItem('authToken');
+            const expiry = window.SandboxStorage.getItem('tokenExpiry');
+            
+            return token && expiry && Date.now() < parseInt(expiry);
+        }
+
+        getCurrentUser() {
+            const userStr = window.SandboxStorage.getItem('user');
+            return userStr ? JSON.parse(userStr) : null;
+        }
+    }
+
+    // =============================================================================
+    // 💾 SERVICE DE GESTION DES DONNÉES
+    // =============================================================================
+    class DataService {
+        constructor(apiService) {
+            this.api = apiService;
+            this.cache = new Map();
+            this.cacheTTL = 5 * 60 * 1000; // 5 minutes
+        }
+
+        // Gestion des utilisateurs
+        async getUsers(params = {}) {
+            return this.api.get('/users', params);
+        }
+
+        async getUserById(id) {
+            return this.api.get(`/users/${id}`);
+        }
+
+        async createUser(userData) {
+            const response = await this.api.post('/users', userData);
+            this.invalidateCache('users');
             return response;
-        } catch (error) {
-            console.error('Erreur connexion API:', error);
-            throw error;
         }
-    }
 
-    async logout() {
-        try {
-            await this.post('/auth/logout');
-        } catch (error) {
-            console.warn('Erreur déconnexion API:', error);
-        } finally {
-            this.authToken = null;
-        }
-    }
-
-    async refreshToken() {
-        try {
-            const response = await this.post('/auth/refresh');
-            if (response.token) {
-                this.setAuthToken(response.token);
-            }
+        async updateUser(id, userData) {
+            const response = await this.api.put(`/users/${id}`, userData);
+            this.invalidateCache('users');
+            this.invalidateCache(`user_${id}`);
             return response;
-        } catch (error) {
-            console.error('Erreur refresh token:', error);
-            throw error;
-        }
-    }
-
-    // =============================================================================
-    // SERVICES UTILISATEURS
-    // =============================================================================
-
-    async getUsers(companyId = null) {
-        const params = companyId ? { companyId } : {};
-        return this.get('/users', params);
-    }
-
-    async createUser(userData) {
-        return this.post('/users', userData);
-    }
-
-    async updateUser(userId, userData) {
-        return this.put(`/users/${userId}`, userData);
-    }
-
-    async deleteUser(userId) {
-        return this.delete(`/users/${userId}`);
-    }
-
-    async getUserPermissions(userId) {
-        return this.get(`/users/${userId}/permissions`);
-    }
-
-    // =============================================================================
-    // SERVICES ENTREPRISES
-    // =============================================================================
-
-    async getCompanies() {
-        return this.get('/companies');
-    }
-
-    async createCompany(companyData) {
-        return this.post('/companies', companyData);
-    }
-
-    async updateCompany(companyId, companyData) {
-        return this.put(`/companies/${companyId}`, companyData);
-    }
-
-    async deleteCompany(companyId) {
-        return this.delete(`/companies/${companyId}`);
-    }
-
-    async getCompanyStats(companyId) {
-        return this.get(`/companies/${companyId}/stats`);
-    }
-
-    // =============================================================================
-    // SERVICES ÉCRITURES COMPTABLES
-    // =============================================================================
-
-    async getEntries(companyId, filters = {}) {
-        const params = { companyId, ...filters };
-        return this.get('/entries', params);
-    }
-
-    async createEntry(entryData) {
-        return this.post('/entries', entryData);
-    }
-
-    async updateEntry(entryId, entryData) {
-        return this.put(`/entries/${entryId}`, entryData);
-    }
-
-    async deleteEntry(entryId) {
-        return this.delete(`/entries/${entryId}`);
-    }
-
-    async validateEntry(entryId) {
-        return this.put(`/entries/${entryId}/validate`);
-    }
-
-    async duplicateEntry(entryId) {
-        return this.post(`/entries/${entryId}/duplicate`);
-    }
-
-    // =============================================================================
-    // SERVICES PLAN COMPTABLE
-    // =============================================================================
-
-    async getAccounts() {
-        return this.get('/accounts');
-    }
-
-    async createAccount(accountData) {
-        return this.post('/accounts', accountData);
-    }
-
-    async updateAccount(accountId, accountData) {
-        return this.put(`/accounts/${accountId}`, accountData);
-    }
-
-    async getAccountHistory(accountCode, companyId, dateRange = {}) {
-        const params = { companyId, ...dateRange };
-        return this.get(`/accounts/${accountCode}/history`, params);
-    }
-
-    // =============================================================================
-    // SERVICES CAISSES
-    // =============================================================================
-
-    async getCashRegisters(companyId) {
-        return this.get('/cash-registers', { companyId });
-    }
-
-    async createCashRegister(cashData) {
-        return this.post('/cash-registers', cashData);
-    }
-
-    async updateCashRegister(cashId, cashData) {
-        return this.put(`/cash-registers/${cashId}`, cashData);
-    }
-
-    async getCashOperations(cashId, dateRange = {}) {
-        return this.get(`/cash-registers/${cashId}/operations`, dateRange);
-    }
-
-    async addCashOperation(cashId, operationData) {
-        return this.post(`/cash-registers/${cashId}/operations`, operationData);
-    }
-
-    // =============================================================================
-    // SERVICES RAPPORTS
-    // =============================================================================
-
-    async generateBalanceSheet(companyId, date) {
-        return this.get('/reports/balance-sheet', { companyId, date });
-    }
-
-    async generateIncomeStatement(companyId, startDate, endDate) {
-        return this.get('/reports/income-statement', { companyId, startDate, endDate });
-    }
-
-    async generateTrialBalance(companyId, date) {
-        return this.get('/reports/trial-balance', { companyId, date });
-    }
-
-    async generateCashFlow(companyId, startDate, endDate) {
-        return this.get('/reports/cash-flow', { companyId, startDate, endDate });
-    }
-
-    async exportReport(reportType, companyId, params, format = 'pdf') {
-        const response = await fetch(`${this.baseUrl}/reports/${reportType}/export`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.authToken}`
-            },
-            body: JSON.stringify({ companyId, ...params, format })
-        });
-
-        if (response.ok) {
-            return response.blob();
-        } else {
-            throw new Error(`Erreur export: ${response.statusText}`);
-        }
-    }
-
-    // =============================================================================
-    // SERVICES SYNCHRONISATION
-    // =============================================================================
-
-    async sync(data) {
-        return this.post('/sync', data);
-    }
-
-    async getLastSyncStatus() {
-        return this.get('/sync/status');
-    }
-
-    async backup(companyId) {
-        return this.post('/backup', { companyId });
-    }
-}
-
-// =============================================================================
-// SERVICE DE VALIDATION MÉTIER
-// =============================================================================
-
-class ValidationService {
-    static validateAccount(account) {
-        const errors = [];
-        const config = DOUKE_CONFIG.VALIDATION.account;
-
-        if (!account.code || account.code.length !== config.codeLength) {
-            errors.push(`Le code compte doit faire ${config.codeLength} caractères`);
         }
 
-        if (!account.name || account.name.length > config.nameMaxLength) {
-            errors.push(`Le nom ne peut dépasser ${config.nameMaxLength} caractères`);
+        async deleteUser(id) {
+            const response = await this.api.delete(`/users/${id}`);
+            this.invalidateCache('users');
+            this.invalidateCache(`user_${id}`);
+            return response;
         }
 
-        config.requiredFields.forEach(field => {
-            if (!account[field]) {
-                errors.push(`Le champ ${field} est obligatoire`);
+        // Gestion des entreprises
+        async getCompanies(params = {}) {
+            return this.api.get('/companies', params);
+        }
+
+        async getCompanyById(id) {
+            return this.api.get(`/companies/${id}`);
+        }
+
+        async createCompany(companyData) {
+            const response = await this.api.post('/companies', companyData);
+            this.invalidateCache('companies');
+            return response;
+        }
+
+        async updateCompany(id, companyData) {
+            const response = await this.api.put(`/companies/${id}`, companyData);
+            this.invalidateCache('companies');
+            this.invalidateCache(`company_${id}`);
+            return response;
+        }
+
+        async deleteCompany(id) {
+            const response = await this.api.delete(`/companies/${id}`);
+            this.invalidateCache('companies');
+            this.invalidateCache(`company_${id}`);
+            return response;
+        }
+
+        // Gestion des écritures comptables
+        async getEntries(params = {}) {
+            return this.api.get('/entries', params);
+        }
+
+        async getEntryById(id) {
+            return this.api.get(`/entries/${id}`);
+        }
+
+        async createEntry(entryData) {
+            const response = await this.api.post('/entries', entryData);
+            this.invalidateCache('entries');
+            return response;
+        }
+
+        async updateEntry(id, entryData) {
+            const response = await this.api.put(`/entries/${id}`, entryData);
+            this.invalidateCache('entries');
+            this.invalidateCache(`entry_${id}`);
+            return response;
+        }
+
+        async validateEntry(id) {
+            const response = await this.api.patch(`/entries/${id}/validate`);
+            this.invalidateCache('entries');
+            this.invalidateCache(`entry_${id}`);
+            return response;
+        }
+
+        async deleteEntry(id) {
+            const response = await this.api.delete(`/entries/${id}`);
+            this.invalidateCache('entries');
+            this.invalidateCache(`entry_${id}`);
+            return response;
+        }
+
+        // Gestion des comptes
+        async getAccounts(params = {}) {
+            return this.api.get('/accounts', params);
+        }
+
+        async getAccountByCode(code) {
+            return this.api.get(`/accounts/${code}`);
+        }
+
+        async getAccountHistory(code, params = {}) {
+            return this.api.get(`/accounts/${code}/history`, params);
+        }
+
+        // Gestion des caisses
+        async getCashRegisters(params = {}) {
+            return this.api.get('/cash-registers', params);
+        }
+
+        async createCashRegister(cashData) {
+            const response = await this.api.post('/cash-registers', cashData);
+            this.invalidateCache('cash-registers');
+            return response;
+        }
+
+        async updateCashRegister(id, cashData) {
+            const response = await this.api.put(`/cash-registers/${id}`, cashData);
+            this.invalidateCache('cash-registers');
+            return response;
+        }
+
+        async getCashOperations(id, params = {}) {
+            return this.api.get(`/cash-registers/${id}/operations`, params);
+        }
+
+        async createCashOperation(id, operationData) {
+            return this.api.post(`/cash-registers/${id}/operations`, operationData);
+        }
+
+        // Gestion du cache
+        setCached(key, data) {
+            this.cache.set(key, {
+                data,
+                timestamp: Date.now()
+            });
+        }
+
+        getCached(key) {
+            const cached = this.cache.get(key);
+            if (cached && (Date.now() - cached.timestamp) < this.cacheTTL) {
+                return cached.data;
             }
-        });
+            return null;
+        }
 
-        return {
-            isValid: errors.length === 0,
-            errors
-        };
+        invalidateCache(key) {
+            if (key) {
+                this.cache.delete(key);
+            } else {
+                this.cache.clear();
+            }
+        }
     }
 
-    static validateEntry(entry) {
-        const errors = [];
-        const config = DOUKE_CONFIG.VALIDATION.entry;
-
-        if (!entry.lines || entry.lines.length === 0) {
-            errors.push('Une écriture doit avoir au moins une ligne');
+    // =============================================================================
+    // 📊 SERVICE DE SYNCHRONISATION
+    // =============================================================================
+    class SynchronizationService {
+        constructor(apiService, dataService) {
+            this.api = apiService;
+            this.dataService = dataService;
+            this.syncQueue = [];
+            this.isSyncing = false;
+            this.syncInterval = null;
+            
+            this.startAutoSync();
         }
 
-        if (entry.lines && entry.lines.length > config.maxLines) {
-            errors.push(`Maximum ${config.maxLines} lignes par écriture`);
+        startAutoSync() {
+            const interval = window.configManager?.get('sync.interval') || 5 * 60 * 1000;
+            
+            this.syncInterval = setInterval(() => {
+                if (navigator.onLine && !this.isSyncing) {
+                    this.performSync();
+                }
+            }, interval);
         }
 
-        // Vérifier équilibre débit/crédit
-        if (entry.lines) {
-            const totalDebit = entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
-            const totalCredit = entry.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
-
-            if (Math.abs(totalDebit - totalCredit) > 0.01) {
-                errors.push('L\'écriture doit être équilibrée (débit = crédit)');
+        stopAutoSync() {
+            if (this.syncInterval) {
+                clearInterval(this.syncInterval);
+                this.syncInterval = null;
             }
         }
 
-        config.requiredFields.forEach(field => {
-            if (!entry[field]) {
-                errors.push(`Le champ ${field} est obligatoire`);
+        async performSync() {
+            if (this.isSyncing) return;
+            
+            this.isSyncing = true;
+            
+            try {
+                console.log('🔄 Début de la synchronisation...');
+                
+                // Synchroniser les données dans l'ordre de priorité
+                await this.syncUsers();
+                await this.syncCompanies();
+                await this.syncEntries();
+                await this.syncCashRegisters();
+                
+                // Traiter la queue d'opérations en attente
+                await this.processQueuedOperations();
+                
+                console.log('✅ Synchronisation terminée avec succès');
+                
+                // Notifier le succès
+                if (window.unifiedManager?.notificationManager) {
+                    window.unifiedManager.notificationManager.show(
+                        'success',
+                        'Synchronisation réussie',
+                        'Toutes les données ont été synchronisées'
+                    );
+                }
+                
+            } catch (error) {
+                console.error('❌ Erreur de synchronisation:', error);
+                
+                if (window.unifiedManager?.notificationManager) {
+                    window.unifiedManager.notificationManager.show(
+                        'error',
+                        'Erreur de synchronisation',
+                        error.message
+                    );
+                }
+            } finally {
+                this.isSyncing = false;
             }
-        });
-
-        return {
-            isValid: errors.length === 0,
-            errors
-        };
-    }
-
-    static validateUser(user) {
-        const errors = [];
-        const config = DOUKE_CONFIG.VALIDATION.user;
-
-        if (!user.email || !this.validateEmail(user.email)) {
-            errors.push('Email invalide');
         }
 
-        if (!user.name || user.name.length > config.nameMaxLength) {
-            errors.push(`Le nom ne peut dépasser ${config.nameMaxLength} caractères`);
+        async syncUsers() {
+            try {
+                const response = await this.dataService.getUsers();
+                if (response.success) {
+                    // Mettre à jour les données locales
+                    window.app.users = response.data;
+                    console.log('✅ Utilisateurs synchronisés');
+                }
+            } catch (error) {
+                console.error('Erreur sync utilisateurs:', error);
+            }
         }
 
-        if (user.phone && !config.phonePattern.test(user.phone)) {
-            errors.push('Format de téléphone invalide');
+        async syncCompanies() {
+            try {
+                const response = await this.dataService.getCompanies();
+                if (response.success) {
+                    window.app.companies = response.data;
+                    console.log('✅ Entreprises synchronisées');
+                }
+            } catch (error) {
+                console.error('Erreur sync entreprises:', error);
+            }
         }
 
-        return {
-            isValid: errors.length === 0,
-            errors
-        };
-    }
-
-    static validateCompany(company) {
-        const errors = [];
-        const config = DOUKE_CONFIG.VALIDATION.company;
-
-        if (!company.name || company.name.length > config.nameMaxLength) {
-            errors.push(`Le nom ne peut dépasser ${config.nameMaxLength} caractères`);
+        async syncEntries() {
+            try {
+                const response = await this.dataService.getEntries();
+                if (response.success) {
+                    window.app.entries = response.data;
+                    console.log('✅ Écritures synchronisées');
+                }
+            } catch (error) {
+                console.error('Erreur sync écritures:', error);
+            }
         }
 
-        if (company.rccm && !config.rccmPattern.test(company.rccm)) {
-            errors.push('Format RCCM invalide (ex: CI-ABJ-2020-B-12345)');
+        async syncCashRegisters() {
+            try {
+                const response = await this.dataService.getCashRegisters();
+                if (response.success) {
+                    window.app.cashRegisters = response.data;
+                    console.log('✅ Caisses synchronisées');
+                }
+            } catch (error) {
+                console.error('Erreur sync caisses:', error);
+            }
         }
 
-        if (company.nif && !config.nifPattern.test(company.nif)) {
-            errors.push('Format NIF invalide (10 chiffres)');
+        async processQueuedOperations() {
+            while (this.syncQueue.length > 0) {
+                const operation = this.syncQueue.shift();
+                
+                try {
+                    await this.executeQueuedOperation(operation);
+                } catch (error) {
+                    console.error('Erreur lors de l\'exécution d\'opération en queue:', error);
+                    // Remettre en queue si échec
+                    if (operation.retries < 3) {
+                        operation.retries = (operation.retries || 0) + 1;
+                        this.syncQueue.push(operation);
+                    }
+                }
+            }
         }
 
-        return {
-            isValid: errors.length === 0,
-            errors
-        };
+        async executeQueuedOperation(operation) {
+            const { type, method, endpoint, data } = operation;
+            
+            switch (method) {
+                case 'POST':
+                    return this.api.post(endpoint, data);
+                case 'PUT':
+                    return this.api.put(endpoint, data);
+                case 'DELETE':
+                    return this.api.delete(endpoint);
+                case 'PATCH':
+                    return this.api.patch(endpoint, data);
+                default:
+                    throw new Error(`Méthode non supportée: ${method}`);
+            }
+        }
+
+        queueOperation(type, method, endpoint, data = null) {
+            this.syncQueue.push({
+                type,
+                method,
+                endpoint,
+                data,
+                timestamp: Date.now(),
+                retries: 0
+            });
+        }
+
+        getSyncStatus() {
+            return {
+                isSyncing: this.isSyncing,
+                queueLength: this.syncQueue.length,
+                isOnline: navigator.onLine,
+                lastSync: this.lastSyncTime
+            };
+        }
     }
 
-    static validateEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
+    // =============================================================================
+    // 🎯 INITIALISATION ET INTÉGRATION
+    // =============================================================================
+    
+    // Créer les instances des services
+    window.apiService = new APIService();
+    window.authService = new AuthenticationService(window.apiService);
+    window.dataService = new DataService(window.apiService);
+    window.syncService = new SynchronizationService(window.apiService, window.dataService);
+
+    // Intégrer au système unifié si disponible
+    if (window.unifiedManager) {
+        window.unifiedManager.apiService = window.apiService;
+        window.unifiedManager.authService = window.authService;
+        window.unifiedManager.dataService = window.dataService;
+        window.unifiedManager.syncService = window.syncService;
+        
+        console.log('✅ Services intégrés au système unifié');
     }
 
-    static validateAmount(amount) {
-        return !isNaN(amount) && amount >= 0 && amount <= DOUKE_CONFIG.VALIDATION.entry.maxAmount;
-    }
-}
+    // Gestionnaire global d'erreurs API
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error('Erreur API non gérée:', event.reason);
+        
+        if (window.unifiedManager?.notificationManager) {
+            window.unifiedManager.notificationManager.show(
+                'error',
+                'Erreur de connexion',
+                'Une erreur est survenue lors de la communication avec le serveur'
+            );
+        }
+    });
 
-// =============================================================================
-// SERVICE DE FORMATAGE
-// =============================================================================
+    console.log('✅ Module Services chargé avec succès');
 
-class FormatService {
-    static formatCurrency(amount) {
-        return DOUKE_CONFIG.formatCurrency(amount);
-    }
-
-    static formatDate(date) {
-        return DOUKE_CONFIG.formatDate(date);
-    }
-
-    static formatDateTime(datetime) {
-        return new Date(datetime).toLocaleString('fr-FR');
-    }
-
-    static formatAccountCode(code) {
-        return code.replace(/(\d{3})(\d{3})/, '$1 $2');
-    }
-
-    static formatPercentage(value, decimals = 2) {
-        return `${value.toFixed(decimals)}%`;
-    }
-
-    static formatFileSize(bytes) {
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        if (bytes === 0) return '0 B';
-        const i = Math.floor(Math.log(bytes) / Math.log(1024));
-        return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-    }
-}
-
-// Instances globales
-window.apiService = new ApiService();
-window.validationService = ValidationService;
-window.formatService = FormatService;
-
-console.log('✅ Services API et validation chargés');
+})();
