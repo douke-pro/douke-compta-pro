@@ -70,6 +70,26 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .error-state {
+            border: 1px solid #EF4444;
+            background-color: #FEF2F2;
+        }
+        
+        .error-state.dark {
+            background-color: #7F1D1D;
+        }
         
         /* Notifications */
         .notification {
@@ -253,7 +273,13 @@
     <!-- ========================================= -->
     <div id="notificationsContainer"></div>
     <div id="modalContainer"></div>
-
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center space-x-4">
+            <div class="loading-spinner"></div>
+            <span class="text-gray-700 dark:text-gray-300">Chargement...</span>
+        </div>
+    </div>
+    
     <!-- ========================================= -->
     <!-- INTERFACE DE CONNEXION                   -->
     <!-- ========================================= -->
@@ -7075,6 +7101,7 @@ console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRA
        
 </body>
 </html>
+
 
 
 
