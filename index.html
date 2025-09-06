@@ -7590,7 +7590,60 @@ function validatePendingEntries() {
 function generateJournalReport(journal) {
     window.unifiedManager.notificationManager.show('info', 'Génération de rapport', `Préparation du rapport pour le journal ${journal}...`);
 }
-        
+ function generateBilan() {
+  const currentUser = window.unifiedManager.securityManager.getCurrentUser();
+  const companyId = window.app?.currentCompanyId;
+
+  // 🔒 Vérification des permissions
+  if (!window.unifiedManager.securityManager.hasPermission(currentUser, 'generate_bilan')) {
+    window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n’avez pas les droits pour générer un bilan.');
+    return;
+  }
+
+  // ✅ Vérification de l’entreprise active
+  if (!companyId) {
+    window.unifiedManager.notificationManager.show('error', 'Entreprise non sélectionnée', 'Veuillez sélectionner une entreprise active.');
+    return;
+  }
+
+  // 📅 Récupération de la période
+  const dateDebut = document.querySelector('#dateDebut')?.value;
+  const dateFin = document.querySelector('#dateFin')?.value;
+
+  if (!dateDebut || !dateFin) {
+    window.unifiedManager.notificationManager.show('warning', 'Période manquante', 'Veuillez renseigner les dates de début et de fin.');
+    return;
+  }
+
+  // ⚙️ Mode comptable (normal ou minimal)
+  const modeComptable = document.querySelector('#modeComptable')?.value || 'normal';
+
+  // 📊 Appel du module SYSCOHADA
+  let bilanData;
+  try {
+    bilanData = window.generateBilanSYSCOHADA(companyId, {
+      dateDebut,
+      dateFin,
+      mode: modeComptable,
+      format: 'json'
+    });
+  } catch (error) {
+    window.unifiedManager.notificationManager.show('error', 'Erreur de génération', 'Impossible de générer le bilan : ' + error.message);
+    return;
+  }
+
+  // 🎨 Affichage dans la modale
+  const container = document.querySelector('#bilanContainer');
+  if (container) {
+    container.innerHTML = renderBilanHTML(bilanData); // Fonction à créer pour mise en page
+    showModal('bilanModal'); // Fonction existante ou à créer
+  }
+
+  // 📤 Export PDF si demandé
+  if (document.querySelector('#exportPDF')?.checked) {
+    window.exportBilanSYSCOHADA(bilanData, 'pdf');
+  }
+}       
 console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRATIONNEL');        
     </script>     
 
@@ -7598,6 +7651,7 @@ console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRA
        
 </body>
 </html>
+
 
 
 
