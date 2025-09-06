@@ -979,6 +979,64 @@ if (window.doukeModuleManager) {
                 <!-- Main Content Area -->
                 <main class="flex-1 overflow-y-auto p-6">
                     <div id="mainContent">
+                        <div class="mb-4">
+  <label for="dateDebut" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    📅 Date début :
+  </label>
+  <input type="date" id="dateDebut"
+         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" />
+</div>
+                        <div class="mb-4">
+  <label for="dateFin" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    📅 Date fin :
+  </label>
+  <input type="date" id="dateFin"
+         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" />
+</div>
+                        <div class="mb-4">
+  <label for="modeComptable" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    ⚙️ Mode comptable :
+  </label>
+  <select id="modeComptable"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+    <option value="">-- Sélectionner --</option>
+    <option value="syscohada">SYSCOHADA</option>
+    <option value="ifrs">IFRS</option>
+    <option value="autre">Autre</option>
+  </select>
+</div>
+                        <div class="mb-4">
+  <label for="typeExercice" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    📁 Type d’exercice :
+  </label>
+  <select id="typeExercice"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
+    <option value="">-- Sélectionner --</option>
+    <option value="normal">Exercice normal</option>
+    <option value="exceptionnel">Exercice exceptionnel</option>
+    <option value="provisoire">Exercice provisoire</option>
+  </select>
+</div> 
+                        <div class="mb-4">
+  <label for="referenceExercice" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    📌 Référence de l’exercice :
+  </label>
+  <input type="text" id="referenceExercice"
+         placeholder="EX2024-01, BILAN2023, etc."
+         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" />
+</div>
+<div class="flex flex-wrap gap-4 mt-6">
+  <button onclick="exporterPDF()"
+          class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow">
+    📤 Exporter en PDF
+  </button>
+
+  <button onclick="genererBilan()"
+          class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow">
+    📊 Générer le bilan
+  </button>
+</div>
+
                         <!-- Content will be populated by JavaScript -->
                     </div>
                 </main>
@@ -7651,6 +7709,7 @@ console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRA
        
 </body>
 </html>
+
 
 
 
