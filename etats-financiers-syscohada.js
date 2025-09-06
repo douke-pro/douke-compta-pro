@@ -120,6 +120,36 @@ const SYSCOHADAIntegrationManager = {
         }
     }
 };
+// ============================================================================
+// FORMULAIRE D'AFFICHAGE POUR LE BILAN
+// ============================================================================
+function afficherFormulaireBilan() {
+    const container = document.getElementById('mainContent');
+    container.innerHTML = `
+        <div class="space-y-4">
+            <label for="dateDebut">📅 Date début :</label>
+            <input type="date" id="dateDebut" class="border rounded px-2 py-1" />
+
+            <label for="dateFin">📅 Date fin :</label>
+            <input type="date" id="dateFin" class="border rounded px-2 py-1" />
+
+            <label for="modeComptable">⚙️ Mode comptable :</label>
+            <select id="modeComptable" class="border rounded px-2 py-1">
+                <option value="normal">Normal</option>
+                <option value="minimal">Minimal</option>
+            </select>
+
+            <label class="flex items-center space-x-2">
+                <input type="checkbox" id="exportPDF" />
+                <span>📤 Exporter en PDF</span>
+            </label>
+
+            <button onclick="genererBilan()" class="bg-green-600 text-white px-4 py-2 rounded">
+                🧾 Générer le Bilan
+            </button>
+        </div>
+    `;
+}
 
 // ============================================================================
 // 1. BILAN SYSCOHADA RÉVISÉ CONFORME
