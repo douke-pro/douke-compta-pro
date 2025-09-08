@@ -144,8 +144,21 @@ function ajouterBoutonBilanDansMenu() {
   menu.appendChild(bouton);
 }
 window.addEventListener("DOMContentLoaded", () => {
-  ajouterBoutonBilanDansMenu();
+  attendreMenuEtInjecterBouton();
 });
+function attendreMenuEtInjecterBouton() {
+  const interval = setInterval(() => {
+    const menu = document.getElementById("navigationMenu");
+    const appVisible = document.getElementById("mainApp")?.classList.contains("hidden") === false;
+
+    if (menu && appVisible) {
+      ajouterBoutonBilanDansMenu();
+      clearInterval(interval);
+      console.log("✅ Bouton bilan injecté dans le menu");
+    }
+  }, 500); // vérifie toutes les 500ms
+}
+
 // ============================================================================
 // 1. BILAN SYSCOHADA RÉVISÉ CONFORME
 // ============================================================================
