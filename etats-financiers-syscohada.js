@@ -129,7 +129,23 @@ function afficherFormulaireBilan() {
     formulaire.classList.remove("hidden");
   }
 }
+function ajouterBoutonBilanDansMenu() {
+  const menu = document.getElementById("navigationMenu");
+  if (!menu) return;
 
+  const bouton = document.createElement("a");
+  bouton.href = "#";
+  bouton.className = "flex items-center px-4 py-2 text-gray-700 hover:bg-gray-200";
+  bouton.onclick = () => afficherFormulaireBilan();
+  bouton.innerHTML = `
+    <i class="fas fa-file-alt mr-2"></i>
+    <span>Générer le bilan</span>
+  `;
+  menu.appendChild(bouton);
+}
+window.addEventListener("DOMContentLoaded", () => {
+  ajouterBoutonBilanDansMenu();
+});
 // ============================================================================
 // 1. BILAN SYSCOHADA RÉVISÉ CONFORME
 // ============================================================================
