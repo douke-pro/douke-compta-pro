@@ -980,66 +980,6 @@ if (window.doukeModuleManager) {
                 <main class="flex-1 overflow-y-auto p-6">
                     <div id="mainContent">
                         <!-- Bouton déclencheur -->
-<button onclick="afficherFormulaireBilan()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow mb-6">
-  📊 Générer le bilan
-</button>
-
-<!-- Formulaire masqué au départ -->
-<div id="formulaireBilan" class="hidden">
-  <div class="mb-4">
-    <label for="dateDebut" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-      📅 Date début :
-    </label>
-    <input type="date" id="dateDebut" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" />
-  </div>
-
-  <div class="mb-4">
-    <label for="dateFin" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-      📅 Date fin :
-    </label>
-    <input type="date" id="dateFin" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" />
-  </div>
-
-  <div class="mb-4">
-    <label for="modeComptable" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-      ⚙️ Mode comptable :
-    </label>
-    <select id="modeComptable" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-      <option value="">-- Sélectionner --</option>
-      <option value="syscohada">SYSCOHADA</option>
-      <option value="ifrs">IFRS</option>
-      <option value="autre">Autre</option>
-    </select>
-  </div>
-
-  <div class="mb-4">
-    <label for="typeExercice" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-      📁 Type d’exercice :
-    </label>
-    <select id="typeExercice" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base">
-      <option value="">-- Sélectionner --</option>
-      <option value="normal">Exercice normal</option>
-      <option value="exceptionnel">Exercice exceptionnel</option>
-      <option value="provisoire">Exercice provisoire</option>
-    </select>
-  </div>
-
-  <div class="mb-4">
-    <label for="referenceExercice" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-      📌 Référence de l’exercice :
-    </label>
-    <input type="text" id="referenceExercice" placeholder="EX2024-01, BILAN2023, etc." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base" />
-  </div>
-
-  <div class="flex flex-wrap gap-4 mt-6">
-    <button onclick="exporterPDF()" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow">
-      📤 Exporter en PDF
-    </button>
-    <button onclick="genererBilan()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow">
-      📊 Générer le bilan
-    </button>
-  </div>
-</div>
                         <!-- Content will be populated by JavaScript -->
                     </div>
                 </main>
@@ -7651,60 +7591,6 @@ function validatePendingEntries() {
 function generateJournalReport(journal) {
     window.unifiedManager.notificationManager.show('info', 'Génération de rapport', `Préparation du rapport pour le journal ${journal}...`);
 }
- function generateBilan() {
-  const currentUser = window.unifiedManager.securityManager.getCurrentUser();
-  const companyId = window.app?.currentCompanyId;
-
-  // 🔒 Vérification des permissions
-  if (!window.unifiedManager.securityManager.hasPermission(currentUser, 'generate_bilan')) {
-    window.unifiedManager.notificationManager.show('error', 'Accès refusé', 'Vous n’avez pas les droits pour générer un bilan.');
-    return;
-  }
-
-  // ✅ Vérification de l’entreprise active
-  if (!companyId) {
-    window.unifiedManager.notificationManager.show('error', 'Entreprise non sélectionnée', 'Veuillez sélectionner une entreprise active.');
-    return;
-  }
-
-  // 📅 Récupération de la période
-  const dateDebut = document.querySelector('#dateDebut')?.value;
-  const dateFin = document.querySelector('#dateFin')?.value;
-
-  if (!dateDebut || !dateFin) {
-    window.unifiedManager.notificationManager.show('warning', 'Période manquante', 'Veuillez renseigner les dates de début et de fin.');
-    return;
-  }
-
-  // ⚙️ Mode comptable (normal ou minimal)
-  const modeComptable = document.querySelector('#modeComptable')?.value || 'normal';
-
-  // 📊 Appel du module SYSCOHADA
-  let bilanData;
-  try {
-    bilanData = window.generateBilanSYSCOHADA(companyId, {
-      dateDebut,
-      dateFin,
-      mode: modeComptable,
-      format: 'json'
-    });
-  } catch (error) {
-    window.unifiedManager.notificationManager.show('error', 'Erreur de génération', 'Impossible de générer le bilan : ' + error.message);
-    return;
-  }
-
-  // 🎨 Affichage dans la modale
-  const container = document.querySelector('#bilanContainer');
-  if (container) {
-    container.innerHTML = renderBilanHTML(bilanData); // Fonction à créer pour mise en page
-    showModal('bilanModal'); // Fonction existante ou à créer
-  }
-
-  // 📤 Export PDF si demandé
-  if (document.querySelector('#exportPDF')?.checked) {
-    window.exportBilanSYSCOHADA(bilanData, 'pdf');
-  }
-}       
 console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRATIONNEL');        
     </script>     
 
@@ -7712,6 +7598,7 @@ console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRA
        
 </body>
 </html>
+
 
 
 
