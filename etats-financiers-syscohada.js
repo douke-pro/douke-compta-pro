@@ -120,44 +120,6 @@ const SYSCOHADAIntegrationManager = {
         }
     }
 };
-// ============================================================================
-// FORMULAIRE D'AFFICHAGE POUR LE BILAN
-// ============================================================================
-function afficherFormulaireBilan() {
-  const formulaire = document.getElementById("formulaireBilan");
-  if (formulaire) {
-    formulaire.classList.remove("hidden");
-  }
-}
-function ajouterBoutonBilanDansMenu() {
-  const menu = document.getElementById("navigationMenu");
-  if (!menu) return;
-
-  const bouton = document.createElement("a");
-  bouton.href = "#";
-  bouton.className = "flex items-center px-4 py-2 text-gray-700 hover:bg-gray-200";
-  bouton.onclick = () => afficherFormulaireBilan();
-  bouton.innerHTML = `
-    <i class="fas fa-file-alt mr-2"></i>
-    <span>Générer le bilan</span>
-  `;
-  menu.appendChild(bouton);
-}
-window.addEventListener("DOMContentLoaded", () => {
-  attendreMenuEtInjecterBouton();
-});
-function attendreMenuEtInjecterBouton() {
-  const interval = setInterval(() => {
-    const menu = document.getElementById("navigationMenu");
-    const appVisible = document.getElementById("mainApp")?.classList.contains("hidden") === false;
-
-    if (menu && appVisible) {
-      ajouterBoutonBilanDansMenu();
-      clearInterval(interval);
-      console.log("✅ Bouton bilan injecté dans le menu");
-    }
-  }, 500); // vérifie toutes les 500ms
-}
 
 // ============================================================================
 // 1. BILAN SYSCOHADA RÉVISÉ CONFORME
@@ -4228,3 +4190,66 @@ function registerSYSCOHADAModule() {
 
 // Enregistrer le module
 registerSYSCOHADAModule();
+
+// Affiche le formulaire de génération de bilan
+function afficherFormulaireBilan() {
+  const formulaire = document.getElementById("formulaireBilan");
+  if (formulaire) {
+    formulaire.style.display = "block";
+  }
+}
+
+// Injecte le bouton dans le menu latéral
+function ajouterBoutonBilanDansMenu() {
+  const menu = document.getElementById("navigationMenu");
+  if (!menu) return;
+
+  // Évite d'ajouter plusieurs fois le bouton
+  if (document.getElementById("boutonGenererBilan")) return;
+
+  const bouton = document.createElement("button");
+  bouton.id = "boutonGenererBilan";
+  bouton.textContent = "📊 Générer le bilan";
+  bouton.className = "bg-primary text-white px-4 py-2 rounded mt-2 w-full";
+  bouton.onclick = afficherFormulaireBilan;
+
+  menu.appendChild(bouton);
+  console.log("✅ Bouton bilan injecté dans le menu");
+}
+
+// Attente active jusqu'à ce que le menu soit visible
+function attendreMenuEtInjecterBouton() {
+  const interval = setInterval(() => {
+    const menu = document.getElementById("navigationMenu");
+    const appVisible = document.getElementById("mainApp")?.classList.contains("hidden") === false;
+
+    if (menu && appVisible) {
+      ajouterBoutonBilanDansMenu();
+      clearInterval(interval);
+    }
+  }, 500);
+}
+
+// Génère le contenu du bilan
+function generateBilanSYSCOHADA() {
+  const dateDebut = document.getElementById("dateDebut")?.value;
+  const dateFin = document.getElementById("dateFin")?.value;
+  const mode = document.getElementById("modeComptable")?.value;
+
+  if (!dateDebut || !dateFin) {
+    alert("Veuillez renseigner les dates.");
+    return;
+  }
+
+  const resultat = `
+    <h3>📄 Bilan généré</h3>
+    <p><strong>Période :</strong> ${dateDebut} → ${dateFin}</p>
+    <p><strong>Mode :</strong> ${mode}</p>
+  `;
+  document.getElementById("resultatBilan").innerHTML = resultat;
+}
+
+// Initialisation au chargement de la page
+window.addEventListener("DOMContentLoaded", () => {
+  attendreMenuEtInjecterBouton();
+});
