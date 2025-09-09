@@ -917,6 +917,35 @@ if (window.doukeModuleManager) {
                     </div>
                 </div>
             </div>
+              <!-- 🔹 Formulaire de génération de bilan SYSCOHADA -->
+              <div id="formulaireBilan" style="display: none;" class="bg-white p-4 rounded shadow mt-4">
+             <h2 class="text-lg font-semibold mb-2">📊 Générer le bilan SYSCOHADA</h2>
+
+  <div class="mb-2">
+    <label for="dateDebut" class="block text-sm font-medium">Date de début</label>
+    <input type="date" id="dateDebut" class="mt-1 block w-full border rounded px-2 py-1" />
+  </div>
+
+  <div class="mb-2">
+    <label for="dateFin" class="block text-sm font-medium">Date de fin</label>
+    <input type="date" id="dateFin" class="mt-1 block w-full border rounded px-2 py-1" />
+  </div>
+
+  <div class="mb-2">
+    <label for="modeComptable" class="block text-sm font-medium">Mode comptable</label>
+    <select id="modeComptable" class="mt-1 block w-full border rounded px-2 py-1">
+      <option value="SYSCOHADA">SYSCOHADA</option>
+      <option value="IFRS">IFRS</option>
+    </select>
+  </div>
+
+  <button onclick="generateBilanSYSCOHADA()" class="bg-green-600 text-white px-4 py-2 rounded mt-2">
+    ✅ Générer
+  </button>
+</div>
+
+<!-- 🔹 Résultat du bilan -->
+<div id="resultatBilan" class="mt-4 p-4 bg-gray-100 rounded shadow"></div>
 
             <!-- Main Content -->
             <div class="flex-1 flex flex-col overflow-hidden">
@@ -7598,6 +7627,7 @@ console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRA
        
 </body>
 </html>
+
 
 
 
