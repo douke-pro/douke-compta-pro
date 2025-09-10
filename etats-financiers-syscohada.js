@@ -4183,9 +4183,9 @@ function registerSYSCOHADAModule() {
         window.doukeModuleManager.registerModule('syscohada-states', syscohadaModule, ['main-app']);
         console.log('✅ Module SYSCOHADA enregistré');
     } else {
-        // Retry si le gestionnaire n'est pas encore prêt
-        setTimeout(registerSYSCOHADAModule, 500);
-    }
+  document.addEventListener("DOMContentLoaded", () => {
+    registerSYSCOHADAModule();
+  });
 }
 
 // Enregistrer le module
