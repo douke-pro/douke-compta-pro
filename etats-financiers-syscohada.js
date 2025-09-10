@@ -4230,26 +4230,23 @@ function attendreMenuEtInjecterBouton() {
   }, 500);
 }
 
-// Génère le contenu du bilan
 function generateBilanSYSCOHADA() {
-  const dateDebut = document.getElementById("dateDebut")?.value;
-  const dateFin = document.getElementById("dateFin")?.value;
-  const mode = document.getElementById("modeComptable")?.value;
-
-  if (!dateDebut || !dateFin) {
-    alert("Veuillez renseigner les dates.");
+  if (!window.app || !window.app.currentCompanyId || window.app.entries.length === 0) {
+    safeNotify("Veuillez sélectionner une entreprise et charger les écritures comptables.");
     return;
   }
 
-  const resultat = `
-    <h3>📄 Bilan généré</h3>
-    <p><strong>Période :</strong> ${dateDebut} → ${dateFin}</p>
-    <p><strong>Mode :</strong> ${mode}</p>
-  `;
-  document.getElementById("resultatBilan").innerHTML = resultat;
+  try {
+    safeNotify("Génération du bilan SYSCOHADA en cours...");
+    const bilan = calculateBilanSYSCOHADA();
+    if (!bilan) {
+      safeNotify("Impossible de générer le bilan : données manquantes.");
+      return;
+    }
+    showBilanModal(bilan);
+  } catch (err) {
+    console.error(err);
+    safeNotify("Erreur lors de la génération du bilan.");
+  }
 }
 
-// Initialisation au chargement de la page
-window.addEventListener("DOMContentLoaded", () => {
-  attendreMenuEtInjecterBouton();
-});
