@@ -9,7 +9,7 @@ import { genererEtatRecettesDepenses } from './modules/syscohada/minimal/recette
 import { genererBilanMinimal } from './modules/syscohada/minimal/bilanMinimal.js';
 import { genererNotesAnnexes as annexesMinimal } from './modules/syscohada/minimal/notesAnnexes.js';
 
-// 🏢 Exemple de structure multi-entreprises (à remplacer par ton backend réel)
+// 🏢 Structure multi-entreprises (à remplacer par ton backend réel)
 const entreprises = {
   E001: {
     nom: "Alpha SARL",
@@ -37,63 +37,86 @@ const entreprises = {
   }
 };
 
-// 🧠 Initialisation du sélecteur d’entreprises
+// 🔒 Sélecteurs HTML
 const selectEntreprise = document.getElementById('activeCompanySelect');
-Object.entries(entreprises).forEach(([id, ent]) => {
-  const option = document.createElement('option');
-  option.value = id;
-  option.textContent = ent.nom;
-  selectEntreprise.appendChild(option);
-});
+const selectSysteme = document.getElementById('systeme');
+const zoneAffichage = document.getElementById('etat-financier');
 
-// 🎯 Gestion du changement de système ou d’entreprise
-document.getElementById('systeme').addEventListener('change', afficherEtats);
-document.getElementById('entreprise').addEventListener('change', afficherEtats);
+// 🚨 Sécurité : vérification des éléments HTML
+if (!selectEntreprise || !selectSysteme || !zoneAffichage) {
+  console.warn('⛔ Éléments HTML manquants – affichage désactivé');
+  return;
+}
 
-// 📤 Fonction d’affichage des états financiers
+// 🧠 Initialisation des entreprises (une seule fois)
+function initialiserEntreprises() {
+  if (selectEntreprise.options.length > 1) return;
+
+  Object.entries(entreprises).forEach(([id, ent]) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = ent.nom;
+    selectEntreprise.appendChild(option);
+  });
+}
+
+// 🎯 Événements de sélection
+selectEntreprise.addEventListener('change', afficherEtats);
+selectSysteme.addEventListener('change', afficherEtats);
+
+// 🧭 Protection contre récursion
+let affichageEnCours = false;
+
+// 📤 Affichage des états financiers
 function afficherEtats() {
-  const entrepriseId = document.getElementById('entreprise').value;
-  const systemeChoisi = document.getElementById('systeme').value;
-  const zone = document.getElementById('etat-financier');
-  zone.innerHTML = '';
+  if (affichageEnCours) return;
+  affichageEnCours = true;
 
-  if (!entrepriseId || !entreprises[entrepriseId]) {
-    zone.innerHTML = '<p class="text-red-600">Aucune entreprise sélectionnée.</p>';
-    return;
-  }
+  try {
+    const entrepriseId = selectEntreprise.value;
+    const systemeChoisi = selectSysteme.value;
+    zoneAffichage.innerHTML = '';
 
-  const { ecritures, nom } = entreprises[entrepriseId];
+    if (!entrepriseId || !entreprises[entrepriseId]) {
+      zoneAffichage.innerHTML = '<p class="text-red-600">Aucune entreprise sélectionnée.</p>';
+      return;
+    }
 
-  if (systemeChoisi === 'normal') {
-    const bilan = genererBilan(ecritures);
-    const resultat = genererCompteResultat(ecritures);
-    const flux = genererFluxTresorerie(ecritures);
-    const annexes = annexesNormal(ecritures, {
-      methodes: "Méthode d'amortissement linéaire.",
-      engagements: "Contrats en cours.",
-      evenements: "Aucun événement postérieur significatif."
-    });
+    const { ecritures, nom } = entreprises[entrepriseId];
 
-    afficherBloc(zone, `📘 Bilan – ${nom}`, bilan);
-    afficherBloc(zone, `📘 Compte de résultat – ${nom}`, resultat);
-    afficherBloc(zone, `📘 Flux de trésorerie – ${nom}`, flux);
-    afficherBloc(zone, `📘 Notes annexes – ${nom}`, annexes, true);
-  } else {
-    const recettesDepenses = genererEtatRecettesDepenses(ecritures);
-    const bilanMinimal = genererBilanMinimal(ecritures);
-    const annexes = annexesMinimal(ecritures, {
-      methodes: "Encaissements/décaissements réels.",
-      engagements: "Aucun engagement hors bilan.",
-      evenements: "Renouvellement de bail prévu."
-    });
+    if (systemeChoisi === 'normal') {
+      const bilan = genererBilan(ecritures);
+      const resultat = genererCompteResultat(ecritures);
+      const flux = genererFluxTresorerie(ecritures);
+      const annexes = annexesNormal(ecritures, {
+        methodes: "Méthode d'amortissement linéaire.",
+        engagements: "Contrats en cours.",
+        evenements: "Aucun événement postérieur significatif."
+      });
 
-    afficherBloc(zone, `📗 Recettes et dépenses – ${nom}`, recettesDepenses);
-    afficherBloc(zone, `📗 Bilan minimal – ${nom}`, bilanMinimal);
-    afficherBloc(zone, `📗 Annexes simplifiées – ${nom}`, annexes, true);
+      afficherBloc(zoneAffichage, `📘 Bilan – ${nom}`, bilan);
+      afficherBloc(zoneAffichage, `📘 Compte de résultat – ${nom}`, resultat);
+      afficherBloc(zoneAffichage, `📘 Flux de trésorerie – ${nom}`, flux);
+      afficherBloc(zoneAffichage, `📘 Notes annexes – ${nom}`, annexes, true);
+    } else {
+      const recettesDepenses = genererEtatRecettesDepenses(ecritures);
+      const bilanMinimal = genererBilanMinimal(ecritures);
+      const annexes = annexesMinimal(ecritures, {
+        methodes: "Encaissements/décaissements réels.",
+        engagements: "Aucun engagement hors bilan.",
+        evenements: "Renouvellement de bail prévu."
+      });
+
+      afficherBloc(zoneAffichage, `📗 Recettes et dépenses – ${nom}`, recettesDepenses);
+      afficherBloc(zoneAffichage, `📗 Bilan minimal – ${nom}`, bilanMinimal);
+      afficherBloc(zoneAffichage, `📗 Annexes simplifiées – ${nom}`, annexes, true);
+    }
+  } finally {
+    affichageEnCours = false;
   }
 }
 
-// 📦 Fonction d’affichage d’un bloc
+// 📦 Affichage d’un bloc
 function afficherBloc(zone, titre, contenu, isMarkdown = false) {
   const bloc = document.createElement('div');
   bloc.className = 'mb-6 p-4 border rounded bg-white shadow';
@@ -102,3 +125,8 @@ function afficherBloc(zone, titre, contenu, isMarkdown = false) {
   zone.appendChild(bloc);
 }
 
+// 🚀 Initialisation au chargement
+document.addEventListener('DOMContentLoaded', () => {
+  initialiserEntreprises();
+  afficherEtats();
+});
