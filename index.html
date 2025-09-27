@@ -192,6 +192,7 @@ window.showNewUserModal = () => safeExecute('showNewUserModal');
 window.showNewCompanyModal = () => safeExecute('showNewCompanyModal');
 window.showNewEntryModal = () => safeExecute('showNewEntryModal');
 window.fillCredentials = (profile) => safeExecute('fillCredentials', profile);
+window.handleSecureLogin = () => safeExecute('handleSecureLogin');    
 window.confirmSecureLogout = () => safeExecute('confirmSecureLogout');
 window.togglePassword = () => safeExecute('togglePassword');
 window.toggleThemeMenu = () => safeExecute('toggleThemeMenu');
@@ -208,43 +209,7 @@ window.viewUserDetails = (id) => safeExecute('viewUserDetails', id);
 window.openCashOperations = (id) => safeExecute('openCashOperations', id);
 window.editCashRegister = (id) => safeExecute('editCashRegister', id);
 window.generateCashReport = (id) => safeExecute('generateCashReport', id);
-function handleSecureLogin() {
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-    const loginButton = document.getElementById('loginButton');
 
-    if (!email || !password) {
-        if (window.unifiedManager) {
-            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Veuillez saisir votre email et mot de passe.');
-        }
-        return;
-    }
-
-    // Désactiver le bouton et montrer le loading
-    loginButton.disabled = true;
-    loginButton.innerHTML = '<div class="loading-spinner mr-2"></div>Connexion...';
-
-    // CORRECTION : Ajouter async/await
-    setTimeout(async () => {
-        try {
-            const result = await window.unifiedManager.authenticateUser(email, password);
-
-            if (result && result.success) {
-                showMainApp();
-                window.unifiedManager.notificationManager.show('success', 'Connexion réussie', `Bienvenue ${result.user.name} !`);
-            } else {
-                window.unifiedManager.notificationManager.show('error', 'Erreur de connexion', result?.message || 'Erreur inconnue');
-            }
-        } catch (error) {
-            console.error('❌ Erreur de connexion:', error);
-            window.unifiedManager.notificationManager.show('error', 'Erreur', 'Erreur de connexion inattendue');
-        }
-
-        // Réactiver le bouton
-        loginButton.disabled = false;
-        loginButton.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Connexion Sécurisée';
-    }, 1000);
-}
 console.log('✅ Fonctions onclick sécurisées exposées');
 </script>
 </head>
@@ -4341,6 +4306,7 @@ console.log('🚀 APPLICATION PRÊTE POUR LA PRODUCTION');
 </script>
 </body>
 </html>
+
 
 
 
