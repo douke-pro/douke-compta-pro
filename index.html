@@ -7620,24 +7620,26 @@ function validatePendingEntries() {
 function generateJournalReport(journal) {
     window.unifiedManager.notificationManager.show('info', 'Génération de rapport', `Préparation du rapport pour le journal ${journal}...`);
 }
-console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRATIONNEL');        
-    </script>     
 
+<!-- Sélecteur du système comptable -->
+<div class="mb-4">
+  <label for="systeme" class="block text-sm font-medium text-gray-700">Choisir le système comptable :</label>
+  <select id="systeme" class="mt-1 block w-full p-2 border border-gray-300 rounded">
+    <option value="normal">Système normal</option>
+    <option value="minimal">Système minimal de trésorerie</option>
+  </select>
+</div>
+
+<!-- Zone d'affichage des états financiers -->
+<div id="etat-financier" class="mt-6 space-y-6"></div>
+
+<!-- Scripts -->
 <script src="etats-financiers-syscohada.js"></script>
-       
+<script>
+  console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRATIONNEL');
+</script>
+
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
+        
 
