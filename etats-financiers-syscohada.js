@@ -38,7 +38,7 @@ const entreprises = {
 };
 
 // 🧠 Initialisation du sélecteur d’entreprises
-const selectEntreprise = document.getElementById('entreprise');
+const selectEntreprise = document.getElementById('activeCompanySelect');
 Object.entries(entreprises).forEach(([id, ent]) => {
   const option = document.createElement('option');
   option.value = id;
