@@ -2275,7 +2275,7 @@ async verifyPassword(password, storedHash) {
             // FONCTIONS D'AUTHENTIFICATION SÉCURISÉES
             // =============================================================================
 
-            authenticateUser(email, password) {
+            async authenticateUser(email, password) {
                 console.log('🔐 Tentative d\'authentification pour:', email);
                 console.log('📋 Utilisateurs disponibles:', window.app.users.length);
                 
@@ -2288,16 +2288,17 @@ async verifyPassword(password, storedHash) {
                         message: 'Email ou mot de passe incorrect'
                     };
                 }
-
-                console.log('🔍 Utilisateur trouvé:', user.name, 'Profil:', user.profile);
                 
-                if (!this.verifyPassword(password, user.passwordHash)) {
-                    console.log('❌ Mot de passe incorrect');
-                    return {
-                        success: false,
-                        message: 'Email ou mot de passe incorrect'
-                    };
-                }
+                console.log('🔍 Utilisateur trouvé:', user.name, 'Profil:', user.profile);
+
+const passwordValid = await this.verifyPassword(password, user.passwordHash);
+if (!passwordValid) {
+    console.log('❌ Mot de passe incorrect');
+    return {
+        success: false,
+        message: 'Email ou mot de passe incorrect'
+    };
+}
 
                 if (user.status !== 'Actif') {
                     return {
@@ -7700,6 +7701,7 @@ function initialiserEntreprises() {
 </body>
 </html>
         
+
 
 
 
