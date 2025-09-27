@@ -4250,3 +4250,43 @@ function generateBilanSYSCOHADA() {
   }
 }
 
+import { genererBilan } from './modules/syscohada/normal/bilan.js';
+import { genererCompteResultat } from './modules/syscohada/normal/compteResultat.js';
+import { genererFluxTresorerie } from './modules/syscohada/normal/fluxTresorerie.js';
+import { genererNotesAnnexes as annexesNormal } from './modules/syscohada/normal/notesAnnexes.js';
+
+import { genererEtatRecettesDepenses } from './modules/syscohada/minimal/recettesDepenses.js';
+import { genererBilanMinimal } from './modules/syscohada/minimal/bilanMinimal.js';
+import { genererNotesAnnexes as annexesMinimal } from './modules/syscohada/minimal/notesAnnexes.js';
+
+document.getElementById('systeme').addEventListener('change', () => {
+  const systeme = document.getElementById('systeme').value;
+  const ecritures = chargerEcritures(); // à adapter selon ton app
+
+  if (systeme === 'normal') {
+    const bilan = genererBilan(ecritures);
+    const resultat = genererCompteResultat(ecritures);
+    const flux = genererFluxTresorerie(ecritures);
+    const annexes = annexesNormal(ecritures, { methodes: '', engagements: '', evenements: '' });
+
+    afficherEtatFinancier({ bilan, resultat, flux, annexes });
+  } else {
+    const recettesDepenses = genererEtatRecettesDepenses(ecritures);
+    const bilanMinimal = genererBilanMinimal(ecritures);
+    const annexes = annexesMinimal(ecritures, { methodes: '', engagements: '', evenements: '' });
+
+    afficherEtatFinancier({ recettesDepenses, bilanMinimal, annexes });
+  }
+});
+
+function afficherEtatFinancier(etats) {
+  const zone = document.getElementById('etat-financier');
+  zone.innerHTML = '';
+
+  for (const [cle, contenu] of Object.entries(etats)) {
+    const bloc = document.createElement('div');
+    bloc.className = 'mb-6 p-4 border rounded bg-white shadow';
+    bloc.innerHTML = `<h2 class="text-xl font-bold mb-2">${cle}</h2><pre>${JSON.stringify(contenu, null, 2)}</pre>`;
+    zone.appendChild(bloc);
+  }
+}
