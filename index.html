@@ -1751,7 +1751,7 @@ console.log('🗑️ Cache des données filtrées vidé');
 // FONCTIONS D'AUTHENTIFICATION SÉCURISÉES
 // =============================================================================
 
-authenticateUser(email, password) {
+async authenticateUser(email, password) {
 console.log('🔐 Tentative d\'authentification pour:', email);
 console.log('📋 Utilisateurs disponibles:', window.app.users.length);
 
@@ -4306,6 +4306,7 @@ console.log('🚀 APPLICATION PRÊTE POUR LA PRODUCTION');
 </script>
 </body>
 </html>
+
 
 
 
