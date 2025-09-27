@@ -2153,15 +2153,58 @@ if (window.doukeModuleManager) {
                 }
 
                 console.log('✅ Données complètes initialisées - Comptes:', window.app.users.length, 'utilisateurs créés');
-            }
+            async hashPassword(password) {
+    try {
+        // Nouveau système sécurisé (SHA-256)
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password + 'DOUKE_SALT_2024_SECURE');
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return 'sha256:' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (error) {
+        console.error('❌ Erreur de hachage sécurisé:', error);
+        // Fallback sécurisé
+        let hash = 0;
+        const combined = password + 'DOUKE_FALLBACK_SALT_2024';
+        for (let i = 0; i < combined.length; i++) {
+            const char = combined.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return 'fallback:' + Math.abs(hash).toString(36);
+    }
+}
 
-            hashPassword(password) {
-                return btoa(password + 'DOUKE_SALT_2024');
-            }
+// Fonction de hachage legacy (ancien système)
+hashPasswordLegacy(password) {
+    return btoa(password + 'DOUKE_SALT_2024');
+}
 
-            verifyPassword(password, hash) {
-                return this.hashPassword(password) === hash;
-            }
+async verifyPassword(password, storedHash) {
+    // Détecter le type de hash
+    if (storedHash.startsWith('sha256:')) {
+        // Nouveau hash sécurisé
+        const newHash = await this.hashPassword(password);
+        return newHash === storedHash;
+    } else if (storedHash.startsWith('fallback:')) {
+        // Hash de fallback
+        const fallbackHash = await this.hashPassword(password);
+        return fallbackHash === storedHash;
+    } else {
+        // Ancien hash (rétrocompatibilité)
+        const legacyHash = this.hashPasswordLegacy(password);
+        const isLegacyValid = legacyHash === storedHash;
+        
+        if (isLegacyValid) {
+            // OPTIONNEL : Migrer vers le nouveau hash
+            console.log('🔄 Migration du mot de passe vers le système sécurisé');
+            // Ici vous pourriez mettre à jour le hash en base
+            // user.passwordHash = await this.hashPassword(password);
+        }
+        
+        return isLegacyValid;
+    }
+}
 
             // Sélectionner une entreprise (avec validation de sécurité)
             selectCompany(companyId, userId = null) {
@@ -7665,6 +7708,7 @@ function initialiserEntreprises() {
 </body>
 </html>
         
+
 
 
 
