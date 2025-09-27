@@ -7621,6 +7621,21 @@ function generateJournalReport(journal) {
     window.unifiedManager.notificationManager.show('info', 'Génération de rapport', `Préparation du rapport pour le journal ${journal}...`);
 }
 
+ let entreprisesInjectees = false;
+
+function initialiserEntreprises() {
+  if (entreprisesInjectees) return;
+  entreprisesInjectees = true;
+
+  const selectEntreprise = document.getElementById('entreprise');
+  Object.entries(entreprises).forEach(([id, ent]) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = ent.nom;
+    selectEntreprise.appendChild(option);
+  });
+}
+        
 <!-- Sélecteur d'entreprise -->
 <div class="mb-4">
   <label for="entreprise" class="block text-sm font-medium text-gray-700">Sélectionner l'entreprise :</label>
@@ -7650,5 +7665,6 @@ function generateJournalReport(journal) {
 </body>
 </html>
         
+
 
 
