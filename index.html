@@ -7621,6 +7621,14 @@ function generateJournalReport(journal) {
     window.unifiedManager.notificationManager.show('info', 'Génération de rapport', `Préparation du rapport pour le journal ${journal}...`);
 }
 
+<!-- Sélecteur d'entreprise -->
+<div class="mb-4">
+  <label for="entreprise" class="block text-sm font-medium text-gray-700">Sélectionner l'entreprise :</label>
+  <select id="entreprise" class="mt-1 block w-full p-2 border border-gray-300 rounded">
+    <!-- Options dynamiques injectées par JS -->
+  </select>
+</div>
+
 <!-- Sélecteur du système comptable -->
 <div class="mb-4">
   <label for="systeme" class="block text-sm font-medium text-gray-700">Choisir le système comptable :</label>
@@ -7633,13 +7641,14 @@ function generateJournalReport(journal) {
 <!-- Zone d'affichage des états financiers -->
 <div id="etat-financier" class="mt-6 space-y-6"></div>
 
-<!-- Scripts -->
+<!-- Script principal -->
 <script src="etats-financiers-syscohada.js"></script>
 <script>
-  console.log('✅ TOUTES LES FONCTIONS MANQUANTES AJOUTÉES - SYSTÈME 99% OPÉRATIONNEL');
+  console.log('✅ Système multi-entreprises activé – affichage dynamique prêt');
 </script>
-
+    
 </body>
 </html>
         
+
 
