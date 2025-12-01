@@ -1,44 +1,82 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Application Comptable SYSCOHADA - Expert</title>
-    <link rel="stylesheet" href="assets/style.css"> 
+    <title>DOUKÈ Compta Pro - Système Comptable SYSCOHADA Intégré</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+
+    <script>
+    // Reprise exacte de votre configuration Tailwind
+    tailwind.config = {
+        darkMode: 'class', // Permet le mode sombre
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#5D5CDE',         // Votre couleur principale (boutons, en-têtes)
+                    'primary-light': '#8B8BF0',
+                    'primary-dark': '#1E40AF',
+                    secondary: '#1D4ED8',       // Votre couleur secondaire
+                    success: '#10B981',
+                    // ... autres couleurs de votre ancien fichier
+                }
+            }
+        }
+    }
+    </script>
+    
+    <link href="assets/style.css" rel="stylesheet"> 
 </head>
-<body>
-    <header class="header">
-        <h1>📊 Générateur d'États Financiers (SYSCOHADA)</h1>
-        <p>Interface professionnelle pour l'expertise comptable OHADA.</p>
-    </header>
 
-    <main class="container">
-        <section class="controls">
-            <h2>Configuration de l'Entreprise</h2>
-            <div class="form-group">
-                <label for="systeme">Système Comptable :</label>
-                <select id="systeme">
-                    <option value="NORMAL">SYSCOHADA - Normal</option>
-                    <option value="MINIMAL">SYSCOHADA - Minimal de Trésorerie</option>
-                </select>
+<body class="bg-gray-50 dark:bg-gray-900 h-full overflow-hidden antialiased">
+
+    <div id="app-container" class="h-full flex flex-col">
+
+        <div id="auth-view" class="flex-grow flex items-center justify-center">
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
+                <h1 class="text-4xl font-extrabold text-primary-dark mb-6 text-center">
+                    DOUKÈ Compta Pro
+                </h1>
+                <p class="text-gray-500 dark:text-gray-400 text-center mb-8">
+                    Système Comptable SYSCOHADA Intégré
+                </p>
+                
+                <form id="login-form">
+                    <button type="submit" 
+                            class="w-full py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition duration-150">
+                        Se Connecter
+                    </button>
+                    <div id="auth-error-message" class="text-danger mt-3 text-sm text-center hidden"></div>
+                </form>
             </div>
-            <button id="genererBtn" class="btn primary">Générer et Afficher les Rapports</button>
-        </section>
+        </div>
 
-        <section class="results">
-            <h2>Résultat de la Génération</h2>
-            <div id="outputMessage" class="output-box">
-                Sélectionnez le système et cliquez sur le bouton pour déclencher l'affichage des états financiers (Bilan, CR, TFT...).
-            </div>
-            <h3>Détail du Bilan</h3>
-            <pre id="bilanDetail" class="output-code"></pre>
-        </section>
-    </main>
+        <div id="dashboard-view" class="h-full hidden flex">
+            
+            <aside id="sidebar" class="w-64 bg-white dark:bg-gray-800 shadow-md p-4 flex-shrink-0">
+                <div class="text-sm font-semibold uppercase text-gray-400 mb-4">
+                    Menu Principal
+                </div>
+                <nav id="role-navigation-menu">
+                    </nav>
+            </aside>
 
-    <footer class="footer">
-        © 2025 Expert Comptable Pro.
-    </footer>
+            <main id="main-content" class="flex-grow p-6 overflow-y-auto">
+                <header class="mb-6">
+                    <h2 id="welcome-message" class="text-3xl font-bold text-gray-900 dark:text-gray-100"></h2>
+                    <p id="context-message" class="text-gray-600 dark:text-gray-400"></p>
+                </header>
+
+                <div id="dashboard-content-area" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    </div>
+            </main>
+        </div>
+    </div>
 
     <script src="assets/script.js"></script> 
-    </body>
+</body>
 </html>
