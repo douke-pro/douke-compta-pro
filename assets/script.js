@@ -1,22 +1,20 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, la navigation par rôle et le rendu des dashboards.
-// CORRECTION : Gestionnaire de formulaire corrigé (e.preventDefault) et structure affinée.
+// CORRECTION EXPERTE : Gestion de la portée (window.userContext) et e.preventDefault().
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; // VOTRE URL RENDER LIVE
-let userContext = null; // Contient les données utilisateur (rôle, entrepriseId, token)
+window.userContext = null; // Rendre le contexte utilisateur explicitement global (pour les scripts dynamiques)
 
 /**
- * 1. SIMULATION D'AUTHENTIFICATION (Doit être remplacé par un appel 'fetch' vers /api/auth/login)
- * @param {string} username - Nom d'utilisateur (simulé pour déterminer le rôle).
- * @returns {object|null} - Payload simulé du JWT Token.
+ * 1. SIMULATION D'AUTHENTIFICATION
  */
 function simulateLogin(username) {
     const defaultCompany = "ENT_PROD_1";
     const defaultToken = "SIMULE_JWT_TOKEN_1234567890"; // Clé simulée
 
-    // Simulation des rôles basée sur l'utilisateur saisi (identifiants de test définis précédemment)
+    // Simulation des rôles basée sur l'utilisateur saisi
     if (username.toLowerCase() === 'admin') {
         return { utilisateurRole: 'ADMIN', utilisateurId: "SIMULE_ID_ADMIN", entrepriseContextId: defaultCompany, entrepriseContextName: "Groupe D-Holding", token: defaultToken };
     }
@@ -24,52 +22,48 @@ function simulateLogin(username) {
         return { utilisateurRole: 'COLLABORATEUR', utilisateurId: "COLLAB_A", entrepriseContextId: defaultCompany, entrepriseContextName: "Fiduciaire Conseil", token: defaultToken };
     }
     if (username.toLowerCase() === 'user') {
-        // Le USER est assigné à une entreprise spécifique dans le contexte de test
         return { utilisateurRole: 'USER', utilisateurId: "USER_C", entrepriseContextId: "ENT_USER_3", entrepriseContextName: "Sarl TechniCo", token: defaultToken };
     }
     if (username.toLowerCase() === 'caissier') {
-        // Le CAISSIER est assigné à une entreprise spécifique dans le contexte de test
         return { utilisateurRole: 'CAISSIER', utilisateurId: "CAISSE_X", entrepriseContextId: "ENT_USER_3", entrepriseContextName: "Sarl TechniCo", token: defaultToken };
     }
     return null;
 }
 
 /**
- * 2. GESTION DU FLUX DE CONNEXION ET D'AFFICHAGE (CORRIGÉE)
+ * 2. GESTION DU FLUX DE CONNEXION ET D'AFFICHAGE (CORRECTION CRITIQUE DU FORMULAIRE)
  */
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('login-form');
     const logoutButton = document.getElementById('logout-button');
 
-    // 🛑 GESTIONNAIRE D'ÉVÉNEMENT DE CONNEXION (CORRIGÉ)
+    // GESTIONNAIRE D'ÉVÉNEMENT DE CONNEXION
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
-            // CORRECTION CRITIQUE: Empêche l'actualisation de la page par défaut
+            // 🛑 CORRECTION CRITIQUE: Empêche l'actualisation de la page !
             e.preventDefault(); 
             
             const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value; // À utiliser pour le fetch réel
             const errorMessage = document.getElementById('auth-error-message');
 
-            // Appel simulé à l'API 
             const payload = simulateLogin(username);
 
             if (payload) {
-                userContext = payload;
+                // Affectation à la variable globale explicite
+                window.userContext = payload;
                 errorMessage.classList.add('hidden');
                 
-                // Cacher la vue auth et afficher la vue dashboard
+                // Transition vers le tableau de bord
                 document.getElementById('auth-view').classList.add('hidden');
                 document.getElementById('dashboard-view').classList.remove('hidden');
 
-                // Initialiser l'interface utilisateur en fonction du rôle
-                renderDashboard(userContext);
+                renderDashboard(window.userContext);
                 
                 // Mise à jour de l'entreprise affichée
-                document.getElementById('current-company-name').textContent = userContext.entrepriseContextName;
+                document.getElementById('current-company-name').textContent = window.userContext.entrepriseContextName;
 
             } else {
-                errorMessage.textContent = 'Identifiants invalides ou rôle non reconnu.';
+                errorMessage.textContent = 'Nom d\'utilisateur ou mot de passe incorrect.';
                 errorMessage.classList.remove('hidden');
             }
         });
@@ -78,13 +72,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // GESTIONNAIRE DE DÉCONNEXION
     if (logoutButton) {
         logoutButton.addEventListener('click', function() {
-            userContext = null;
+            window.userContext = null;
             document.getElementById('dashboard-view').classList.add('hidden');
             document.getElementById('auth-view').classList.remove('hidden');
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
             document.getElementById('auth-error-message').classList.add('hidden');
-            document.getElementById('current-company-name').textContent = '';
+            document.getElementById('current-company-name').textContent = 'Nom de l\'Entreprise';
             window.location.hash = ''; // Nettoyer l'URL
         });
     }
@@ -111,7 +105,6 @@ function renderDashboard(context) {
         case 'ADMIN':
             contextMessage.textContent = "Vue de supervision et gestion complète du système.";
             dashboardContentArea.innerHTML = renderAdminDashboard(context);
-            // Si le dashboard ADMIN contient un graphique, il doit être initialisé ici
             initializeCharts(); 
             break;
         case 'COLLABORATEUR':
@@ -136,12 +129,9 @@ function renderDashboard(context) {
 }
 
 // =================================================================================
-// 4. RENDU DES DASHBOARDS SPÉCIFIQUES AUX PROFILS (Fidélité aux captures)
+// 4. RENDU DES DASHBOARDS SPÉCIFIQUES AUX PROFILS
 // =================================================================================
 
-/**
- * RENDU : Dashboard ADMINISTRATEUR
- */
 function renderAdminDashboard(context) {
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -183,9 +173,6 @@ function renderAdminDashboard(context) {
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">${managementSection}${collabStats}</div></div>`;
 }
 
-/**
- * RENDU : Dashboard COLLABORATEUR
- */
 function renderCollaborateurDashboard(context) {
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -203,15 +190,11 @@ function renderCollaborateurDashboard(context) {
         </div>
     `;
     
-    // Le tableau de validation est essentiel pour le Collaborateur
     const validationTable = generateValidationTable();
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${attributedList}<div class="lg:col-span-1">${validationTable}</div></div></div>`;
 }
 
-/**
- * RENDU : Dashboard USER (Propriétaire/Comptable)
- */
 function renderUserDashboard(context) {
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -234,15 +217,11 @@ function renderUserDashboard(context) {
         </div>
     `;
     
-    // Le formulaire de demande d'états financiers est critique pour le USER
     const requestForm = `<div class="lg:col-span-1">${renderUserRequestForm()}</div>`;
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${accountingReports}${requestForm}</div></div>`;
 }
 
-/**
- * RENDU : Dashboard CAISSIER
- */
 function renderCaissierDashboard(context) {
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -279,7 +258,6 @@ function renderCaissierDashboard(context) {
 // =================================================================================
 
 function generateStatCard(iconClass, title, value, bgColor) {
-    // Génère une carte de statistiques (Style Tailwind)
     return `
         <div class="p-5 bg-white dark:bg-gray-800 rounded-xl shadow-lg transform transition duration-300 hover:scale-[1.03] flex items-center justify-between">
             <div>
@@ -294,7 +272,6 @@ function generateStatCard(iconClass, title, value, bgColor) {
 }
 
 function generateValidationTable() {
-    // Tableau d'opérations en attente
     return `
         <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Opérations de Caisse en Attente</h3>
@@ -325,7 +302,6 @@ function generateValidationTable() {
 }
 
 function generateChartsSection() {
-    // Contenu générique pour le graphique (Doit être initialisé après le rendu)
     return `
         <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Évolution Annuelle</h3>
@@ -335,7 +311,6 @@ function generateChartsSection() {
 }
 
 function initializeCharts() {
-    // Initialise le graphique Chart.js après que son conteneur soit dans le DOM
     setTimeout(() => {
         const ctx = document.getElementById('mainChart');
         if (ctx) {
@@ -352,11 +327,10 @@ function initializeCharts() {
                 options: { responsive: true, maintainAspectRatio: false }
             });
         }
-    }, 100); // Petit délai pour s'assurer que le DOM est prêt
+    }, 100); 
 }
 
 function renderUserRequestForm() {
-    // Formulaire du USER pour demander un état financier
     return `
         <div class="max-w-xl p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-2xl font-bold text-secondary mb-4">Demande d'États Financiers</h3>
@@ -387,12 +361,19 @@ function renderUserRequestForm() {
                 statusElement.textContent = 'Envoi en cours...';
                 statusElement.classList.remove('text-success', 'text-danger');
 
+                // VÉRIFICATION DE SÉCURITÉ : userContext doit exister
+                if (!window.userContext || !window.userContext.token) {
+                    statusElement.textContent = '❌ Erreur: Utilisateur non connecté ou token manquant.';
+                    statusElement.classList.add('text-danger');
+                    return;
+                }
+
                 try {
-                    const response = await fetch(`${API_BASE_URL}/workflow/demandeEtat`, {
+                    const response = await fetch(\`${API_BASE_URL}/workflow/demandeEtat\`, {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
-                            // Utilisation de userContext, qui doit être globalement disponible
+                            // Utilisation de window.userContext (maintenant garanti)
                             'Authorization': \`Bearer \${window.userContext.token}\` 
                         },
                         body: JSON.stringify({ 
@@ -424,14 +405,13 @@ function renderUserRequestForm() {
 
 function updateNavigationMenu(role) {
     const menu = document.getElementById('role-navigation-menu');
-    menu.innerHTML = ''; // Nettoyer l'ancien menu
+    menu.innerHTML = ''; 
 
     const baseItems = [
         { name: 'Tableau de Bord', icon: 'fas fa-chart-line', view: 'dashboard' },
         { name: 'Saisie Comptable', icon: 'fas fa-edit', view: 'saisie' },
     ];
     
-    // Ajout des liens spécifiques selon la hiérarchie
     if (role === 'ADMIN' || role === 'COLLABORATEUR') {
         baseItems.push({ name: 'Générer États Financiers', icon: 'fas fa-file-invoice-dollar', view: 'generate-etats' });
         baseItems.push({ name: 'Validation Opérations', icon: 'fas fa-check-double', view: 'validation' });
@@ -448,7 +428,6 @@ function updateNavigationMenu(role) {
         link.href = '#';
         link.className = 'flex items-center p-3 text-gray-700 dark:text-gray-300 hover:bg-primary-light hover:text-white rounded-lg transition duration-200';
         link.innerHTML = `<i class="${item.icon} mr-3"></i> ${item.name}`;
-        // Ici, vous ajouteriez un gestionnaire d'événements pour charger la vue spécifique
         menu.appendChild(link);
     });
 }
