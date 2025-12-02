@@ -8,7 +8,7 @@
 
  "scripts": {
 
-    "start": "node server.js",  <-- ASSUREZ-VOUS QUE C'EST BIEN server.js
+    "start": "node server.js",
 
     "test": "echo \"Error: no test specified\" && exit 1"
 
