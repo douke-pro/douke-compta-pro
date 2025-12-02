@@ -1,46 +1,62 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, la navigation par rôle et le rendu des dashboards.
-// CORRECTION EXPERTE : Gestion de la portée (window.userContext) et e.preventDefault().
+// CORRECTION CRITIQUE : Distinction entre Dashboard (toujours accessible) et Opérations (nécessitent un contexte d'entreprise).
 // =================================================================================
 
-const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; // VOTRE URL RENDER LIVE
-window.userContext = null; // Rendre le contexte utilisateur explicitement global (pour les scripts dynamiques)
+const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
+window.userContext = null; 
+
+// Vues qui nécessitent OBLIGATOIREMENT la sélection d'une entreprise pour les rôles multi-entreprises
+const OPERATIONAL_VIEWS = ['saisie', 'validation', 'generate-etats', 'reports'];
+
+// =================================================================================
+// SIMULATION DE DONNÉES (À remplacer par des appels API fetch() réels)
+// =================================================================================
+
+const MOCK_COMPANIES = [
+    { id: "ENT_PROD_1", name: "Groupe D-Holding (Siège)", stats: { active_users: 5, transactions: 1200 } },
+    { id: "ENT_PROD_2", name: "Sarl Services Plus", stats: { active_users: 2, transactions: 350 } },
+    { id: "ENT_USER_3", name: "Sarl TechniCo (Monoposte)", stats: { active_users: 1, transactions: 80 } },
+    { id: "ENT_PROD_4", name: "SCI Immo Alpha", stats: { active_users: 3, transactions: 600 } },
+];
 
 /**
  * 1. SIMULATION D'AUTHENTIFICATION
  */
 function simulateLogin(username) {
-    const defaultCompany = "ENT_PROD_1";
-    const defaultToken = "SIMULE_JWT_TOKEN_1234567890"; // Clé simulée
+    const defaultToken = "SIMULE_JWT_TOKEN_1234567890"; 
+    let context = null;
 
-    // Simulation des rôles basée sur l'utilisateur saisi
     if (username.toLowerCase() === 'admin') {
-        return { utilisateurRole: 'ADMIN', utilisateurId: "SIMULE_ID_ADMIN", entrepriseContextId: defaultCompany, entrepriseContextName: "Groupe D-Holding", token: defaultToken };
+        // ADMIN : Non lié à une seule entreprise par défaut. Contexte initial NULL.
+        context = { utilisateurRole: 'ADMIN', utilisateurId: "SIMULE_ID_ADMIN", entrepriseContextId: null, entrepriseContextName: "Aucune sélectionnée", token: defaultToken };
     }
     if (username.toLowerCase() === 'collaborateur') {
-        return { utilisateurRole: 'COLLABORATEUR', utilisateurId: "COLLAB_A", entrepriseContextId: defaultCompany, entrepriseContextName: "Fiduciaire Conseil", token: defaultToken };
+        // COLLABORATEUR : Non lié à une seule entreprise par défaut. Contexte initial NULL.
+        context = { utilisateurRole: 'COLLABORATEUR', utilisateurId: "COLLAB_A", entrepriseContextId: null, entrepriseContextName: "Aucune sélectionnée", token: defaultToken };
     }
     if (username.toLowerCase() === 'user') {
-        return { utilisateurRole: 'USER', utilisateurId: "USER_C", entrepriseContextId: "ENT_USER_3", entrepriseContextName: "Sarl TechniCo", token: defaultToken };
+        // USER/CAISSIER : Rôle monoposte (lié à une seule entreprise)
+        const company = MOCK_COMPANIES.find(c => c.id === "ENT_USER_3");
+        context = { utilisateurRole: 'USER', utilisateurId: "USER_C", entrepriseContextId: company.id, entrepriseContextName: company.name, token: defaultToken };
     }
     if (username.toLowerCase() === 'caissier') {
-        return { utilisateurRole: 'CAISSIER', utilisateurId: "CAISSE_X", entrepriseContextId: "ENT_USER_3", entrepriseContextName: "Sarl TechniCo", token: defaultToken };
+        const company = MOCK_COMPANIES.find(c => c.id === "ENT_USER_3");
+        context = { utilisateurRole: 'CAISSIER', utilisateurId: "CAISSE_X", entrepriseContextId: company.id, entrepriseContextName: company.name, token: defaultToken };
     }
-    return null;
+    return context;
 }
 
 /**
- * 2. GESTION DU FLUX DE CONNEXION ET D'AFFICHAGE (CORRECTION CRITIQUE DU FORMULAIRE)
+ * 2. GESTION DU FLUX DE CONNEXION ET D'AFFICHAGE
  */
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('login-form');
     const logoutButton = document.getElementById('logout-button');
 
-    // GESTIONNAIRE D'ÉVÉNEMENT DE CONNEXION
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
-            // 🛑 CORRECTION CRITIQUE: Empêche l'actualisation de la page !
             e.preventDefault(); 
             
             const username = document.getElementById('username').value;
@@ -49,17 +65,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const payload = simulateLogin(username);
 
             if (payload) {
-                // Affectation à la variable globale explicite
                 window.userContext = payload;
                 errorMessage.classList.add('hidden');
                 
-                // Transition vers le tableau de bord
                 document.getElementById('auth-view').classList.add('hidden');
                 document.getElementById('dashboard-view').classList.remove('hidden');
 
+                // 🛑 CORRECTION: Affiche le dashboard pour tous les rôles, y compris Admin/Collaborateur
                 renderDashboard(window.userContext);
                 
-                // Mise à jour de l'entreprise affichée
                 document.getElementById('current-company-name').textContent = window.userContext.entrepriseContextName;
 
             } else {
@@ -69,7 +83,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // GESTIONNAIRE DE DÉCONNEXION
     if (logoutButton) {
         logoutButton.addEventListener('click', function() {
             window.userContext = null;
@@ -79,14 +92,125 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('password').value = '';
             document.getElementById('auth-error-message').classList.add('hidden');
             document.getElementById('current-company-name').textContent = 'Nom de l\'Entreprise';
-            window.location.hash = ''; // Nettoyer l'URL
+            window.location.hash = ''; 
         });
     }
 });
 
+// =================================================================================
+// 3. GESTION DU ROUTAGE ET DU CONTEXTE D'ENTREPRISE
+// =================================================================================
 
 /**
- * Gère l'initialisation de l'interface et le rendu du Dashboard spécifique au rôle.
+ * Charge une vue spécifique dans la zone de contenu du dashboard.
+ * @param {string} viewName - Le nom de la vue à charger (ex: 'dashboard', 'saisie', 'user-management').
+ */
+function loadView(viewName) {
+    const dashboardContentArea = document.getElementById('dashboard-content-area');
+    dashboardContentArea.innerHTML = '';
+    const contextMessage = document.getElementById('context-message');
+    
+    const isMultiEnterpriseUser = window.userContext.utilisateurRole === 'ADMIN' || window.userContext.utilisateurRole === 'COLLABORATEUR';
+    
+    // 🛑 VÉRIFICATION CRITIQUE : Si rôle multi-entreprise essaie d'accéder à une vue opérationnelle sans contexte
+    if (isMultiEnterpriseUser && !window.userContext.entrepriseContextId && OPERATIONAL_VIEWS.includes(viewName)) {
+        alert("🚨 Opération Bloquée. Vous devez d'abord sélectionner une entreprise pour procéder à cette action (Saisie, Validation, etc.).");
+        
+        // Redirige vers l'affichage du sélecteur
+        return renderEnterpriseSelectorView(viewName); 
+    }
+    
+    // Logique de chargement de contenu pour les boutons de navigation
+    switch (viewName) {
+        case 'dashboard':
+            renderDashboard(window.userContext); // Réaffiche le dashboard standard
+            break;
+        case 'saisie':
+            dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Saisie Comptable</h3><p class="text-lg">Page de saisie des écritures pour **${window.userContext.entrepriseContextName}** (${window.userContext.entrepriseContextId}). Prête pour l'intégration API.</p>`;
+            contextMessage.textContent = `Saisie des opérations pour l'exercice courant de ${window.userContext.entrepriseContextName}.`;
+            break;
+        case 'validation':
+            dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Validation des Opérations</h3><p class="text-lg">Liste des opérations en attente de validation pour **${window.userContext.entrepriseContextName}**.</p>${generateValidationTable()}`;
+            contextMessage.textContent = `Tableau des mouvements à valider pour ${window.userContext.entrepriseContextName}.`;
+            break;
+        case 'user-management':
+            if (window.userContext.utilisateurRole === 'ADMIN') {
+                dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Gestion des Utilisateurs</h3><p class="text-lg">Interface complète de gestion des rôles et des accès.</p>`;
+                contextMessage.textContent = `Administration système.`;
+            }
+            break;
+        case 'reports':
+             dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Rapports Financiers</h3><p class="text-lg">Génération de la Balance, Grand Livre et autres rapports pour **${window.userContext.entrepriseContextName}**.</p>`;
+             contextMessage.textContent = `Consultation des documents légaux de ${window.userContext.entrepriseContextName}.`;
+             break;
+        default:
+            dashboardContentArea.innerHTML = `<p class="text-danger">Vue **${viewName}** non implémentée.</p>`;
+            contextMessage.textContent = `Erreur de navigation.`;
+    }
+}
+
+
+/**
+ * Vue utilisée pour forcer la sélection d'entreprise lors d'une action bloquée.
+ * @param {string} [blockedViewName] - Nom de la vue que l'utilisateur tentait d'atteindre.
+ */
+function renderEnterpriseSelectorView(blockedViewName = null) {
+    const dashboardContentArea = document.getElementById('dashboard-content-area');
+    const role = window.userContext.utilisateurRole;
+    
+    // Récupérer la liste des entreprises (ici, simulation)
+    const companyListHTML = MOCK_COMPANIES.map(company => {
+        return `
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition duration-300 transform hover:scale-[1.01] cursor-pointer" 
+                 data-company-id="${company.id}" data-company-name="${company.name}">
+                <h4 class="text-xl font-bold text-primary dark:text-primary-light mb-2">${company.name}</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${company.id}</p>
+                <div class="mt-4 flex justify-between text-sm">
+                    <span class="text-info"><i class="fas fa-users"></i> Utilisateurs actifs: ${company.stats.active_users}</span>
+                    <span class="text-success"><i class="fas fa-chart-bar"></i> Transactions récentes: ${company.stats.transactions}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    dashboardContentArea.innerHTML = `
+        <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
+            <h2 class="text-3xl font-extrabold text-danger mb-2">Sélectionner un Contexte d'Entreprise</h2>
+            <p class="text-lg text-gray-600 dark:text-gray-400 mb-6 border-b pb-4">
+                ${blockedViewName ? `<strong class="text-danger">Action Bloquée:</strong> Vous ne pouvez pas accéder à la fonctionnalité "${blockedViewName.toUpperCase()}"` : 'Avant de procéder à toute opération comptable,'} en tant que **${role}**, vous devez choisir l'entreprise sur laquelle vous souhaitez travailler.
+            </p>
+            <div id="company-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                ${companyListHTML}
+            </div>
+        </div>
+    `;
+
+    // Attacher les écouteurs d'événements après le rendu
+    dashboardContentArea.querySelectorAll('[data-company-id]').forEach(element => {
+        element.addEventListener('click', function() {
+            const companyId = this.getAttribute('data-company-id');
+            const companyName = this.getAttribute('data-company-name');
+            
+            // Mise à jour du contexte utilisateur global
+            window.userContext.entrepriseContextId = companyId;
+            window.userContext.entrepriseContextName = companyName;
+
+            // Mise à jour de l'affichage de la barre latérale
+            document.getElementById('current-company-name').textContent = companyName;
+            
+            // Redirection vers le dashboard standard de ce nouveau contexte
+            loadView('dashboard'); 
+        });
+    });
+    
+    document.getElementById('welcome-message').textContent = `Bienvenue, ${role.charAt(0) + role.slice(1).toLowerCase()} !`;
+    document.getElementById('context-message').textContent = "⚠️ CONTEXTE NON SÉLECTIONNÉ. Veuillez choisir une entreprise ci-dessous pour débloquer les opérations.";
+    updateNavigationMenu(role);
+}
+
+
+/**
+ * Initialise le dashboard.
  */
 function renderDashboard(context) {
     const dashboardContentArea = document.getElementById('dashboard-content-area');
@@ -97,42 +221,56 @@ function renderDashboard(context) {
     currentRole.textContent = context.utilisateurRole;
     welcomeMessage.textContent = `Bienvenue, ${context.utilisateurRole.charAt(0) + context.utilisateurRole.slice(1).toLowerCase()} !`;
     
-    // Nettoyer l'ancienne zone de contenu
     dashboardContentArea.innerHTML = '';
     
-    // Appel de la fonction de rendu spécifique au rôle
+    let isMultiEnterpriseUser = context.utilisateurRole === 'ADMIN' || context.utilisateurRole === 'COLLABORATEUR';
+    let contextName = context.entrepriseContextName || "Aucune sélectionnée";
+    
+    // Ajout d'un avertissement si le contexte n'est pas sélectionné
+    if (isMultiEnterpriseUser && context.entrepriseContextId === null) {
+        contextMessage.textContent = `⚠️ CONTEXTE INCOMPLET. Affichage des statistiques globales. Veuillez sélectionner une entreprise (menu ci-dessous ou barre latérale) pour effectuer des opérations comptables.`;
+    } else {
+        contextMessage.textContent = `Contexte de travail actuel: ${contextName}.`;
+    }
+    
     switch (context.utilisateurRole) {
         case 'ADMIN':
-            contextMessage.textContent = "Vue de supervision et gestion complète du système.";
             dashboardContentArea.innerHTML = renderAdminDashboard(context);
             initializeCharts(); 
             break;
         case 'COLLABORATEUR':
-            contextMessage.textContent = "Vue de gestion des entreprises qui vous sont attribuées.";
             dashboardContentArea.innerHTML = renderCollaborateurDashboard(context);
             break;
         case 'USER':
-            contextMessage.textContent = `Vue monoposte. Entreprise: ${context.entrepriseContextName}.`;
             dashboardContentArea.innerHTML = renderUserDashboard(context);
             break;
         case 'CAISSIER':
-            contextMessage.textContent = `Interface de gestion de caisse et rapports.`;
             dashboardContentArea.innerHTML = renderCaissierDashboard(context);
             break;
-        default:
-            contextMessage.textContent = "Rôle inconnu.";
-            dashboardContentArea.innerHTML = '<p class="text-danger">Erreur: Rôle utilisateur non géré.</p>';
     }
-
-    // Mise à jour de la navigation (sidebar) pour le rôle
+    
+    // Si ADMIN ou COLLAB et AUCUNE entreprise choisie, ajouter le bouton de sélection au dashboard
+    if (isMultiEnterpriseUser && context.entrepriseContextId === null) {
+        dashboardContentArea.innerHTML += `
+            <div class="mt-8 text-center p-6 bg-info bg-opacity-10 border-4 border-info rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold text-info mb-4">Choisir votre entreprise de travail</h3>
+                <p class="mb-4 text-gray-700 dark:text-gray-300">Vos actions de saisie ou de validation sont bloquées tant qu'une entreprise n'est pas sélectionnée.</p>
+                <button onclick="renderEnterpriseSelectorView()" class="py-3 px-6 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg transition duration-300">
+                    <i class="fas fa-briefcase mr-2"></i> Sélectionner une Entreprise Maintenant
+                </button>
+            </div>
+        `;
+    }
+    
     updateNavigationMenu(context.utilisateurRole);
 }
 
 // =================================================================================
-// 4. RENDU DES DASHBOARDS SPÉCIFIQUES AUX PROFILS
+// 4. RENDU DES DASHBOARDS SPÉCIFIQUES AUX PROFILS (Fonctions inchangées)
 // =================================================================================
 
-function renderAdminDashboard(context) {
+function renderAdminDashboard(context) { 
+    // ... (Code inchangé)
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             ${generateStatCard('fas fa-globe', 'Total Entreprises', '12', 'bg-primary')}
@@ -146,10 +284,10 @@ function renderAdminDashboard(context) {
         <div class="lg:col-span-3 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Actions d'Administration</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button class="flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-primary hover:text-white transition duration-200">
+                <button class="flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-primary hover:text-white transition duration-200" onclick="loadView('create-company')">
                     <i class="fas fa-plus-circle fa-2x mb-2"></i> Créer Entreprise
                 </button>
-                <button class="flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-primary hover:text-white transition duration-200">
+                <button class="flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-primary hover:text-white transition duration-200" onclick="loadView('user-management')">
                     <i class="fas fa-user-plus fa-2x mb-2"></i> Créer Collaborateur
                 </button>
                 <button class="flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-warning hover:text-white transition duration-200">
@@ -174,6 +312,7 @@ function renderAdminDashboard(context) {
 }
 
 function renderCollaborateurDashboard(context) {
+    // ... (Code inchangé)
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             ${generateStatCard('fas fa-briefcase', 'Entreprises Attribuées', '3', 'bg-primary')}
@@ -194,8 +333,7 @@ function renderCollaborateurDashboard(context) {
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${attributedList}<div class="lg:col-span-1">${validationTable}</div></div></div>`;
 }
-
-function renderUserDashboard(context) {
+function renderUserDashboard(context) { /* ... (Code inchangé) ... */
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             ${generateStatCard('fas fa-hand-holding-usd', 'Résultat Net Provisoire', '1.2 M XOF', 'bg-success')}
@@ -209,10 +347,10 @@ function renderUserDashboard(context) {
         <div class="lg:col-span-2 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Rapports Comptables Rapides</h3>
             <div class="grid grid-cols-2 gap-4">
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark">Balance des Comptes</button>
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark">Grand Livre</button>
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark">États de Rapprochement</button>
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark">Synthèse Statistique</button>
+                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">Balance des Comptes</button>
+                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">Grand Livre</button>
+                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">États de Rapprochement</button>
+                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">Synthèse Statistique</button>
             </div>
         </div>
     `;
@@ -221,8 +359,7 @@ function renderUserDashboard(context) {
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${accountingReports}${requestForm}</div></div>`;
 }
-
-function renderCaissierDashboard(context) {
+function renderCaissierDashboard(context) { /* ... (Code inchangé) ... */
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             ${generateStatCard('fas fa-money-check-alt', 'Solde de Ma Caisse', '150 K XOF', 'bg-success')}
@@ -236,7 +373,7 @@ function renderCaissierDashboard(context) {
             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Actions de Caisse</h3>
             <div class="grid grid-cols-2 gap-4 mb-6">
                 <button class="py-3 bg-primary text-white rounded-lg hover:bg-primary-dark"><i class="fas fa-lock-open mr-2"></i> Ouvrir/Fermer la Caisse</button>
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark"><i class="fas fa-plus-square mr-2"></i> Enregistrer Opération</button>
+                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('saisie')"><i class="fas fa-plus-square mr-2"></i> Enregistrer Opération</button>
             </div>
             <p class="text-gray-600 dark:text-gray-400">Toutes les opérations enregistrées nécessitent une validation par le User/Collaborateur/Admin avant intégration au Grand Livre.</p>
         </div>
@@ -245,19 +382,20 @@ function renderCaissierDashboard(context) {
     const caisseReports = `
         <div class="lg:col-span-1 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Rapports Journaliers</h3>
-            <button class="w-full py-3 bg-info text-white rounded-lg hover:bg-blue-700 mb-2"><i class="fas fa-print mr-2"></i> Éditer Rapport de Caisse</button>
+            <button class="w-full py-3 bg-info text-white rounded-lg hover:bg-blue-700 mb-2" onclick="loadView('reports')"><i class="fas fa-print mr-2"></i> Éditer Rapport de Caisse</button>
             <p class="text-sm text-gray-500 dark:text-gray-400">Liste des mouvements récents et solde.</p>
         </div>
     `;
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${caisseActions}${caisseReports}</div></div>`;
 }
+// ... (Les fonctions utilitaires comme generateStatCard, generateValidationTable, etc. restent inchangées) ...
 
 // =================================================================================
 // 5. FONCTIONS UTILITAIRES POUR LE RENDU ET L'INTERACTION API
 // =================================================================================
 
-function generateStatCard(iconClass, title, value, bgColor) {
+function generateStatCard(iconClass, title, value, bgColor) { /* ... (Code inchangé) ... */
     return `
         <div class="p-5 bg-white dark:bg-gray-800 rounded-xl shadow-lg transform transition duration-300 hover:scale-[1.03] flex items-center justify-between">
             <div>
@@ -271,7 +409,7 @@ function generateStatCard(iconClass, title, value, bgColor) {
     `;
 }
 
-function generateValidationTable() {
+function generateValidationTable() { /* ... (Code inchangé) ... */
     return `
         <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Opérations de Caisse en Attente</h3>
@@ -301,7 +439,7 @@ function generateValidationTable() {
     `;
 }
 
-function generateChartsSection() {
+function generateChartsSection() { /* ... (Code inchangé) ... */
     return `
         <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Évolution Annuelle</h3>
@@ -310,7 +448,7 @@ function generateChartsSection() {
     `;
 }
 
-function initializeCharts() {
+function initializeCharts() { /* ... (Code inchangé) ... */
     setTimeout(() => {
         const ctx = document.getElementById('mainChart');
         if (ctx) {
@@ -330,7 +468,7 @@ function initializeCharts() {
     }, 100); 
 }
 
-function renderUserRequestForm() {
+function renderUserRequestForm() { /* ... (Code inchangé) ... */
     return `
         <div class="max-w-xl p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-2xl font-bold text-secondary mb-4">Demande d'États Financiers</h3>
@@ -354,14 +492,13 @@ function renderUserRequestForm() {
             </form>
         </div>
         <script>
-            // Logique de soumission de formulaire pour le workflow
+            // Note: Cette logique doit être dans un script tag car elle est insérée dynamiquement.
             document.getElementById('request-form').addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const statusElement = document.getElementById('request-status');
                 statusElement.textContent = 'Envoi en cours...';
                 statusElement.classList.remove('text-success', 'text-danger');
 
-                // VÉRIFICATION DE SÉCURITÉ : userContext doit exister
                 if (!window.userContext || !window.userContext.token) {
                     statusElement.textContent = '❌ Erreur: Utilisateur non connecté ou token manquant.';
                     statusElement.classList.add('text-danger');
@@ -373,7 +510,6 @@ function renderUserRequestForm() {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
-                            // Utilisation de window.userContext (maintenant garanti)
                             'Authorization': \`Bearer \${window.userContext.token}\` 
                         },
                         body: JSON.stringify({ 
@@ -413,7 +549,7 @@ function updateNavigationMenu(role) {
     ];
     
     if (role === 'ADMIN' || role === 'COLLABORATEUR') {
-        baseItems.push({ name: 'Générer États Financiers', icon: 'fas fa-file-invoice-dollar', view: 'generate-etats' });
+        baseItems.push({ name: 'Générer États Financiers', icon: 'fas fa-file-invoice-dollar', view: 'reports' });
         baseItems.push({ name: 'Validation Opérations', icon: 'fas fa-check-double', view: 'validation' });
     }
     if (role === 'ADMIN') {
@@ -422,12 +558,30 @@ function updateNavigationMenu(role) {
     if (role === 'CAISSIER') {
         baseItems.push({ name: 'Rapports Caisse', icon: 'fas fa-receipt', view: 'reports' });
     }
+    
+    // Ajout d'une option de sélection d'entreprise explicite pour les rôles multi-entreprises
+    if (role === 'ADMIN' || role === 'COLLABORATEUR') {
+         baseItems.push({ name: 'Changer d\'Entreprise', icon: 'fas fa-sync-alt', view: 'selector' });
+    }
 
     baseItems.forEach(item => {
         const link = document.createElement('a');
         link.href = '#';
         link.className = 'flex items-center p-3 text-gray-700 dark:text-gray-300 hover:bg-primary-light hover:text-white rounded-lg transition duration-200';
         link.innerHTML = `<i class="${item.icon} mr-3"></i> ${item.name}`;
+        
+        // Attachement du gestionnaire d'événement de routage
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Traitement spécifique pour le sélecteur d'entreprise
+            if (item.view === 'selector') {
+                renderEnterpriseSelectorView();
+            } else {
+                loadView(item.view);
+            }
+        });
+        
         menu.appendChild(link);
     });
 }
