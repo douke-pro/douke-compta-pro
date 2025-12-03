@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
-// Description : Gère la connexion, la navigation par rôle et le rendu des dashboards.
-// CORRECTION CRITIQUE : Distinction entre Dashboard (toujours accessible) et Opérations (nécessitent un contexte d'entreprise).
+// Description : Gère la connexion, l'inscription, la navigation et le contexte.
+// CORRECTION : Le nouvel utilisateur est assigné au rôle 'USER' par le Backend, et non 'ADMIN'.
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
@@ -10,75 +10,218 @@ window.userContext = null;
 // Vues qui nécessitent OBLIGATOIREMENT la sélection d'une entreprise pour les rôles multi-entreprises
 const OPERATIONAL_VIEWS = ['saisie', 'validation', 'generate-etats', 'reports'];
 
+
 // =================================================================================
-// SIMULATION DE DONNÉES (À remplacer par des appels API fetch() réels)
+// 1. GESTION DES VUES D'AUTHENTIFICATION/INSCRIPTION (Inchangé)
 // =================================================================================
 
-const MOCK_COMPANIES = [
-    { id: "ENT_PROD_1", name: "Groupe D-Holding (Siège)", stats: { active_users: 5, transactions: 1200 } },
-    { id: "ENT_PROD_2", name: "Sarl Services Plus", stats: { active_users: 2, transactions: 350 } },
-    { id: "ENT_USER_3", name: "Sarl TechniCo (Monoposte)", stats: { active_users: 1, transactions: 80 } },
-    { id: "ENT_PROD_4", name: "SCI Immo Alpha", stats: { active_users: 3, transactions: 600 } },
-];
+function renderLoginView() {
+    document.getElementById('auth-view').classList.remove('hidden');
+    document.getElementById('register-view').classList.add('hidden');
+}
+
+function renderRegisterView() {
+    document.getElementById('auth-view').classList.add('hidden');
+    document.getElementById('register-view').classList.remove('hidden');
+    // Réinitialiser les messages d'erreur au cas où
+    document.getElementById('register-error-message').classList.add('hidden');
+}
+
+// =================================================================================
+// 2. LOGIQUE API D'AUTHENTIFICATION ET D'INSCRIPTION
+// =================================================================================
 
 /**
- * 1. SIMULATION D'AUTHENTIFICATION
+ * Tente de se connecter en envoyant les identifiants à l'API. (Inchangé)
  */
-function simulateLogin(username) {
-    const defaultToken = "SIMULE_JWT_TOKEN_1234567890"; 
-    let context = null;
+async function handleLogin(username, password) {
+    const endpoint = `${API_BASE_URL}/auth/login`; 
+    
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
 
-    if (username.toLowerCase() === 'admin') {
-        // ADMIN : Non lié à une seule entreprise par défaut. Contexte initial NULL.
-        context = { utilisateurRole: 'ADMIN', utilisateurId: "SIMULE_ID_ADMIN", entrepriseContextId: null, entrepriseContextName: "Aucune sélectionnée", token: defaultToken };
+        const data = await response.json();
+
+        if (response.ok && data.token) {
+            const user = data.user || {}; 
+            
+            let context = {
+                utilisateurRole: user.role, // EX: 'ADMIN', 'COLLABORATEUR', 'USER', 'CAISSIER'
+                utilisateurId: user.id,
+                token: data.token,
+                entrepriseContextId: user.entrepriseId || null, 
+                entrepriseContextName: user.entrepriseName || "Aucune sélectionnée",
+            };
+
+            return context;
+        } else {
+            const errorMsg = data.message || "Identifiants incorrects.";
+            throw new Error(errorMsg);
+        }
+
+    } catch (error) {
+        throw new Error(error.message === 'Failed to fetch' ? "Serveur API injoignable ou URL incorrecte." : error.message);
     }
-    if (username.toLowerCase() === 'collaborateur') {
-        // COLLABORATEUR : Non lié à une seule entreprise par défaut. Contexte initial NULL.
-        context = { utilisateurRole: 'COLLABORATEUR', utilisateurId: "COLLAB_A", entrepriseContextId: null, entrepriseContextName: "Aucune sélectionnée", token: defaultToken };
-    }
-    if (username.toLowerCase() === 'user') {
-        // USER/CAISSIER : Rôle monoposte (lié à une seule entreprise)
-        const company = MOCK_COMPANIES.find(c => c.id === "ENT_USER_3");
-        context = { utilisateurRole: 'USER', utilisateurId: "USER_C", entrepriseContextId: company.id, entrepriseContextName: company.name, token: defaultToken };
-    }
-    if (username.toLowerCase() === 'caissier') {
-        const company = MOCK_COMPANIES.find(c => c.id === "ENT_USER_3");
-        context = { utilisateurRole: 'CAISSIER', utilisateurId: "CAISSE_X", entrepriseContextId: company.id, entrepriseContextName: company.name, token: defaultToken };
-    }
-    return context;
 }
 
 /**
- * 2. GESTION DU FLUX DE CONNEXION ET D'AFFICHAGE
+ * Tente d'inscrire un nouvel utilisateur et de créer son entreprise (rôle USER).
+ */
+async function handleRegistration(payload) {
+    const endpoint = `${API_BASE_URL}/auth/register`; 
+    
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.token) {
+            // L'API doit retourner le token, l'utilisateur et les infos de l'entreprise
+            const user = data.user || {}; 
+            const company = data.company || {};
+            
+            let context = {
+                utilisateurRole: user.role || 'USER', // Le rôle par défaut doit être 'USER' si non spécifié
+                utilisateurId: user.id,
+                token: data.token,
+                entrepriseContextId: company.id || null, 
+                entrepriseContextName: company.name || "Nouvelle Entreprise",
+            };
+            
+            return context;
+
+        } else {
+            const errorMsg = data.message || "Erreur lors de la création du compte. Vérifiez les données de l'entreprise (NIF/Nom).";
+            throw new Error(errorMsg);
+        }
+
+    } catch (error) {
+        throw new Error(error.message === 'Failed to fetch' ? "Serveur API injoignable pour l'inscription." : error.message);
+    }
+}
+
+
+/**
+ * Récupère la liste des entreprises pour les rôles multi-entreprises (Admin/Collaborateur). (Inchangé)
+ */
+async function fetchUserCompanies(context) {
+    if (!context.token) return [];
+    
+    const endpoint = `${API_BASE_URL}/user/companies`; 
+    
+    try {
+        const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${context.token}` 
+            },
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && Array.isArray(data)) {
+            return data; 
+        } else {
+            console.error("Erreur de récupération des entreprises:", data.message || "Erreur inconnue");
+            return [];
+        }
+
+    } catch (error) {
+        console.error("Erreur de communication API lors de la récupération des entreprises:", error);
+        return [];
+    }
+}
+
+
+/**
+ * 3. GESTION DES ÉVÉNEMENTS DOM
  */
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form'); 
     const logoutButton = document.getElementById('logout-button');
+    const authErrorMessage = document.getElementById('auth-error-message');
+    const registerErrorMessage = document.getElementById('register-error-message');
 
+    // Gestion de la CONNEXION (Inchangé)
     if (loginForm) {
-        loginForm.addEventListener('submit', function(e) {
+        loginForm.addEventListener('submit', async function(e) {
             e.preventDefault(); 
             
             const username = document.getElementById('username').value;
-            const errorMessage = document.getElementById('auth-error-message');
+            const password = document.getElementById('password').value;
+            
+            authErrorMessage.textContent = 'Connexion en cours...';
+            authErrorMessage.classList.remove('hidden', 'text-danger');
+            
+            try {
+                const payload = await handleLogin(username, password);
 
-            const payload = simulateLogin(username);
-
-            if (payload) {
                 window.userContext = payload;
-                errorMessage.classList.add('hidden');
+                authErrorMessage.classList.add('hidden');
                 
                 document.getElementById('auth-view').classList.add('hidden');
                 document.getElementById('dashboard-view').classList.remove('hidden');
 
-                // 🛑 CORRECTION: Affiche le dashboard pour tous les rôles, y compris Admin/Collaborateur
                 renderDashboard(window.userContext);
                 
                 document.getElementById('current-company-name').textContent = window.userContext.entrepriseContextName;
 
-            } else {
-                errorMessage.textContent = 'Nom d\'utilisateur ou mot de passe incorrect.';
-                errorMessage.classList.remove('hidden');
+            } catch (error) {
+                authErrorMessage.textContent = error.message;
+                authErrorMessage.classList.remove('hidden');
+                authErrorMessage.classList.add('text-danger');
+            }
+        });
+    }
+    
+    // Gestion de l'INSCRIPTION 🛑 CORRECTION ICI
+    if (registerForm) {
+        registerForm.addEventListener('submit', async function(e) {
+            e.preventDefault(); 
+            
+            const payload = {
+                username: document.getElementById('reg-username').value,
+                password: document.getElementById('reg-password').value,
+                email: document.getElementById('reg-email').value,
+                companyName: document.getElementById('reg-company-name').value,
+                companyNif: document.getElementById('reg-company-nif').value,
+                companyStatus: document.getElementById('reg-company-status').value,
+                // 🛑 CORRECTION: Nous laissons le backend assigner le rôle par défaut (USER)
+                // initialRole: 'ADMIN' est supprimé.
+            };
+            
+            registerErrorMessage.textContent = 'Inscription et création d\'entreprise en cours...';
+            registerErrorMessage.classList.remove('hidden', 'text-danger');
+            
+            try {
+                const context = await handleRegistration(payload);
+
+                window.userContext = context;
+                registerErrorMessage.classList.add('hidden');
+                
+                document.getElementById('register-view').classList.add('hidden');
+                document.getElementById('dashboard-view').classList.remove('hidden');
+
+                renderDashboard(window.userContext);
+                
+                document.getElementById('current-company-name').textContent = window.userContext.entrepriseContextName;
+                alert(`✅ Succès ! Bienvenue ${context.utilisateurRole}. Votre entreprise "${context.entrepriseContextName}" a été créée et sélectionnée.`);
+
+
+            } catch (error) {
+                registerErrorMessage.textContent = error.message;
+                registerErrorMessage.classList.remove('hidden');
+                registerErrorMessage.classList.add('text-danger');
             }
         });
     }
@@ -87,10 +230,10 @@ document.addEventListener('DOMContentLoaded', function() {
         logoutButton.addEventListener('click', function() {
             window.userContext = null;
             document.getElementById('dashboard-view').classList.add('hidden');
-            document.getElementById('auth-view').classList.remove('hidden');
+            renderLoginView(); 
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
-            document.getElementById('auth-error-message').classList.add('hidden');
+            authErrorMessage.classList.add('hidden');
             document.getElementById('current-company-name').textContent = 'Nom de l\'Entreprise';
             window.location.hash = ''; 
         });
@@ -98,32 +241,29 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // =================================================================================
-// 3. GESTION DU ROUTAGE ET DU CONTEXTE D'ENTREPRISE
+// 4. GESTION DU ROUTAGE ET DU CONTEXTE D'ENTREPRISE (Inchangé)
 // =================================================================================
 
-/**
- * Charge une vue spécifique dans la zone de contenu du dashboard.
- * @param {string} viewName - Le nom de la vue à charger (ex: 'dashboard', 'saisie', 'user-management').
- */
 function loadView(viewName) {
     const dashboardContentArea = document.getElementById('dashboard-content-area');
     dashboardContentArea.innerHTML = '';
     const contextMessage = document.getElementById('context-message');
     
+    if (!window.userContext) {
+        return; 
+    }
+    
     const isMultiEnterpriseUser = window.userContext.utilisateurRole === 'ADMIN' || window.userContext.utilisateurRole === 'COLLABORATEUR';
     
-    // 🛑 VÉRIFICATION CRITIQUE : Si rôle multi-entreprise essaie d'accéder à une vue opérationnelle sans contexte
     if (isMultiEnterpriseUser && !window.userContext.entrepriseContextId && OPERATIONAL_VIEWS.includes(viewName)) {
         alert("🚨 Opération Bloquée. Vous devez d'abord sélectionner une entreprise pour procéder à cette action (Saisie, Validation, etc.).");
         
-        // Redirige vers l'affichage du sélecteur
         return renderEnterpriseSelectorView(viewName); 
     }
     
-    // Logique de chargement de contenu pour les boutons de navigation
     switch (viewName) {
         case 'dashboard':
-            renderDashboard(window.userContext); // Réaffiche le dashboard standard
+            renderDashboard(window.userContext); 
             break;
         case 'saisie':
             dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Saisie Comptable</h3><p class="text-lg">Page de saisie des écritures pour **${window.userContext.entrepriseContextName}** (${window.userContext.entrepriseContextId}). Prête pour l'intégration API.</p>`;
@@ -150,68 +290,92 @@ function loadView(viewName) {
 }
 
 
-/**
- * Vue utilisée pour forcer la sélection d'entreprise lors d'une action bloquée.
- * @param {string} [blockedViewName] - Nom de la vue que l'utilisateur tentait d'atteindre.
- */
-function renderEnterpriseSelectorView(blockedViewName = null) {
+async function renderEnterpriseSelectorView(blockedViewName = null) {
     const dashboardContentArea = document.getElementById('dashboard-content-area');
-    const role = window.userContext.utilisateurRole;
-    
-    // Récupérer la liste des entreprises (ici, simulation)
-    const companyListHTML = MOCK_COMPANIES.map(company => {
-        return `
-            <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition duration-300 transform hover:scale-[1.01] cursor-pointer" 
-                 data-company-id="${company.id}" data-company-name="${company.name}">
-                <h4 class="text-xl font-bold text-primary dark:text-primary-light mb-2">${company.name}</h4>
-                <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${company.id}</p>
-                <div class="mt-4 flex justify-between text-sm">
-                    <span class="text-info"><i class="fas fa-users"></i> Utilisateurs actifs: ${company.stats.active_users}</span>
-                    <span class="text-success"><i class="fas fa-chart-bar"></i> Transactions récentes: ${company.stats.transactions}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-
     dashboardContentArea.innerHTML = `
-        <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
-            <h2 class="text-3xl font-extrabold text-danger mb-2">Sélectionner un Contexte d'Entreprise</h2>
-            <p class="text-lg text-gray-600 dark:text-gray-400 mb-6 border-b pb-4">
-                ${blockedViewName ? `<strong class="text-danger">Action Bloquée:</strong> Vous ne pouvez pas accéder à la fonctionnalité "${blockedViewName.toUpperCase()}"` : 'Avant de procéder à toute opération comptable,'} en tant que **${role}**, vous devez choisir l'entreprise sur laquelle vous souhaitez travailler.
-            </p>
-            <div id="company-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                ${companyListHTML}
-            </div>
+        <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl text-center">
+            <i class="fas fa-spinner fa-spin fa-3x text-primary mb-4"></i>
+            <h2 class="text-2xl font-extrabold text-primary">Chargement des entreprises...</h2>
+            <p class="text-gray-600 dark:text-gray-400">Récupération de la liste des entreprises depuis l'API sécurisée.</p>
         </div>
     `;
 
-    // Attacher les écouteurs d'événements après le rendu
-    dashboardContentArea.querySelectorAll('[data-company-id]').forEach(element => {
-        element.addEventListener('click', function() {
-            const companyId = this.getAttribute('data-company-id');
-            const companyName = this.getAttribute('data-company-name');
-            
-            // Mise à jour du contexte utilisateur global
-            window.userContext.entrepriseContextId = companyId;
-            window.userContext.entrepriseContextName = companyName;
+    try {
+        const companies = await fetchUserCompanies(window.userContext);
+        
+        const role = window.userContext.utilisateurRole;
+        let companyListHTML;
 
-            // Mise à jour de l'affichage de la barre latérale
-            document.getElementById('current-company-name').textContent = companyName;
-            
-            // Redirection vers le dashboard standard de ce nouveau contexte
-            loadView('dashboard'); 
+        if (companies.length === 0) {
+            companyListHTML = `
+                <div class="p-6 text-center bg-warning bg-opacity-10 rounded-xl">
+                    <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                    <p class="text-warning font-semibold">Aucune entreprise trouvée ou votre API n'a renvoyé aucune donnée.</p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 mt-2">Veuillez vérifier l'endpoint /user/companies et votre base de données.</p>
+                </div>
+            `;
+        } else {
+            companyListHTML = companies.map(company => {
+                const transactions = company.stats && company.stats.transactions ? company.stats.transactions : 'N/A';
+                const active_users = company.stats && company.stats.active_users ? company.stats.active_users : 'N/A';
+                
+                return `
+                    <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition duration-300 transform hover:scale-[1.01] cursor-pointer border-l-4 border-primary hover:border-secondary" 
+                         data-company-id="${company.id}" data-company-name="${company.name}">
+                        <h4 class="text-xl font-bold text-primary dark:text-primary-light mb-2">${company.name}</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${company.id}</p>
+                        <div class="mt-4 flex justify-between text-sm">
+                            <span class="text-info"><i class="fas fa-users"></i> Utilisateurs actifs: ${active_users}</span>
+                            <span class="text-success"><i class="fas fa-chart-bar"></i> Transactions récentes: ${transactions}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        dashboardContentArea.innerHTML = `
+            <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
+                <h2 class="text-3xl font-extrabold text-danger mb-2">Sélectionner un Contexte d'Entreprise</h2>
+                <p class="text-lg text-gray-600 dark:text-gray-400 mb-6 border-b pb-4">
+                    ${blockedViewName ? `<strong class="text-danger">Action Bloquée:</strong> Vous ne pouvez pas accéder à la fonctionnalité "${blockedViewName.toUpperCase()}"` : 'Avant de procéder à toute opération comptable,'} en tant que **${role}**, vous devez choisir l'entreprise sur laquelle vous souhaitez travailler.
+                </p>
+                <div id="company-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${companyListHTML}
+                </div>
+            </div>
+        `;
+        
+        dashboardContentArea.querySelectorAll('[data-company-id]').forEach(element => {
+            element.addEventListener('click', function() {
+                const companyId = this.getAttribute('data-company-id');
+                const companyName = this.getAttribute('data-company-name');
+                
+                window.userContext.entrepriseContextId = companyId;
+                window.userContext.entrepriseContextName = companyName;
+
+                document.getElementById('current-company-name').textContent = companyName;
+                
+                loadView('dashboard'); 
+            });
         });
-    });
-    
-    document.getElementById('welcome-message').textContent = `Bienvenue, ${role.charAt(0) + role.slice(1).toLowerCase()} !`;
+        
+    } catch (error) {
+        dashboardContentArea.innerHTML = `
+            <div class="max-w-4xl mx-auto p-8 bg-danger bg-opacity-10 border-4 border-danger rounded-xl shadow-2xl text-center">
+                <i class="fas fa-exclamation-circle fa-3x text-danger mb-4"></i>
+                <h2 class="text-2xl font-extrabold text-danger">Erreur Fatale du Chargement des Entreprises</h2>
+                <p class="text-lg text-gray-900 dark:text-gray-100">${error.message}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-4">Veuillez vérifier l'état du serveur API et la console pour les détails du réseau.</p>
+            </div>
+        `;
+    }
+
+    document.getElementById('welcome-message').textContent = `Bienvenue, ${window.userContext.utilisateurRole.charAt(0) + window.userContext.utilisateurRole.slice(1).toLowerCase()} !`;
     document.getElementById('context-message').textContent = "⚠️ CONTEXTE NON SÉLECTIONNÉ. Veuillez choisir une entreprise ci-dessous pour débloquer les opérations.";
-    updateNavigationMenu(role);
+    updateNavigationMenu(window.userContext.utilisateurRole);
 }
 
 
-/**
- * Initialise le dashboard.
- */
 function renderDashboard(context) {
     const dashboardContentArea = document.getElementById('dashboard-content-area');
     const welcomeMessage = document.getElementById('welcome-message');
@@ -226,7 +390,6 @@ function renderDashboard(context) {
     let isMultiEnterpriseUser = context.utilisateurRole === 'ADMIN' || context.utilisateurRole === 'COLLABORATEUR';
     let contextName = context.entrepriseContextName || "Aucune sélectionnée";
     
-    // Ajout d'un avertissement si le contexte n'est pas sélectionné
     if (isMultiEnterpriseUser && context.entrepriseContextId === null) {
         contextMessage.textContent = `⚠️ CONTEXTE INCOMPLET. Affichage des statistiques globales. Veuillez sélectionner une entreprise (menu ci-dessous ou barre latérale) pour effectuer des opérations comptables.`;
     } else {
@@ -249,7 +412,6 @@ function renderDashboard(context) {
             break;
     }
     
-    // Si ADMIN ou COLLAB et AUCUNE entreprise choisie, ajouter le bouton de sélection au dashboard
     if (isMultiEnterpriseUser && context.entrepriseContextId === null) {
         dashboardContentArea.innerHTML += `
             <div class="mt-8 text-center p-6 bg-info bg-opacity-10 border-4 border-info rounded-xl shadow-lg">
@@ -265,12 +427,8 @@ function renderDashboard(context) {
     updateNavigationMenu(context.utilisateurRole);
 }
 
-// =================================================================================
-// 4. RENDU DES DASHBOARDS SPÉCIFIQUES AUX PROFILS (Fonctions inchangées)
-// =================================================================================
-
+// Les fonctions de rendu spécifiques (renderAdminDashboard, renderUserDashboard, etc.) restent inchangées.
 function renderAdminDashboard(context) { 
-    // ... (Code inchangé)
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             ${generateStatCard('fas fa-globe', 'Total Entreprises', '12', 'bg-primary')}
@@ -312,7 +470,6 @@ function renderAdminDashboard(context) {
 }
 
 function renderCollaborateurDashboard(context) {
-    // ... (Code inchangé)
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             ${generateStatCard('fas fa-briefcase', 'Entreprises Attribuées', '3', 'bg-primary')}
@@ -333,7 +490,7 @@ function renderCollaborateurDashboard(context) {
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${attributedList}<div class="lg:col-span-1">${validationTable}</div></div></div>`;
 }
-function renderUserDashboard(context) { /* ... (Code inchangé) ... */
+function renderUserDashboard(context) { 
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             ${generateStatCard('fas fa-hand-holding-usd', 'Résultat Net Provisoire', '1.2 M XOF', 'bg-success')}
@@ -359,7 +516,7 @@ function renderUserDashboard(context) { /* ... (Code inchangé) ... */
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${accountingReports}${requestForm}</div></div>`;
 }
-function renderCaissierDashboard(context) { /* ... (Code inchangé) ... */
+function renderCaissierDashboard(context) { 
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             ${generateStatCard('fas fa-money-check-alt', 'Solde de Ma Caisse', '150 K XOF', 'bg-success')}
@@ -389,13 +546,10 @@ function renderCaissierDashboard(context) { /* ... (Code inchangé) ... */
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${caisseActions}${caisseReports}</div></div>`;
 }
-// ... (Les fonctions utilitaires comme generateStatCard, generateValidationTable, etc. restent inchangées) ...
 
-// =================================================================================
-// 5. FONCTIONS UTILITAIRES POUR LE RENDU ET L'INTERACTION API
-// =================================================================================
+// Fonctions utilitaires (generateStatCard, generateValidationTable, generateChartsSection, initializeCharts, renderUserRequestForm, updateNavigationMenu) restent inchangées.
 
-function generateStatCard(iconClass, title, value, bgColor) { /* ... (Code inchangé) ... */
+function generateStatCard(iconClass, title, value, bgColor) { 
     return `
         <div class="p-5 bg-white dark:bg-gray-800 rounded-xl shadow-lg transform transition duration-300 hover:scale-[1.03] flex items-center justify-between">
             <div>
@@ -409,7 +563,7 @@ function generateStatCard(iconClass, title, value, bgColor) { /* ... (Code incha
     `;
 }
 
-function generateValidationTable() { /* ... (Code inchangé) ... */
+function generateValidationTable() { 
     return `
         <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Opérations de Caisse en Attente</h3>
@@ -439,7 +593,7 @@ function generateValidationTable() { /* ... (Code inchangé) ... */
     `;
 }
 
-function generateChartsSection() { /* ... (Code inchangé) ... */
+function generateChartsSection() { 
     return `
         <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Évolution Annuelle</h3>
@@ -448,7 +602,7 @@ function generateChartsSection() { /* ... (Code inchangé) ... */
     `;
 }
 
-function initializeCharts() { /* ... (Code inchangé) ... */
+function initializeCharts() { 
     setTimeout(() => {
         const ctx = document.getElementById('mainChart');
         if (ctx) {
@@ -468,7 +622,7 @@ function initializeCharts() { /* ... (Code inchangé) ... */
     }, 100); 
 }
 
-function renderUserRequestForm() { /* ... (Code inchangé) ... */
+function renderUserRequestForm() { 
     return `
         <div class="max-w-xl p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-2xl font-bold text-secondary mb-4">Demande d'États Financiers</h3>
@@ -492,7 +646,6 @@ function renderUserRequestForm() { /* ... (Code inchangé) ... */
             </form>
         </div>
         <script>
-            // Note: Cette logique doit être dans un script tag car elle est insérée dynamiquement.
             document.getElementById('request-form').addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const statusElement = document.getElementById('request-status');
@@ -559,7 +712,6 @@ function updateNavigationMenu(role) {
         baseItems.push({ name: 'Rapports Caisse', icon: 'fas fa-receipt', view: 'reports' });
     }
     
-    // Ajout d'une option de sélection d'entreprise explicite pour les rôles multi-entreprises
     if (role === 'ADMIN' || role === 'COLLABORATEUR') {
          baseItems.push({ name: 'Changer d\'Entreprise', icon: 'fas fa-sync-alt', view: 'selector' });
     }
@@ -570,11 +722,9 @@ function updateNavigationMenu(role) {
         link.className = 'flex items-center p-3 text-gray-700 dark:text-gray-300 hover:bg-primary-light hover:text-white rounded-lg transition duration-200';
         link.innerHTML = `<i class="${item.icon} mr-3"></i> ${item.name}`;
         
-        // Attachement du gestionnaire d'événement de routage
         link.addEventListener('click', (e) => {
             e.preventDefault();
             
-            // Traitement spécifique pour le sélecteur d'entreprise
             if (item.view === 'selector') {
                 renderEnterpriseSelectorView();
             } else {
