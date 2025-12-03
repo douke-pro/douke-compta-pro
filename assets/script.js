@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, l'inscription, la navigation et le contexte.
-// CORRECTION : Le nouvel utilisateur est assigné au rôle 'USER' par le Backend, et non 'ADMIN'.
+// CORRECTION : Implémentation de la gestion d'erreurs robuste dans handleRegistration.
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
@@ -12,7 +12,7 @@ const OPERATIONAL_VIEWS = ['saisie', 'validation', 'generate-etats', 'reports'];
 
 
 // =================================================================================
-// 1. GESTION DES VUES D'AUTHENTIFICATION/INSCRIPTION (Inchangé)
+// 1. GESTION DES VUES D'AUTHENTIFICATION/INSCRIPTION
 // =================================================================================
 
 function renderLoginView() {
@@ -70,6 +70,7 @@ async function handleLogin(username, password) {
 
 /**
  * Tente d'inscrire un nouvel utilisateur et de créer son entreprise (rôle USER).
+ * Intègre une gestion d'erreur robuste pour les réponses non-JSON du serveur.
  */
 async function handleRegistration(payload) {
     const endpoint = `${API_BASE_URL}/auth/register`; 
@@ -81,15 +82,32 @@ async function handleRegistration(payload) {
             body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
+        // 🛑 GESTION D'ERREUR ROBUSTE: Vérifier d'abord le statut HTTP
+        if (!response.ok) {
+            let errorData;
+            try {
+                // Tenter de lire le JSON pour un message d'erreur structuré
+                errorData = await response.json();
+            } catch (e) {
+                // Si la réponse n'est pas JSON (ex: erreur 500 HTML, corps vide), on utilise le statut
+                const statusText = response.statusText || 'Erreur inconnue du serveur.';
+                throw new Error(`Erreur ${response.status}: ${statusText}. Le serveur n'a pas renvoyé de message d'erreur JSON.`);
+            }
+            // Si on a un JSON mais le statut est mauvais (ex: 400 Bad Request)
+            const errorMsg = errorData.message || `Erreur lors de la création du compte (Code: ${response.status}). Vérifiez les données de l'entreprise (NIF/Nom).`;
+            throw new Error(errorMsg);
+        }
 
-        if (response.ok && data.token) {
+        // Si le statut est OK (2xx), lire le JSON en toute sécurité
+        const data = await response.json(); 
+        
+        if (data.token) {
             // L'API doit retourner le token, l'utilisateur et les infos de l'entreprise
             const user = data.user || {}; 
             const company = data.company || {};
             
             let context = {
-                utilisateurRole: user.role || 'USER', // Le rôle par défaut doit être 'USER' si non spécifié
+                utilisateurRole: user.role || 'USER', // Le rôle par défaut doit être 'USER'
                 utilisateurId: user.id,
                 token: data.token,
                 entrepriseContextId: company.id || null, 
@@ -99,11 +117,12 @@ async function handleRegistration(payload) {
             return context;
 
         } else {
-            const errorMsg = data.message || "Erreur lors de la création du compte. Vérifiez les données de l'entreprise (NIF/Nom).";
-            throw new Error(errorMsg);
+            // L'API a renvoyé 200 OK, mais sans le token attendu
+            throw new Error("Inscription réussie, mais jeton d'authentification manquant dans la réponse.");
         }
 
     } catch (error) {
+        // Gérer les erreurs de réseau (Failed to fetch)
         throw new Error(error.message === 'Failed to fetch' ? "Serveur API injoignable pour l'inscription." : error.message);
     }
 }
@@ -184,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Gestion de l'INSCRIPTION 🛑 CORRECTION ICI
+    // Gestion de l'INSCRIPTION (Utilise handleRegistration corrigé)
     if (registerForm) {
         registerForm.addEventListener('submit', async function(e) {
             e.preventDefault(); 
@@ -196,8 +215,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 companyName: document.getElementById('reg-company-name').value,
                 companyNif: document.getElementById('reg-company-nif').value,
                 companyStatus: document.getElementById('reg-company-status').value,
-                // 🛑 CORRECTION: Nous laissons le backend assigner le rôle par défaut (USER)
-                // initialRole: 'ADMIN' est supprimé.
             };
             
             registerErrorMessage.textContent = 'Inscription et création d\'entreprise en cours...';
@@ -427,7 +444,10 @@ function renderDashboard(context) {
     updateNavigationMenu(context.utilisateurRole);
 }
 
-// Les fonctions de rendu spécifiques (renderAdminDashboard, renderUserDashboard, etc.) restent inchangées.
+// =================================================================================
+// 5. RENDU DES DASHBOARDS SPÉCIFIQUES AUX PROFILS (Inchangé)
+// =================================================================================
+
 function renderAdminDashboard(context) { 
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -547,7 +567,9 @@ function renderCaissierDashboard(context) {
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${caisseActions}${caisseReports}</div></div>`;
 }
 
-// Fonctions utilitaires (generateStatCard, generateValidationTable, generateChartsSection, initializeCharts, renderUserRequestForm, updateNavigationMenu) restent inchangées.
+// =================================================================================
+// 6. FONCTIONS UTILITAIRES POUR LE RENDU ET L'INTERACTION API (Inchangées)
+// =================================================================================
 
 function generateStatCard(iconClass, title, value, bgColor) { 
     return `
