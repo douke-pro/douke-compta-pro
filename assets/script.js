@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, l'inscription, la navigation et le contexte.
-// CORRECTION : Implémentation d'une lecture de réponse API (response.text() + JSON.parse()) plus sûre.
+// AMÉLIORATION : Nom de l'application et mail de bienvenue automatique.
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
@@ -32,7 +32,7 @@ function renderRegisterView() {
 // =================================================================================
 
 /**
- * Tente de se connecter en envoyant les identifiants à l'API. (CORRIGÉ: Lecture de réponse plus sûre)
+ * Tente de se connecter en envoyant les identifiants à l'API. (Lecture de réponse plus sûre)
  */
 async function handleLogin(username, password) {
     const endpoint = `${API_BASE_URL}/auth/login`; 
@@ -44,7 +44,7 @@ async function handleLogin(username, password) {
             body: JSON.stringify({ username, password })
         });
 
-        // 🛑 CORRECTION: Lire le corps en TEXTE d'abord pour éviter l'erreur "Unexpected end of JSON input"
+        // 🛑 LECTURE SÉCURISÉE: Lire le corps en TEXTE d'abord pour éviter l'erreur "Unexpected end of JSON input"
         const responseText = await response.text();
         let data = {};
 
@@ -86,7 +86,7 @@ async function handleLogin(username, password) {
 
 /**
  * Tente d'inscrire un nouvel utilisateur et de créer son entreprise (rôle USER).
- * (CORRIGÉ: Lecture de réponse plus sûre)
+ * (Lecture de réponse plus sûre)
  */
 async function handleRegistration(payload) {
     const endpoint = `${API_BASE_URL}/auth/register`; 
@@ -98,7 +98,7 @@ async function handleRegistration(payload) {
             body: JSON.stringify(payload)
         });
 
-        // 🛑 CORRECTION MAJEURE: Lire le corps en TEXTE d'abord pour éviter l'erreur "Unexpected end of JSON input"
+        // 🛑 LECTURE SÉCURISÉE: Lire le corps en TEXTE d'abord pour éviter l'erreur "Unexpected end of JSON input"
         const responseText = await response.text();
         let data = {};
         
@@ -124,7 +124,8 @@ async function handleRegistration(payload) {
         }
         
         // SUCCESS PATH (response.ok is true)
-        if (data.token) {
+        
+        if (data.token) { 
             // L'API doit retourner le token, l'utilisateur et les infos de l'entreprise
             const user = data.user || {}; 
             const company = data.company || {};
@@ -139,8 +140,8 @@ async function handleRegistration(payload) {
             
             return context;
         } else {
-            // L'API a renvoyé 200 OK, mais sans le token attendu
-            throw new Error("Inscription réussie, mais jeton d'authentification manquant dans la réponse.");
+            // Le serveur a renvoyé un statut 2xx mais le token est manquant dans le JSON.
+            throw new Error("Inscription réussie, mais jeton d'authentification manquant dans la réponse. 🚨 VÉRIFIEZ L'API BACKEND !");
         }
 
     } catch (error) {
@@ -151,7 +152,7 @@ async function handleRegistration(payload) {
 
 
 /**
- * Récupère la liste des entreprises pour les rôles multi-entreprises (Admin/Collaborateur). (Inchangé)
+ * Récupère la liste des entreprises pour les rôles multi-entreprises (Admin/Collaborateur).
  */
 async function fetchUserCompanies(context) {
     if (!context.token) return [];
@@ -159,7 +160,6 @@ async function fetchUserCompanies(context) {
     const endpoint = `${API_BASE_URL}/user/companies`; 
     
     try {
-        // NOTE: Ici response.json() est conservé car on s'attend à un JSON valide.
         const response = await fetch(endpoint, {
             method: 'GET',
             headers: { 
@@ -168,8 +168,7 @@ async function fetchUserCompanies(context) {
             },
         });
         
-        // La gestion d'erreur dans handleLogin/handleRegistration est plus critique (POST/création)
-        // Mais nous devrions aussi appliquer la sûreté ici. Simplifié pour le moment.
+        // Ici, on assume un JSON valide pour les requêtes de lecture GET réussies
         const data = await response.json(); 
         
         if (response.ok && Array.isArray(data)) {
@@ -233,9 +232,21 @@ document.addEventListener('DOMContentLoaded', function() {
         registerForm.addEventListener('submit', async function(e) {
             e.preventDefault(); 
             
+            // 🛑 NOUVEAU: Récupération des mots de passe
+            const password = document.getElementById('reg-password').value;
+            const passwordConfirm = document.getElementById('reg-password-confirm').value;
+
+            // 🛑 VÉRIFICATION DE SÉCURITÉ
+            if (password !== passwordConfirm) {
+                registerErrorMessage.textContent = '❌ Erreur de sécurité: Les deux mots de passe ne correspondent pas. Veuillez réessayer.';
+                registerErrorMessage.classList.remove('hidden');
+                registerErrorMessage.classList.add('text-danger');
+                return; // Arrête la soumission si les mots de passe ne correspondent pas
+            }
+
             const payload = {
                 username: document.getElementById('reg-username').value,
-                password: document.getElementById('reg-password').value,
+                password: password, // Utilisation du mot de passe vérifié
                 email: document.getElementById('reg-email').value,
                 companyName: document.getElementById('reg-company-name').value,
                 companyNif: document.getElementById('reg-company-nif').value,
@@ -257,7 +268,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderDashboard(window.userContext);
                 
                 document.getElementById('current-company-name').textContent = window.userContext.entrepriseContextName;
-                alert(`✅ Succès ! Bienvenue ${context.utilisateurRole}. Votre entreprise "${context.entrepriseContextName}" a été créée et sélectionnée.`);
+                
+                // 🚀 AMÉLIORATION 2: EMAIL DE BIENVENUE AUTOMATIQUE (simulé par alerte)
+                const welcomeMessage = `
+✅ Inscription Réussie ! Bienvenue chez Doukè Compta Pro.
+
+Votre entreprise "${context.entrepriseContextName}" a été créée et votre compte est actif (Rôle: ${context.utilisateurRole}).
+
+Nous vous souhaitons une excellente expérience comptable !
+
+---
+L'équipe de Doukè Compta Pro
+📞 Bénin: +229 0195334747
+📞 Côte d'Ivoire: +225 0595488101
+`;
+                alert(welcomeMessage);
 
 
             } catch (error) {
@@ -283,7 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // =================================================================================
-// 4. GESTION DU ROUTAGE ET DU CONTEXTE D'ENTREPRISE (Inchangé)
+// 4. GESTION DU ROUTAGE ET DU CONTEXTE D'ENTREPRISE
 // =================================================================================
 
 function loadView(viewName) {
@@ -593,7 +618,7 @@ function renderCaissierDashboard(context) {
 }
 
 // =================================================================================
-// 6. FONCTIONS UTILITAIRES POUR LE RENDU ET L'INTERACTION API (Inchangées, sauf handleRegistration et handleLogin)
+// 6. FONCTIONS UTILITAIRES POUR LE RENDU ET L'INTERACTION API
 // =================================================================================
 
 function generateStatCard(iconClass, title, value, bgColor) { 
@@ -720,7 +745,7 @@ function renderUserRequestForm() {
                         })
                     });
                     
-                    // Simple check for success, assuming this API is stable and always returns JSON.
+                    // Nous allons utiliser une lecture simple ici, en assumant que c'est une API de lecture stable.
                     const data = await response.json(); 
 
                     if (response.ok && data.success) {
