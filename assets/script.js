@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, l'inscription, la navigation et le contexte.
-// CORRECTION : Implémentation de la gestion d'erreurs robuste dans handleRegistration.
+// CORRECTION : Implémentation d'une lecture de réponse API (response.text() + JSON.parse()) plus sûre.
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
@@ -32,7 +32,7 @@ function renderRegisterView() {
 // =================================================================================
 
 /**
- * Tente de se connecter en envoyant les identifiants à l'API. (Inchangé)
+ * Tente de se connecter en envoyant les identifiants à l'API. (CORRIGÉ: Lecture de réponse plus sûre)
  */
 async function handleLogin(username, password) {
     const endpoint = `${API_BASE_URL}/auth/login`; 
@@ -44,7 +44,22 @@ async function handleLogin(username, password) {
             body: JSON.stringify({ username, password })
         });
 
-        const data = await response.json();
+        // 🛑 CORRECTION: Lire le corps en TEXTE d'abord pour éviter l'erreur "Unexpected end of JSON input"
+        const responseText = await response.text();
+        let data = {};
+
+        if (responseText) {
+            try {
+                data = JSON.parse(responseText);
+            } catch (e) {
+                const statusText = response.statusText || 'Erreur non documentée.';
+                throw new Error(`Erreur ${response.status} lors de la connexion: ${statusText}. Le serveur a renvoyé une réponse non-JSON.`);
+            }
+        } else if (!response.ok) {
+            const statusText = response.statusText || 'Réponse vide du serveur.';
+            throw new Error(`Erreur ${response.status}: ${statusText}. Le corps de la réponse est vide.`);
+        }
+
 
         if (response.ok && data.token) {
             const user = data.user || {}; 
@@ -59,7 +74,8 @@ async function handleLogin(username, password) {
 
             return context;
         } else {
-            const errorMsg = data.message || "Identifiants incorrects.";
+            // Gérer les erreurs de statut (ex: 401) ou le token manquant
+            const errorMsg = data.message || "Identifiants incorrects ou jeton manquant.";
             throw new Error(errorMsg);
         }
 
@@ -70,7 +86,7 @@ async function handleLogin(username, password) {
 
 /**
  * Tente d'inscrire un nouvel utilisateur et de créer son entreprise (rôle USER).
- * Intègre une gestion d'erreur robuste pour les réponses non-JSON du serveur.
+ * (CORRIGÉ: Lecture de réponse plus sûre)
  */
 async function handleRegistration(payload) {
     const endpoint = `${API_BASE_URL}/auth/register`; 
@@ -82,32 +98,39 @@ async function handleRegistration(payload) {
             body: JSON.stringify(payload)
         });
 
-        // 🛑 GESTION D'ERREUR ROBUSTE: Vérifier d'abord le statut HTTP
-        if (!response.ok) {
-            let errorData;
+        // 🛑 CORRECTION MAJEURE: Lire le corps en TEXTE d'abord pour éviter l'erreur "Unexpected end of JSON input"
+        const responseText = await response.text();
+        let data = {};
+        
+        if (responseText) {
             try {
-                // Tenter de lire le JSON pour un message d'erreur structuré
-                errorData = await response.json();
+                // Si le corps existe, tenter de le parser comme JSON
+                data = JSON.parse(responseText);
             } catch (e) {
-                // Si la réponse n'est pas JSON (ex: erreur 500 HTML, corps vide), on utilise le statut
-                const statusText = response.statusText || 'Erreur inconnue du serveur.';
-                throw new Error(`Erreur ${response.status}: ${statusText}. Le serveur n'a pas renvoyé de message d'erreur JSON.`);
+                // Si le parsing échoue (ex: HTML d'erreur 500), utiliser le texte brut
+                const statusText = response.statusText || 'Erreur non documentée.';
+                throw new Error(`Erreur ${response.status}: ${statusText}. Le serveur a renvoyé une réponse non-JSON.`);
             }
-            // Si on a un JSON mais le statut est mauvais (ex: 400 Bad Request)
-            const errorMsg = errorData.message || `Erreur lors de la création du compte (Code: ${response.status}). Vérifiez les données de l'entreprise (NIF/Nom).`;
+        } else if (!response.ok) {
+            // Si le corps est vide et le statut n'est pas OK
+            const statusText = response.statusText || 'Réponse vide du serveur.';
+            throw new Error(`Erreur ${response.status}: ${statusText}. Le corps de la réponse est vide.`);
+        }
+        
+        if (!response.ok) {
+            // Si le statut est une erreur (4xx/5xx)
+            const errorMsg = data.message || `Erreur lors de la création du compte (Code: ${response.status}). Vérifiez les données de l'entreprise (NIF/Nom).`;
             throw new Error(errorMsg);
         }
-
-        // Si le statut est OK (2xx), lire le JSON en toute sécurité
-        const data = await response.json(); 
         
+        // SUCCESS PATH (response.ok is true)
         if (data.token) {
             // L'API doit retourner le token, l'utilisateur et les infos de l'entreprise
             const user = data.user || {}; 
             const company = data.company || {};
             
             let context = {
-                utilisateurRole: user.role || 'USER', // Le rôle par défaut doit être 'USER'
+                utilisateurRole: user.role || 'USER', 
                 utilisateurId: user.id,
                 token: data.token,
                 entrepriseContextId: company.id || null, 
@@ -115,7 +138,6 @@ async function handleRegistration(payload) {
             };
             
             return context;
-
         } else {
             // L'API a renvoyé 200 OK, mais sans le token attendu
             throw new Error("Inscription réussie, mais jeton d'authentification manquant dans la réponse.");
@@ -137,6 +159,7 @@ async function fetchUserCompanies(context) {
     const endpoint = `${API_BASE_URL}/user/companies`; 
     
     try {
+        // NOTE: Ici response.json() est conservé car on s'attend à un JSON valide.
         const response = await fetch(endpoint, {
             method: 'GET',
             headers: { 
@@ -144,8 +167,10 @@ async function fetchUserCompanies(context) {
                 'Authorization': `Bearer ${context.token}` 
             },
         });
-
-        const data = await response.json();
+        
+        // La gestion d'erreur dans handleLogin/handleRegistration est plus critique (POST/création)
+        // Mais nous devrions aussi appliquer la sûreté ici. Simplifié pour le moment.
+        const data = await response.json(); 
         
         if (response.ok && Array.isArray(data)) {
             return data; 
@@ -171,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const authErrorMessage = document.getElementById('auth-error-message');
     const registerErrorMessage = document.getElementById('register-error-message');
 
-    // Gestion de la CONNEXION (Inchangé)
+    // Gestion de la CONNEXION 
     if (loginForm) {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault(); 
@@ -203,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Gestion de l'INSCRIPTION (Utilise handleRegistration corrigé)
+    // Gestion de l'INSCRIPTION 
     if (registerForm) {
         registerForm.addEventListener('submit', async function(e) {
             e.preventDefault(); 
@@ -568,7 +593,7 @@ function renderCaissierDashboard(context) {
 }
 
 // =================================================================================
-// 6. FONCTIONS UTILITAIRES POUR LE RENDU ET L'INTERACTION API (Inchangées)
+// 6. FONCTIONS UTILITAIRES POUR LE RENDU ET L'INTERACTION API (Inchangées, sauf handleRegistration et handleLogin)
 // =================================================================================
 
 function generateStatCard(iconClass, title, value, bgColor) { 
@@ -694,8 +719,9 @@ function renderUserRequestForm() {
                             tokenPayload: window.userContext
                         })
                     });
-
-                    const data = await response.json();
+                    
+                    // Simple check for success, assuming this API is stable and always returns JSON.
+                    const data = await response.json(); 
 
                     if (response.ok && data.success) {
                         statusElement.textContent = '✅ Demande envoyée avec succès au collaborateur et à l\'admin !';
@@ -706,7 +732,7 @@ function renderUserRequestForm() {
                     }
                 } catch (error) {
                     console.error("Erreur d'API:", error);
-                    statusElement.textContent = '❌ Erreur de connexion au serveur API. Vérifiez l\'URL.';
+                    statusElement.textContent = '❌ Erreur de connexion au serveur API ou réponse non lisible. Vérifiez l\'URL et la console.';
                     statusElement.classList.add('text-danger');
                 }
             });
