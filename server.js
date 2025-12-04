@@ -148,7 +148,17 @@ app.get('/api/user/companies', (req, res) => {
     return res.json(mockCompanies);
 });
 
-
+// --- NOUVELLE ROUTE DE DIAGNOSTIC ---
+// 0. ROUTE DE TEST JSON
+app.get('/api/test/json', (req, res) => {
+    // Si cette ligne est atteinte et exécutée, elle garantit un retour JSON.
+    return res.status(200).json({
+        testSuccess: true,
+        message: "Le serveur Express est capable de renvoyer du JSON. Le problème vient uniquement de /auth/register.",
+        time: new Date().toISOString()
+    });
+});
+// ------------------------------------
 // ==============================================================================
 // MIDDLEWARE DE SÉCURITÉ ET HIÉRARCHIE (Le Cœur de la Sécurité)
 // ==============================================================================
