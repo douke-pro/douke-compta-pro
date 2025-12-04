@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, l'inscription, la navigation et le contexte.
-// AMÉLIORATION : Nom de l'application et mail de bienvenue automatique.
+// AMÉLIORATION : NOM D'APP + MAIL DE BIENVENUE + NOUVEAU: LOGIQUE DE DÉBOGAGE
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
@@ -86,7 +86,6 @@ async function handleLogin(username, password) {
 
 /**
  * Tente d'inscrire un nouvel utilisateur et de créer son entreprise (rôle USER).
- * (Lecture de réponse plus sûre)
  */
 async function handleRegistration(payload) {
     const endpoint = `${API_BASE_URL}/auth/register`; 
@@ -98,18 +97,24 @@ async function handleRegistration(payload) {
             body: JSON.stringify(payload)
         });
 
-        // 🛑 LECTURE SÉCURISÉE: Lire le corps en TEXTE d'abord pour éviter l'erreur "Unexpected end of JSON input"
+        // 🛑 LECTURE SÉCURISÉE: Lire le corps en TEXTE d'abord
         const responseText = await response.text();
         let data = {};
-        
+
         if (responseText) {
             try {
-                // Si le corps existe, tenter de le parser comme JSON
                 data = JSON.parse(responseText);
+                
+                // 🚨 POINT DE DÉBOGAGE CRITIQUE : Afficher la réponse brute du serveur
+                console.group('🚨 DÉBOGAGE API - RÉPONSE INSCRIPTION');
+                console.log('Statut HTTP Reçu:', response.status);
+                console.log('Réponse JSON Reçue (Variable data):', data);
+                console.groupEnd();
+                
             } catch (e) {
-                // Si le parsing échoue (ex: HTML d'erreur 500), utiliser le texte brut
+                // Si le parsing échoue (ex: HTML d'erreur 500)
                 const statusText = response.statusText || 'Erreur non documentée.';
-                throw new Error(`Erreur ${response.status}: ${statusText}. Le serveur a renvoyé une réponse non-JSON.`);
+                throw new Error(`Erreur ${response.status}: ${statusText}. Le serveur a renvoyé une réponse non-JSON. Réponse brute: ${responseText.substring(0, 100)}...`);
             }
         } else if (!response.ok) {
             // Si le corps est vide et le statut n'est pas OK
@@ -140,7 +145,7 @@ async function handleRegistration(payload) {
             
             return context;
         } else {
-            // Le serveur a renvoyé un statut 2xx mais le token est manquant dans le JSON.
+            // ❌ L'ERREUR INITIALE SE DÉCLENCHE ICI
             throw new Error("Inscription réussie, mais jeton d'authentification manquant dans la réponse. 🚨 VÉRIFIEZ L'API BACKEND !");
         }
 
@@ -289,6 +294,9 @@ L'équipe de Doukè Compta Pro
                 registerErrorMessage.textContent = error.message;
                 registerErrorMessage.classList.remove('hidden');
                 registerErrorMessage.classList.add('text-danger');
+                
+                // 🚨 Rappel: Vérifiez la console F12 pour la réponse API.
+                console.error("Veuillez vérifier la console de développement (F12) pour le log de débogage de la réponse API.");
             }
         });
     }
