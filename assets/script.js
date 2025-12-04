@@ -1,13 +1,13 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, l'inscription, la navigation et le contexte.
-// AMÉLIORATION : NOM D'APP + MAIL DE BIENVENUE + NOUVEAU: LOGIQUE DE DÉBOGAGE
+// VERSION : FINALE ET PROPRE
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
 window.userContext = null; 
 
-// Vues qui nécessitent OBLIGATOIREMENT la sélection d'une entreprise pour les rôles multi-entreprises
+// Vues qui nécessitent OBLIGATOIREMENT la sélection d'une entreprise 
 const OPERATIONAL_VIEWS = ['saisie', 'validation', 'generate-etats', 'reports'];
 
 
@@ -23,7 +23,6 @@ function renderLoginView() {
 function renderRegisterView() {
     document.getElementById('auth-view').classList.add('hidden');
     document.getElementById('register-view').classList.remove('hidden');
-    // Réinitialiser les messages d'erreur au cas où
     document.getElementById('register-error-message').classList.add('hidden');
 }
 
@@ -32,7 +31,7 @@ function renderRegisterView() {
 // =================================================================================
 
 /**
- * Tente de se connecter en envoyant les identifiants à l'API. (Lecture de réponse plus sûre)
+ * Tente de se connecter en envoyant les identifiants à l'API.
  */
 async function handleLogin(username, password) {
     const endpoint = `${API_BASE_URL}/auth/login`; 
@@ -44,7 +43,7 @@ async function handleLogin(username, password) {
             body: JSON.stringify({ username, password })
         });
 
-        // 🛑 LECTURE SÉCURISÉE: Lire le corps en TEXTE d'abord pour éviter l'erreur "Unexpected end of JSON input"
+        // Lecture sécurisée du corps
         const responseText = await response.text();
         let data = {};
 
@@ -52,20 +51,15 @@ async function handleLogin(username, password) {
             try {
                 data = JSON.parse(responseText);
             } catch (e) {
-                const statusText = response.statusText || 'Erreur non documentée.';
-                throw new Error(`Erreur ${response.status} lors de la connexion: ${statusText}. Le serveur a renvoyé une réponse non-JSON.`);
+                throw new Error(`Erreur ${response.status} lors de la connexion: Le serveur a renvoyé une réponse non-JSON.`);
             }
-        } else if (!response.ok) {
-            const statusText = response.statusText || 'Réponse vide du serveur.';
-            throw new Error(`Erreur ${response.status}: ${statusText}. Le corps de la réponse est vide.`);
-        }
-
+        } 
 
         if (response.ok && data.token) {
             const user = data.user || {}; 
             
             let context = {
-                utilisateurRole: user.role, // EX: 'ADMIN', 'COLLABORATEUR', 'USER', 'CAISSIER'
+                utilisateurRole: user.role, 
                 utilisateurId: user.id,
                 token: data.token,
                 entrepriseContextId: user.entrepriseId || null, 
@@ -74,7 +68,6 @@ async function handleLogin(username, password) {
 
             return context;
         } else {
-            // Gérer les erreurs de statut (ex: 401) ou le token manquant
             const errorMsg = data.message || "Identifiants incorrects ou jeton manquant.";
             throw new Error(errorMsg);
         }
@@ -85,7 +78,7 @@ async function handleLogin(username, password) {
 }
 
 /**
- * Tente d'inscrire un nouvel utilisateur et de créer son entreprise (rôle USER).
+ * Tente d'inscrire un nouvel utilisateur et de créer son entreprise.
  */
 async function handleRegistration(payload) {
     const endpoint = `${API_BASE_URL}/auth/register`; 
@@ -97,41 +90,28 @@ async function handleRegistration(payload) {
             body: JSON.stringify(payload)
         });
 
-        // 🛑 LECTURE SÉCURISÉE: Lire le corps en TEXTE d'abord
+        // Lecture sécurisée du corps
         const responseText = await response.text();
         let data = {};
 
         if (responseText) {
             try {
                 data = JSON.parse(responseText);
-                
-                // 🚨 POINT DE DÉBOGAGE CRITIQUE : Afficher la réponse brute du serveur
-                console.group('🚨 DÉBOGAGE API - RÉPONSE INSCRIPTION');
-                console.log('Statut HTTP Reçu:', response.status);
-                console.log('Réponse JSON Reçue (Variable data):', data);
-                console.groupEnd();
-                
             } catch (e) {
-                // Si le parsing échoue (ex: HTML d'erreur 500)
-                const statusText = response.statusText || 'Erreur non documentée.';
-                throw new Error(`Erreur ${response.status}: ${statusText}. Le serveur a renvoyé une réponse non-JSON. Réponse brute: ${responseText.substring(0, 100)}...`);
+                // Si le parsing échoue (ex: HTML d'erreur 500 ou JSON invalide)
+                throw new Error(`Erreur ${response.status}: Réponse non-JSON reçue du serveur. ${responseText.substring(0, 50)}...`);
             }
-        } else if (!response.ok) {
-            // Si le corps est vide et le statut n'est pas OK
-            const statusText = response.statusText || 'Réponse vide du serveur.';
-            throw new Error(`Erreur ${response.status}: ${statusText}. Le corps de la réponse est vide.`);
-        }
+        } 
         
         if (!response.ok) {
             // Si le statut est une erreur (4xx/5xx)
-            const errorMsg = data.message || `Erreur lors de la création du compte (Code: ${response.status}). Vérifiez les données de l'entreprise (NIF/Nom).`;
+            const errorMsg = data.message || `Erreur lors de la création du compte (Code: ${response.status}).`;
             throw new Error(errorMsg);
         }
         
         // SUCCESS PATH (response.ok is true)
         
         if (data.token) { 
-            // L'API doit retourner le token, l'utilisateur et les infos de l'entreprise
             const user = data.user || {}; 
             const company = data.company || {};
             
@@ -145,19 +125,18 @@ async function handleRegistration(payload) {
             
             return context;
         } else {
-            // ❌ L'ERREUR INITIALE SE DÉCLENCHE ICI
-            throw new Error("Inscription réussie, mais jeton d'authentification manquant dans la réponse. 🚨 VÉRIFIEZ L'API BACKEND !");
+            // Si le statut est 2xx mais le token manque, le back-end doit être vérifié
+            throw new Error("Inscription réussie, mais jeton d'authentification manquant dans la réponse. 🚨 Vérifiez le serveur API.");
         }
 
     } catch (error) {
-        // Gérer les erreurs de réseau (Failed to fetch)
         throw new Error(error.message === 'Failed to fetch' ? "Serveur API injoignable pour l'inscription." : error.message);
     }
 }
 
 
 /**
- * Récupère la liste des entreprises pour les rôles multi-entreprises (Admin/Collaborateur).
+ * Récupère la liste des entreprises pour les rôles multi-entreprises.
  */
 async function fetchUserCompanies(context) {
     if (!context.token) return [];
@@ -237,21 +216,19 @@ document.addEventListener('DOMContentLoaded', function() {
         registerForm.addEventListener('submit', async function(e) {
             e.preventDefault(); 
             
-            // 🛑 NOUVEAU: Récupération des mots de passe
             const password = document.getElementById('reg-password').value;
             const passwordConfirm = document.getElementById('reg-password-confirm').value;
 
-            // 🛑 VÉRIFICATION DE SÉCURITÉ
             if (password !== passwordConfirm) {
-                registerErrorMessage.textContent = '❌ Erreur de sécurité: Les deux mots de passe ne correspondent pas. Veuillez réessayer.';
+                registerErrorMessage.textContent = '❌ Erreur de sécurité: Les deux mots de passe ne correspondent pas.';
                 registerErrorMessage.classList.remove('hidden');
                 registerErrorMessage.classList.add('text-danger');
-                return; // Arrête la soumission si les mots de passe ne correspondent pas
+                return; 
             }
 
             const payload = {
                 username: document.getElementById('reg-username').value,
-                password: password, // Utilisation du mot de passe vérifié
+                password: password, 
                 email: document.getElementById('reg-email').value,
                 companyName: document.getElementById('reg-company-name').value,
                 companyNif: document.getElementById('reg-company-nif').value,
@@ -274,18 +251,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 document.getElementById('current-company-name').textContent = window.userContext.entrepriseContextName;
                 
-                // 🚀 AMÉLIORATION 2: EMAIL DE BIENVENUE AUTOMATIQUE (simulé par alerte)
                 const welcomeMessage = `
 ✅ Inscription Réussie ! Bienvenue chez Doukè Compta Pro.
-
 Votre entreprise "${context.entrepriseContextName}" a été créée et votre compte est actif (Rôle: ${context.utilisateurRole}).
-
-Nous vous souhaitons une excellente expérience comptable !
-
----
-L'équipe de Doukè Compta Pro
-📞 Bénin: +229 0195334747
-📞 Côte d'Ivoire: +225 0595488101
 `;
                 alert(welcomeMessage);
 
@@ -294,9 +262,6 @@ L'équipe de Doukè Compta Pro
                 registerErrorMessage.textContent = error.message;
                 registerErrorMessage.classList.remove('hidden');
                 registerErrorMessage.classList.add('text-danger');
-                
-                // 🚨 Rappel: Vérifiez la console F12 pour la réponse API.
-                console.error("Veuillez vérifier la console de développement (F12) pour le log de débogage de la réponse API.");
             }
         });
     }
@@ -315,9 +280,7 @@ L'équipe de Doukè Compta Pro
     }
 });
 
-// =================================================================================
-// 4. GESTION DU ROUTAGE ET DU CONTEXTE D'ENTREPRISE
-// =================================================================================
+// ... (FIN des autres fonctions de routage, de rendu et des utilitaires) ...
 
 function loadView(viewName) {
     const dashboardContentArea = document.getElementById('dashboard-content-area');
@@ -331,7 +294,7 @@ function loadView(viewName) {
     const isMultiEnterpriseUser = window.userContext.utilisateurRole === 'ADMIN' || window.userContext.utilisateurRole === 'COLLABORATEUR';
     
     if (isMultiEnterpriseUser && !window.userContext.entrepriseContextId && OPERATIONAL_VIEWS.includes(viewName)) {
-        alert("🚨 Opération Bloquée. Vous devez d'abord sélectionner une entreprise pour procéder à cette action (Saisie, Validation, etc.).");
+        alert("🚨 Opération Bloquée. Vous devez d'abord sélectionner une entreprise pour procéder à cette action.");
         
         return renderEnterpriseSelectorView(viewName); 
     }
@@ -341,7 +304,7 @@ function loadView(viewName) {
             renderDashboard(window.userContext); 
             break;
         case 'saisie':
-            dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Saisie Comptable</h3><p class="text-lg">Page de saisie des écritures pour **${window.userContext.entrepriseContextName}** (${window.userContext.entrepriseContextId}). Prête pour l'intégration API.</p>`;
+            dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Saisie Comptable</h3><p class="text-lg">Page de saisie des écritures pour **${window.userContext.entrepriseContextName}**.</p>`;
             contextMessage.textContent = `Saisie des opérations pour l'exercice courant de ${window.userContext.entrepriseContextName}.`;
             break;
         case 'validation':
@@ -385,8 +348,8 @@ async function renderEnterpriseSelectorView(blockedViewName = null) {
             companyListHTML = `
                 <div class="p-6 text-center bg-warning bg-opacity-10 rounded-xl">
                     <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
-                    <p class="text-warning font-semibold">Aucune entreprise trouvée ou votre API n'a renvoyé aucune donnée.</p>
-                    <p class="text-sm text-gray-700 dark:text-gray-300 mt-2">Veuillez vérifier l'endpoint /user/companies et votre base de données.</p>
+                    <p class="text-warning font-semibold">Aucune entreprise trouvée.</p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 mt-2">Vérifiez l'endpoint /user/companies et votre base de données mockée.</p>
                 </div>
             `;
         } else {
@@ -502,9 +465,7 @@ function renderDashboard(context) {
     updateNavigationMenu(context.utilisateurRole);
 }
 
-// =================================================================================
-// 5. RENDU DES DASHBOARDS SPÉCIFIQUES AUX PROFILS (Inchangé)
-// =================================================================================
+// ... (Les fonctions de rendu spécifique à chaque rôle et utilitaires sont omises ici pour la concision mais font partie du fichier final) ...
 
 function renderAdminDashboard(context) { 
     const statCards = `
@@ -624,10 +585,6 @@ function renderCaissierDashboard(context) {
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${caisseActions}${caisseReports}</div></div>`;
 }
-
-// =================================================================================
-// 6. FONCTIONS UTILITAIRES POUR LE RENDU ET L'INTERACTION API
-// =================================================================================
 
 function generateStatCard(iconClass, title, value, bgColor) { 
     return `
@@ -753,7 +710,6 @@ function renderUserRequestForm() {
                         })
                     });
                     
-                    // Nous allons utiliser une lecture simple ici, en assumant que c'est une API de lecture stable.
                     const data = await response.json(); 
 
                     if (response.ok && data.success) {
