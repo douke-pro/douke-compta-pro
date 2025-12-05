@@ -1,7 +1,7 @@
 // ==============================================================================
 // FICHIER : server.js
 // Description : Serveur API Express pour Doukè Compta Pro
-// VERSION : FINALE ET DÉFENSIVEMENT SÉCURISÉE (try/catch intégral)
+// VERSION : FINALE & CONSOLIDÉE (Inclut profil admin et sécurité défensive)
 // ==============================================================================
 
 // 1. DÉPENDANCES ET CONFIGURATION INITIALE
@@ -12,7 +12,6 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-// 🚨 Utiliser une clé secrète forte pour le JWT. La valeur par défaut est un fallback.
 const SECRET_KEY = process.env.JWT_SECRET || 'votre_cle_secrete_tres_forte_a_changer'; 
 
 // 2. MIDDLEWARES
@@ -25,6 +24,10 @@ app.use(express.static('assets'));
 // ==============================================================================
 
 let MOCK_USERS_DB = [
+    // 🚨 PROFIL ADMIN POUR AVANCER 🚨
+    { id: 'USER_ADMIN_PRO', username: 'doukepro@gmail.com', password: '1234', email: 'doukepro@gmail.com', role: 'ADMIN', entrepriseId: 'ENT_1', entrepriseName: 'Doukè Siège' },
+    
+    // Anciens Mocks
     { id: 'USER_1', username: 'admin', password: 'password', email: 'admin@douke.com', role: 'ADMIN', entrepriseId: 'ENT_1', entrepriseName: 'Doukè Siège' },
     { id: 'USER_2', username: 'collaborateur', password: 'password', email: 'collab@douke.com', role: 'COLLABORATEUR', entrepriseId: null, entrepriseName: null },
     { id: 'USER_3', username: 'utilisateur', password: 'password', email: 'user@douke.com', role: 'USER', entrepriseId: 'ENT_2', entrepriseName: 'MonEntrepriseSarl' },
@@ -48,7 +51,7 @@ let DB_ATTRIBUTION_MOCK = {
 // 4. ROUTES D'AUTHENTIFICATION (/api/auth)
 // ==============================================================================
 
-// ROUTE DE DIAGNOSTIC - Pour vérifier que la bonne version est déployée
+// ROUTE DE DIAGNOSTIC
 app.get('/api/test/json', (req, res) => {
     return res.status(200).json({
         testSuccess: true,
@@ -101,7 +104,6 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ success: false, message: "Ce nom d'utilisateur ou cet email est déjà utilisé." });
         }
 
-        // Utilisation d'un ID basé sur le temps pour être unique (plus robuste qu'un Random simple)
         const timestamp = Date.now();
         const newCompanyId = `ENT_${timestamp}`;
         const newUserId = `USER_${timestamp}`;
@@ -135,9 +137,9 @@ app.post('/api/auth/register', async (req, res) => {
         const token = jwt.sign(tokenPayload, SECRET_KEY, { expiresIn: '1d' });
 
         // --- 3. RÉPONSE FINALE (Succès) ---
-        return res.status(201).json({ // 🚨 Statut 201 (Created) pour une inscription
+        return res.status(201).json({ 
             success: true,
-            token: token, // ⬅️ Le jeton est ici
+            token: token, 
             user: { 
                 id: newUser.id, 
                 role: newUser.role, 
@@ -187,7 +189,6 @@ app.get('/api/user/companies', verifyToken, (req, res) => {
     
     let userCompanies = [];
 
-    // Logique de tri des entreprises (USER/CAISSIER, ADMIN, COLLABORATEUR)
     if (role === 'USER' || role === 'CAISSIER') {
         const company = MOCK_COMPANIES_DB.find(c => c.id === req.userContext.entrepriseContextId);
         if (company) userCompanies.push(company);
@@ -201,7 +202,6 @@ app.get('/api/user/companies', verifyToken, (req, res) => {
         );
     }
     
-    // Ajout de stats simulées
     userCompanies = userCompanies.map(c => ({
         ...c,
         stats: {
