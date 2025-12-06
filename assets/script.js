@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, l'inscription, la navigation et le contexte.
-// VERSION : FINALE & COMPLÈTE V2.0 - Tous Dashboards ASYNCHRONES + Contournements.
+// VERSION : FINALE & COMPLÈTE V2.1 - Correction Context USER/CAISSIER + Logique Dashboard.
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
@@ -70,8 +70,8 @@ async function handleLogin(username, password) {
                     utilisateurRole: 'ADMIN',
                     utilisateurId: 'USER_ADMIN_PRO',
                     token: MOCK_TOKEN_ADMIN, 
-                    entrepriseContextId: 'ENT_1',
-                    entrepriseContextName: 'Doukè Siège',
+                    entrepriseContextId: null, // ADMIN commence sans contexte
+                    entrepriseContextName: 'Aucune sélectionnée',
                 };
             }
             // Simulation pour le collaborateur mocké
@@ -80,11 +80,11 @@ async function handleLogin(username, password) {
                     utilisateurRole: 'COLLABORATEUR',
                     utilisateurId: 'USER_2',
                     token: MOCK_TOKEN_USER, 
-                    entrepriseContextId: null,
+                    entrepriseContextId: null, // COLLABORATEUR commence sans contexte
                     entrepriseContextName: 'Aucune sélectionnée',
                 };
             }
-            // Simulation pour l'utilisateur
+            // Simulation pour l'utilisateur (Rôle Mono-entreprise : A un contexte défini)
             if (username === 'utilisateur' || username === 'user@douke.com') {
                  return {
                     utilisateurRole: 'USER',
@@ -94,7 +94,7 @@ async function handleLogin(username, password) {
                     entrepriseContextName: 'MonEntrepriseSarl',
                 };
             }
-            // Simulation pour le caissier
+            // Simulation pour le caissier (Rôle Mono-entreprise : A un contexte défini)
             if (username === 'caissier' || username === 'caisse@douke.com') {
                  return {
                     utilisateurRole: 'CAISSIER',
@@ -115,6 +115,7 @@ async function handleLogin(username, password) {
                 utilisateurRole: user.role, 
                 utilisateurId: user.id,
                 token: data.token,
+                // Si l'API renvoie un contexte (USER/CAISSIER) ou si c'est ADMIN/COLLAB sans contexte initial
                 entrepriseContextId: user.entrepriseId || null, 
                 entrepriseContextName: user.entrepriseName || "Aucune sélectionnée",
             };
@@ -197,6 +198,7 @@ async function handleRegistration(payload) {
 
 /**
  * Récupère la liste des entreprises pour les rôles multi-entreprises.
+ * Retourne un tableau vide [] en cas d'échec ou de réponse vide.
  */
 async function fetchUserCompanies(context) {
     if (!context || !context.token) return [];
@@ -215,7 +217,7 @@ async function fetchUserCompanies(context) {
         // Lecture ultra-robuste de la réponse (pour gérer les réponses 200/204 sans corps)
         const responseText = await response.text();
         if (!responseText) {
-            console.error("Erreur de récupération des entreprises: Réponse serveur vide.");
+            console.warn("Récupération des entreprises: Réponse serveur vide ou 204.");
             return [];
         }
         
@@ -500,12 +502,15 @@ async function renderDashboard(context) {
     
     dashboardContentArea.innerHTML = '';
     
-    let isMultiEnterpriseUser = context.utilisateurRole === 'ADMIN' || context.utilisateurRole === 'COLLABORATEUR';
-    let contextName = context.entrepriseContextName || "Aucune sélectionnée";
+    // Logique mise à jour: L'avertissement de sélection ne concerne que ADMIN/COLLABORATEUR
+    const isMultiEnterpriseUser = context.utilisateurRole === 'ADMIN' || context.utilisateurRole === 'COLLABORATEUR';
+    const contextName = context.entrepriseContextName || "Aucune sélectionnée";
     
     if (isMultiEnterpriseUser && context.entrepriseContextId === null) {
-        contextMessage.textContent = `⚠️ CONTEXTE INCOMPLET. Affichage des statistiques globales. Veuillez sélectionner une entreprise (menu ci-dessous ou barre latérale) pour effectuer des opérations comptables.`;
+        // Message spécifique pour ADMIN/COLLABORATEUR sans contexte sélectionné
+        contextMessage.textContent = `⚠️ CONTEXTE NON SÉLECTIONNÉ. Veuillez choisir une entreprise (Changer d'Entreprise) pour effectuer des opérations.`;
     } else {
+        // Message normal pour tous les autres (y compris USER/CAISSIER qui ont toujours un contexte)
         contextMessage.textContent = `Contexte de travail actuel: ${contextName}.`;
     }
     
@@ -519,11 +524,13 @@ async function renderDashboard(context) {
             dashboardContentArea.innerHTML = await renderCollaborateurDashboard(context); 
             break;
         case 'USER':
-            dashboardContentArea.innerHTML = await renderUserDashboard(context); // <-- CORRECTION APPLIQUÉE
+            dashboardContentArea.innerHTML = await renderUserDashboard(context); 
             break;
         case 'CAISSIER':
-            dashboardContentArea.innerHTML = await renderCaissierDashboard(context); // <-- CORRECTION APPLIQUÉE
+            dashboardContentArea.innerHTML = await renderCaissierDashboard(context); 
             break;
+        default:
+             dashboardContentArea.innerHTML = `<p class="text-danger">Rôle ${context.utilisateurRole} non supporté.</p>`;
     }
     
     if (isMultiEnterpriseUser && context.entrepriseContextId === null) {
@@ -548,7 +555,7 @@ async function renderDashboard(context) {
 
 async function renderAdminDashboard(context) { 
     // Chargement des données des entreprises pour l'Admin
-    const companies = await fetchUserCompanies(context);
+    const companies = await fetchUserCompanies(context) || [];
     const totalCompanies = companies.length;
     const usersCount = 12; // MOCKÉ
     const adminsCollabs = 4; // MOCKÉ
@@ -629,7 +636,7 @@ async function renderAdminDashboard(context) {
 async function renderCollaborateurDashboard(context) {
     
     // Pour le Collaborateur, on ne veut que les entreprises attribuées
-    const attributedCompanies = await fetchUserCompanies(context);
+    const attributedCompanies = await fetchUserCompanies(context) || [];
     const validationCount = 15; // MOCKÉ
     const rapportGeneratedCount = 8; // MOCKÉ
 
@@ -676,7 +683,7 @@ async function renderCollaborateurDashboard(context) {
 
 async function renderUserDashboard(context) { 
     // Récupère les stats de l'unique entreprise attribuée
-    const userCompanies = await fetchUserCompanies(context);
+    const userCompanies = await fetchUserCompanies(context) || []; // CORRIGÉ : SÉCURISATION
     const companyStats = userCompanies.length > 0 ? userCompanies[0].stats : {};
 
     const transactions = companyStats.transactions || 0; // Utilisation des stats réelles
@@ -684,8 +691,14 @@ async function renderUserDashboard(context) {
     const pendingOperations = 2; // MOCKÉ
     const currentCash = "800 K XOF"; // MOCKÉ
     
+    // Si l'utilisateur n'a pas de contexte (ne devrait pas arriver pour USER mono-entreprise), on alerte
     if (userCompanies.length === 0) {
-         return renderEnterpriseSelectorView();
+        // Le USER ne peut pas sélectionner, on affiche un message d'erreur
+        return `<div class="max-w-xl mx-auto p-8 text-center bg-danger bg-opacity-10 border-2 border-danger rounded-xl mt-12">
+                    <i class="fas fa-exclamation-circle fa-3x text-danger mb-4"></i>
+                    <h3 class="text-2xl font-extrabold text-danger">ERREUR: Entreprise Introuvable</h3>
+                    <p class="text-gray-700 dark:text-gray-300">Votre compte utilisateur (Rôle: USER) n'est associé à aucune entreprise active. Contactez l'administrateur système.</p>
+                </div>`;
     }
 
     const statCards = `
@@ -719,7 +732,7 @@ async function renderUserDashboard(context) {
 async function renderCaissierDashboard(context) { 
     
     // Récupère les stats de l'unique entreprise attribuée
-    const userCompanies = await fetchUserCompanies(context);
+    const userCompanies = await fetchUserCompanies(context) || []; // CORRIGÉ : SÉCURISATION
     // const companyStats = userCompanies.length > 0 ? userCompanies[0].stats : {};
 
     const currentCash = "150 K XOF"; // MOCKÉ
@@ -727,7 +740,12 @@ async function renderCaissierDashboard(context) {
     const pendingMovements = 4; // MOCKÉ (par exemple, des retraits en attente de validation)
     
     if (userCompanies.length === 0) {
-         return renderEnterpriseSelectorView();
+        // Le CAISSIER ne peut pas sélectionner, on affiche un message d'erreur
+        return `<div class="max-w-xl mx-auto p-8 text-center bg-danger bg-opacity-10 border-2 border-danger rounded-xl mt-12">
+                    <i class="fas fa-exclamation-circle fa-3x text-danger mb-4"></i>
+                    <h3 class="text-2xl font-extrabold text-danger">ERREUR: Caisse Introuvable</h3>
+                    <p class="text-gray-700 dark:text-gray-300">Votre compte caissier n'est associé à aucune caisse/entreprise active. Contactez l'administrateur système.</p>
+                </div>`;
     }
 
 
@@ -1061,4 +1079,23 @@ function updateNavigationMenu(role) {
         
         menu.appendChild(link);
     });
+    
+    // --- AMÉLIORATION ERGONOMIQUE DU BOUTON DE DÉCONNEXION ---
+    // Ajout d'un bouton de déconnexion stylisé dans la navigation
+    const logoutLink = document.createElement('a');
+    logoutLink.href = '#';
+    logoutLink.id = 'logout-button'; // Utiliser l'ID existant pour réutiliser le listener
+    logoutLink.className = 'mt-4 flex items-center p-3 text-white bg-danger hover:bg-red-700 rounded-lg transition duration-200 shadow-md';
+    logoutLink.innerHTML = `<i class="fas fa-sign-out-alt mr-3"></i> Déconnexion`;
+    
+    // Ajout dans la section dédiée si elle existe, sinon à la fin du menu
+    const sidebar = document.querySelector('.flex-col.p-4.space-y-2');
+    if (sidebar) {
+        // Supprime l'ancien bouton (qui était juste une ligne dans le HTML)
+        const oldLogout = document.getElementById('logout-button');
+        if (oldLogout) { oldLogout.remove(); } 
+        
+        // Ajoute le nouveau bouton à la fin du conteneur de la barre latérale
+        sidebar.appendChild(logoutLink);
+    }
 }
