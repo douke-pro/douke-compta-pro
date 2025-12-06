@@ -1,7 +1,7 @@
 // ==============================================================================
 // FICHIER : server.js
 // Description : Serveur API Express pour Doukè Compta Pro
-// VERSION : FINALE & CONSOLIDÉE (Inclut profil admin et sécurité défensive)
+// VERSION : FINALE & CONSOLIDÉE (Inclut profil admin, sécurité défensive et routes Admin/Collab)
 // ==============================================================================
 
 // 1. DÉPENDANCES ET CONFIGURATION INITIALE
@@ -40,6 +40,7 @@ let MOCK_COMPANIES_DB = [
     { id: 'ENT_3', name: 'CaisseTest', nif: '300000000', status: 'Ets' },
 ];
 
+// MOCK pour savoir qui gère quoi
 let DB_ATTRIBUTION_MOCK = {
     'ENT_1': { collaborateurId: null, userId: 'USER_1', name: 'Doukè Siège' },
     'ENT_2': { collaborateurId: 'USER_2', userId: 'USER_3', name: 'MonEntrepriseSarl' },
@@ -56,7 +57,7 @@ app.get('/api/test/json', (req, res) => {
     return res.status(200).json({
         testSuccess: true,
         message: "Serveur Express opérationnel et capable de renvoyer du JSON.",
-        version: "FINALE_V1.1",
+        version: "FINALE_V2.0",
         time: new Date().toISOString()
     });
 });
@@ -80,6 +81,7 @@ app.post('/api/auth/login', (req, res) => {
 
     const token = jwt.sign(tokenPayload, SECRET_KEY, { expiresIn: '1d' });
 
+    // IMPORTANT : Le serveur doit toujours retourner TOUT le corps pour fonctionner.
     return res.status(200).json({
         success: true,
         token: token,
@@ -119,7 +121,8 @@ app.post('/api/auth/register', async (req, res) => {
         };
         
         MOCK_USERS_DB.push(newUser);
-        MOCK_COMPANIES_DB.push({ id: newCompanyId, name: companyName, nif: companyNif, status: companyStatus });
+        const newCompany = { id: newCompanyId, name: companyName, nif: companyNif, status: companyStatus };
+        MOCK_COMPANIES_DB.push(newCompany);
         DB_ATTRIBUTION_MOCK[newCompanyId] = { 
             collaborateurId: null, 
             userId: newUserId, 
@@ -146,12 +149,7 @@ app.post('/api/auth/register', async (req, res) => {
                 entrepriseId: newUser.entrepriseId,
                 entrepriseName: newUser.entrepriseName,
             },
-            company: {
-                id: newCompanyId,
-                name: companyName,
-                status: companyStatus,
-                nif: companyNif
-            },
+            company: newCompany, // Retourne l'objet complet de l'entreprise
             message: "Inscription réussie. Bienvenue sur Doukè Compta Pro !"
         });
 
@@ -167,7 +165,7 @@ app.post('/api/auth/register', async (req, res) => {
 
 
 // ==============================================================================
-// 5. ROUTES D'APPLICATION ET MIDDLEWARE JWT
+// 5. MIDDLEWARE JWT ET ROUTES D'APPLICATION
 // ==============================================================================
 
 function verifyToken(req, res, next) {
@@ -183,6 +181,7 @@ function verifyToken(req, res, next) {
     });
 }
 
+// Route qui retourne les entreprises auxquelles l'utilisateur a accès
 app.get('/api/user/companies', verifyToken, (req, res) => {
     const role = req.userContext.utilisateurRole;
     const userId = req.userContext.utilisateurId;
@@ -194,14 +193,17 @@ app.get('/api/user/companies', verifyToken, (req, res) => {
         if (company) userCompanies.push(company);
 
     } else if (role === 'ADMIN') {
+        // L'admin voit toutes les entreprises
         userCompanies = [...MOCK_COMPANIES_DB];
 
     } else if (role === 'COLLABORATEUR') {
+        // Le collaborateur voit celles qui lui sont attribuées
         userCompanies = MOCK_COMPANIES_DB.filter(company => 
             DB_ATTRIBUTION_MOCK[company.id] && DB_ATTRIBUTION_MOCK[company.id].collaborateurId === userId
         );
     }
     
+    // Ajout des stats mockées pour le Front-end
     userCompanies = userCompanies.map(c => ({
         ...c,
         stats: {
@@ -211,6 +213,26 @@ app.get('/api/user/companies', verifyToken, (req, res) => {
     }));
 
     return res.status(200).json(userCompanies);
+});
+
+// ROUTE D'INNOVATION : Création d'entreprise par un Admin (Simulation)
+app.post('/api/admin/create-company', verifyToken, (req, res) => {
+    if (req.userContext.utilisateurRole !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: "Accès refusé. Nécessite le rôle ADMIN." });
+    }
+    const { name, nif, status } = req.body;
+
+    const newCompanyId = `ENT_ADMIN_${Date.now()}`;
+    const newCompany = { id: newCompanyId, name, nif, status };
+
+    MOCK_COMPANIES_DB.push(newCompany);
+    // Simuler l'ajout au DB_ATTRIBUTION_MOCK
+
+    return res.status(201).json({ 
+        success: true, 
+        message: `Entreprise ${name} créée avec succès.`,
+        company: newCompany 
+    });
 });
 
 
