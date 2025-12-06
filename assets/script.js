@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Gère la connexion, l'inscription, la navigation et le contexte.
-// VERSION : FINALE & COMPLÈTE (V100%) - Intégration des dashboards Admin/Collab
+// VERSION : FINALE & COMPLÈTE V2.0 - Tous Dashboards ASYNCHRONES + Contournements.
 // =================================================================================
 
 const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
@@ -75,13 +75,33 @@ async function handleLogin(username, password) {
                 };
             }
             // Simulation pour le collaborateur mocké
-            if (username === 'collaborateur') {
+            if (username === 'collaborateur' || username === 'collab@douke.com') {
                  return {
                     utilisateurRole: 'COLLABORATEUR',
                     utilisateurId: 'USER_2',
                     token: MOCK_TOKEN_USER, 
                     entrepriseContextId: null,
                     entrepriseContextName: 'Aucune sélectionnée',
+                };
+            }
+            // Simulation pour l'utilisateur
+            if (username === 'utilisateur' || username === 'user@douke.com') {
+                 return {
+                    utilisateurRole: 'USER',
+                    utilisateurId: 'USER_3',
+                    token: MOCK_TOKEN_USER, 
+                    entrepriseContextId: 'ENT_2',
+                    entrepriseContextName: 'MonEntrepriseSarl',
+                };
+            }
+            // Simulation pour le caissier
+            if (username === 'caissier' || username === 'caisse@douke.com') {
+                 return {
+                    utilisateurRole: 'CAISSIER',
+                    utilisateurId: 'USER_4',
+                    token: MOCK_TOKEN_USER, 
+                    entrepriseContextId: 'ENT_3',
+                    entrepriseContextName: 'CaisseTest',
                 };
             }
         }
@@ -179,7 +199,7 @@ async function handleRegistration(payload) {
  * Récupère la liste des entreprises pour les rôles multi-entreprises.
  */
 async function fetchUserCompanies(context) {
-    if (!context.token) return [];
+    if (!context || !context.token) return [];
     
     const endpoint = `${API_BASE_URL}/user/companies`; 
     
@@ -367,7 +387,7 @@ function loadView(viewName) {
                 contextMessage.textContent = `Administration système.`;
             }
             break;
-        case 'create-company': // NOUVELLE ENTREE
+        case 'create-company': 
             if (window.userContext.utilisateurRole === 'ADMIN') {
                 renderCreateCompanyView();
             }
@@ -499,10 +519,10 @@ async function renderDashboard(context) {
             dashboardContentArea.innerHTML = await renderCollaborateurDashboard(context); 
             break;
         case 'USER':
-            dashboardContentArea.innerHTML = renderUserDashboard(context);
+            dashboardContentArea.innerHTML = await renderUserDashboard(context); // <-- CORRECTION APPLIQUÉE
             break;
         case 'CAISSIER':
-            dashboardContentArea.innerHTML = renderCaissierDashboard(context);
+            dashboardContentArea.innerHTML = await renderCaissierDashboard(context); // <-- CORRECTION APPLIQUÉE
             break;
     }
     
@@ -651,22 +671,36 @@ async function renderCollaborateurDashboard(context) {
     
     const validationTable = generateValidationTable();
 
-    return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${attributedListSection}<div class="lg:col-span-1">${validationTable}</div></div></div>`;
+    return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:col-cols-3 gap-6">${attributedListSection}<div class="lg:col-span-1">${validationTable}</div></div></div>`;
 }
 
-function renderUserDashboard(context) { 
+async function renderUserDashboard(context) { 
+    // Récupère les stats de l'unique entreprise attribuée
+    const userCompanies = await fetchUserCompanies(context);
+    const companyStats = userCompanies.length > 0 ? userCompanies[0].stats : {};
+
+    const transactions = companyStats.transactions || 0; // Utilisation des stats réelles
+    const provisionalResult = "1.2 M XOF"; // MOCKÉ
+    const pendingOperations = 2; // MOCKÉ
+    const currentCash = "800 K XOF"; // MOCKÉ
+    
+    if (userCompanies.length === 0) {
+         return renderEnterpriseSelectorView();
+    }
+
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            ${generateStatCard('fas fa-hand-holding-usd', 'Résultat Net Provisoire', '1.2 M XOF', 'bg-success')}
-            ${generateStatCard('fas fa-wallet', 'Caisses Créées', '3/5', 'bg-primary')}
-            ${generateStatCard('fas fa-hourglass-half', 'Opérations en Attente', '2', 'bg-warning')}
-            ${generateStatCard('fas fa-chart-area', 'Trésorerie Actuelle', '800 K XOF', 'bg-info')}
+            ${generateStatCard('fas fa-hand-holding-usd', 'Résultat Net Provisoire', provisionalResult, 'bg-success')}
+            ${generateStatCard('fas fa-wallet', 'Total Transactions', transactions, 'bg-primary')}
+            ${generateStatCard('fas fa-hourglass-half', 'Opérations en Attente', pendingOperations, 'bg-warning')}
+            ${generateStatCard('fas fa-chart-area', 'Trésorerie Actuelle', currentCash, 'bg-info')}
         </div>
     `;
 
     const accountingReports = `
         <div class="lg:col-span-2 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Rapports Comptables Rapides</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">Accès rapide aux documents financiers de **${context.entrepriseContextName}**.</p>
             <div class="grid grid-cols-2 gap-4">
                 <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">Balance des Comptes</button>
                 <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">Grand Livre</button>
@@ -676,28 +710,44 @@ function renderUserDashboard(context) {
         </div>
     `;
     
+    // Le formulaire de requête (Contact comptable)
     const requestForm = `<div class="lg:col-span-1">${renderUserRequestForm()}</div>`;
 
     return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${accountingReports}${requestForm}</div></div>`;
 }
 
-function renderCaissierDashboard(context) { 
+async function renderCaissierDashboard(context) { 
+    
+    // Récupère les stats de l'unique entreprise attribuée
+    const userCompanies = await fetchUserCompanies(context);
+    // const companyStats = userCompanies.length > 0 ? userCompanies[0].stats : {};
+
+    const currentCash = "150 K XOF"; // MOCKÉ
+    const caisseStatus = "OUVERTE"; // MOCKÉ
+    const pendingMovements = 4; // MOCKÉ (par exemple, des retraits en attente de validation)
+    
+    if (userCompanies.length === 0) {
+         return renderEnterpriseSelectorView();
+    }
+
+
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            ${generateStatCard('fas fa-money-check-alt', 'Solde de Ma Caisse', '150 K XOF', 'bg-success')}
-            ${generateStatCard('fas fa-calendar-check', 'État de la Caisse', 'OUVERTE', 'bg-info')}
-            ${generateStatCard('fas fa-undo-alt', 'Mouvements en Attente', '4', 'bg-warning')}
+            ${generateStatCard('fas fa-money-check-alt', 'Solde de Ma Caisse', currentCash, 'bg-success')}
+            ${generateStatCard('fas fa-calendar-check', 'État de la Caisse', caisseStatus, 'bg-info')}
+            ${generateStatCard('fas fa-undo-alt', 'Mouvements en Attente', pendingMovements, 'bg-warning')}
         </div>
     `;
 
     const caisseActions = `
         <div class="lg:col-span-2 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Actions de Caisse</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">Ces actions impactent directement le solde de la caisse **${context.entrepriseContextName}**.</p>
             <div class="grid grid-cols-2 gap-4 mb-6">
                 <button class="py-3 bg-primary text-white rounded-lg hover:bg-primary-dark"><i class="fas fa-lock-open mr-2"></i> Ouvrir/Fermer la Caisse</button>
                 <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('saisie')"><i class="fas fa-plus-square mr-2"></i> Enregistrer Opération</button>
             </div>
-            <p class="text-gray-600 dark:text-gray-400">Toutes les opérations enregistrées nécessitent une validation par le User/Collaborateur/Admin avant intégration au Grand Livre.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Toutes les opérations enregistrées nécessitent une validation par le User/Collaborateur/Admin avant intégration au Grand Livre.</p>
         </div>
     `;
     
@@ -705,14 +755,13 @@ function renderCaissierDashboard(context) {
         <div class="lg:col-span-1 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Rapports Journaliers</h3>
             <button class="w-full py-3 bg-info text-white rounded-lg hover:bg-blue-700 mb-2" onclick="loadView('reports')"><i class="fas fa-print mr-2"></i> Éditer Rapport de Caisse</button>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Liste des mouvements récents et solde.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Liste des mouvements récents et solde de caisse.</p>
         </div>
     `;
 
-    return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${caisseActions}${caisseReports}</div></div>`;
+    return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:col-cols-3 gap-6">${caisseActions}${caisseReports}</div></div>`;
 }
 
-// NOUVELLE VERSION DE renderCreateCompanyView (Remplacer l'intégralité de la fonction)
 function renderCreateCompanyView() {
     const dashboardContentArea = document.getElementById('dashboard-content-area');
     document.getElementById('context-message').textContent = "Création d'une nouvelle structure d'entreprise dans le système.";
@@ -948,7 +997,10 @@ function renderUserRequestForm() {
                         })
                     });
                     
-                    const data = await response.json(); 
+                    const responseText = await response.text();
+                    let data = {};
+                    if(responseText) data = JSON.parse(responseText); 
+                    else if (response.ok) data = { success: true }; // Contournement de succès
 
                     if (response.ok && data.success) {
                         statusElement.textContent = '✅ Demande envoyée avec succès au collaborateur et à l\'admin !';
