@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Comptable - SYSCOHADA</title>
+    <title>Doukè Compta Pro - SYSCOHADA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLMD/CDQ6W+p33bTCRuMfFwKz/eS2Xq71f5qK/0Bv1tP+jL5N6O0UvX0K4t/S4O4Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script>
         tailwind.config = {
-            darkMode: 'class', // Active le dark mode via la classe 'dark'
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
                         primary: '#3b82f6', // Bleu pour les actions principales
                         secondary: '#10b981', // Vert émeraude pour les accents/succès
-                        info: '#3b82f6', // Bleu (souvent le même que primary)
-                        danger: '#ef4444', // Rouge pour les erreurs/alertes
-                        success: '#10b981', // Vert pour le succès
-                        warning: '#f59e0b', // Jaune pour les avertissements
+                        info: '#3b82f6',
+                        danger: '#ef4444',
+                        success: '#10b981',
+                        warning: '#f59e0b',
                     }
                 }
             }
@@ -31,12 +31,12 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 transition-colors duration-500">
 
-    <div id="app" class="flex min-h-screen">
+    <div id="app" class="flex min-h-screen hidden"> 
         
         <div id="sidebar" class="w-64 bg-white dark:bg-gray-800 shadow-xl flex-shrink-0 transition-all duration-300 hidden md:block">
             <div class="p-4 border-b dark:border-gray-700">
                 <h1 class="text-2xl font-extrabold text-primary flex items-center">
-                    <i class="fas fa-chart-line mr-2"></i> K-Compta
+                    <i class="fas fa-chart-line mr-2"></i> Doukè Compta Pro
                 </h1>
                 <span class="text-xs text-gray-500 dark:text-gray-400">Application Prototype SYSCOHADA</span>
             </div>
@@ -72,7 +72,8 @@
 
     <div id="login-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 class="text-3xl font-extrabold text-center text-primary mb-6">Connexion K-Compta</h2>
+            <h2 class="text-3xl font-extrabold text-center text-primary mb-6">Connexion Doukè Compta Pro</h2>
+            
             <form id="login-form" class="space-y-4">
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email (Rôle de Test)</label>
@@ -92,13 +93,57 @@
                     Se Connecter
                 </button>
             </form>
+            
             <div class="mt-4 text-center">
-                <button id="toggle-theme" class="text-sm text-gray-600 dark:text-gray-400 hover:text-primary">
+                <p class="text-sm text-gray-600 dark:text-gray-400">Pas encore de compte ? 
+                    <button id="show-register-form" onclick="toggleRegisterForm()" class="text-primary hover:underline font-medium">Créer un compte</button>
+                </p>
+                <button id="toggle-theme" class="text-sm text-gray-600 dark:text-gray-400 hover:text-primary mt-2">
                     <i class="fas fa-moon mr-1"></i> Mode Sombre / Clair
                 </button>
             </div>
+            
         </div>
     </div>
+    
+    <div id="register-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-lg">
+            <h2 class="text-3xl font-extrabold text-center text-secondary mb-6">Enregistrement Doukè Compta Pro</h2>
+            <form id="register-form" class="space-y-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 text-center">Créez le compte administrateur de votre entreprise.</p>
+                
+                <div>
+                    <label for="reg-company-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom de l'Entreprise</label>
+                    <input type="text" id="reg-company-name" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                </div>
+                <div>
+                    <label for="reg-admin-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email Administrateur</label>
+                    <input type="email" id="reg-admin-email" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="reg-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mot de Passe</label>
+                        <input type="password" id="reg-password" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div>
+                        <label for="reg-password-confirm" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirmer Mot de Passe</label>
+                        <input type="password" id="reg-password-confirm" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    </div>
+                </div>
+                <p id="register-message" class="text-sm text-danger text-center hidden"></p>
+                <button type="submit" class="w-full py-2 bg-secondary hover:bg-green-700 text-white font-bold rounded-lg transition duration-300">
+                    <i class="fas fa-user-plus mr-2"></i> Enregistrer
+                </button>
+            </form>
+            <div class="mt-4 text-center">
+                <p class="text-sm text-gray-600 dark:text-gray-400">Déjà un compte ? 
+                    <button onclick="toggleRegisterForm()" class="text-primary hover:underline font-medium">Se connecter</button>
+                </p>
+            </div>
+        </div>
+    </div>
+
+
     
     <div class="fixed bottom-4 right-4 z-40">
         <button id="toggle-theme-footer" class="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg text-gray-700 dark:text-gray-300 hover:text-primary transition duration-300">
@@ -108,5 +153,51 @@
     </div>
 
     <script src="assets/script.js"></script>
+    <script>
+        // Fonction pour basculer entre les modals de connexion et d'enregistrement
+        function toggleRegisterForm() {
+            const loginModal = document.getElementById('login-modal');
+            const registerModal = document.getElementById('register-modal');
+            
+            if (loginModal.classList.contains('hidden')) {
+                // Montrer le Login, cacher le Register
+                loginModal.classList.remove('hidden');
+                registerModal.classList.add('hidden');
+            } else {
+                // Montrer le Register, cacher le Login
+                loginModal.classList.add('hidden');
+                registerModal.classList.remove('hidden');
+            }
+        }
+
+        // MOCK: Gérer la soumission du formulaire d'enregistrement
+        document.getElementById('register-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const msgElement = document.getElementById('register-message');
+            
+            // Simuler la validation (très basique)
+            const password = document.getElementById('reg-password').value;
+            const passwordConfirm = document.getElementById('reg-password-confirm').value;
+            
+            msgElement.classList.remove('hidden', 'text-danger', 'text-success');
+            
+            if (password !== passwordConfirm) {
+                msgElement.textContent = "Les mots de passe ne correspondent pas.";
+                msgElement.classList.add('text-danger');
+                return;
+            }
+            
+            msgElement.textContent = "✅ Enregistrement réussi ! Redirection vers la connexion...";
+            msgElement.classList.remove('text-danger');
+            msgElement.classList.add('text-success');
+
+            // Après un délai, revenir au login
+            setTimeout(() => {
+                toggleRegisterForm();
+                msgElement.classList.add('hidden');
+                document.getElementById('register-form').reset();
+            }, 2000);
+        });
+    </script>
 </body>
 </html>
