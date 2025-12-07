@@ -1,16 +1,16 @@
 /**
- * Fichier de Script Principal - K-Compta Dashboard
+ * Fichier de Script Principal - Doukè Compta Pro Dashboard
  * Intègre la logique de connexion, le routage, le contexte utilisateur
  * et les rendus spécifiques aux rôles (Admin, Collaborateur, User, Caissier).
  *
- * Version: 2.3 (Intégration SYSCOHADA, Saisie Double-Entrée, Saisie Flux, Corrections d'Incohérence)
+ * Version: 2.5 (Intégration SYSCOHADA, Saisie Double-Entrée, Saisie Flux, Correction Nom, Logique Enregistrement)
  */
 
 // =================================================================================
 // 1. CONFIGURATION ET VARIABLES GLOBALES
 // =================================================================================
 
-const API_BASE_URL = 'http://api.k-compta.mock'; // URL de base API (mockée)
+const API_BASE_URL = 'http://api.douke-compta.mock'; // URL de base API (mockée)
 window.userContext = null;
 
 // Rôles et leurs permissions
@@ -99,6 +99,7 @@ async function fetchUserCompanies(context) {
         { id: 'ENT_1', name: 'Doukè Holdings', stats: { transactions: 150, result: 3500000, pending: 1, cash: 2500000 } },
         { id: 'ENT_2', name: 'MonEntrepriseSarl', stats: { transactions: 50, result: 1200000, pending: 2, cash: 800000 } },
         { id: 'ENT_3', name: 'CaisseTest', stats: { transactions: 20, result: 50000, pending: 0, cash: 100000 } },
+        { id: 'ENT_4', name: 'Service Bâtiment', stats: { transactions: 10, result: 100000, pending: 0, cash: 50000 } },
     ];
 }
 
@@ -128,7 +129,10 @@ async function changeCompanyContext(newId, newName) {
 function initDashboard(context) {
     window.userContext = context;
     document.getElementById('login-modal').classList.add('hidden');
-    document.getElementById('app').classList.remove('hidden');
+    document.getElementById('app').classList.remove('hidden'); // Rendre l'app visible
+    
+    // S'assurer que le formulaire d'enregistrement est bien caché si on se connecte
+    document.getElementById('register-modal').classList.add('hidden');
 
     updateHeaderContext(context);
     updateNavigationMenu(context.utilisateurRole);
@@ -242,7 +246,7 @@ async function loadView(viewName) {
 
         case 'user-management':
             if (window.userContext.utilisateurRole === ROLES.ADMIN) {
-                dashboardContentArea.innerHTML = renderUserManagementView();
+                dashboardContentArea.innerHTML = await renderUserManagementView(); // Rendu Asynchrone
                 document.getElementById('context-message').textContent = `Administration: Gestion des utilisateurs, des rôles et des attributions d'entreprise.`;
             } else {
                  dashboardContentArea.innerHTML = renderAccessDenied();
@@ -277,6 +281,7 @@ async function renderDashboard(context) {
 
 /**
  * Rendu pour Admin et Collaborateur (Multi-Entreprise).
+ * **CONFIRMATION DU PRINCIPE DU CHOIX DE L'ENTREPRISE**
  */
 async function renderMultiCompanyDashboard(context) {
     const userCompanies = await fetchUserCompanies(context);
@@ -294,6 +299,7 @@ async function renderMultiCompanyDashboard(context) {
         `<option value="${comp.id}" data-name="${comp.name}" ${comp.id === context.entrepriseContextId ? 'selected' : ''}>${comp.name}</option>`
     ).join('');
 
+    // S'assurer que les stats affichées sont bien celles de l'entreprise dans le contexte
     const currentCompany = userCompanies.find(c => c.id === context.entrepriseContextId) || userCompanies[0];
     const stats = currentCompany.stats;
 
@@ -338,21 +344,17 @@ async function renderMultiCompanyDashboard(context) {
 }
 
 /**
- * Rendu pour l'utilisateur Mono-Entreprise.
+ * Rendu pour l'utilisateur Mono-Entreprise. (Reste inchangé car le contexte est fixe)
  */
 async function renderUserDashboard(context) {
-    // Dans le cas mono-entreprise, nous nous fions à l'entreprise du contexte de connexion
     const userCompanies = await fetchUserCompanies(context) || []; 
-    // Si l'API échoue ou est vide, on utilise des statistiques par défaut
     const companyStats = userCompanies.length > 0 ? userCompanies[0].stats : {};
 
     const transactions = companyStats.transactions || 0; 
-    const provisionalResult = (companyStats.result || 1200000).toLocaleString('fr-FR') + ' XOF'; // MOCK PAR DÉFAUT
-    const pendingOperations = companyStats.pending || 2; // MOCK PAR DÉFAUT
-    const currentCash = (companyStats.cash || 800000).toLocaleString('fr-FR') + ' XOF'; // MOCK PAR DÉFAUT
+    const provisionalResult = (companyStats.result || 1200000).toLocaleString('fr-FR') + ' XOF'; 
+    const pendingOperations = companyStats.pending || 2; 
+    const currentCash = (companyStats.cash || 800000).toLocaleString('fr-FR') + ' XOF'; 
 
-    // L'ancienne vérification d'erreur est supprimée pour éviter l'incohérence
-    
     const statCards = renderStatCards({
         transactions: transactions,
         result: provisionalResult,
@@ -373,7 +375,7 @@ async function renderUserDashboard(context) {
 }
 
 /**
- * Rendu pour le Caissier (Mono-Caisse/Entreprise).
+ * Rendu pour le Caissier (Mono-Caisse/Entreprise). (Reste inchangé)
  */
 async function renderCaissierDashboard(context) {
     const userCompanies = await fetchUserCompanies(context) || []; 
@@ -384,9 +386,6 @@ async function renderCaissierDashboard(context) {
     const pendingOperations = companyStats.pending || 0; 
     const currentCash = (companyStats.cash || 100000).toLocaleString('fr-FR') + ' XOF'; 
 
-    // L'ancienne vérification d'erreur est supprimée pour éviter l'incohérence
-    
-    // Cartes simplifiées pour le caissier
     const statCards = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             ${renderStatCard('fas fa-wallet', 'Solde Actuel de la Caisse', currentCash, 'info')}
@@ -412,7 +411,7 @@ async function renderCaissierDashboard(context) {
 }
 
 // =================================================================================
-// 5. HELPER COMPONENTS POUR LE RENDU DU DASHBOARD
+// 5. HELPER COMPONENTS POUR LE RENDU DU DASHBOARD (Inchangé)
 // =================================================================================
 
 /**
@@ -514,7 +513,6 @@ function renderReportsView() {
     `;
 }
 
-
 // =================================================================================
 // 6. GESTION DE L'AUTHENTIFICATION ET DU THÈME
 // =================================================================================
@@ -561,12 +559,14 @@ function logout() {
     localStorage.removeItem('userContext');
     document.getElementById('app').classList.add('hidden');
     document.getElementById('login-modal').classList.remove('hidden');
+    // S'assurer que le formulaire d'enregistrement est aussi caché
+    document.getElementById('register-modal').classList.add('hidden'); 
     // Réinitialiser la vue au cas où
     document.getElementById('dashboard-content').innerHTML = '';
 }
 
 // =================================================================================
-// 7. FONCTIONS DE SAISIE PROFESSIONNELLE (JOURNAL ENTRY)
+// 7. FONCTIONS DE SAISIE PROFESSIONNELLE (JOURNAL ENTRY) - Intégralité conservée
 // =================================================================================
 
 /**
@@ -789,10 +789,6 @@ function renderJournalEntryForm() {
     `;
 }
 
-// =================================================================================
-// 8. FONCTION DE SAISIE CAISSIER (FLUX SIMPLIFIÉ)
-// =================================================================================
-
 /**
  * Rend l'interface de saisie simplifiée par flux (Caissier/User).
  */
@@ -948,14 +944,21 @@ function renderSaisieFormCaissier() {
 }
 
 // =================================================================================
-// 9. GESTION DES UTILISATEURS (ADMIN) ET VALIDATION
+// 8. GESTION DES UTILISATEURS (ADMIN) - Intégralité conservée
 // =================================================================================
 
 /**
  * Rend l'interface de gestion des utilisateurs (ADMIN uniquement).
  */
-function renderUserManagementView() {
+async function renderUserManagementView() {
     
+    // MOCK: Liste des entreprises complètes pour l'affectation
+    const allCompanies = await fetchUserCompanies({ multiEntreprise: true });
+    
+    const companyOptionsForSelect = allCompanies.map(comp => 
+        `<option value="${comp.id}">${comp.name} (${comp.id})</option>`
+    ).join('');
+
     // MOCK: Liste des utilisateurs
     const mockUsers = [
         { id: 'U1', email: 'collaborateur@test.com', role: ROLES.COLLABORATEUR, company: 'ENT_1 (Doukè Holdings)' },
@@ -970,26 +973,33 @@ function renderUserManagementView() {
             <td class="px-4 py-3 whitespace-nowrap font-medium text-info">${user.role}</td>
             <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">${user.company}</td>
             <td class="px-4 py-3 whitespace-nowrap text-right">
-                <button class="text-sm text-secondary hover:text-primary-dark" onclick="alert('Modifier les rôles de ${user.email}')"><i class="fas fa-user-edit mr-1"></i> Modifier</button>
+                <button class="text-sm text-secondary hover:text-primary-dark" onclick="alert('Fonctionnalité de MODIFICATION: Ouvrir le formulaire pour ${user.email}')"><i class="fas fa-user-edit mr-1"></i> Modifier</button>
             </td>
         </tr>
     `).join('');
 
     return `
         <div class="space-y-8">
-            <h2 class="text-3xl font-extrabold text-secondary">Tableau de Bord Administration</h2>
+            <h2 class="text-3xl font-extrabold text-secondary">Tableau de Bord Administration (Gestion des Accès)</h2>
             
             <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-                <h3 class="text-xl font-bold text-primary mb-4 border-b pb-2">Créer un Nouvel Utilisateur</h3>
-                <form id="create-user-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <h3 class="text-xl font-bold text-primary mb-4 border-b pb-2">Créer et Affecter un Nouvel Utilisateur</h3>
+                <form id="create-user-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <input type="email" placeholder="Email de l'utilisateur" id="new-user-email" required class="px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
-                    <select id="new-user-role" required class="px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    <select id="new-user-role" required class="px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white" onchange="handleRoleChange(this.value)">
+                        <option value="">-- Choisir Rôle --</option>
                         <option value="${ROLES.USER}">USER (Mono-entreprise)</option>
                         <option value="${ROLES.CAISSIER}">CAISSIER</option>
                         <option value="${ROLES.COLLABORATEUR}">COLLABORATEUR (Multi-entreprise)</option>
                         <option value="${ROLES.ADMIN}">ADMIN (Accès total)</option>
                     </select>
-                    <button type="submit" class="py-2 bg-success hover:bg-green-700 text-white font-bold rounded-lg"><i class="fas fa-user-plus mr-1"></i> Créer</button>
+                    
+                    <select id="new-user-company" class="px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                        <option value="none">Affectation (Laisser si Admin)</option>
+                        ${companyOptionsForSelect}
+                    </select>
+                    
+                    <button type="submit" class="py-2 bg-success hover:bg-green-700 text-white font-bold rounded-lg"><i class="fas fa-user-plus mr-1"></i> Créer et Affecter</button>
                 </form>
                 <p id="create-user-message" class="mt-3 text-center text-sm hidden"></p>
             </div>
@@ -1015,15 +1025,41 @@ function renderUserManagementView() {
         </div>
         
         <script>
+            function handleRoleChange(role) {
+                const companySelect = document.getElementById('new-user-company');
+                // Si l'utilisateur est un Admin, l'affectation d'une entreprise est facultative (Global)
+                if (role === 'ADMIN') {
+                     companySelect.selectedIndex = 0; // Réinitialise l'option à 'Affectation'
+                     companySelect.disabled = false;
+                } else if (role === 'COLLABORATEUR' || role === 'USER' || role === 'CAISSIER') {
+                     // Pour les autres rôles (Collaborateur, User, Caissier), une affectation est nécessaire
+                     companySelect.disabled = false;
+                     companySelect.selectedIndex = 1; // Sélectionne la première entreprise par défaut
+                } else {
+                     companySelect.disabled = true;
+                }
+            }
+            
             document.getElementById('create-user-form').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                const role = document.getElementById('new-user-role').value;
+                const company = document.getElementById('new-user-company').value;
+                const email = document.getElementById('new-user-email').value;
                 const msgElement = document.getElementById('create-user-message');
+                
+                if ((role === 'COLLABORATEUR' || role === 'USER' || role === 'CAISSIER') && company === 'none') {
+                    msgElement.textContent = "Veuillez affecter une entreprise pour ce rôle.";
+                    msgElement.classList.add('text-danger');
+                    msgElement.classList.remove('hidden');
+                    return;
+                }
+
                 msgElement.classList.remove('hidden', 'text-danger', 'text-success');
                 msgElement.textContent = "Création du compte en cours...";
 
                 // MOCK: Simulation de la création
                 
-                msgElement.textContent = \`✅ Utilisateur \${document.getElementById('new-user-email').value} (\${document.getElementById('new-user-role').value}) créé. (Mot de passe temporaire envoyé par API)\`;
+                msgElement.textContent = \`✅ Utilisateur \${email} (\${role}) créé et affecté à \${company} !\`;
                 msgElement.classList.add('text-success');
                 document.getElementById('create-user-form').reset();
                 setTimeout(() => msgElement.classList.add('hidden'), 5000);
