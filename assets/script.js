@@ -301,6 +301,9 @@ async function loadView(viewName) {
         default:
             dashboardContentArea.innerHTML = renderNotFound();
     }
+    // **NOUVEAU :** Exécuter la logique JavaScript après le rendu du contenu HTML
+    attachViewSpecificListeners(viewName);
+} // Fin de loadView
 }
 
 // =================================================================================
@@ -1106,6 +1109,132 @@ function renderSettingsView() {
     `;
 }
 
+// =================================================================================
+// 7.5 LOGIQUE DE GESTION POST-RENDU DES VUES
+// =================================================================================
+
+/**
+ * Attache les gestionnaires d'événements spécifiques aux formulaires après leur rendu.
+ * Doit être appelée à la fin de loadView.
+ * @param {string} viewName - La vue qui vient d'être chargée.
+ */
+function attachViewSpecificListeners(viewName) {
+    if (viewName === 'journal-entry') {
+        const form = document.getElementById('journal-entry-form');
+        if (form) {
+            // Logique de Saisie d'Écriture Journal (Débit/Crédit)
+            const updateTotals = () => {
+                let totalDebit = 0;
+                let totalCredit = 0;
+                
+                document.querySelectorAll('.debit-input').forEach(input => {
+                    totalDebit += parseFloat(input.value || 0);
+                });
+                
+                document.querySelectorAll('.credit-input').forEach(input => {
+                    totalCredit += parseFloat(input.value || 0);
+                });
+                
+                const diff = Math.abs(totalDebit - totalCredit);
+                
+                document.getElementById('total-debit').textContent = totalDebit.toLocaleString('fr-FR') + ' XOF';
+                document.getElementById('total-credit').textContent = totalCredit.toLocaleString('fr-FR') + ' XOF';
+                
+                const balanceCheck = document.getElementById('balance-check');
+                balanceCheck.classList.remove('text-success', 'text-danger');
+                
+                if (diff === 0) {
+                    balanceCheck.innerHTML = '<i class="fas fa-balance-scale mr-2"></i> ÉQUILIBRÉ';
+                    balanceCheck.classList.add('text-success');
+                } else {
+                    balanceCheck.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> DÉSÉQUILIBRÉ (${diff.toLocaleString('fr-FR')} XOF)`;
+                    balanceCheck.classList.add('text-danger');
+                }
+            };
+            
+            // Attacher les écouteurs aux inputs existants et futurs
+            form.addEventListener('input', (e) => {
+                if (e.target.classList.contains('debit-input') || e.target.classList.contains('credit-input')) {
+                    updateTotals();
+                }
+            });
+            
+            // Initialisation des totaux
+            updateTotals();
+            
+            // Logique d'ajout de ligne comptable
+            window.addAccountingLine = function() {
+                const accountingLines = document.getElementById('accounting-lines');
+                const newRowHtml = `
+                    <tr class="line-item">
+                        <td class="px-3 py-2 whitespace-nowrap">
+                            <input type="text" placeholder="Ex: 601" class="w-20 border-b dark:bg-gray-800 dark:text-white" required>
+                        </td>
+                         <td class="px-3 py-2 whitespace-nowrap">
+                            <input type="text" placeholder="Libellé de l'opération" class="w-full border-b dark:bg-gray-800 dark:text-white" required>
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap">
+                            <input type="number" step="0.01" value="" class="w-full debit-input border-b dark:bg-gray-800 dark:text-white text-right">
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap">
+                            <input type="number" step="0.01" value="" class="w-full credit-input border-b dark:bg-gray-800 dark:text-white text-right">
+                        </td>
+                    </tr>
+                `;
+                accountingLines.insertAdjacentHTML('beforeend', newRowHtml);
+                updateTotals(); // Mettre à jour après ajout
+            };
+            
+            // Soumission du formulaire
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const msgElement = document.getElementById('saisie-message');
+                msgElement.classList.remove('hidden', 'text-danger', 'text-success');
+                
+                const totalDebitText = document.getElementById('total-debit').textContent;
+                const totalCreditText = document.getElementById('total-credit').textContent;
+                
+                // Nettoyer pour la conversion
+                const totalDebit = parseFloat(totalDebitText.replace(/[^\d,\.]/g, '').replace(',', '.')); 
+                const totalCredit = parseFloat(totalCreditText.replace(/[^\d,\.]/g, '').replace(',', '.'));
+                
+                if (Math.abs(totalDebit - totalCredit) > 0.01) { 
+                    msgElement.textContent = "❌ L'écriture n'est pas équilibrée (Débit ≠ Crédit). Correction requise.";
+                    msgElement.classList.add('text-danger');
+                } else {
+                    msgElement.textContent = `✅ Écriture Journal (TR) enregistrée avec succès pour ${window.userContext.entrepriseContextName}. Soumise à validation.`;
+                    msgElement.classList.remove('text-danger');
+                    msgElement.classList.add('text-success');
+                     setTimeout(() => {
+                         msgElement.classList.add('hidden');
+                         form.reset();
+                         updateTotals(); // Réinitialiser les totaux
+                     }, 4000);
+                }
+            });
+        }
+    } 
+    
+    else if (viewName === 'saisie') {
+        const fluxForm = document.getElementById('simple-flux-form');
+        if (fluxForm) {
+             // Logique de Saisie Simplifiée des Flux
+             fluxForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const msgElement = document.getElementById('flux-message');
+                const fluxType = document.getElementById('flux-type').value === 'recette' ? 'Recette' : 'Dépense';
+                
+                msgElement.classList.remove('hidden', 'text-danger', 'text-success');
+                msgElement.textContent = `✅ ${fluxType} enregistrée pour ${window.userContext.entrepriseContextName}. ${fluxType === 'Dépense' ? 'Soumise à validation.' : ''}`;
+                msgElement.classList.add('text-success');
+                 setTimeout(() => {
+                     msgElement.classList.add('hidden');
+                     fluxForm.reset();
+                 }, 4000);
+            });
+        }
+    }
+}
 // =================================================================================
 // 8. INITIALISATION ET GESTIONNAIRE D'ÉVÉNEMENTS (AJOUT CRITIQUE)
 // =================================================================================
