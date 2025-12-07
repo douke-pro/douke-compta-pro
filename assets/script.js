@@ -1105,3 +1105,54 @@ function renderSettingsView() {
         </div>
     `;
 }
+
+// =================================================================================
+// 8. INITIALISATION ET GESTIONNAIRE D'ÉVÉNEMENTS (AJOUT CRITIQUE)
+// =================================================================================
+
+/**
+ * Attache les gestionnaires d'événements DOM nécessaires au chargement de la page.
+ */
+function attachEventListeners() {
+    const loginForm = document.getElementById('login-form');
+    const loginMessage = document.getElementById('login-message');
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            // Password est ignoré pour le MOCK, mais l'élément doit être présent dans l'HTML
+            // const password = document.getElementById('password').value; 
+            
+            loginMessage.textContent = 'Connexion en cours...';
+            loginMessage.classList.remove('hidden', 'text-danger');
+            
+            const userContext = await authenticateUser(email);
+
+            if (userContext) {
+                loginMessage.textContent = 'Connexion réussie ! Redirection...';
+                initDashboard(userContext); // Démarre l'application
+            } else {
+                loginMessage.textContent = '❌ Échec de la connexion. Email/Mot de passe invalide.';
+                loginMessage.classList.add('text-danger');
+            }
+        });
+    }
+
+    // Gestionnaire pour le bouton de déconnexion
+    const logoutButton = document.getElementById('logout-button');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.userContext = null;
+            document.getElementById('app').classList.add('hidden');
+            document.getElementById('login-modal').classList.remove('hidden');
+            // Recharger la page pour réinitialiser complètement l'état
+            window.location.reload(); 
+        });
+    }
+}
+
+// Démarre l'écoute des événements lorsque le DOM est complètement chargé
+document.addEventListener('DOMContentLoaded', attachEventListeners);
