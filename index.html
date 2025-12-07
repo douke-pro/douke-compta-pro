@@ -60,7 +60,7 @@
                 </div>
                 <div id="company-context" class="text-right">
                     <p class="text-sm text-gray-600 dark:text-gray-400">Entreprise Actuelle:</p>
-                    <p id="context-company-name" class="text-lg font-extrabold text-primary"></p>
+                    <p id="context-company-name" class="text-lg font-extrabold text-primary">-- Globale --</p>
                 </div>
             </header>
 
@@ -76,13 +76,9 @@
             
             <form id="login-form" class="space-y-4">
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email (Rôle de Test)</label>
-                    <select id="email" required class="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white">
-                        <option value="admin@app.com">Admin (Multi-Entreprise/Total)</option>
-                        <option value="collaborateur@app.com">Collaborateur (Multi-Entreprise)</option>
-                        <option value="user@app.com">User (Mono-Entreprise)</option>
-                        <option value="caissier@app.com">Caissier (Mono-Caisse)</option>
-                    </select>
+                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                    <input type="email" id="email" required placeholder="Ex: admin@app.com" class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Utilisez `admin@app.com`, `collaborateur@app.com`, `user@app.com` ou `caissier@app.com` pour tester les rôles.</p>
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mot de Passe</label>
@@ -187,7 +183,8 @@
                 return;
             }
             
-            msgElement.textContent = "✅ Enregistrement réussi ! Redirection vers la connexion...";
+            // Simuler l'enregistrement de l'entreprise et de l'Admin
+            msgElement.textContent = "✅ Demande d'enregistrement réussie. En attente de validation Administrateur Système...";
             msgElement.classList.remove('text-danger');
             msgElement.classList.add('text-success');
 
@@ -196,7 +193,7 @@
                 toggleRegisterForm();
                 msgElement.classList.add('hidden');
                 document.getElementById('register-form').reset();
-            }, 2000);
+            }, 3000);
         });
     </script>
 </body>
