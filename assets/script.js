@@ -1,1101 +1,1116 @@
-// =================================================================================
-// FICHIER : assets/script.js
-// Description : Gère la connexion, l'inscription, la navigation et le contexte.
-// VERSION : FINALE & COMPLÈTE V2.1 - Correction Context USER/CAISSIER + Logique Dashboard.
-// =================================================================================
-
-const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; 
-window.userContext = null; 
-
-const OPERATIONAL_VIEWS = ['saisie', 'validation', 'generate-etats', 'reports'];
-
-// 🚨 Jeton mocké pour le contournement (utilisé si l'API ne renvoie pas de corps)
-const MOCK_TOKEN_ADMIN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dGlsaXNhdGV1cklkIjoiQkZBX1FBRCIsInV0aWxpc2F0ZXVyUm9sZSI6IkFETUlOIiwiY29udGV4dElEIjoiRU5UXzEiLCJjb250ZXh0TmFtZSI6IkRvdWvDqSBTacOodWdlIiwiaWF0IjoxNjcwMDAwMDAwfQ.XYZ123ABC_ADMIN_MOCK_TOKEN";
-const MOCK_TOKEN_USER = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dGlsaXNhdGV1cklkIjoiQkZBX1VTRVIiLCJ1dGlsaXNhdGV1clJvbGUiOiJVU0VSIiwiaWF0IjoxNjcwMDAwMDAwfQ.XYZ123ABC_USER_MOCK_TOKEN";
-
-
-// =================================================================================
-// 1. GESTION DES VUES D'AUTHENTIFICATION/INSCRIPTION
-// =================================================================================
-
-function renderLoginView() {
-    document.getElementById('auth-view').classList.remove('hidden');
-    document.getElementById('register-view').classList.add('hidden');
-}
-
-function renderRegisterView() {
-    document.getElementById('auth-view').classList.add('hidden');
-    document.getElementById('register-view').classList.remove('hidden');
-    document.getElementById('register-error-message').classList.add('hidden');
-}
-
-// =================================================================================
-// 2. LOGIQUE API D'AUTHENTIFICATION ET D'INSCRIPTION (Contournements inclus)
-// =================================================================================
-
 /**
- * Tente de se connecter en envoyant les identifiants à l'API.
- * 🚨 APPLICATION DU CONTOURNEMENT.
+ * Fichier de Script Principal - K-Compta Dashboard
+ * Intègre la logique de connexion, le routage, le contexte utilisateur
+ * et les rendus spécifiques aux rôles (Admin, Collaborateur, User, Caissier).
+ *
+ * Version: 2.3 (Intégration SYSCOHADA, Saisie Double-Entrée, Saisie Flux, Corrections d'Incohérence)
  */
-async function handleLogin(username, password) {
-    const endpoint = `${API_BASE_URL}/auth/login`; 
-    
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
 
-        const responseText = await response.text();
-        let data = {};
-        
-        if (responseText) {
-            try {
-                data = JSON.parse(responseText);
-            } catch (e) {
-                console.warn("API Login a renvoyé un statut OK mais un JSON invalide/vide. Activation du mode de contournement.");
-            }
-        } 
+// =================================================================================
+// 1. CONFIGURATION ET VARIABLES GLOBALES
+// =================================================================================
 
-        // ----------------------------------------------------------------------
-        // 🚨 LOGIQUE DE CONTOURNEMENT POUR LA CONNEXION 
-        // ----------------------------------------------------------------------
-        if (response.ok && (!data.token || !data.user)) {
-            console.error(`Connexion réussie (Statut: ${response.status}) mais jeton/corps manquant. Utilisation du jeton Mock.`);
-            
-            // Simulation des données utilisateur basées sur l'utilisateur connu (doukepro ou admin)
-            if (username === 'doukepro@gmail.com' || username === 'admin') {
-                return {
-                    utilisateurRole: 'ADMIN',
-                    utilisateurId: 'USER_ADMIN_PRO',
-                    token: MOCK_TOKEN_ADMIN, 
-                    entrepriseContextId: null, // ADMIN commence sans contexte
-                    entrepriseContextName: 'Aucune sélectionnée',
-                };
-            }
-            // Simulation pour le collaborateur mocké
-            if (username === 'collaborateur' || username === 'collab@douke.com') {
-                 return {
-                    utilisateurRole: 'COLLABORATEUR',
-                    utilisateurId: 'USER_2',
-                    token: MOCK_TOKEN_USER, 
-                    entrepriseContextId: null, // COLLABORATEUR commence sans contexte
-                    entrepriseContextName: 'Aucune sélectionnée',
-                };
-            }
-            // Simulation pour l'utilisateur (Rôle Mono-entreprise : A un contexte défini)
-            if (username === 'utilisateur' || username === 'user@douke.com') {
-                 return {
-                    utilisateurRole: 'USER',
-                    utilisateurId: 'USER_3',
-                    token: MOCK_TOKEN_USER, 
-                    entrepriseContextId: 'ENT_2',
-                    entrepriseContextName: 'MonEntrepriseSarl',
-                };
-            }
-            // Simulation pour le caissier (Rôle Mono-entreprise : A un contexte défini)
-            if (username === 'caissier' || username === 'caisse@douke.com') {
-                 return {
-                    utilisateurRole: 'CAISSIER',
-                    utilisateurId: 'USER_4',
-                    token: MOCK_TOKEN_USER, 
-                    entrepriseContextId: 'ENT_3',
-                    entrepriseContextName: 'CaisseTest',
-                };
-            }
-        }
-        // ----------------------------------------------------------------------
-        
-        // Chemin normal (si le token est dans la réponse)
-        if (response.ok && data.token) {
-            const user = data.user || {}; 
-            
-            let context = {
-                utilisateurRole: user.role, 
-                utilisateurId: user.id,
-                token: data.token,
-                // Si l'API renvoie un contexte (USER/CAISSIER) ou si c'est ADMIN/COLLAB sans contexte initial
-                entrepriseContextId: user.entrepriseId || null, 
-                entrepriseContextName: user.entrepriseName || "Aucune sélectionnée",
-            };
+const API_BASE_URL = 'http://api.k-compta.mock'; // URL de base API (mockée)
+window.userContext = null;
 
-            return context;
-        } else {
-            const errorMsg = data.message || "Identifiants incorrects ou jeton manquant.";
-            throw new Error(errorMsg);
-        }
+// Rôles et leurs permissions
+const ROLES = {
+    ADMIN: 'ADMIN',
+    COLLABORATEUR: 'COLLABORATEUR',
+    USER: 'USER',
+    CAISSIER: 'CAISSIER',
+};
 
-    } catch (error) {
-        throw new Error(error.message === 'Failed to fetch' ? "Serveur API injoignable ou URL incorrecte." : error.message);
-    }
-}
+// =================================================================================
+// 2. FONCTIONS DE CONTEXTE ET D'AUTHENTIFICATION (MOCKÉES)
+// =================================================================================
 
 /**
- * Tente d'inscrire un nouvel utilisateur et de créer son entreprise.
+ * Simule la connexion utilisateur et retourne un contexte.
+ * @param {string} email - L'email de l'utilisateur (utilisé comme rôle de test).
+ * @returns {object|null} - Le contexte utilisateur mocké.
  */
-async function handleRegistration(payload) {
-    const endpoint = `${API_BASE_URL}/auth/register`; 
-    
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+async function authenticateUser(email) {
+    // MOCK: Simule le délai API
+    await new Promise(resolve => setTimeout(resolve, 500)); 
 
-        const responseText = await response.text();
-        let data = {};
+    const userMap = {
+        'admin@app.com': {
+            utilisateurId: 'ADM_001',
+            utilisateurNom: 'Jean Dupont (Admin)',
+            utilisateurRole: ROLES.ADMIN,
+            token: 'jwt.admin.token',
+            entrepriseContextId: 'ENT_1', // Par défaut
+            entrepriseContextName: 'Doukè Holdings', // Par défaut
+            multiEntreprise: true,
+        },
+        'collaborateur@app.com': {
+            utilisateurId: 'COL_002',
+            utilisateurNom: 'Marie Leroy (Collab)',
+            utilisateurRole: ROLES.COLLABORATEUR,
+            token: 'jwt.collab.token',
+            entrepriseContextId: 'ENT_2', // Par défaut
+            entrepriseContextName: 'MonEntrepriseSarl', // Par défaut
+            multiEntreprise: true,
+        },
+        'user@app.com': {
+            utilisateurId: 'USR_003',
+            utilisateurNom: 'Koffi Adama (User)',
+            utilisateurRole: ROLES.USER,
+            token: 'jwt.user.token',
+            entrepriseContextId: 'ENT_2', // Mono-entreprise
+            entrepriseContextName: 'MonEntrepriseSarl', // Nom de l'unique entreprise
+            multiEntreprise: false,
+        },
+        'caissier@app.com': {
+            utilisateurId: 'CAI_004',
+            utilisateurNom: 'Fatou Diallo (Caissier)',
+            utilisateurRole: ROLES.CAISSIER,
+            token: 'jwt.caissier.token',
+            entrepriseContextId: 'ENT_3', // Mono-entreprise / Caisse
+            entrepriseContextName: 'CaisseTest', // Nom de l'unique entreprise
+            multiEntreprise: false,
+        },
+    };
 
-        if (responseText) {
-            try {
-                data = JSON.parse(responseText);
-            } catch (e) {
-                console.warn(`API Register a renvoyé un statut OK mais un JSON invalide/vide. Activation du mode de contournement.`);
-            }
-        } 
-        
-        if (!response.ok) {
-            const errorMsg = data.message || `Erreur lors de la création du compte (Code: ${response.status}).`;
-            throw new Error(errorMsg);
-        }
-        
-        // SUCCESS PATH (response.ok is true)
-        
-        let tokenFinal = data.token;
-        
-        // 🚨 LOGIQUE DE CONTOURNEMENT DE L'INSCRIPTION
-        if (!tokenFinal) {
-             tokenFinal = MOCK_TOKEN_USER; 
-             console.warn("⚠️ CONTOURNEMENT ACTIF : Jeton et informations de contexte simulés pour l'inscription (Front-end utilise le payload).");
-        }
-
-
-        if (tokenFinal) { 
-            const userRole = data.user ? data.user.role : 'USER';
-            // Utiliser le payload si l'API n'a pas renvoyé le corps (Problème Render)
-            const companyName = data.company ? data.company.name : payload.companyName; 
-            const companyId = data.company ? data.company.id : 'ENT_MOCK_' + Math.random().toString(36).substring(2, 7);
-
-            let context = {
-                utilisateurRole: userRole, 
-                utilisateurId: data.user ? data.user.id : 'USER_MOCK',
-                token: tokenFinal, 
-                entrepriseContextId: companyId, 
-                entrepriseContextName: companyName,
-            };
-            
-            return context;
-        } else {
-            throw new Error("Erreur critique : Le serveur a échoué et le contournement n'a pas pu être appliqué.");
-        }
-
-    } catch (error) {
-        throw new Error(error.message === 'Failed to fetch' ? "Serveur API injoignable pour l'inscription." : error.message);
-    }
+    return userMap[email] || null;
 }
 
-
 /**
- * Récupère la liste des entreprises pour les rôles multi-entreprises.
- * Retourne un tableau vide [] en cas d'échec ou de réponse vide.
+ * Simule la récupération des entreprises accessibles à l'utilisateur.
+ * @param {object} context - Le contexte utilisateur.
+ * @returns {Array} - Liste mockée des entreprises avec leurs stats.
  */
 async function fetchUserCompanies(context) {
-    if (!context || !context.token) return [];
-    
-    const endpoint = `${API_BASE_URL}/user/companies`; 
-    
-    try {
-        const response = await fetch(endpoint, {
-            method: 'GET',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${context.token}` 
-            },
-        });
-        
-        // Lecture ultra-robuste de la réponse (pour gérer les réponses 200/204 sans corps)
-        const responseText = await response.text();
-        if (!responseText) {
-            console.warn("Récupération des entreprises: Réponse serveur vide ou 204.");
-            return [];
-        }
-        
-        const data = JSON.parse(responseText); 
-        
-        if (response.ok && Array.isArray(data)) {
-            return data; 
-        } else {
-            console.error("Erreur de récupération des entreprises:", data.message || "Erreur inconnue");
-            return [];
-        }
+    // MOCK: Simule le délai API
+    await new Promise(resolve => setTimeout(resolve, 300));
 
-    } catch (error) {
-        console.error("Erreur de communication API lors de la récupération des entreprises:", error);
-        return [];
+    // Si mono-entreprise, retourne juste l'entreprise en cours (pour la cohérence)
+    if (!context.multiEntreprise) {
+        return [{
+            id: context.entrepriseContextId,
+            name: context.entrepriseContextName,
+            stats: { transactions: 50, result: 1200000, pending: 2, cash: 800000 }
+        }];
+    }
+
+    // MOCK: Liste pour Multi-Entreprise (Admin/Collaborateur)
+    return [
+        { id: 'ENT_1', name: 'Doukè Holdings', stats: { transactions: 150, result: 3500000, pending: 1, cash: 2500000 } },
+        { id: 'ENT_2', name: 'MonEntrepriseSarl', stats: { transactions: 50, result: 1200000, pending: 2, cash: 800000 } },
+        { id: 'ENT_3', name: 'CaisseTest', stats: { transactions: 20, result: 50000, pending: 0, cash: 100000 } },
+    ];
+}
+
+/**
+ * Change l'entreprise contextuelle pour un utilisateur multi-entreprise.
+ * @param {string} newId - ID de la nouvelle entreprise.
+ * @param {string} newName - Nom de la nouvelle entreprise.
+ */
+async function changeCompanyContext(newId, newName) {
+    if (window.userContext.multiEntreprise) {
+        window.userContext.entrepriseContextId = newId;
+        window.userContext.entrepriseContextName = newName;
+        // On recharge le dashboard pour appliquer le nouveau contexte
+        await loadView('dashboard');
+        updateHeaderContext(window.userContext);
     }
 }
 
-
 // =================================================================================
-// 3. GESTION DES ÉVÉNEMENTS DOM
-// =================================================================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form'); 
-    const logoutButton = document.getElementById('logout-button');
-    const authErrorMessage = document.getElementById('auth-error-message');
-    const registerErrorMessage = document.getElementById('register-error-message');
-
-    // Gestion de la CONNEXION 
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault(); 
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            authErrorMessage.textContent = 'Connexion en cours...';
-            authErrorMessage.classList.remove('hidden', 'text-danger');
-            
-            try {
-                const payload = await handleLogin(username, password);
-
-                window.userContext = payload;
-                authErrorMessage.classList.add('hidden');
-                
-                document.getElementById('auth-view').classList.add('hidden');
-                document.getElementById('dashboard-view').classList.remove('hidden');
-
-                renderDashboard(window.userContext);
-                
-                document.getElementById('current-company-name').textContent = window.userContext.entrepriseContextName;
-
-            } catch (error) {
-                authErrorMessage.textContent = error.message;
-                authErrorMessage.classList.remove('hidden');
-                authErrorMessage.classList.add('text-danger');
-            }
-        });
-    }
-    
-    // Gestion de l'INSCRIPTION 
-    if (registerForm) {
-        registerForm.addEventListener('submit', async function(e) {
-            e.preventDefault(); 
-            
-            const password = document.getElementById('reg-password').value;
-            const passwordConfirm = document.getElementById('reg-password-confirm').value;
-
-            if (password !== passwordConfirm) {
-                registerErrorMessage.textContent = '❌ Erreur de sécurité: Les deux mots de passe ne correspondent pas.';
-                registerErrorMessage.classList.remove('hidden');
-                registerErrorMessage.classList.add('text-danger');
-                return; 
-            }
-
-            const payload = {
-                username: document.getElementById('reg-username').value,
-                password: password, 
-                email: document.getElementById('reg-email').value,
-                companyName: document.getElementById('reg-company-name').value,
-                companyNif: document.getElementById('reg-company-nif').value,
-                companyStatus: document.getElementById('reg-company-status').value,
-            };
-            
-            registerErrorMessage.textContent = 'Inscription et création d\'entreprise en cours...';
-            registerErrorMessage.classList.remove('hidden', 'text-danger');
-            
-            try {
-                const context = await handleRegistration(payload);
-
-                window.userContext = context;
-                registerErrorMessage.classList.add('hidden');
-                
-                document.getElementById('register-view').classList.add('hidden');
-                document.getElementById('dashboard-view').classList.remove('hidden');
-
-                renderDashboard(window.userContext);
-                
-                document.getElementById('current-company-name').textContent = window.userContext.entrepriseContextName;
-                
-                const welcomeMessage = `
-✅ Inscription Réussie ! Bienvenue chez Doukè Compta Pro.
-Votre entreprise "${context.entrepriseContextName}" a été créée et votre compte est actif (Rôle: ${context.utilisateurRole}).
-`;
-                alert(welcomeMessage);
-
-
-            } catch (error) {
-                registerErrorMessage.textContent = error.message;
-                registerErrorMessage.classList.remove('hidden');
-                registerErrorMessage.classList.add('text-danger');
-            }
-        });
-    }
-
-    if (logoutButton) {
-        logoutButton.addEventListener('click', function() {
-            window.userContext = null;
-            document.getElementById('dashboard-view').classList.add('hidden');
-            renderLoginView(); 
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-            authErrorMessage.classList.add('hidden');
-            document.getElementById('current-company-name').textContent = 'Nom de l\'Entreprise';
-            window.location.hash = ''; 
-        });
-    }
-});
-
-
-// =================================================================================
-// 4. FONCTIONS DE RENDU ET DE NAVIGATION
+// 3. GESTION DE LA VUE ET DU CONTEXTE UTILISATEUR
 // =================================================================================
 
-function loadView(viewName) {
-    const dashboardContentArea = document.getElementById('dashboard-content-area');
-    dashboardContentArea.innerHTML = '';
-    const contextMessage = document.getElementById('context-message');
-    
-    if (!window.userContext) {
-        return; 
+/**
+ * Initialise l'interface utilisateur après une connexion réussie.
+ * @param {object} context - Le contexte utilisateur.
+ */
+function initDashboard(context) {
+    window.userContext = context;
+    document.getElementById('login-modal').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+
+    updateHeaderContext(context);
+    updateNavigationMenu(context.utilisateurRole);
+
+    // Charge la vue par défaut (Dashboard)
+    loadView('dashboard');
+}
+
+/**
+ * Met à jour le header avec les informations contextuelles de l'utilisateur.
+ * @param {object} context - Le contexte utilisateur.
+ */
+function updateHeaderContext(context) {
+    document.getElementById('welcome-message').textContent = `Bonjour, ${context.utilisateurNom.split(' ')[0]}`;
+    document.getElementById('user-role-display').textContent = context.utilisateurRole;
+    document.getElementById('context-company-name').textContent = context.entrepriseContextName;
+}
+
+/**
+ * Construit le menu de navigation en fonction du rôle.
+ * @param {string} role - Le rôle de l'utilisateur.
+ */
+function updateNavigationMenu(role) {
+    const navMenu = document.getElementById('nav-menu');
+    navMenu.innerHTML = ''; // Nettoyer le menu existant
+
+    let baseItems = [
+        { name: 'Tableau de Bord', icon: 'fas fa-chart-line', view: 'dashboard' },
+        // La saisie simple est pour tout le monde (Caissier/User/Comptable)
+        { name: 'Saisie des Flux (Simple)', icon: 'fas fa-cash-register', view: 'saisie' },
+    ];
+
+    if (role === ROLES.USER || role === ROLES.COLLABORATEUR || role === ROLES.ADMIN) {
+        // Le formulaire professionnel multi-lignes pour les comptables
+        baseItems.push({ name: 'Saisie d\'Écriture Journal', icon: 'fas fa-table', view: 'journal-entry' });
+        baseItems.push({ name: 'Générer États Financiers', icon: 'fas fa-file-invoice-dollar', view: 'reports' });
+        baseItems.push({ name: 'Validation Opérations', icon: 'fas fa-check-double', view: 'validation' });
+    }
+
+    if (role === ROLES.ADMIN) {
+        baseItems.push({ name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog', view: 'user-management' });
+        baseItems.push({ name: 'Paramètres du Système', icon: 'fas fa-cogs', view: 'settings' });
     }
     
-    const isMultiEnterpriseUser = window.userContext.utilisateurRole === 'ADMIN' || window.userContext.utilisateurRole === 'COLLABORATEUR';
+    // Création des liens
+    baseItems.forEach(item => {
+        const link = document.createElement('a');
+        link.href = '#';
+        link.className = 'nav-link block p-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200';
+        link.dataset.view = item.view;
+        link.innerHTML = `<i class="${item.icon} mr-3"></i>${item.name}`;
+        link.onclick = (e) => {
+            e.preventDefault();
+            loadView(item.view);
+        };
+        navMenu.appendChild(link);
+    });
+
+    // Option de mode clair/sombre pour le mobile
+    const themeToggle = document.getElementById('toggle-theme');
+    if (themeToggle) themeToggle.onclick = toggleTheme;
+}
+
+/**
+ * Fonction de routage simple basée sur le nom de la vue.
+ * @param {string} viewName - La vue à charger.
+ */
+async function loadView(viewName) {
+    const dashboardContentArea = document.getElementById('dashboard-content');
+    dashboardContentArea.innerHTML = '<div class="text-center p-8 text-lg text-info dark:text-primary"><i class="fas fa-spinner fa-spin mr-2"></i> Chargement...</div>';
+
+    // Désactiver/Réactiver les liens de navigation (pour l'état actif)
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('bg-primary', 'text-white', 'font-bold', 'dark:bg-primary');
+        if (link.dataset.view === viewName) {
+            link.classList.add('bg-primary', 'text-white', 'font-bold', 'dark:bg-primary');
+        } else {
+            link.classList.add('text-gray-700', 'dark:text-gray-300');
+        }
+    });
     
-    if (isMultiEnterpriseUser && !window.userContext.entrepriseContextId && OPERATIONAL_VIEWS.includes(viewName)) {
-        alert("🚨 Opération Bloquée. Vous devez d'abord sélectionner une entreprise pour procéder à cette action.");
-        
-        return renderEnterpriseSelectorView(viewName); 
-    }
-    
+    // Logique de rendu des vues
     switch (viewName) {
         case 'dashboard':
-            renderDashboard(window.userContext); 
+            dashboardContentArea.innerHTML = await renderDashboard(window.userContext);
             break;
-        case 'saisie':
-            dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Saisie Comptable</h3><p class="text-lg">Page de saisie des écritures pour **${window.userContext.entrepriseContextName}**.</p>`;
-            contextMessage.textContent = `Saisie des opérations pour l'exercice courant de ${window.userContext.entrepriseContextName}.`;
+            
+        case 'saisie': // Formulaire Caissier/User (Flux Simple)
+            dashboardContentArea.innerHTML = renderSaisieFormCaissier();
+            if (window.userContext.entrepriseContextId) {
+                document.getElementById('context-message').textContent = `Saisie simple d'une nouvelle opération pour ${window.userContext.entrepriseContextName}.`;
+            } else {
+                 document.getElementById('context-message').textContent = `Saisie simple d'une nouvelle opération.`;
+            }
             break;
+            
+        case 'journal-entry': // Formulaire Comptable (Double-Entrée)
+            dashboardContentArea.innerHTML = renderJournalEntryForm(); 
+            document.getElementById('context-message').textContent = `Saisie d'une écriture journal à double-entrée pour ${window.userContext.entrepriseContextName}.`;
+            break;
+            
         case 'validation':
-            dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Validation des Opérations</h3><p class="text-lg">Liste des opérations en attente de validation pour **${window.userContext.entrepriseContextName}**.</p>${generateValidationTable()}`;
-            contextMessage.textContent = `Tableau des mouvements à valider pour ${window.userContext.entrepriseContextName}.`;
+            dashboardContentArea.innerHTML = generateValidationTable();
+            document.getElementById('context-message').textContent = `Validation des opérations en attente pour ${window.userContext.entrepriseContextName}.`;
             break;
-        case 'user-management':
-            if (window.userContext.utilisateurRole === 'ADMIN') {
-                dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Gestion des Utilisateurs</h3><p class="text-lg">Interface complète de gestion des rôles et des accès.</p>`;
-                contextMessage.textContent = `Administration système.`;
-            }
-            break;
-        case 'create-company': 
-            if (window.userContext.utilisateurRole === 'ADMIN') {
-                renderCreateCompanyView();
-            }
-            break;
+            
         case 'reports':
-             dashboardContentArea.innerHTML = `<h3 class="text-3xl font-bold mb-4">Rapports Financiers</h3><p class="text-lg">Génération de la Balance, Grand Livre et autres rapports pour **${window.userContext.entrepriseContextName}**.</p>`;
-             contextMessage.textContent = `Consultation des documents légaux de ${window.userContext.entrepriseContextName}.`;
-             break;
+            dashboardContentArea.innerHTML = renderReportsView();
+            document.getElementById('context-message').textContent = `Génération des états financiers (Bilan, TCR, etc.).`;
+            break;
+
+        case 'user-management':
+            if (window.userContext.utilisateurRole === ROLES.ADMIN) {
+                dashboardContentArea.innerHTML = renderUserManagementView();
+                document.getElementById('context-message').textContent = `Administration: Gestion des utilisateurs, des rôles et des attributions d'entreprise.`;
+            } else {
+                 dashboardContentArea.innerHTML = renderAccessDenied();
+            }
+            break;
+            
         default:
-            dashboardContentArea.innerHTML = `<p class="text-danger">Vue **${viewName}** non implémentée.</p>`;
-            contextMessage.textContent = `Erreur de navigation.`;
+            dashboardContentArea.innerHTML = renderNotFound();
     }
 }
 
+// =================================================================================
+// 4. RENDUS DES DASHBOARDS SPÉCIFIQUES (Base sur le Rôle)
+// =================================================================================
 
-async function renderEnterpriseSelectorView(blockedViewName = null) {
-    const dashboardContentArea = document.getElementById('dashboard-content-area');
-    dashboardContentArea.innerHTML = `
-        <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl text-center">
-            <i class="fas fa-spinner fa-spin fa-3x text-primary mb-4"></i>
-            <h2 class="text-2xl font-extrabold text-primary">Chargement des entreprises...</h2>
-            <p class="text-gray-600 dark:text-gray-400">Récupération de la liste des entreprises depuis l'API sécurisée.</p>
-        </div>
-    `;
-
-    try {
-        const companies = await fetchUserCompanies(window.userContext);
-        
-        const role = window.userContext.utilisateurRole;
-        let companyListHTML;
-
-        if (companies.length === 0) {
-            companyListHTML = `
-                <div class="p-6 text-center bg-warning bg-opacity-10 rounded-xl">
-                    <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
-                    <p class="text-warning font-semibold">Aucune entreprise trouvée.</p>
-                    <p class="text-sm text-gray-700 dark:text-gray-300 mt-2">Vérifiez l'endpoint /user/companies et votre base de données mockée.</p>
-                </div>
-            `;
-        } else {
-            companyListHTML = companies.map(company => {
-                const transactions = company.stats && company.stats.transactions ? company.stats.transactions : 'N/A';
-                const active_users = company.stats && company.stats.active_users ? company.stats.active_users : 'N/A';
-                
-                return `
-                    <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition duration-300 transform hover:scale-[1.01] cursor-pointer border-l-4 border-primary hover:border-secondary" 
-                         data-company-id="${company.id}" data-company-name="${company.name}">
-                        <h4 class="text-xl font-bold text-primary dark:text-primary-light mb-2">${company.name}</h4>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${company.id}</p>
-                        <div class="mt-4 flex justify-between text-sm">
-                            <span class="text-info"><i class="fas fa-users"></i> Utilisateurs actifs: ${active_users}</span>
-                            <span class="text-success"><i class="fas fa-chart-bar"></i> Transactions récentes: ${transactions}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        dashboardContentArea.innerHTML = `
-            <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
-                <h2 class="text-3xl font-extrabold text-danger mb-2">Sélectionner un Contexte d'Entreprise</h2>
-                <p class="text-lg text-gray-600 dark:text-gray-400 mb-6 border-b pb-4">
-                    ${blockedViewName ? `<strong class="text-danger">Action Bloquée:</strong> Vous ne pouvez pas accéder à la fonctionnalité "${blockedViewName.toUpperCase()}"` : 'Avant de procéder à toute opération comptable,'} en tant que **${role}**, vous devez choisir l'entreprise sur laquelle vous souhaitez travailler.
-                </p>
-                <div id="company-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    ${companyListHTML}
-                </div>
-            </div>
-        `;
-        
-        dashboardContentArea.querySelectorAll('[data-company-id]').forEach(element => {
-            element.addEventListener('click', function() {
-                const companyId = this.getAttribute('data-company-id');
-                const companyName = this.getAttribute('data-company-name');
-                
-                window.userContext.entrepriseContextId = companyId;
-                window.userContext.entrepriseContextName = companyName;
-
-                document.getElementById('current-company-name').textContent = companyName;
-                
-                loadView('dashboard'); 
-            });
-        });
-        
-    } catch (error) {
-        dashboardContentArea.innerHTML = `
-            <div class="max-w-4xl mx-auto p-8 bg-danger bg-opacity-10 border-4 border-danger rounded-xl shadow-2xl text-center">
-                <i class="fas fa-exclamation-circle fa-3x text-danger mb-4"></i>
-                <h2 class="text-2xl font-extrabold text-danger">Erreur Fatale du Chargement des Entreprises</h2>
-                <p class="text-lg text-gray-900 dark:text-gray-100">${error.message}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-4">Veuillez vérifier l'état du serveur API et la console pour les détails du réseau.</p>
-            </div>
-        `;
-    }
-
-    document.getElementById('welcome-message').textContent = `Bienvenue, ${window.userContext.utilisateurRole.charAt(0) + window.userContext.utilisateurRole.slice(1).toLowerCase()} !`;
-    document.getElementById('context-message').textContent = "⚠️ CONTEXTE NON SÉLECTIONNÉ. Veuillez choisir une entreprise ci-dessous pour débloquer les opérations.";
-    updateNavigationMenu(window.userContext.utilisateurRole);
-}
-
-
+/**
+ * Fonction principale de rendu du dashboard basée sur le rôle.
+ */
 async function renderDashboard(context) {
-    const dashboardContentArea = document.getElementById('dashboard-content-area');
-    const welcomeMessage = document.getElementById('welcome-message');
-    const contextMessage = document.getElementById('context-message');
-    const currentRole = document.getElementById('current-role');
-
-    currentRole.textContent = context.utilisateurRole;
-    welcomeMessage.textContent = `Bienvenue, ${context.utilisateurRole.charAt(0) + context.utilisateurRole.slice(1).toLowerCase()} !`;
-    
-    dashboardContentArea.innerHTML = '';
-    
-    // Logique mise à jour: L'avertissement de sélection ne concerne que ADMIN/COLLABORATEUR
-    const isMultiEnterpriseUser = context.utilisateurRole === 'ADMIN' || context.utilisateurRole === 'COLLABORATEUR';
-    const contextName = context.entrepriseContextName || "Aucune sélectionnée";
-    
-    if (isMultiEnterpriseUser && context.entrepriseContextId === null) {
-        // Message spécifique pour ADMIN/COLLABORATEUR sans contexte sélectionné
-        contextMessage.textContent = `⚠️ CONTEXTE NON SÉLECTIONNÉ. Veuillez choisir une entreprise (Changer d'Entreprise) pour effectuer des opérations.`;
-    } else {
-        // Message normal pour tous les autres (y compris USER/CAISSIER qui ont toujours un contexte)
-        contextMessage.textContent = `Contexte de travail actuel: ${contextName}.`;
-    }
-    
-    // Rendu ASYNCHRONE pour les dashboards qui font des appels API
     switch (context.utilisateurRole) {
-        case 'ADMIN':
-            dashboardContentArea.innerHTML = await renderAdminDashboard(context); 
-            initializeCharts(); 
-            break;
-        case 'COLLABORATEUR':
-            dashboardContentArea.innerHTML = await renderCollaborateurDashboard(context); 
-            break;
-        case 'USER':
-            dashboardContentArea.innerHTML = await renderUserDashboard(context); 
-            break;
-        case 'CAISSIER':
-            dashboardContentArea.innerHTML = await renderCaissierDashboard(context); 
-            break;
+        case ROLES.ADMIN:
+        case ROLES.COLLABORATEUR:
+            return renderMultiCompanyDashboard(context);
+        case ROLES.USER:
+            return renderUserDashboard(context);
+        case ROLES.CAISSIER:
+            return renderCaissierDashboard(context);
         default:
-             dashboardContentArea.innerHTML = `<p class="text-danger">Rôle ${context.utilisateurRole} non supporté.</p>`;
+            return renderNotFound();
     }
-    
-    if (isMultiEnterpriseUser && context.entrepriseContextId === null) {
-        dashboardContentArea.innerHTML += `
-            <div class="mt-8 text-center p-6 bg-info bg-opacity-10 border-4 border-info rounded-xl shadow-lg">
-                <h3 class="text-xl font-bold text-info mb-4">Choisir votre entreprise de travail</h3>
-                <p class="mb-4 text-gray-700 dark:text-gray-300">Vos actions de saisie ou de validation sont bloquées tant qu'une entreprise n'est pas sélectionnée.</p>
-                <button onclick="renderEnterpriseSelectorView()" class="py-3 px-6 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg transition duration-300">
-                    <i class="fas fa-briefcase mr-2"></i> Sélectionner une Entreprise Maintenant
-                </button>
-            </div>
-        `;
-    }
-    
-    updateNavigationMenu(context.utilisateurRole);
 }
 
-// =================================================================================
-// 5. FONCTIONS DE RENDU SPÉCIFIQUES AUX RÔLES
-// =================================================================================
-
-
-async function renderAdminDashboard(context) { 
-    // Chargement des données des entreprises pour l'Admin
-    const companies = await fetchUserCompanies(context) || [];
-    const totalCompanies = companies.length;
-    const usersCount = 12; // MOCKÉ
-    const adminsCollabs = 4; // MOCKÉ
-
-    const statCards = `
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            ${generateStatCard('fas fa-globe', 'Total Entreprises', totalCompanies, 'bg-primary')}
-            ${generateStatCard('fas fa-user-shield', 'Total Admins/Collab', adminsCollabs, 'bg-secondary')}
-            ${generateStatCard('fas fa-users-cog', 'Total Utilisateurs', usersCount, 'bg-info')}
-            ${generateStatCard('fas fa-database', 'Sauvegardes Automatiques', 'OK', 'bg-success')}
-        </div>
-    `;
-
-    // Génération de la liste des entreprises (Partie dynamique)
-    const companyListHTML = companies.map(company => {
-        const transactions = company.stats && company.stats.transactions ? company.stats.transactions : 0;
-        return `
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 cursor-pointer" onclick="alert('Détails pour ${company.name} (ID: ${company.id})')">
-                <td class="px-4 py-3 whitespace-nowrap font-medium text-primary">${company.name}</td>
-                <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">${company.nif}</td>
-                <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">${company.status}</td>
-                <td class="px-4 py-3 whitespace-nowrap text-success font-semibold">${transactions}</td>
-                <td class="px-4 py-3 whitespace-nowrap">
-                    <button class="text-sm text-info hover:text-blue-700" onclick="loadView('reports')"><i class="fas fa-chart-bar mr-1"></i> Rapports</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-
-    const companyTableSection = `
-        <div class="lg:col-span-3 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Vue d'Ensemble des Entreprises (${totalCompanies})</h3>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead>
-                        <tr>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NIF</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transactions</th>
-                            <th class="px-4 py-2">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                        ${companyListHTML}
-                    </tbody>
-                </table>
-            </div>
-            <div class="mt-4 text-center">
-                 <button class="text-sm text-secondary hover:text-primary-dark font-medium" onclick="renderEnterpriseSelectorView()">
-                     Voir toutes les entreprises avec plus de détails <i class="fas fa-arrow-right ml-2"></i>
-                 </button>
-            </div>
-        </div>
-    `;
-
-    const managementSection = `
-        <div class="lg:col-span-1 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Gestion Rapide</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <button class="flex flex-col items-center justify-center p-3 bg-primary bg-opacity-10 text-primary rounded-lg hover:bg-primary hover:text-white transition duration-200" onclick="loadView('create-company')">
-                    <i class="fas fa-plus-circle fa-2x mb-1"></i> Créer Entreprise
-                </button>
-                <button class="flex flex-col items-center justify-center p-3 bg-secondary bg-opacity-10 text-secondary rounded-lg hover:bg-secondary hover:text-white transition duration-200" onclick="loadView('user-management')">
-                    <i class="fas fa-users-cog fa-2x mb-1"></i> Gérer Utilisateurs
-                </button>
-            </div>
-
-            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-4 border-b pb-2">Statistiques Collab</h3>
-            ${generateChartsSection()}
-        </div>
-    `;
-
-    return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">${companyTableSection}${managementSection}</div></div>`;
-}
-
-async function renderCollaborateurDashboard(context) {
+/**
+ * Rendu pour Admin et Collaborateur (Multi-Entreprise).
+ */
+async function renderMultiCompanyDashboard(context) {
+    const userCompanies = await fetchUserCompanies(context);
     
-    // Pour le Collaborateur, on ne veut que les entreprises attribuées
-    const attributedCompanies = await fetchUserCompanies(context) || [];
-    const validationCount = 15; // MOCKÉ
-    const rapportGeneratedCount = 8; // MOCKÉ
+    if (userCompanies.length === 0) {
+        return `<div class="p-8 text-center bg-warning bg-opacity-10 border-2 border-warning rounded-xl mt-12">
+                    <i class="fas fa-exclamation-triangle fa-3x text-warning mb-4"></i>
+                    <h3 class="text-2xl font-extrabold text-warning">Alerte: Aucune Entreprise Associée</h3>
+                    <p class="text-gray-700 dark:text-gray-300">Votre compte n'est associé à aucune entreprise active. Veuillez contacter l'administrateur système.</p>
+                </div>`;
+    }
 
-    const statCards = `
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            ${generateStatCard('fas fa-briefcase', 'Entreprises Attribuées', attributedCompanies.length, 'bg-primary')}
-            ${generateStatCard('fas fa-tasks', 'Opérations à Valider', validationCount, 'bg-warning')}
-            ${generateStatCard('fas fa-chart-line', 'Rapports Émis', rapportGeneratedCount, 'bg-info')}
-            ${generateStatCard('fas fa-clock', 'Moyenne Validation', '4h', 'bg-success')}
-        </div>
-    `;
+    // Afficher le sélecteur d'entreprise si Multi-entreprise
+    const companyOptions = userCompanies.map(comp => 
+        `<option value="${comp.id}" data-name="${comp.name}" ${comp.id === context.entrepriseContextId ? 'selected' : ''}>${comp.name}</option>`
+    ).join('');
 
-    // Génération de la liste des entreprises attribuées
-    const attributedListHTML = attributedCompanies.map(company => {
-        const transactions = company.stats && company.stats.transactions ? company.stats.transactions : 0;
-        return `
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                 onclick="alert('Sélectionner ${company.name} comme contexte de travail')">
+    const currentCompany = userCompanies.find(c => c.id === context.entrepriseContextId) || userCompanies[0];
+    const stats = currentCompany.stats;
+
+    // Cartes de statistiques (avec valeurs de l'entreprise courante)
+    const statCards = renderStatCards({
+        transactions: stats.transactions || 0,
+        result: (stats.result || 0).toLocaleString('fr-FR') + ' XOF',
+        pendingOperations: stats.pending || 0,
+        currentCash: (stats.cash || 0).toLocaleString('fr-FR') + ' XOF'
+    });
+    
+    return `
+        <div class="space-y-6">
+            <div class="flex items-center space-x-4 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                <i class="fas fa-building fa-2x text-primary"></i>
                 <div>
-                    <h4 class="text-lg font-semibold text-primary">${company.name} (${company.status})</h4>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Transactions: ${transactions} | NIF: ${company.nif}</p>
+                    <label for="company-selector" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise Actuellement Consultée :</label>
+                    <select id="company-selector" onchange="changeContextAndReload(this)" class="mt-1 block w-96 pl-3 pr-10 py-2 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md dark:bg-gray-700 dark:text-white">
+                        ${companyOptions}
+                    </select>
                 </div>
-                <button class="text-sm py-1 px-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" 
-                        onclick="window.userContext.entrepriseContextId='${company.id}'; window.userContext.entrepriseContextName='${company.name}'; loadView('validation'); event.stopPropagation();">
-                    <i class="fas fa-check"></i> Valider
-                </button>
             </div>
-        `;
-    }).join('');
+            
+            ${statCards}
 
-    const attributedListSection = `
-        <div class="lg:col-span-2 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Mes Dossiers d'Entreprises (${attributedCompanies.length})</h3>
-            <div class="overflow-y-auto max-h-96">
-                ${attributedListHTML.length > 0 ? attributedListHTML : '<p class="text-center text-warning pt-4">Aucun dossier d\'entreprise ne vous est actuellement attribué.</p>'}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                ${renderActivityFeed()}
+                ${renderAccountingReports()}
             </div>
         </div>
+        <script>
+            function changeContextAndReload(select) {
+                const selectedOption = select.options[select.selectedIndex];
+                const newId = selectedOption.value;
+                const newName = selectedOption.dataset.name;
+                if (window.userContext.entrepriseContextId !== newId) {
+                    changeCompanyContext(newId, newName);
+                }
+            }
+        </script>
     `;
-    
-    const validationTable = generateValidationTable();
-
-    return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:col-cols-3 gap-6">${attributedListSection}<div class="lg:col-span-1">${validationTable}</div></div></div>`;
 }
 
-async function renderUserDashboard(context) { 
-    // Récupère les stats de l'unique entreprise attribuée
-    const userCompanies = await fetchUserCompanies(context) || []; // CORRIGÉ : SÉCURISATION
+/**
+ * Rendu pour l'utilisateur Mono-Entreprise.
+ */
+async function renderUserDashboard(context) {
+    // Dans le cas mono-entreprise, nous nous fions à l'entreprise du contexte de connexion
+    const userCompanies = await fetchUserCompanies(context) || []; 
+    // Si l'API échoue ou est vide, on utilise des statistiques par défaut
     const companyStats = userCompanies.length > 0 ? userCompanies[0].stats : {};
 
-    const transactions = companyStats.transactions || 0; // Utilisation des stats réelles
-    const provisionalResult = "1.2 M XOF"; // MOCKÉ
-    const pendingOperations = 2; // MOCKÉ
-    const currentCash = "800 K XOF"; // MOCKÉ
+    const transactions = companyStats.transactions || 0; 
+    const provisionalResult = (companyStats.result || 1200000).toLocaleString('fr-FR') + ' XOF'; // MOCK PAR DÉFAUT
+    const pendingOperations = companyStats.pending || 2; // MOCK PAR DÉFAUT
+    const currentCash = (companyStats.cash || 800000).toLocaleString('fr-FR') + ' XOF'; // MOCK PAR DÉFAUT
+
+    // L'ancienne vérification d'erreur est supprimée pour éviter l'incohérence
     
-    // Si l'utilisateur n'a pas de contexte (ne devrait pas arriver pour USER mono-entreprise), on alerte
-    if (userCompanies.length === 0) {
-        // Le USER ne peut pas sélectionner, on affiche un message d'erreur
-        return `<div class="max-w-xl mx-auto p-8 text-center bg-danger bg-opacity-10 border-2 border-danger rounded-xl mt-12">
-                    <i class="fas fa-exclamation-circle fa-3x text-danger mb-4"></i>
-                    <h3 class="text-2xl font-extrabold text-danger">ERREUR: Entreprise Introuvable</h3>
-                    <p class="text-gray-700 dark:text-gray-300">Votre compte utilisateur (Rôle: USER) n'est associé à aucune entreprise active. Contactez l'administrateur système.</p>
-                </div>`;
-    }
+    const statCards = renderStatCards({
+        transactions: transactions,
+        result: provisionalResult,
+        pendingOperations: pendingOperations,
+        currentCash: currentCash
+    });
 
-    const statCards = `
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            ${generateStatCard('fas fa-hand-holding-usd', 'Résultat Net Provisoire', provisionalResult, 'bg-success')}
-            ${generateStatCard('fas fa-wallet', 'Total Transactions', transactions, 'bg-primary')}
-            ${generateStatCard('fas fa-hourglass-half', 'Opérations en Attente', pendingOperations, 'bg-warning')}
-            ${generateStatCard('fas fa-chart-area', 'Trésorerie Actuelle', currentCash, 'bg-info')}
-        </div>
-    `;
+    return `
+        <div class="space-y-6">
+            ${statCards}
 
-    const accountingReports = `
-        <div class="lg:col-span-2 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Rapports Comptables Rapides</h3>
-            <p class="text-gray-600 dark:text-gray-400 mb-4">Accès rapide aux documents financiers de **${context.entrepriseContextName}**.</p>
-            <div class="grid grid-cols-2 gap-4">
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">Balance des Comptes</button>
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">Grand Livre</button>
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">États de Rapprochement</button>
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('reports')">Synthèse Statistique</button>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                ${renderActivityFeed()}
+                ${renderAccountingReports()}
             </div>
         </div>
     `;
-    
-    // Le formulaire de requête (Contact comptable)
-    const requestForm = `<div class="lg:col-span-1">${renderUserRequestForm()}</div>`;
-
-    return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">${accountingReports}${requestForm}</div></div>`;
 }
 
-async function renderCaissierDashboard(context) { 
+/**
+ * Rendu pour le Caissier (Mono-Caisse/Entreprise).
+ */
+async function renderCaissierDashboard(context) {
+    const userCompanies = await fetchUserCompanies(context) || []; 
+    const companyStats = userCompanies.length > 0 ? userCompanies[0].stats : {};
+
+    const transactions = companyStats.transactions || 0; 
+    const provisionalResult = (companyStats.result || 50000).toLocaleString('fr-FR') + ' XOF'; 
+    const pendingOperations = companyStats.pending || 0; 
+    const currentCash = (companyStats.cash || 100000).toLocaleString('fr-FR') + ' XOF'; 
+
+    // L'ancienne vérification d'erreur est supprimée pour éviter l'incohérence
     
-    // Récupère les stats de l'unique entreprise attribuée
-    const userCompanies = await fetchUserCompanies(context) || []; // CORRIGÉ : SÉCURISATION
-    // const companyStats = userCompanies.length > 0 ? userCompanies[0].stats : {};
-
-    const currentCash = "150 K XOF"; // MOCKÉ
-    const caisseStatus = "OUVERTE"; // MOCKÉ
-    const pendingMovements = 4; // MOCKÉ (par exemple, des retraits en attente de validation)
-    
-    if (userCompanies.length === 0) {
-        // Le CAISSIER ne peut pas sélectionner, on affiche un message d'erreur
-        return `<div class="max-w-xl mx-auto p-8 text-center bg-danger bg-opacity-10 border-2 border-danger rounded-xl mt-12">
-                    <i class="fas fa-exclamation-circle fa-3x text-danger mb-4"></i>
-                    <h3 class="text-2xl font-extrabold text-danger">ERREUR: Caisse Introuvable</h3>
-                    <p class="text-gray-700 dark:text-gray-300">Votre compte caissier n'est associé à aucune caisse/entreprise active. Contactez l'administrateur système.</p>
-                </div>`;
-    }
-
-
+    // Cartes simplifiées pour le caissier
     const statCards = `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            ${generateStatCard('fas fa-money-check-alt', 'Solde de Ma Caisse', currentCash, 'bg-success')}
-            ${generateStatCard('fas fa-calendar-check', 'État de la Caisse', caisseStatus, 'bg-info')}
-            ${generateStatCard('fas fa-undo-alt', 'Mouvements en Attente', pendingMovements, 'bg-warning')}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            ${renderStatCard('fas fa-wallet', 'Solde Actuel de la Caisse', currentCash, 'info')}
+            ${renderStatCard('fas fa-receipt', 'Transactions du Jour', transactions, 'primary')}
+            ${renderStatCard('fas fa-clock', 'Opérations en Attente', pendingOperations, 'warning')}
         </div>
     `;
 
-    const caisseActions = `
-        <div class="lg:col-span-2 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Actions de Caisse</h3>
-            <p class="text-gray-600 dark:text-gray-400 mb-4">Ces actions impactent directement le solde de la caisse **${context.entrepriseContextName}**.</p>
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <button class="py-3 bg-primary text-white rounded-lg hover:bg-primary-dark"><i class="fas fa-lock-open mr-2"></i> Ouvrir/Fermer la Caisse</button>
-                <button class="py-3 bg-secondary text-white rounded-lg hover:bg-primary-dark" onclick="loadView('saisie')"><i class="fas fa-plus-square mr-2"></i> Enregistrer Opération</button>
+    return `
+        <div class="space-y-6">
+            <div class="p-6 bg-secondary bg-opacity-10 border border-secondary rounded-xl text-center">
+                <h3 class="text-xl font-bold text-secondary">Interface de Caisse Rapide</h3>
+                <p class="text-gray-700 dark:text-gray-300">Utilisez la navigation "Saisie des Flux" pour enregistrer les entrées/sorties de caisse.</p>
             </div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Toutes les opérations enregistrées nécessitent une validation par le User/Collaborateur/Admin avant intégration au Grand Livre.</p>
-        </div>
-    `;
-    
-    const caisseReports = `
-        <div class="lg:col-span-1 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b pb-2">Rapports Journaliers</h3>
-            <button class="w-full py-3 bg-info text-white rounded-lg hover:bg-blue-700 mb-2" onclick="loadView('reports')"><i class="fas fa-print mr-2"></i> Éditer Rapport de Caisse</button>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Liste des mouvements récents et solde de caisse.</p>
-        </div>
-    `;
-
-    return `<div class="space-y-8">${statCards}<div class="grid grid-cols-1 lg:col-cols-3 gap-6">${caisseActions}${caisseReports}</div></div>`;
-}
-
-function renderCreateCompanyView() {
-    const dashboardContentArea = document.getElementById('dashboard-content-area');
-    document.getElementById('context-message').textContent = "Création d'une nouvelle structure d'entreprise dans le système.";
-
-    dashboardContentArea.innerHTML = `
-        <div class="max-w-3xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
-            <h2 class="text-3xl font-extrabold text-primary mb-6">Créer une Nouvelle Entreprise</h2>
-            <form id="create-company-form">
-                <div class="space-y-4">
-                    
-                    <div>
-                        <label for="new-company-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom de l'Entreprise <span class="text-danger">*</span></label>
-                        <input type="text" id="new-company-name" required class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Ex: Sarl Innovation BTP">
-                    </div>
-                    
-                    <div>
-                        <label for="new-company-nif" class="block text-sm font-medium text-gray-700 dark:text-gray-300">NIF/ID Fiscal <span class="text-danger">*</span></label>
-                        <input type="text" id="new-company-nif" required class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Ex: 0102030405">
-                    </div>
-                    
-                    <div>
-                        <label for="new-company-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Statut Juridique <span class="text-danger">*</span></label>
-                        <select id="new-company-status" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md dark:bg-gray-700 dark:text-white">
-                            <option value="SARL">SARL (Société à Responsabilité Limitée)</option>
-                            <option value="SA">SA (Société Anonyme)</option>
-                            <option value="ETS">Ets (Établissement Personnel)</option>
-                            <option value="GIE">GIE (Groupement d'Intérêt Économique)</option>
-                        </select>
-                    </div>
-
-                    <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <p class="text-lg font-semibold text-secondary">Utilisateur Responsable (Initial)</p>
-                        <small class="text-gray-500 dark:text-gray-400">Ce champ est facultatif mais recommandé. L'utilisateur doit déjà exister.</small>
-                        <input type="email" id="new-company-owner-email" class="mt-2 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white" placeholder="Email de l'utilisateur principal (ex: user@entreprise.com)">
-                    </div>
-                    
-                </div>
-                <p id="company-creation-message" class="mt-4 text-center text-sm hidden"></p>
-                <button type="submit" class="w-full mt-6 py-3 bg-success hover:bg-green-700 text-white font-bold rounded-lg transition duration-300">
-                    <i class="fas fa-save mr-2"></i> Enregistrer la Nouvelle Entreprise
-                </button>
-            </form>
-        </div>
-    `;
-
-    // 🚨 Logique d'envoi du formulaire (Correction du contournement)
-    document.getElementById('create-company-form').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const msgElement = document.getElementById('company-creation-message');
-        msgElement.classList.remove('hidden', 'text-danger', 'text-success');
-        msgElement.textContent = "Création de l'entreprise en cours...";
-        
-        const payload = {
-            name: document.getElementById('new-company-name').value,
-            nif: document.getElementById('new-company-nif').value,
-            status: document.getElementById('new-company-status').value,
-            ownerEmail: document.getElementById('new-company-owner-email').value
-        };
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/admin/create-company`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${window.userContext.token}` 
-                },
-                body: JSON.stringify(payload)
-            });
             
-            // --- CONTOURNEMENT ROBUSTE DE LECTURE DU CORPS ---
-            const responseText = await response.text();
-            let data = {};
-            if (responseText) {
-                try {
-                    data = JSON.parse(responseText);
-                } catch (e) {
-                    // Si le corps est vide/invalide MAIS que le statut est OK (201/200), on considère le succès.
-                    if (response.ok) {
-                        console.warn("API renvoie un statut OK mais un corps JSON vide. Succès simulé.");
-                        data = { success: true, company: { name: payload.name, id: 'MOCK_ID' } };
-                    }
-                }
-            } else if (response.ok) {
-                 // Si le corps est TOTALEMENT vide mais que le statut est OK, succès simulé.
-                 data = { success: true, company: { name: payload.name, id: 'MOCK_ID_2' } };
-            }
-            // ----------------------------------------------------
+            ${statCards}
+
+            <div class="grid grid-cols-1 gap-6">
+                ${renderActivityFeed()}
+            </div>
+        </div>
+    `;
+}
+
+// =================================================================================
+// 5. HELPER COMPONENTS POUR LE RENDU DU DASHBOARD
+// =================================================================================
+
+/**
+ * Rend une carte de statistique individuelle.
+ */
+function renderStatCard(icon, title, value, color) {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg flex items-center space-x-4 border-l-4 border-${color}">
+            <i class="${icon} fa-2x text-${color}"></i>
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">${title}</p>
+                <p class="text-2xl font-extrabold text-gray-900 dark:text-gray-100">${value}</p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Rend l'ensemble des cartes pour les rôles complets (USER, COLLABORATEUR, ADMIN).
+ */
+function renderStatCards({ transactions, result, pendingOperations, currentCash }) {
+    return `
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            ${renderStatCard('fas fa-chart-bar', 'Résultat Provisoire (Bénéfice)', result, 'success')}
+            ${renderStatCard('fas fa-hand-holding-usd', 'Total Transactions', transactions, 'primary')}
+            ${renderStatCard('fas fa-history', 'Opérations en Attente de Validation', pendingOperations, 'warning')}
+            ${renderStatCard('fas fa-money-check-alt', 'Solde Caisse/Banque Actuel', currentCash, 'info')}
+        </div>
+    `;
+}
+
+/**
+ * Mock du fil d'activité.
+ */
+function renderActivityFeed() {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Fil d'Activité Récent</h3>
+            <ul class="space-y-3 text-sm">
+                <li class="p-2 border-b dark:border-gray-700"><span class="font-bold text-success">[14:30]</span> Validation de la dépense CRB-005.</li>
+                <li class="p-2 border-b dark:border-gray-700"><span class="font-bold text-primary">[10:00]</span> Connexion de l'utilisateur CAI_004 (CaisseTest).</li>
+                <li class="p-2 border-b dark:border-gray-700"><span class="font-bold text-danger">[08:15]</span> Écriture Journal (AC) N° 001 rejetée par ADM_001.</li>
+                <li class="p-2"><span class="font-bold text-info">[Hier]</span> Nouvel utilisateur (COL_002) ajouté à Doukè Holdings.</li>
+            </ul>
+        </div>
+    `;
+}
+
+/**
+ * Mock des rapports comptables.
+ */
+function renderAccountingReports() {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Rapports Complets (SYSCOHADA)</h3>
+            <ul class="space-y-3 text-sm">
+                <li class="flex justify-between items-center p-2 border-b dark:border-gray-700">
+                    <span>Bilan Provisoire (N)</span>
+                    <button class="text-info hover:text-primary" onclick="alert('Génération Bilan...')"><i class="fas fa-download mr-1"></i> Télécharger</button>
+                </li>
+                <li class="flex justify-between items-center p-2 border-b dark:border-gray-700">
+                    <span>Tableau de Formation des Résultats (TFR)</span>
+                    <button class="text-info hover:text-primary" onclick="alert('Génération TFR...')"><i class="fas fa-download mr-1"></i> Télécharger</button>
+                </li>
+                <li class="flex justify-between items-center p-2 border-b dark:border-gray-700">
+                    <span>Grand Livre (Comptes Auxiliaires)</span>
+                    <button class="text-info hover:text-primary" onclick="alert('Génération Grand Livre...')"><i class="fas fa-download mr-1"></i> Télécharger</button>
+                </li>
+            </ul>
+        </div>
+    `;
+}
+
+/**
+ * Rendu pour les vues manquantes ou non autorisées.
+ */
+function renderNotFound() {
+    return `<div class="text-center p-8 text-danger"><i class="fas fa-exclamation-circle mr-2"></i> Vue non trouvée.</div>`;
+}
+
+function renderAccessDenied() {
+     return `<div class="max-w-xl mx-auto p-8 text-center bg-danger bg-opacity-10 border-2 border-danger rounded-xl mt-12">
+                <i class="fas fa-lock fa-3x text-danger mb-4"></i>
+                <h3 class="text-2xl font-extrabold text-danger">Accès Refusé</h3>
+                <p class="text-gray-700 dark:text-gray-300">Vous n'avez pas l'autorisation d'accéder à cette fonctionnalité (${window.userContext.utilisateurRole}).</p>
+            </div>`;
+}
+
+function renderReportsView() {
+    return `
+         <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl text-center">
+            <i class="fas fa-cogs fa-4x text-info mb-6"></i>
+            <h2 class="text-3xl font-extrabold text-info mb-4">Génération de Rapports SYSCOHADA</h2>
+            <p class="text-gray-700 dark:text-gray-300 mb-6">Cette section permettra de configurer la période comptable et de générer les états financiers officiels (Bilan, TFR, etc.). (Fonctionnalité en cours de développement).</p>
+            <button onclick="loadView('dashboard')" class="py-2 px-6 bg-primary hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300">
+                Retour au Tableau de Bord
+            </button>
+        </div>
+    `;
+}
 
 
-            if (response.ok && data.success) {
-                msgElement.textContent = `✅ Entreprise "${data.company.name}" créée avec succès. (ID: ${data.company.id || 'N/A'})`;
-                msgElement.classList.add('text-success');
-                // Réinitialiser les champs
-                document.getElementById('create-company-form').reset();
-                // Recharger le dashboard après un délai pour que l'utilisateur lise le message de succès
-                setTimeout(() => loadView('dashboard'), 1500); 
-            } else {
-                msgElement.textContent = `❌ Échec: ${data.message || 'Erreur inconnue lors de la création.'}`;
-                msgElement.classList.add('text-danger');
-            }
-        } catch (error) {
-            msgElement.textContent = `❌ Échec critique de la communication: ${error.message}`;
+// =================================================================================
+// 6. GESTION DE L'AUTHENTIFICATION ET DU THÈME
+// =================================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Gérer la soumission du formulaire de connexion
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value; // Ignoré pour le mock
+        const msgElement = document.getElementById('login-message');
+
+        msgElement.classList.remove('hidden');
+        msgElement.textContent = 'Connexion en cours...';
+        msgElement.classList.remove('text-danger');
+
+        const context = await authenticateUser(email);
+
+        if (context) {
+            initDashboard(context);
+        } else {
+            msgElement.textContent = 'Échec de la connexion. Email/Mot de passe incorrect.';
             msgElement.classList.add('text-danger');
         }
     });
+
+    // 2. Gérer le thème (Dark/Light Mode)
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+    }
+
+    document.getElementById('toggle-theme').addEventListener('click', toggleTheme);
+    document.getElementById('toggle-theme-footer').addEventListener('click', toggleTheme);
+});
+
+function toggleTheme() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+
+function logout() {
+    window.userContext = null;
+    localStorage.removeItem('userContext');
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('login-modal').classList.remove('hidden');
+    // Réinitialiser la vue au cas où
+    document.getElementById('dashboard-content').innerHTML = '';
 }
 
 // =================================================================================
-// 6. FONCTIONS GÉNÉRIQUES ET HELPERS (Conservées)
+// 7. FONCTIONS DE SAISIE PROFESSIONNELLE (JOURNAL ENTRY)
 // =================================================================================
 
-function generateStatCard(iconClass, title, value, bgColor) { 
-    return `
-        <div class="p-5 bg-white dark:bg-gray-800 rounded-xl shadow-lg transform transition duration-300 hover:scale-[1.03] flex items-center justify-between">
-            <div>
-                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">${title}</p>
-                <p class="text-3xl font-extrabold text-gray-900 dark:text-white mt-1">${value}</p>
-            </div>
-            <div class="p-3 rounded-full ${bgColor} bg-opacity-10 text-white shadow-xl">
-                <i class="${iconClass} text-2xl ${bgColor.replace('bg-', 'text-')}"></i>
-            </div>
-        </div>
-    `;
-}
+/**
+ * Rend l'interface de saisie professionnelle à double-entrée (Multi-lignes Débit/Crédit).
+ */
+function renderJournalEntryForm() {
+    const currentCompanyName = window.userContext.entrepriseContextName || 'N/A';
+    const currentRole = window.userContext.utilisateurRole;
+    
+    // MOCK: Simulation des dates de l'exercice pour validation front-end
+    const exerciseStart = '2025-01-01';
+    const exerciseEnd = '2025-12-31';
 
-function generateValidationTable() { 
     return `
-        <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Opérations de Caisse en Attente</h3>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead>
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entreprise</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nature</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
-                            <th class="px-6 py-3"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">ENT_USER_3</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">Dépense Carburant</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">50,000 XOF</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button class="text-success hover:text-green-700 ml-4"><i class="fas fa-check-circle"></i> Valider</button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-function generateChartsSection() { 
-    return `
-        <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Évolution Annuelle</h3>
-            <canvas id="mainChart"></canvas>
-        </div>
-    `;
-}
-
-function initializeCharts() { 
-    setTimeout(() => {
-        const ctx = document.getElementById('mainChart');
-        if (ctx) {
-            new Chart(ctx.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
-                    datasets: [{
-                        label: 'Résultat Provisoire',
-                        data: [12, 19, 3, 5, 2, 3],
-                        backgroundColor: '#5D5CDE', // primary
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        }
-    }, 100); 
-}
-
-function renderUserRequestForm() { 
-    return `
-        <div class="max-w-xl p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <h3 class="text-2xl font-bold text-secondary mb-4">Demande d'États Financiers</h3>
-            <p class="text-gray-600 dark:text-gray-400 mb-6">Ce formulaire enverra une notification au Collaborateur en charge.</p>
+        <div class="max-w-6xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
+            <h2 class="text-3xl font-extrabold text-primary mb-2">Saisie d'Écriture de Journal (Partie Double)</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Enregistrement pour **${currentCompanyName}** (Rôle: ${currentRole}). Exercice: du ${exerciseStart} au ${exerciseEnd}.
+            </p>
             
-            <form id="request-form">
-                <label for="periodicite" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Période souhaitée</label>
-                <select id="periodicite" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md dark:bg-gray-700 dark:text-white">
-                    <option value="annuel">Annuel (Clôture)</option>
-                    <option value="trimestriel">Trimestriel</option>
-                    <option value="mensuel">Mensuel</option>
-                </select>
+            <form id="journal-entry-form">
                 
-                <label for="commentaires" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-4">Commentaires additionnels</label>
-                <textarea id="commentaires" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white"></textarea>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 mb-6 border border-primary rounded-lg">
+                    <div class="md:col-span-1">
+                        <label for="journal" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Journal <span class="text-danger">*</span></label>
+                        <select id="journal" required class="mt-1 block w-full py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                            <option value="AC">Journal d'Achats (AC)</option>
+                            <option value="VT">Journal de Ventes (VT)</option>
+                            <option value="BQ">Journal de Banque (BQ)</option>
+                            <option value="OD">Opérations Diverses (OD)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="md:col-span-1">
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">N° d'Opération (Auto)</label>
+                        <input type="text" id="num-operation" readonly value="[Journal]/[Date]/001" class="mt-1 block w-full py-2 border rounded-md dark:bg-gray-700 dark:text-info font-bold bg-gray-100 dark:bg-gray-700/50">
+                    </div>
+
+                    <div class="md:col-span-1">
+                        <label for="date-operation" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Date de l'Opération <span class="text-danger">*</span></label>
+                        <input type="date" id="date-operation" required min="${exerciseStart}" max="${exerciseEnd}" value="${new Date().toISOString().slice(0, 10)}" class="mt-1 block w-full py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    </div>
+                    
+                    <div class="md:col-span-1">
+                        <label for="piece-ref" class="block text-xs font-medium text-gray-700 dark:text-gray-300">N° de Pièce Justificative <span class="text-danger">*</span></label>
+                        <input type="text" id="piece-ref" required class="mt-1 block w-full py-2 border rounded-md dark:bg-gray-700 dark:text-white" placeholder="Ex: FACT-4521">
+                    </div>
+                    
+                    <div class="md:col-span-4">
+                        <label for="libelle-general" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Libellé Général <span class="text-danger">*</span></label>
+                        <input type="text" id="libelle-general" required class="mt-1 block w-full py-2 border rounded-md shadow-sm dark:bg-gray-700 dark:text-white" placeholder="Ex: Règlement de la facture Sarl Delta">
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-bold text-secondary mb-4">Lignes de l'Écriture (Ventilation)</h3>
+                <div class="overflow-x-auto mb-4">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead>
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">N° Compte (SYSCOHADA)</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Libellé de Ligne (Détail)</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Débit (XOF)</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Crédit (XOF)</th>
+                                <th class="px-3 py-2 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="accounting-lines">
+                            </tbody>
+                        <tfoot>
+                            <tr class="bg-gray-50 dark:bg-gray-700 font-bold">
+                                <td colspan="2" class="px-3 py-2 text-right text-sm">TOTAL</td>
+                                <td id="total-debit" class="px-3 py-2 text-right text-sm text-danger">0.00</td>
+                                <td id="total-credit" class="px-3 py-2 text-right text-sm text-danger">0.00</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td colspan="5" class="px-3 py-1 text-center text-xs">
+                                    <span id="balance-message" class="font-bold"></span>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
                 
-                <button type="submit" class="w-full mt-6 py-3 bg-secondary hover:bg-primary-dark text-white font-bold rounded-lg transition duration-300 ease-in-out">
-                    <i class="fas fa-paper-plane mr-2"></i> Envoyer la Demande
+                <button type="button" onclick="addAccountingLine()" class="py-2 px-4 bg-info hover:bg-blue-700 text-white rounded-lg transition duration-200 mb-6">
+                    <i class="fas fa-plus-circle mr-2"></i> Ajouter une Ligne d'Écriture
                 </button>
-                <p id="request-status" class="text-sm mt-3 text-center"></p>
+                
+                <p id="journal-entry-message" class="mt-6 text-center text-sm hidden"></p>
+                
+                <button type="submit" id="submit-journal-btn" class="w-full py-3 bg-success hover:bg-green-700 text-white font-bold rounded-lg transition duration-300" disabled>
+                    <i class="fas fa-save mr-2"></i> Enregistrer l'Écriture (Doit être équilibrée)
+                </button>
             </form>
         </div>
+        
         <script>
-            document.getElementById('request-form').addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const statusElement = document.getElementById('request-status');
-                statusElement.textContent = 'Envoi en cours...';
-                statusElement.classList.remove('text-success', 'text-danger');
+            let lineCounter = 0;
+            const availableAccounts = [
+                { id: '401', name: 'Fournisseurs' },
+                { id: '521', name: 'Banque' },
+                { id: '571', name: 'Caisse' },
+                { id: '601', name: 'Achats de Marchandises' },
+                { id: '701', name: 'Ventes de Marchandises' },
+                // ... Comptes SYSCOHADA essentiels
+            ];
+            
+            function addAccountingLine(account = '', debit = '', credit = '') {
+                lineCounter++;
+                const tbody = document.getElementById('accounting-lines');
+                const row = document.createElement('tr');
+                row.id = 'line-' + lineCounter;
+                row.innerHTML = \`
+                    <td class="px-3 py-2">
+                        <select id="account-\${lineCounter}" required class="w-full py-1 border rounded-md dark:bg-gray-700 dark:text-white text-sm">
+                            <option value="">-- Choisir Compte --</option>
+                            \${availableAccounts.map(acc => \`<option value="\${acc.id}" \${acc.id === account ? 'selected' : ''}>\${acc.id} - \${acc.name}</option>\`).join('')}
+                        </select>
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="text" id="libelle-line-\${lineCounter}" class="w-full py-1 border rounded-md dark:bg-gray-700 dark:text-white text-sm" placeholder="Détail" oninput="updateGeneralLibelle(\${lineCounter})">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" step="0.01" min="0" value="\${debit}" id="debit-\${lineCounter}" class="w-full py-1 text-right border rounded-md dark:bg-gray-700 dark:text-white text-sm input-debit-credit" oninput="updateTotals()">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" step="0.01" min="0" value="\${credit}" id="credit-\${lineCounter}" class="w-full py-1 text-right border rounded-md dark:bg-gray-700 dark:text-white text-sm input-debit-credit" oninput="updateTotals()">
+                    </td>
+                    <td class="px-1 py-2 text-center">
+                        <button type="button" onclick="removeAccountingLine('line-\${lineCounter}')" class="text-danger hover:text-red-700 text-lg"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                \`;
+                tbody.appendChild(row);
+                updateTotals(); 
+            }
+            
+            function removeAccountingLine(rowId) {
+                document.getElementById(rowId).remove();
+                updateTotals(); 
+            }
 
-                if (!window.userContext || !window.userContext.token) {
-                    statusElement.textContent = '❌ Erreur: Utilisateur non connecté ou token manquant.';
-                    statusElement.classList.add('text-danger');
-                    return;
-                }
-
-                try {
-                    const response = await fetch(\`${API_BASE_URL}/workflow/demandeEtat\`, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': \`Bearer \${window.userContext.token}\` 
-                        },
-                        body: JSON.stringify({ 
-                            entrepriseId: window.userContext.entrepriseContextId,
-                            periodicite: document.getElementById('periodicite').value,
-                            commentaires: document.getElementById('commentaires').value,
-                            tokenPayload: window.userContext
-                        })
-                    });
-                    
-                    const responseText = await response.text();
-                    let data = {};
-                    if(responseText) data = JSON.parse(responseText); 
-                    else if (response.ok) data = { success: true }; // Contournement de succès
-
-                    if (response.ok && data.success) {
-                        statusElement.textContent = '✅ Demande envoyée avec succès au collaborateur et à l\'admin !';
-                        statusElement.classList.add('text-success');
-                    } else {
-                        statusElement.textContent = \`❌ Erreur (\${response.status}): \${data.error || 'Requête rejetée par l\\'API'}\`;
-                        statusElement.classList.add('text-danger');
+            function updateGeneralLibelle(lineNum) {
+                 const generalLibelle = document.getElementById('libelle-general').value;
+                 const lineLibelle = document.getElementById('libelle-line-' + lineNum);
+                 if (!lineLibelle.value.trim() && generalLibelle) {
+                     lineLibelle.value = generalLibelle;
+                 }
+            }
+            
+            function updateTotals() {
+                let totalDebit = 0;
+                let totalCredit = 0;
+                
+                document.querySelectorAll('.input-debit-credit').forEach(input => {
+                    const value = parseFloat(input.value) || 0;
+                    // On vérifie l'ID du parent pour savoir si c'est un Débit ou un Crédit
+                    if (input.id.startsWith('debit')) {
+                        totalDebit += value;
+                    } else if (input.id.startsWith('credit')) {
+                        totalCredit += value;
                     }
-                } catch (error) {
-                    console.error("Erreur d'API:", error);
-                    statusElement.textContent = '❌ Erreur de connexion au serveur API ou réponse non lisible. Vérifiez l\'URL et la console.';
-                    statusElement.classList.add('text-danger');
+                });
+
+                document.getElementById('total-debit').textContent = totalDebit.toFixed(2);
+                document.getElementById('total-credit').textContent = totalCredit.toFixed(2);
+                
+                const message = document.getElementById('balance-message');
+                const submitBtn = document.getElementById('submit-journal-btn');
+                
+                if (Math.abs(totalDebit - totalCredit) < 0.01 && totalDebit > 0) { // Tolérance de 0.01 pour les floats
+                    message.textContent = 'ÉQUILIBRÉ ! L\'écriture est valide.';
+                    message.className = 'font-bold text-success';
+                    submitBtn.disabled = false;
+                } else if (totalDebit === 0 && totalCredit === 0) {
+                     message.textContent = 'Ajouter au moins une ligne et équilibrer les totaux.';
+                     message.className = 'font-bold text-info';
+                     submitBtn.disabled = true;
+                } else {
+                    const diff = Math.abs(totalDebit - totalCredit).toFixed(2);
+                    const side = totalDebit > totalCredit ? 'Crédit' : 'Débit';
+                    message.textContent = \`DÉSÉQUILIBRÉ ! Manque \${diff} XOF au \${side}.\`;
+                    message.className = 'font-bold text-danger';
+                    submitBtn.disabled = true;
                 }
+            }
+            
+            // Initialisation: Ajouter 2 lignes par défaut
+            addAccountingLine();
+            addAccountingLine();
+
+            // Gestion de l'envoi du formulaire (simulé)
+            document.getElementById('journal-entry-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const msgElement = document.getElementById('journal-entry-message');
+                msgElement.classList.remove('hidden', 'text-danger', 'text-success');
+                msgElement.textContent = "Soumission de l'écriture en cours...";
+
+                // MOCK: Soumission réussie
+                
+                msgElement.textContent = "✅ Écriture Journal Soumise avec succès pour validation !";
+                msgElement.classList.add('text-success');
+                // Note: En prod, on réinitialiserait ou on redirigerait
+                setTimeout(() => msgElement.classList.add('hidden'), 5000);
+            });
+            
+            // Mise à jour du numéro d'opération dynamique
+             document.getElementById('journal').addEventListener('change', updateNumOperation);
+             document.getElementById('date-operation').addEventListener('change', updateNumOperation);
+             
+             function updateNumOperation() {
+                 const journalCode = document.getElementById('journal').value;
+                 const dateValue = document.getElementById('date-operation').value;
+                 const datePart = dateValue ? dateValue.replace(/-/g, '') : 'AAAA-MM-JJ';
+                 
+                 document.getElementById('num-operation').value = \`\${journalCode}/\${datePart}/001\`;
+             }
+             updateNumOperation();
+             
+        </script>
+    `;
+}
+
+// =================================================================================
+// 8. FONCTION DE SAISIE CAISSIER (FLUX SIMPLIFIÉ)
+// =================================================================================
+
+/**
+ * Rend l'interface de saisie simplifiée par flux (Caissier/User).
+ */
+function renderSaisieFormCaissier() {
+    const currentCompanyName = window.userContext.entrepriseContextName || 'N/A';
+    const currentRole = window.userContext.utilisateurRole;
+
+    // MOCK: Désignations (Nature de l'opération) qui impliquent une imputation comptable prédéfinie
+    const designations = [
+        { code: 'CRB', name: 'Carburant Véhicule (Charge)', type: 'depense' },
+        { code: 'FOU', name: 'Achat Fournitures Bureau (Charge)', type: 'depense' },
+        { code: 'FRA', name: 'Frais Bancaires (Charge)', type: 'depense' },
+        { code: 'VTE', name: 'Vente Comptant (Produit)', type: 'recette' },
+        { code: 'LCN', name: 'Loyers Encaissés (Produit)', type: 'recette' },
+    ];
+    
+    return `
+        <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
+            <h2 class="text-3xl font-extrabold text-secondary mb-2">Saisie Simplifiée des Flux de Trésorerie</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Enregistrement en tant que **${currentRole}** pour **${currentCompanyName}**. La comptabilisation est automatique.
+            </p>
+            
+            <form id="saisie-caissier-form">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 mb-6 border border-secondary rounded-lg">
+                    <div class="md:col-span-1">
+                        <label for="compte-mouvement" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Compte de Mouvement (Contrepartie) <span class="text-danger">*</span></label>
+                        <select id="compte-mouvement" required class="mt-1 block w-full py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                            <option value="571">Caisse (571)</option>
+                            <option value="521">Banque (521)</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-1">
+                        <label for="date-mouvement" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Date du Flux <span class="text-danger">*</span></label>
+                        <input type="date" id="date-mouvement" required value="${new Date().toISOString().slice(0, 10)}" class="mt-1 block w-full py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-bold text-primary mb-4">Détails des Flux</h3>
+                <div class="overflow-x-auto mb-4">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead>
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Désignation (Nature)</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Bénéficiaire/Tiers</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Montant (XOF)</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Type</th>
+                                <th class="px-3 py-2 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="flux-lines">
+                            </tbody>
+                        <tfoot>
+                            <tr class="bg-gray-50 dark:bg-gray-700 font-bold">
+                                <td colspan="2" class="px-3 py-2 text-right text-sm">TOTAL ENREGISTRÉ</td>
+                                <td id="total-flux" class="px-3 py-2 text-right text-sm text-info">0.00</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <button type="button" onclick="addFluxLine()" class="py-2 px-4 bg-info hover:bg-blue-700 text-white rounded-lg transition duration-200 mb-6">
+                    <i class="fas fa-plus-circle mr-2"></i> Ajouter un Flux
+                </button>
+                
+                <p id="caissier-saisie-message" class="mt-6 text-center text-sm hidden"></p>
+                
+                <button type="submit" class="w-full py-3 bg-success hover:bg-green-700 text-white font-bold rounded-lg transition duration-300">
+                    <i class="fas fa-save mr-2"></i> Soumettre les Flux pour Validation
+                </button>
+            </form>
+        </div>
+
+        <script>
+            let fluxLineCounter = 0;
+            const designations = ${JSON.stringify(designations)};
+
+            function addFluxLine(montant = '', designationCode = '', tiers = '') {
+                fluxLineCounter++;
+                const tbody = document.getElementById('flux-lines');
+                const row = document.createElement('tr');
+                row.id = 'flux-line-' + fluxLineCounter;
+                row.innerHTML = \`
+                    <td class="px-3 py-2">
+                        <select id="designation-\${fluxLineCounter}" required class="w-full py-1 border rounded-md dark:bg-gray-700 dark:text-white text-sm" onchange="updateFluxType(\${fluxLineCounter})">
+                            <option value="">-- Choisir Désignation --</option>
+                            \${designations.map(d => \`<option value="\${d.code}" data-type="\${d.type}" \${d.code === designationCode ? 'selected' : ''}>\${d.name}</option>\`).join('')}
+                        </select>
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="text" id="tiers-\${fluxLineCounter}" value="\${tiers}" class="w-full py-1 border rounded-md dark:bg-gray-700 dark:text-white text-sm" placeholder="Nom du Bénéficiaire/Payeur">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" step="0.01" min="1" required value="\${montant}" id="montant-\${fluxLineCounter}" class="w-full py-1 text-right border rounded-md dark:bg-gray-700 dark:text-white text-sm input-flux-montant" oninput="updateFluxTotals()">
+                    </td>
+                    <td class="px-3 py-2 text-sm">
+                        <span id="flux-type-display-\${fluxLineCounter}">\${designationCode ? designations.find(d => d.code === designationCode).type.charAt(0).toUpperCase() + designations.find(d => d.code === designationCode).type.slice(1) : 'Dépense'}</span>
+                    </td>
+                    <td class="px-1 py-2 text-center">
+                        <button type="button" onclick="removeFluxLine('flux-line-\${fluxLineCounter}')" class="text-danger hover:text-red-700 text-lg"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                \`;
+                tbody.appendChild(row);
+                updateFluxTotals();
+                if(designationCode) updateFluxType(fluxLineCounter); // Initialiser la couleur
+            }
+
+            function updateFluxType(lineNum) {
+                const selectElement = document.getElementById('designation-' + lineNum);
+                const typeDisplay = document.getElementById('flux-type-display-' + lineNum);
+                
+                const selectedOption = selectElement.options[selectElement.selectedIndex];
+                const type = selectedOption.dataset.type || 'depense'; 
+                
+                typeDisplay.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+                typeDisplay.className = type === 'recette' ? 'text-success font-bold' : 'text-danger font-bold';
+            }
+            
+            function removeFluxLine(rowId) {
+                document.getElementById(rowId).remove();
+                updateFluxTotals();
+            }
+
+            function updateFluxTotals() {
+                let totalFlux = 0;
+                document.querySelectorAll('.input-flux-montant').forEach(input => {
+                    totalFlux += parseFloat(input.value) || 0;
+                });
+                document.getElementById('total-flux').textContent = totalFlux.toFixed(2);
+            }
+            
+            // Initialisation
+            addFluxLine();
+            
+            // Gestion de l'envoi du formulaire (simulé)
+            document.getElementById('saisie-caissier-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const msgElement = document.getElementById('caissier-saisie-message');
+                msgElement.classList.remove('hidden', 'text-danger', 'text-success');
+                msgElement.textContent = "Soumission des flux en cours...";
+
+                // MOCK: Soumission réussie
+                
+                msgElement.textContent = \`✅ Soumission de flux pour validation réussie !\`;
+                msgElement.classList.add('text-success');
+                // Note: En prod, on réinitialiserait
+                setTimeout(() => msgElement.classList.add('hidden'), 5000);
             });
         </script>
     `;
 }
 
-function updateNavigationMenu(role) {
-    const menu = document.getElementById('role-navigation-menu');
-    menu.innerHTML = ''; 
+// =================================================================================
+// 9. GESTION DES UTILISATEURS (ADMIN) ET VALIDATION
+// =================================================================================
 
-    const baseItems = [
-        { name: 'Tableau de Bord', icon: 'fas fa-chart-line', view: 'dashboard' },
-        { name: 'Saisie Comptable', icon: 'fas fa-edit', view: 'saisie' },
+/**
+ * Rend l'interface de gestion des utilisateurs (ADMIN uniquement).
+ */
+function renderUserManagementView() {
+    
+    // MOCK: Liste des utilisateurs
+    const mockUsers = [
+        { id: 'U1', email: 'collaborateur@test.com', role: ROLES.COLLABORATEUR, company: 'ENT_1 (Doukè Holdings)' },
+        { id: 'U2', email: 'user@monentreprise.com', role: ROLES.USER, company: 'ENT_2 (MonEntrepriseSarl)' },
+        { id: 'U3', email: 'caissier@caisse.com', role: ROLES.CAISSIER, company: 'ENT_3 (CaisseTest)' },
+        { id: 'U4', email: 'admin@app.com', role: ROLES.ADMIN, company: 'Global' },
     ];
     
-    if (role === 'ADMIN' || role === 'COLLABORATEUR') {
-        baseItems.push({ name: 'Générer États Financiers', icon: 'fas fa-file-invoice-dollar', view: 'reports' });
-        baseItems.push({ name: 'Validation Opérations', icon: 'fas fa-check-double', view: 'validation' });
-    }
-    if (role === 'ADMIN') {
-        baseItems.push({ name: 'Gestion Utilisateurs', icon: 'fas fa-users-cog', view: 'user-management' });
-    }
-    if (role === 'CAISSIER') {
-        baseItems.push({ name: 'Rapports Caisse', icon: 'fas fa-receipt', view: 'reports' });
-    }
+    const userRows = mockUsers.map(user => `
+        <tr id="user-row-${user.id}" class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150">
+            <td class="px-4 py-3 whitespace-nowrap">${user.email}</td>
+            <td class="px-4 py-3 whitespace-nowrap font-medium text-info">${user.role}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">${user.company}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-right">
+                <button class="text-sm text-secondary hover:text-primary-dark" onclick="alert('Modifier les rôles de ${user.email}')"><i class="fas fa-user-edit mr-1"></i> Modifier</button>
+            </td>
+        </tr>
+    `).join('');
+
+    return `
+        <div class="space-y-8">
+            <h2 class="text-3xl font-extrabold text-secondary">Tableau de Bord Administration</h2>
+            
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold text-primary mb-4 border-b pb-2">Créer un Nouvel Utilisateur</h3>
+                <form id="create-user-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="email" placeholder="Email de l'utilisateur" id="new-user-email" required class="px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    <select id="new-user-role" required class="px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                        <option value="${ROLES.USER}">USER (Mono-entreprise)</option>
+                        <option value="${ROLES.CAISSIER}">CAISSIER</option>
+                        <option value="${ROLES.COLLABORATEUR}">COLLABORATEUR (Multi-entreprise)</option>
+                        <option value="${ROLES.ADMIN}">ADMIN (Accès total)</option>
+                    </select>
+                    <button type="submit" class="py-2 bg-success hover:bg-green-700 text-white font-bold rounded-lg"><i class="fas fa-user-plus mr-1"></i> Créer</button>
+                </form>
+                <p id="create-user-message" class="mt-3 text-center text-sm hidden"></p>
+            </div>
+            
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold text-secondary mb-4 border-b pb-2">Liste des Utilisateurs du Système</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôle</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attribué à</th>
+                                <th class="px-4 py-2">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            ${userRows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            document.getElementById('create-user-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const msgElement = document.getElementById('create-user-message');
+                msgElement.classList.remove('hidden', 'text-danger', 'text-success');
+                msgElement.textContent = "Création du compte en cours...";
+
+                // MOCK: Simulation de la création
+                
+                msgElement.textContent = \`✅ Utilisateur \${document.getElementById('new-user-email').value} (\${document.getElementById('new-user-role').value}) créé. (Mot de passe temporaire envoyé par API)\`;
+                msgElement.classList.add('text-success');
+                document.getElementById('create-user-form').reset();
+                setTimeout(() => msgElement.classList.add('hidden'), 5000);
+            });
+        </script>
+    `;
+}
+
+/**
+ * Rend la table des opérations en attente de validation.
+ */
+function generateValidationTable() { 
+    const currentCompanyId = window.userContext.entrepriseContextId || 'NO_CONTEXT';
+    const currentCompanyName = window.userContext.entrepriseContextName || 'N/A';
     
-    if (role === 'ADMIN' || role === 'COLLABORATEUR') {
-         baseItems.push({ name: 'Changer d\'Entreprise', icon: 'fas fa-sync-alt', view: 'selector' });
+    // Simuler des données en attente pour une entreprise
+    // Seules ENT_1 et ENT_2 ont des validations en attente ici
+    const mockPendingMovements = [
+        { id: 'MOV_001', entreprise: 'ENT_2', nature: 'Dépense Carburant (Simple)', montant: '50,000 XOF', soumis_par: 'USR_003' },
+        { id: 'MOV_002', entreprise: 'ENT_2', nature: 'Recette Vente Services (Simple)', montant: '250,000 XOF', soumis_par: 'USR_003' },
+        { id: 'MOV_003', entreprise: 'ENT_1', nature: 'Écriture Journal (AC) FACT-125', montant: '1,500,000 XOF', soumis_par: 'COL_002' },
+    ].filter(m => m.entreprise === currentCompanyId); // Filtrer par le contexte actuel
+    
+    if (mockPendingMovements.length === 0) {
+        return `
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Opérations de Caisse/Journal en Attente</h3>
+                <p class="text-center text-info p-4">✅ Aucune opération en attente de validation pour **${currentCompanyName}**.</p>
+            </div>
+        `;
     }
 
-    baseItems.forEach(item => {
-        const link = document.createElement('a');
-        link.href = '#';
-        link.className = 'flex items-center p-3 text-gray-700 dark:text-gray-300 hover:bg-primary-light hover:text-white rounded-lg transition duration-200';
-        link.innerHTML = `<i class="${item.icon} mr-3"></i> ${item.name}`;
-        
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            
-            if (item.view === 'selector') {
-                renderEnterpriseSelectorView();
-            } else {
-                loadView(item.view);
-            }
-        });
-        
-        menu.appendChild(link);
-    });
+    const tableRows = mockPendingMovements.map(movement => `
+        <tr id="row-${movement.id}" class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">${movement.nature}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${movement.montant}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">Soumis par ${movement.soumis_par}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <button onclick="handleValidation('${movement.id}', 'approve')" class="text-success hover:text-green-700 ml-4"><i class="fas fa-check-circle"></i> Valider</button>
+                <button onclick="handleValidation('${movement.id}', 'reject')" class="text-danger hover:text-red-700 ml-4"><i class="fas fa-times-circle"></i> Rejeter</button>
+            </td>
+        </tr>
+    `).join('');
     
-    // --- AMÉLIORATION ERGONOMIQUE DU BOUTON DE DÉCONNEXION ---
-    // Ajout d'un bouton de déconnexion stylisé dans la navigation
-    const logoutLink = document.createElement('a');
-    logoutLink.href = '#';
-    logoutLink.id = 'logout-button'; // Utiliser l'ID existant pour réutiliser le listener
-    logoutLink.className = 'mt-4 flex items-center p-3 text-white bg-danger hover:bg-red-700 rounded-lg transition duration-200 shadow-md';
-    logoutLink.innerHTML = `<i class="fas fa-sign-out-alt mr-3"></i> Déconnexion`;
+    return `
+        <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Opérations de Caisse/Journal en Attente (${mockPendingMovements.length})</h3>
+            <div id="validation-message" class="text-center text-sm mb-4 hidden"></div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead>
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nature de l'Opération</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Soumis Par</th>
+                            <th class="px-6 py-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700" id="validation-table-body">
+                        ${tableRows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Gère l'action de validation ou de rejet d'un mouvement (simulée).
+ */
+async function handleValidation(movementId, action) {
+    const msgElement = document.getElementById('validation-message');
+    msgElement.classList.remove('hidden', 'text-danger', 'text-success');
+    msgElement.textContent = "Traitement en cours...";
     
-    // Ajout dans la section dédiée si elle existe, sinon à la fin du menu
-    const sidebar = document.querySelector('.flex-col.p-4.space-y-2');
-    if (sidebar) {
-        // Supprime l'ancien bouton (qui était juste une ligne dans le HTML)
-        const oldLogout = document.getElementById('logout-button');
-        if (oldLogout) { oldLogout.remove(); } 
-        
-        // Ajoute le nouveau bouton à la fin du conteneur de la barre latérale
-        sidebar.appendChild(logoutLink);
+    // MOCK: Simuler l'appel API de validation
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Simulation du succès
+    msgElement.textContent = `✅ Mouvement ${movementId} a été **${action === 'approve' ? 'VALIDÉ' : 'REJETÉ'}** avec succès.`;
+    msgElement.classList.add('text-success');
+    
+    // Retirer l'élément de la liste
+    const rowToRemove = document.getElementById(`row-${movementId}`);
+    if (rowToRemove) {
+        rowToRemove.remove();
     }
+    
+    setTimeout(() => msgElement.classList.add('hidden'), 3000);
 }
