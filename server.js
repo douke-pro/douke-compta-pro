@@ -1,249 +1,257 @@
-// ==============================================================================
-// FICHIER : server.js
-// Description : Serveur API Express pour Doukè Compta Pro
-// VERSION : FINALE & CONSOLIDÉE (Inclut profil admin, sécurité défensive et routes Admin/Collab)
-// ==============================================================================
+// =================================================================================
+// FICHIER DE MOCK SERVER (Node.js / Express)
+// Simule l'API backend pour l'application K-Compta SYSCOHADA.
+//
+// Pour démarrer:
+// 1. Assurez-vous d'avoir Node.js installé.
+// 2. Initialisez votre projet: npm init -y
+// 3. Installez les dépendances: npm install express cors body-parser
+// 4. Exécutez: node server.js
+// =================================================================================
 
-// 1. DÉPENDANCES ET CONFIGURATION INITIALE
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-const jwt = require('jsonwebtoken'); 
+const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const SECRET_KEY = process.env.JWT_SECRET || 'votre_cle_secrete_tres_forte_a_changer'; 
+const PORT = 3000;
 
-// 2. MIDDLEWARES
-app.use(cors()); 
-app.use(express.json()); 
-app.use(express.static('assets')); 
+// Configuration des Middlewares
+app.use(cors()); // Permet les requêtes depuis le frontend (port 80 ou fichier)
+app.use(bodyParser.json()); // Pour analyser les corps de requêtes JSON
 
-// ==============================================================================
-// 3. BASES DE DONNÉES SIMULÉES (MOCKS)
-// ==============================================================================
+// =================================================================================
+// 1. DONNÉES DE MOCK (Cohérentes avec script.js)
+// =================================================================================
 
-let MOCK_USERS_DB = [
-    // 🚨 PROFIL ADMIN POUR AVANCER 🚨
-    { id: 'USER_ADMIN_PRO', username: 'doukepro@gmail.com', password: '1234', email: 'doukepro@gmail.com', role: 'ADMIN', entrepriseId: 'ENT_1', entrepriseName: 'Doukè Siège' },
-    
-    // Anciens Mocks
-    { id: 'USER_1', username: 'admin', password: 'password', email: 'admin@douke.com', role: 'ADMIN', entrepriseId: 'ENT_1', entrepriseName: 'Doukè Siège' },
-    { id: 'USER_2', username: 'collaborateur', password: 'password', email: 'collab@douke.com', role: 'COLLABORATEUR', entrepriseId: null, entrepriseName: null },
-    { id: 'USER_3', username: 'utilisateur', password: 'password', email: 'user@douke.com', role: 'USER', entrepriseId: 'ENT_2', entrepriseName: 'MonEntrepriseSarl' },
-    { id: 'USER_4', username: 'caissier', password: 'password', email: 'caisse@douke.com', role: 'CAISSIER', entrepriseId: 'ENT_3', entrepriseName: 'CaisseTest' },
-];
-
-let MOCK_COMPANIES_DB = [
-    { id: 'ENT_1', name: 'Doukè Siège', nif: '100000000', status: 'SA' },
-    { id: 'ENT_2', name: 'MonEntrepriseSarl', nif: '200000000', status: 'SARL' },
-    { id: 'ENT_3', name: 'CaisseTest', nif: '300000000', status: 'Ets' },
-];
-
-// MOCK pour savoir qui gère quoi
-let DB_ATTRIBUTION_MOCK = {
-    'ENT_1': { collaborateurId: null, userId: 'USER_1', name: 'Doukè Siège' },
-    'ENT_2': { collaborateurId: 'USER_2', userId: 'USER_3', name: 'MonEntrepriseSarl' },
-    'ENT_3': { collaborateurId: 'USER_2', userId: 'USER_4', name: 'CaisseTest' },
+const MOCK_USERS = {
+    'admin@app.com': {
+        utilisateurId: 'ADM_001',
+        utilisateurNom: 'Jean Dupont (Admin)',
+        utilisateurRole: 'ADMIN',
+        token: 'jwt.admin.token',
+        entrepriseContextId: 'ENT_1',
+        entrepriseContextName: 'Doukè Holdings',
+        multiEntreprise: true,
+    },
+    'collaborateur@app.com': {
+        utilisateurId: 'COL_002',
+        utilisateurNom: 'Marie Leroy (Collab)',
+        utilisateurRole: 'COLLABORATEUR',
+        token: 'jwt.collab.token',
+        entrepriseContextId: 'ENT_2',
+        entrepriseContextName: 'MonEntrepriseSarl',
+        multiEntreprise: true,
+    },
+    'user@app.com': {
+        utilisateurId: 'USR_003',
+        utilisateurNom: 'Koffi Adama (User)',
+        utilisateurRole: 'USER',
+        token: 'jwt.user.token',
+        entrepriseContextId: 'ENT_2',
+        entrepriseContextName: 'MonEntrepriseSarl',
+        multiEntreprise: false,
+    },
+    'caissier@app.com': {
+        utilisateurId: 'CAI_004',
+        utilisateurNom: 'Fatou Diallo (Caissier)',
+        utilisateurRole: 'CAISSIER',
+        token: 'jwt.caissier.token',
+        entrepriseContextId: 'ENT_3',
+        entrepriseContextName: 'CaisseTest',
+        multiEntreprise: false,
+    },
 };
 
+const MOCK_COMPANIES = {
+    'ADM_001': [
+        { id: 'ENT_1', name: 'Doukè Holdings', stats: { transactions: 150, result: 3500000, pending: 1, cash: 2500000 } },
+        { id: 'ENT_2', name: 'MonEntrepriseSarl', stats: { transactions: 50, result: 1200000, pending: 2, cash: 800000 } },
+        { id: 'ENT_3', name: 'CaisseTest', stats: { transactions: 20, result: 50000, pending: 0, cash: 100000 } },
+    ],
+    'COL_002': [
+        { id: 'ENT_1', name: 'Doukè Holdings', stats: { transactions: 150, result: 3500000, pending: 1, cash: 2500000 } },
+        { id: 'ENT_2', name: 'MonEntrepriseSarl', stats: { transactions: 50, result: 1200000, pending: 2, cash: 800000 } },
+    ],
+    'USR_003': [
+        { id: 'ENT_2', name: 'MonEntrepriseSarl', stats: { transactions: 50, result: 1200000, pending: 2, cash: 800000 } },
+    ],
+    'CAI_004': [
+        { id: 'ENT_3', name: 'CaisseTest', stats: { transactions: 20, result: 50000, pending: 0, cash: 100000 } },
+    ],
+};
 
-// ==============================================================================
-// 4. ROUTES D'AUTHENTIFICATION (/api/auth)
-// ==============================================================================
+// =================================================================================
+// 2. ENDPOINTS D'AUTHENTIFICATION ET DE CONTEXTE
+// =================================================================================
 
-// ROUTE DE DIAGNOSTIC
-app.get('/api/test/json', (req, res) => {
-    return res.status(200).json({
-        testSuccess: true,
-        message: "Serveur Express opérationnel et capable de renvoyer du JSON.",
-        version: "FINALE_V2.0",
-        time: new Date().toISOString()
-    });
-});
-
-
-// Route de Connexion (Login)
+/**
+ * POST /api/auth/login
+ * Simule le processus de connexion.
+ */
 app.post('/api/auth/login', (req, res) => {
-    const { username, password } = req.body;
-    const user = MOCK_USERS_DB.find(u => u.username === username && u.password === password);
+    const { email, password } = req.body;
 
-    if (!user) {
-        return res.status(401).json({ success: false, message: "Nom d'utilisateur ou mot de passe incorrect." });
-    }
-
-    const tokenPayload = {
-        utilisateurId: user.id,
-        utilisateurRole: user.role,
-        entrepriseContextId: user.entrepriseId,
-        entrepriseContextName: user.entrepriseName,
-    };
-
-    const token = jwt.sign(tokenPayload, SECRET_KEY, { expiresIn: '1d' });
-
-    // IMPORTANT : Le serveur doit toujours retourner TOUT le corps pour fonctionner.
-    return res.status(200).json({
-        success: true,
-        token: token,
-        user: { 
-            id: user.id, 
-            role: user.role, 
-            entrepriseId: user.entrepriseId,
-            entrepriseName: user.entrepriseName
-        },
-        message: "Connexion réussie."
-    });
-});
-
-
-// Route d'Inscription (Register) - DÉFENSIVEMENT SÉCURISÉE
-app.post('/api/auth/register', async (req, res) => {
-    const { username, password, email, companyName, companyNif, companyStatus } = req.body;
-
-    try {
-        // --- 1. SIMULATION DB : VÉRIFICATION ET CRÉATION ---
-        if (MOCK_USERS_DB.some(u => u.username === username || u.email === email)) {
-            return res.status(400).json({ success: false, message: "Ce nom d'utilisateur ou cet email est déjà utilisé." });
-        }
-
-        const timestamp = Date.now();
-        const newCompanyId = `ENT_${timestamp}`;
-        const newUserId = `USER_${timestamp}`;
-
-        const newUser = { 
-            id: newUserId, 
-            username, 
-            password, 
-            email, 
-            role: 'USER', 
-            entrepriseId: newCompanyId, 
-            entrepriseName: companyName 
-        };
-        
-        MOCK_USERS_DB.push(newUser);
-        const newCompany = { id: newCompanyId, name: companyName, nif: companyNif, status: companyStatus };
-        MOCK_COMPANIES_DB.push(newCompany);
-        DB_ATTRIBUTION_MOCK[newCompanyId] = { 
-            collaborateurId: null, 
-            userId: newUserId, 
-            name: companyName 
-        };
-
-        // --- 2. CRÉATION ET SIGNATURE DU TOKEN ---
-        const tokenPayload = {
-            utilisateurId: newUser.id,
-            utilisateurRole: newUser.role,
-            entrepriseContextId: newUser.entrepriseId,
-            entrepriseContextName: newUser.entrepriseName,
-        };
-        
-        const token = jwt.sign(tokenPayload, SECRET_KEY, { expiresIn: '1d' });
-
-        // --- 3. RÉPONSE FINALE (Succès) ---
-        return res.status(201).json({ 
-            success: true,
-            token: token, 
-            user: { 
-                id: newUser.id, 
-                role: newUser.role, 
-                entrepriseId: newUser.entrepriseId,
-                entrepriseName: newUser.entrepriseName,
-            },
-            company: newCompany, // Retourne l'objet complet de l'entreprise
-            message: "Inscription réussie. Bienvenue sur Doukè Compta Pro !"
-        });
-
-    } catch (error) {
-        // --- 4. GESTION DES ERREURS INTERNES (Empêche la réponse 200 vide) ---
-        console.error("Erreur interne critique lors de l'inscription:", error.message);
-        return res.status(500).json({ 
-            success: false, 
-            message: "Échec de l'inscription en raison d'une erreur interne du serveur. Le code 'res.json' n'a pas pu s'exécuter."
-        });
-    }
-});
-
-
-// ==============================================================================
-// 5. MIDDLEWARE JWT ET ROUTES D'APPLICATION
-// ==============================================================================
-
-function verifyToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    if (!authHeader) return res.status(401).json({ message: 'Accès refusé. Jeton manquant.' });
-
-    const token = authHeader.split(' ')[1]; 
-
-    jwt.verify(token, SECRET_KEY, (err, decoded) => {
-        if (err) return res.status(403).json({ message: 'Jeton invalide ou expiré.' });
-        req.userContext = decoded; 
-        next();
-    });
-}
-
-// Route qui retourne les entreprises auxquelles l'utilisateur a accès
-app.get('/api/user/companies', verifyToken, (req, res) => {
-    const role = req.userContext.utilisateurRole;
-    const userId = req.userContext.utilisateurId;
-    
-    let userCompanies = [];
-
-    if (role === 'USER' || role === 'CAISSIER') {
-        const company = MOCK_COMPANIES_DB.find(c => c.id === req.userContext.entrepriseContextId);
-        if (company) userCompanies.push(company);
-
-    } else if (role === 'ADMIN') {
-        // L'admin voit toutes les entreprises
-        userCompanies = [...MOCK_COMPANIES_DB];
-
-    } else if (role === 'COLLABORATEUR') {
-        // Le collaborateur voit celles qui lui sont attribuées
-        userCompanies = MOCK_COMPANIES_DB.filter(company => 
-            DB_ATTRIBUTION_MOCK[company.id] && DB_ATTRIBUTION_MOCK[company.id].collaborateurId === userId
-        );
+    // Validation basique (simulée)
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email et mot de passe requis.' });
     }
     
-    // Ajout des stats mockées pour le Front-end
-    userCompanies = userCompanies.map(c => ({
-        ...c,
-        stats: {
-            transactions: Math.floor(Math.random() * 50) + 10,
-            active_users: Math.floor(Math.random() * 5) + 1,
-        }
-    }));
-
-    return res.status(200).json(userCompanies);
+    // Vérification de l'utilisateur mocké
+    const user = MOCK_USERS[email];
+    
+    if (user && password === 'password123') { // On vérifie le mot de passe simple mocké
+        // Retourne le contexte utilisateur pour initialiser le frontend
+        return res.status(200).json(user);
+    } else {
+        return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
+    }
 });
 
-// ROUTE D'INNOVATION : Création d'entreprise par un Admin (Simulation)
-app.post('/api/admin/create-company', verifyToken, (req, res) => {
-    if (req.userContext.utilisateurRole !== 'ADMIN') {
-        return res.status(403).json({ success: false, message: "Accès refusé. Nécessite le rôle ADMIN." });
+/**
+ * GET /api/companies/:userId
+ * Retourne la liste des entreprises accessibles par l'utilisateur.
+ */
+app.get('/api/companies/:userId', (req, res) => {
+    const userId = req.params.userId;
+    
+    const companies = MOCK_COMPANIES[userId];
+    
+    if (companies) {
+        return res.status(200).json(companies);
+    } else {
+        return res.status(404).json({ error: 'Aucune entreprise trouvée pour cet utilisateur.' });
     }
-    const { name, nif, status } = req.body;
+});
 
-    const newCompanyId = `ENT_ADMIN_${Date.now()}`;
-    const newCompany = { id: newCompanyId, name, nif, status };
+// =================================================================================
+// 3. ENDPOINTS DE SAISIE COMPTABLE (COHÉRENCE FRONT-END)
+// =================================================================================
 
-    MOCK_COMPANIES_DB.push(newCompany);
-    // Simuler l'ajout au DB_ATTRIBUTION_MOCK
+/**
+ * Middleware d'Autorisation (Simulé)
+ * Vérifie l'existence de l'utilisateur (base sur l'ID dans le body pour ce mock)
+ */
+const authorize = (req, res, next) => {
+    const userId = req.body.utilisateurId;
+    if (!userId || !Object.values(MOCK_USERS).find(u => u.utilisateurId === userId)) {
+        return res.status(403).json({ error: 'Accès non autorisé ou utilisateur inconnu.' });
+    }
+    next();
+};
 
-    return res.status(201).json({ 
-        success: true, 
-        message: `Entreprise ${name} créée avec succès.`,
-        company: newCompany 
+/**
+ * POST /api/saisie/flux
+ * Traite les saisies simplifiées du caissier/utilisateur (Formulaire Caissier).
+ */
+app.post('/api/saisie/flux', authorize, (req, res) => {
+    const { entrepriseId, compteMouvement, date, flux, utilisateurId } = req.body;
+
+    if (!entrepriseId || !flux || flux.length === 0) {
+        return res.status(400).json({ error: 'Données de flux incomplètes.' });
+    }
+
+    console.log(`\n--- SAISIE FLUX REÇUE ---`);
+    console.log(`Entreprise: ${entrepriseId}, Compte Mvt: ${compteMouvement}, Date: ${date}, Soumis par: ${utilisateurId}`);
+    
+    // Logique d'imputation SYSCOHADA simulée (la plus importante)
+    let totalMouvement = 0;
+    const journalEntries = [];
+
+    flux.forEach(f => {
+        totalMouvement += f.montant;
+        let debitAccount = '';
+        let creditAccount = '';
+        let libelle = `${f.designation_code} - ${f.tiers || 'Divers'}`;
+
+        // MOCK: Détermination de la contrepartie (Classe 6 ou 7)
+        if (f.type === 'depense') {
+            // Dépense: Compte de Charge (ex: 60x) au Débit, Compte de Trésorerie (571/521) au Crédit
+            debitAccount = '609'; // Exemple générique de Compte de Charge
+            creditAccount = compteMouvement;
+        } else if (f.type === 'recette') {
+            // Recette: Compte de Trésorerie (571/521) au Débit, Compte de Produit (ex: 70x) au Crédit
+            debitAccount = compteMouvement;
+            creditAccount = '709'; // Exemple générique de Compte de Produit
+        }
+
+        journalEntries.push({
+            debit: f.type === 'recette' ? f.montant : 0,
+            credit: f.type === 'depense' ? f.montant : 0,
+            compte: compteMouvement,
+            libelle: `MVT ${f.type.toUpperCase()}`
+        });
+        
+        journalEntries.push({
+            debit: f.type === 'depense' ? f.montant : 0,
+            credit: f.type === 'recette' ? f.montant : 0,
+            compte: f.type === 'depense' ? debitAccount : creditAccount,
+            libelle: libelle
+        });
+    });
+
+    console.log(`Total des flux: ${totalMouvement}. Opération(s) soumise(s) pour validation.`);
+    // Enregistrement en base de données (non implémenté)
+
+    return res.status(202).json({ 
+        message: `${flux.length} flux soumis pour validation. Total: ${totalMouvement} XOF.`,
+        operationId: 'FLUX-20250101-005',
+        details: journalEntries.slice(0, 2) // Afficher un exemple
     });
 });
 
+/**
+ * POST /api/saisie/journal
+ * Traite les saisies professionnelles à double-entrée (Formulaire Journal Entry).
+ */
+app.post('/api/saisie/journal', authorize, (req, res) => {
+    const { journal, date, pieceRef, libelleGeneral, lignes, utilisateurId } = req.body;
 
-// ==============================================================================
-// 6. ROUTE D'ACCUEIL ET DÉMARRAGE
-// ==============================================================================
+    if (!journal || !date || !lignes || lignes.length < 2) {
+        return res.status(400).json({ error: 'Écriture journal incomplète ou manque de lignes.' });
+    }
 
+    // 1. Vérification d'équilibre côté serveur (Critique pour le SYSCOHADA)
+    const totalDebit = lignes.reduce((sum, line) => sum + (parseFloat(line.debit) || 0), 0);
+    const totalCredit = lignes.reduce((sum, line) => sum + (parseFloat(line.credit) || 0), 0);
+
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        console.error(`Déséquilibre détecté: Débit=${totalDebit}, Crédit=${totalCredit}`);
+        return res.status(400).json({ error: `Déséquilibre comptable. Débit (${totalDebit.toFixed(2)}) ≠ Crédit (${totalCredit.toFixed(2)}). Rejet de l'écriture.` });
+    }
+
+    console.log(`\n--- SAISIE JOURNAL REÇUE ---`);
+    console.log(`Journal: ${journal}, Pièce: ${pieceRef}, Libellé: ${libelleGeneral}`);
+    console.log(`Équilibrée: ${totalDebit.toFixed(2)} XOF.`);
+    console.log(`Soumise par: ${utilisateurId}.`);
+
+    // Enregistrement en base de données (non implémenté)
+    
+    return res.status(202).json({ 
+        message: `Écriture Journal ${journal} soumise avec succès pour validation.`,
+        operationId: `${journal}-${new Date().getFullYear()}-007`,
+        total: totalDebit.toFixed(2)
+    });
+});
+
+// =================================================================================
+// 4. SERVEUR DE FICHIERS STATIQUES (pour servir le frontend)
+// =================================================================================
+
+// Servir les fichiers statiques (CSS, JS, images, etc.)
+app.use(express.static(__dirname));
+
+// Servir index.html à la racine
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(__dirname + '/index.html');
 });
 
+// Démarrage du serveur
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`\n=================================================`);
+    console.log(`  K-Compta Mock Server démarré.`);
+    console.log(`  Accès frontend via: http://localhost:${PORT}/index.html`);
+    console.log(`  API Mock à: http://localhost:${PORT}/api/*`);
+    console.log(`=================================================\n`);
+    console.log(`Endpoints actifs: /api/auth/login, /api/companies/:userId, /api/saisie/flux, /api/saisie/journal`);
 });
