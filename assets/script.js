@@ -1241,6 +1241,7 @@ function attachViewSpecificListeners(viewName) {
 
 /**
  * Attache les gestionnaires d'événements DOM nécessaires au chargement de la page.
+ * Cette fonction lit le formulaire de connexion et déclenche l'authentification.
  */
 function attachEventListeners() {
     const loginForm = document.getElementById('login-form');
@@ -1250,10 +1251,10 @@ function attachEventListeners() {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const email = document.getElementById('email').value;
-            // Password est ignoré pour le MOCK, mais l'élément doit être présent dans l'HTML
-            // const password = document.getElementById('password').value; 
+            // Assurez-vous que l'input a bien l'ID 'email' dans votre HTML
+            const email = document.getElementById('email').value; 
             
+            // MOCK de chargement
             loginMessage.textContent = 'Connexion en cours...';
             loginMessage.classList.remove('hidden', 'text-danger');
             
@@ -1269,7 +1270,7 @@ function attachEventListeners() {
         });
     }
 
-    // Gestionnaire pour le bouton de déconnexion
+    // Gestionnaire pour le bouton de déconnexion (si l'élément est présent)
     const logoutButton = document.getElementById('logout-button');
     if (logoutButton) {
         logoutButton.addEventListener('click', (e) => {
@@ -1277,11 +1278,10 @@ function attachEventListeners() {
             window.userContext = null;
             document.getElementById('app').classList.add('hidden');
             document.getElementById('login-modal').classList.remove('hidden');
-            // Recharger la page pour réinitialiser complètement l'état
             window.location.reload(); 
         });
     }
 }
 
-// Démarre l'écoute des événements lorsque le DOM est complètement chargé
+// LIGNE CRITIQUE : Démarre l'écoute des événements lorsque le DOM est complètement chargé
 document.addEventListener('DOMContentLoaded', attachEventListeners);
