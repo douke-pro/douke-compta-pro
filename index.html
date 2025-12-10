@@ -3,225 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doukè Compta Pro - SYSCOHADA</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLMD/CDQ6W+p33bTCRuMfFwKz/eS2Xq71f5qK/0Bv1tP+jL5N6O0UvX0K4t/S4O4Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3b82f6',
-                        'primary-light': '#60a5fa',
-                        'primary-dark': '#2563eb',
-                        secondary: '#10b981',
-                        info: '#3b82f6',
-                        danger: '#ef4444',
-                        success: '#10b981',
-                        warning: '#f59e0b',
-                    }
-                }
-            }
-        }
-    </script>
+    <title>Doukè Compta Pro - Application de Gestion Comptable</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
     <style>
-        .dark .bg-white { background-color: #1f2937; }
-        .dark .text-gray-900 { color: #f9fafb; }
+        :root {
+            --color-primary: #0A66C2; /* Bleu LinkedIn/Pro */
+            --color-secondary: #008000; /* Vert pour Actions Positives */
+            --color-danger: #D32F2F; /* Rouge pour Erreurs */
+            --color-success: #388E3C; /* Vert pour Succès */
+            --color-warning: #FFA000; /* Jaune pour Alertes */
+            --color-info: #1976D2; /* Bleu clair pour Info */
+        }
+        .bg-primary { background-color: var(--color-primary); }
+        .text-primary { color: var(--color-primary); }
+        .bg-secondary { background-color: var(--color-secondary); }
+        .text-secondary { color: var(--color-secondary); }
+        .bg-danger { background-color: var(--color-danger); }
+        .text-danger { color: var(--color-danger); }
+        .bg-success { background-color: var(--color-success); }
+        .text-success { color: var(--color-success); }
+        .bg-warning { background-color: var(--color-warning); }
+        .text-warning { color: var(--color-warning); }
+        .bg-info { background-color: var(--color-info); }
+        .text-info { color: var(--color-info); }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 transition-colors duration-500">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
-    <!-- ========================================= -->
-    <!-- VUE D'AUTHENTIFICATION (CONNEXION) -->
-    <!-- ========================================= -->
-    <div id="auth-view" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 class="text-3xl font-extrabold text-center text-primary mb-6">
-                <i class="fas fa-chart-line mr-2"></i> Doukè Compta Pro
-            </h2>
-            <p class="text-center text-gray-600 dark:text-gray-400 mb-6">Connexion Sécurisée SYSCOHADA</p>
-            
-            <form id="login-form" class="space-y-4">
+    <div id="auth-view" class="min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
+            <h1 class="text-4xl font-extrabold text-center text-primary mb-2">Doukè Compta Pro</h1>
+            <p class="text-center text-lg text-gray-600 dark:text-gray-400 mb-8">Connexion à votre espace de travail</p>
+
+            <form id="login-form" class="space-y-6">
                 <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom d'utilisateur ou Email</label>
-                    <input type="text" id="username" required placeholder="Ex: doukepro@gmail.com" 
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Test: admin, collaborateur, utilisateur, caissier</p>
+                    <label for="email" class="block text-sm font-medium">Adresse Email</label>
+                    <input type="email" id="email" required 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                           placeholder="mock_admin@app.com">
                 </div>
+                
                 <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mot de Passe</label>
-                    <input type="password" id="password" required value="password123" 
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary">
+                    <label for="password" class="block text-sm font-medium">Mot de Passe</label>
+                    <input type="password" id="password" required 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                           placeholder="Mot de passe">
                 </div>
-                <p id="auth-error-message" class="text-sm text-danger text-center hidden"></p>
-                <button type="submit" class="w-full py-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg transition duration-300">
+
+                <p id="login-message" class="text-center text-sm font-bold hidden"></p>
+                
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-primary hover:bg-secondary transition duration-150">
                     <i class="fas fa-sign-in-alt mr-2"></i> Se Connecter
                 </button>
             </form>
             
             <div class="mt-6 text-center">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Pas encore de compte ? 
-                    <button onclick="renderRegisterView()" class="text-primary hover:underline font-medium">Créer un compte</button>
-                </p>
-                <button id="toggle-theme-auth" onclick="toggleTheme()" class="text-sm text-gray-600 dark:text-gray-400 hover:text-primary mt-3">
-                    <i class="fas fa-moon mr-1"></i> Mode Sombre / Clair
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================================= -->
-    <!-- VUE D'INSCRIPTION -->
-    <!-- ========================================= -->
-    <div id="register-view" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-lg">
-            <h2 class="text-3xl font-extrabold text-center text-secondary mb-4">
-                <i class="fas fa-building mr-2"></i> Inscription Entreprise
-            </h2>
-            <p class="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">Créez votre compte administrateur et votre entreprise en une seule étape.</p>
-            
-            <form id="register-form" class="space-y-4">
-                <div>
-                    <label for="reg-username" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom d'utilisateur <span class="text-danger">*</span></label>
-                    <input type="text" id="reg-username" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary">
-                </div>
-                
-                <div>
-                    <label for="reg-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email <span class="text-danger">*</span></label>
-                    <input type="email" id="reg-email" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="reg-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mot de Passe <span class="text-danger">*</span></label>
-                        <input type="password" id="reg-password" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary">
-                    </div>
-                    <div>
-                        <label for="reg-password-confirm" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirmer <span class="text-danger">*</span></label>
-                        <input type="password" id="reg-password-confirm" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary">
-                    </div>
-                </div>
-                
-                <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Informations Entreprise</h3>
-                    
-                    <div>
-                        <label for="reg-company-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom de l'Entreprise <span class="text-danger">*</span></label>
-                        <input type="text" id="reg-company-name" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary" placeholder="Ex: Sarl Mon Entreprise">
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-4 mt-3">
-                        <div>
-                            <label for="reg-company-nif" class="block text-sm font-medium text-gray-700 dark:text-gray-300">NIF/ID Fiscal <span class="text-danger">*</span></label>
-                            <input type="text" id="reg-company-nif" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary" placeholder="0123456789">
-                        </div>
-                        <div>
-                            <label for="reg-company-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Statut Juridique <span class="text-danger">*</span></label>
-                            <select id="reg-company-status" required class="mt-1 block w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white focus:ring-primary focus:border-primary">
-                                <option value="SARL">SARL</option>
-                                <option value="SA">SA</option>
-                                <option value="ETS">Établissement</option>
-                                <option value="GIE">GIE</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                
-                <p id="register-error-message" class="text-sm text-danger text-center hidden"></p>
-                <button type="submit" class="w-full py-3 bg-secondary hover:bg-green-700 text-white font-bold rounded-lg transition duration-300">
-                    <i class="fas fa-user-plus mr-2"></i> Créer Mon Compte Entreprise
-                </button>
-            </form>
-            
-            <div class="mt-4 text-center">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Déjà un compte ? 
-                    <button onclick="renderLoginView()" class="text-primary hover:underline font-medium">Se connecter</button>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Pas encore de compte ? 
+                    <a href="#" class="font-medium text-secondary hover:text-primary">S'inscrire</a>
                 </p>
             </div>
         </div>
     </div>
 
-    <!-- ========================================= -->
-    <!-- VUE DASHBOARD (APPLICATION PRINCIPALE) -->
-    <!-- ========================================= -->
-    <div id="dashboard-view" class="flex min-h-screen hidden">
+
+    <div id="dashboard-view" class="hidden min-h-screen flex">
         
-        <!-- SIDEBAR -->
-        <div class="w-64 bg-white dark:bg-gray-800 shadow-xl flex-shrink-0 transition-all duration-300 hidden md:flex md:flex-col">
-            <div class="p-4 border-b dark:border-gray-700">
-                <h1 class="text-2xl font-extrabold text-primary flex items-center">
-                    <i class="fas fa-chart-line mr-2"></i> Doukè Compta Pro
-                </h1>
-                <span class="text-xs text-gray-500 dark:text-gray-400">SYSCOHADA Révised</span>
+        <aside class="w-64 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700 flex flex-col">
+            <div class="p-6">
+                <h2 class="text-2xl font-extrabold text-secondary">Doukè Pro</h2>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Comptabilité Facile</span>
             </div>
             
-            <nav id="role-navigation-menu" class="flex-col p-4 space-y-2 flex-grow overflow-y-auto">
-                <!-- Le menu sera généré dynamiquement par script.js -->
+            <nav class="flex-grow p-4 space-y-2 overflow-y-auto">
+                <div id="role-navigation-menu">
+                    </div>
             </nav>
 
-            <div class="p-4 border-t dark:border-gray-700">
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Entreprise Active:</p>
-                <p id="current-company-name" class="text-sm font-bold text-primary truncate">Chargement...</p>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Version 4.1.0</p>
             </div>
-        </div>
+        </aside>
 
-        <!-- CONTENU PRINCIPAL -->
-        <main class="flex-grow p-4 md:p-8 transition-all duration-300 overflow-y-auto">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">
             
-            <!-- HEADER CONTEXTUEL -->
-            <header class="flex justify-between items-center mb-6 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-                <div>
-                    <h2 id="welcome-message" class="text-2xl font-bold text-gray-900 dark:text-gray-100">Chargement...</h2>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Rôle: <span id="current-role" class="font-semibold text-info">--</span></p>
+            <header class="flex items-center justify-between p-6 bg-white dark:bg-gray-800 shadow-md">
+                <div class="flex flex-col">
+                    <h2 id="welcome-message" class="text-xl font-semibold text-primary">Bienvenue !</h2>
+                    <p id="context-message" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Contexte de travail actuel:
+                        <strong id="current-company-name">-- Aucune sélectionnée --</strong>
+                    </p>
                 </div>
-                <div class="text-right">
-                    <button id="logout-button" class="py-2 px-4 bg-danger hover:bg-red-700 text-white rounded-lg transition duration-300">
+                
+                <div class="flex items-center space-x-4">
+                    <div class="flex flex-col items-end">
+                        <span class="text-sm font-medium">Rôle: 
+                            <strong id="current-role" class="text-danger">-- RÔLE --</strong>
+                        </span>
+                    </div>
+                    <a href="#" id="logout-button" class="flex items-center py-2 px-3 bg-danger text-white rounded-lg hover:bg-red-700 transition">
                         <i class="fas fa-sign-out-alt mr-2"></i> Déconnexion
-                    </button>
+                    </a>
                 </div>
             </header>
 
-            <!-- MESSAGE CONTEXTUEL -->
-            <div class="mb-4 p-3 bg-info bg-opacity-10 border-l-4 border-info rounded-lg">
-                <p id="context-message" class="text-sm text-gray-700 dark:text-gray-300">Initialisation du contexte de travail...</p>
+            <div class="p-6 md:p-8">
+                <div id="dashboard-content-area" class="w-full">
+                    </div>
             </div>
-
-            <!-- ZONE DE CONTENU DYNAMIQUE -->
-            <section id="dashboard-content-area" class="min-h-[60vh]">
-                <div class="text-center p-8">
-                    <i class="fas fa-spinner fa-spin fa-3x text-primary mb-4"></i>
-                    <p class="text-lg text-gray-600 dark:text-gray-400">Chargement du tableau de bord...</p>
-                </div>
-            </section>
-
         </main>
     </div>
 
-    <!-- BOUTON TOGGLE THEME (FOOTER) -->
-    <div class="fixed bottom-4 right-4 z-40">
-        <button id="toggle-theme-footer" onclick="toggleTheme()" class="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg text-gray-700 dark:text-gray-300 hover:text-primary transition duration-300">
-            <i class="fas fa-sun dark:hidden"></i>
-            <i class="fas fa-moon hidden dark:inline"></i>
-        </button>
-    </div>
-
-    <!-- SCRIPT PRINCIPAL -->
     <script src="assets/script.js"></script>
-    
-    <!-- FONCTION TOGGLE THEME (GLOBAL) -->
-    <script>
-        function toggleTheme() {
-            const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        }
 
-        // Appliquer le thème sauvegardé au chargement
-        const storedTheme = localStorage.getItem('theme');
-        if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        }
-    </script>
 </body>
 </html>
