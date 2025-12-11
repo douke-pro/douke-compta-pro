@@ -176,7 +176,10 @@ function initDashboard(context) {
     window.userContext = context;
 
     document.getElementById('auth-view').classList.add('hidden');
-    document.getElementById('register-view').classList.add('hidden');
+    const registerView = document.getElementById('register-view');
+    if (registerView) {
+        registerView.classList.add('hidden');
+    }
     document.getElementById('dashboard-view').classList.remove('hidden');
 
     updateHeaderContext(context);
@@ -735,12 +738,18 @@ function renderUserManagementView() {
 
 function renderLoginView() {
     document.getElementById('auth-view').classList.remove('hidden');
-    document.getElementById('register-view').classList.add('hidden');
+    const registerView = document.getElementById('register-view');
+    if (registerView) {
+        registerView.classList.add('hidden');
+    }
 }
 
 function renderRegisterView() {
     document.getElementById('auth-view').classList.add('hidden');
-    document.getElementById('register-view').classList.remove('hidden');
+    const registerView = document.getElementById('register-view');
+    if (registerView) {
+        registerView.classList.remove('hidden');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -749,15 +758,15 @@ document.addEventListener('DOMContentLoaded', function() {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const msgElement = document.getElementById('auth-error-message');
+            const msgElement = document.getElementById('login-message');
 
             msgElement.textContent = 'Connexion en cours...';
-            msgElement.classList.remove('hidden', 'text-danger');
+            msgElement.classList.remove('hidden', 'text-danger', 'text-success');
 
             try {
-                const context = await handleLogin(username, password);
+                const context = await handleLogin(email, password);
 
                 if (context) {
                     msgElement.classList.add('hidden');
@@ -824,9 +833,9 @@ document.addEventListener('DOMContentLoaded', function() {
             window.userContext = null;
             document.getElementById('dashboard-view').classList.add('hidden');
             renderLoginView();
-            document.getElementById('username').value = '';
+            document.getElementById('email').value = '';
             document.getElementById('password').value = '';
-            document.getElementById('auth-error-message').classList.add('hidden');
+            document.getElementById('login-message').classList.add('hidden');
         });
     }
 });
