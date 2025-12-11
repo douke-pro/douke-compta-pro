@@ -3,78 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doukè Compta Pro - K-Compta SYSCOHADA</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="assets/style.css" rel="stylesheet">
+    <title>Doukè Compta Pro - Application de Gestion Comptable</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        :root {
+            --color-primary: #0A66C2; /* Bleu LinkedIn/Pro */
+            --color-secondary: #008000; /* Vert pour Actions Positives */
+            --color-danger: #D32F2F; /* Rouge pour Erreurs */
+            --color-success: #388E3C; /* Vert pour Succès */
+            --color-warning: #FFA000; /* Jaune pour Alertes */
+            --color-info: #1976D2; /* Bleu clair pour Info */
+        }
+        .bg-primary { background-color: var(--color-primary); }
+        .text-primary { color: var(--color-primary); }
+        .bg-secondary { background-color: var(--color-secondary); }
+        .text-secondary { color: var(--color-secondary); }
+        .bg-danger { background-color: var(--color-danger); }
+        .text-danger { color: var(--color-danger); }
+        .bg-success { background-color: var(--color-success); }
+        .text-success { color: var(--color-success); }
+        .bg-warning { background-color: var(--color-warning); }
+        .text-warning { color: var(--color-warning); }
+        .bg-info { background-color: var(--color-info); }
+        .text-info { color: var(--color-info); }
+    </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
-    <div id="auth-view" class="flex-grow flex items-center justify-center">
-        <div class="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
-            <div class="flex flex-col items-center justify-center mb-6">
-                <i class="fas fa-chart-pie text-4xl text-primary mb-2"></i>
-                <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">K-Compta SYSCOHADA</h1>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Plateforme de Gestion Comptable</p>
-            </div>
-            
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white text-center mb-6">
-                Connectez-vous à votre compte
-            </h2>
-            
-            <div id="login-message" class="hidden text-center text-sm font-bold mt-4 p-2 rounded"></div>
+    <div id="auth-view" class="min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
+            <h1 class="text-4xl font-extrabold text-center text-primary mb-2">Doukè Compta Pro</h1>
+            <p class="text-center text-lg text-gray-600 dark:text-gray-400 mb-8">Connexion à votre espace de travail</p>
 
-            <form class="space-y-4" id="login-form"> <div>
-                    <label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Votre Email</label>
-                    <input type="email" name="email" id="email" 
-                           class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary" 
-                           placeholder="admin@app.com" required="">
-                </div>
+            <form id="login-form" class="space-y-6">
                 <div>
-                    <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Mot de passe</label>
-                    <input type="password" name="password" id="password" 
-                           placeholder="••••••••" 
-                           class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary" 
-                           required="">
+                    <label for="email" class="block text-sm font-medium">Adresse Email</label>
+                    <input type="email" id="email" required 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                           placeholder="mock_admin@app.com">
                 </div>
                 
-                <button type="submit" 
-                        class="w-full text-white bg-primary hover:bg-secondary focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition">
-                    Se Connecter
+                <div>
+                    <label for="password" class="block text-sm font-medium">Mot de Passe</label>
+                    <input type="password" id="password" required 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                           placeholder="Mot de passe">
+                </div>
+
+                <p id="login-message" class="text-center text-sm font-bold hidden"></p>
+                
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-primary hover:bg-secondary transition duration-150">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Se Connecter
                 </button>
             </form>
+            
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-500 dark:text-gray-400">Pas encore de compte ? 
+                    <a href="#" class="font-medium text-secondary hover:text-primary">S'inscrire</a>
+                </p>
+            </div>
         </div>
     </div>
 
-    <div id="dashboard-view" class="hidden flex-grow flex">
+
+    <div id="dashboard-view" class="hidden min-h-screen flex">
         
-        <aside class="w-64 bg-white dark:bg-gray-800 shadow-md p-4 flex flex-col">
-            <div class="mb-6">
-                <h3 class="text-xl font-bold text-primary mb-2">Menu</h3>
-                <p id="current-role" class="text-sm text-gray-600 dark:text-gray-400"></p>
-                <p id="current-company-name" class="text-sm font-semibold text-gray-700 dark:text-gray-300"></p>
+        <aside class="w-64 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700 flex flex-col">
+            <div class="p-6">
+                <h2 class="text-2xl font-extrabold text-secondary">Doukè Pro</h2>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Comptabilité Facile</span>
             </div>
             
-            <nav id="role-navigation-menu" class="space-y-2 flex-grow">
-                </nav>
+            <nav class="flex-grow p-4 space-y-2 overflow-y-auto">
+                <div id="role-navigation-menu">
+                    </div>
+            </nav>
 
-            <button id="logout-button" 
-                    class="mt-4 w-full text-white bg-secondary hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition">
-                <i class="fas fa-sign-out-alt mr-2"></i> Déconnexion
-            </button>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Version 4.1.0</p>
+            </div>
         </aside>
 
-        <main class="flex-grow p-8">
-            <header class="mb-8">
-                <h2 id="welcome-message" class="text-3xl font-bold text-gray-900 dark:text-white"></h2>
-                <hr class="mt-4 border-gray-300 dark:border-gray-700">
-            </header>
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">
             
-            <div id="dashboard-content-area" class="space-y-6">
+            <header class="flex items-center justify-between p-6 bg-white dark:bg-gray-800 shadow-md">
+                <div class="flex flex-col">
+                    <h2 id="welcome-message" class="text-xl font-semibold text-primary">Bienvenue !</h2>
+                    <p id="context-message" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Contexte de travail actuel:
+                        <strong id="current-company-name">-- Aucune sélectionnée --</strong>
+                    </p>
                 </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="flex flex-col items-end">
+                        <span class="text-sm font-medium">Rôle: 
+                            <strong id="current-role" class="text-danger">-- RÔLE --</strong>
+                        </span>
+                    </div>
+                    <a href="#" id="logout-button" class="flex items-center py-2 px-3 bg-danger text-white rounded-lg hover:bg-red-700 transition">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Déconnexion
+                    </a>
+                </div>
+            </header>
+
+            <div class="p-6 md:p-8">
+                <div id="dashboard-content-area" class="w-full">
+                    </div>
+            </div>
         </main>
     </div>
 
-    <script src="assets/script.js?v=202512110800"></script>
+    <script src="assets/script.js"></script>
+
 </body>
 </html>
