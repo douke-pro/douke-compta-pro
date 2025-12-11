@@ -8,7 +8,7 @@
 // 1. CONFIGURATION GLOBALE
 // =================================================================================
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'https://congenial-spork-wr457x76x5q42vj65-3000.app.github.dev/api';
 window.userContext = null;
 
 const ROLES = {
