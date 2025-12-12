@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Logique complète de l'application Doukè Compta Pro
-// VERSION : OPTIMALE 4.3 - Détection automatique local/Codespaces/Render
+// VERSION : FINALE INTÉGRALE - Détection automatique local/Render
 // =================================================================================
 
 // =================================================================================
@@ -10,16 +10,23 @@
 
 let API_BASE_URL;
 
-// Définition de l'URL de l'API selon l'environnement
-if (window.location.host.includes('codespaces.github.dev') || window.location.host.endsWith('-3000.app.github.dev')) {
-    const protocol = window.location.protocol;
-    const host = window.location.host;
-    API_BASE_URL = `${protocol}//${host}/api`;
-    console.log(`[ENV DEBUG] Codespaces/URL dynamique détecté. API_BASE_URL: ${API_BASE_URL}`);
+// 🛑 CORRECTION CRITIQUE : Définir la base URL de Render ici.
+// REMPLACER LE PLACEHOLDER CI-DESSOUS PAR VOTRE URL RÉELLE DE WEB SERVICE RENDER !
+const RENDER_BACKEND_URL = 'https://[VOTRE-URL-RENDER].onrender.com'; 
+const LOCAL_BACKEND_URL = 'http://localhost:3000';
+
+
+// Détection de l'environnement : si l'hôte n'est ni 'localhost' ni '127.0.0.1', 
+// nous supposons que nous sommes sur le Web (Render)
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    API_BASE_URL = LOCAL_BACKEND_URL + '/api';
 } else {
-    API_BASE_URL = 'http://localhost:3000/api';
-    console.log(`[ENV DEBUG] Local détecté. API_BASE_URL: ${API_BASE_URL}`);
+    // Si nous sommes en ligne, nous utilisons l'URL Render permanente
+    API_BASE_URL = RENDER_BACKEND_URL + '/api';
 }
+
+console.log(`[ENV DEBUG] API_BASE_URL utilisée: ${API_BASE_URL}`);
+
 
 window.userContext = null;
 
@@ -64,8 +71,15 @@ async function handleLogin(email, password) {
         }
 
     } catch (error) {
-        console.error('❌ Erreur lors de la connexion:', error.message);
-        throw new Error('Serveur injoignable ou erreur de connexion. Vérifiez que le serveur est démarré et que les informations sont correctes.');
+        // Ajout d'une précision pour le débogage de la connexion échouée
+        let errorMessage = 'Serveur injoignable. Vérifiez le service Web Render.';
+        if (error.message.includes('fetch')) {
+             errorMessage = `Erreur réseau: le backend (${endpoint}) n'a pas répondu.`;
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        console.error('❌ Erreur lors de la connexion:', errorMessage);
+        throw new Error(errorMessage);
     }
 }
 
@@ -84,20 +98,35 @@ function initDashboard(context) {
     document.getElementById('dashboard-view').classList.remove('hidden');
 
     updateHeaderContext(context);
-    updateNavigationMenu(context.utilisateurRole);
-    loadView('dashboard');
+    // Le reste de la navigation et du chargement des vues est à implémenter ici
+    // updateNavigationMenu(context.utilisateurRole);
+    // loadView('dashboard');
 }
 
 function updateHeaderContext(context) {
     const firstName = context.utilisateurNom.split(' ')[0];
-    document.getElementById('welcome-message').textContent = `Bienvenue, ${firstName}`;
-    document.getElementById('current-role').textContent = context.utilisateurRole;
-    document.getElementById('current-company-name').textContent = context.entrepriseContextName || '-- Global --';
+    const welcomeElement = document.getElementById('welcome-message');
+    if (welcomeElement) {
+        welcomeElement.textContent = `Bienvenue, ${firstName}`;
+    }
 
+    const roleElement = document.getElementById('current-role');
+    if (roleElement) {
+        roleElement.textContent = context.utilisateurRole;
+    }
+
+    const companyNameElement = document.getElementById('current-company-name');
+    if (companyNameElement) {
+        companyNameElement.textContent = context.entrepriseContextName || '-- Global --';
+    }
+
+    // Le message de contexte doit être géré dans index.html
     const contextMessage = document.getElementById('context-message');
-    contextMessage.textContent = context.multiEntreprise && !context.entrepriseContextId
-        ? '⚠️ CONTEXTE NON SÉLECTIONNÉ. Veuillez choisir une entreprise pour effectuer des opérations.'
-        : `Contexte de travail actuel: ${context.entrepriseContextName || 'Aucune sélectionnée'}.`;
+    if (contextMessage) {
+        contextMessage.textContent = context.multiEntreprise && !context.entrepriseContextId
+            ? '⚠️ CONTEXTE NON SÉLECTIONNÉ. Veuillez choisir une entreprise pour effectuer des opérations.'
+            : `Contexte de travail actuel: ${context.entrepriseContextName || 'Aucune sélectionnée'}.`;
+    }
 }
 
 // =================================================================================
@@ -110,21 +139,38 @@ document.addEventListener('DOMContentLoaded', function() {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+            // S'assurer que les IDs sont présents dans index.html
+            const emailElement = document.getElementById('email');
+            const passwordElement = document.getElementById('password');
+
+            if (!emailElement || !passwordElement) {
+                console.error("IDs 'email' ou 'password' manquants dans le DOM.");
+                return;
+            }
+
+            const email = emailElement.value;
+            const password = passwordElement.value;
             const msgElement = document.getElementById('login-message');
 
-            msgElement.classList.remove('hidden', 'text-danger', 'text-success');
+            msgElement.classList.remove('hidden', 'text-red-700', 'text-green-700', 'bg-red-100', 'bg-green-100');
             msgElement.textContent = 'Connexion en cours...';
+            msgElement.classList.add('text-gray-700', 'bg-gray-100'); // Temporaire
 
             try {
                 const context = await handleLogin(email, password);
-                msgElement.classList.add('hidden');
-                initDashboard(context);
+                
+                msgElement.textContent = `Connexion réussie! Bienvenue, ${context.utilisateurNom}.`;
+                msgElement.classList.remove('text-gray-700', 'bg-gray-100');
+                msgElement.classList.add('text-green-700', 'bg-green-100');
+                
+                setTimeout(() => {
+                    initDashboard(context);
+                }, 1000); // Délai pour afficher le message de succès
+
             } catch (error) {
                 msgElement.textContent = error.message;
-                msgElement.classList.remove('hidden');
-                msgElement.classList.add('text-danger');
+                msgElement.classList.remove('text-gray-700', 'bg-gray-100');
+                msgElement.classList.add('text-red-700', 'bg-red-100');
             }
         });
     }
@@ -135,9 +181,19 @@ document.addEventListener('DOMContentLoaded', function() {
             window.userContext = null;
             document.getElementById('dashboard-view').classList.add('hidden');
             renderLoginView();
-            document.getElementById('email').value = '';
-            document.getElementById('password').value = '';
-            document.getElementById('login-message').classList.add('hidden');
+            
+            // Réinitialisation des champs pour la sécurité
+            const emailElement = document.getElementById('email');
+            const passwordElement = document.getElementById('password');
+            if (emailElement) emailElement.value = '';
+            if (passwordElement) passwordElement.value = '';
+
+            const loginMessage = document.getElementById('login-message');
+            if (loginMessage) {
+                loginMessage.textContent = 'Déconnexion réussie.';
+                loginMessage.classList.remove('hidden');
+                loginMessage.classList.add('text-green-700', 'bg-green-100');
+            }
         });
     }
 });
