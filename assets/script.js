@@ -205,7 +205,7 @@ function updateHeaderContext(context) {
 }
 
 /**
- * Construit le menu de navigation selon le r��le
+ * Construit le menu de navigation selon le rôle
  */
 function updateNavigationMenu(role) {
     const navMenu = document.getElementById('role-navigation-menu');
