@@ -12,7 +12,29 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuration des Middlewares
-app.use(cors()); // Permet les requêtes depuis le frontend (port 80 ou fichier)
+
+// URL du frontend/client sur Render que nous devons autoriser
+// C'est l'URL d'où proviennent les requêtes (ex: https://douke-compta-pro.onrender.com)
+// Note: Puisque c'est un seul service hébergé sous douke-compta-pro.onrender.com
+// et qui semble servir à la fois le client (app.use(express.static...)) et l'API,
+// nous allons d'abord l'autoriser explicitement pour la communication client/API.
+const FRONTEND_URL = 'https://douke-compta-pro.onrender.com';
+
+const corsOptions = {
+    // Autoriser l'origine de notre frontend, ainsi que les environnements de dev
+    origin: [FRONTEND_URL, 'http://localhost:3000', 'http://localhost:10000', /https:\/\/[a-zA-Z0-9-]+\.app\.github\.dev$/],
+    
+    // Crucial pour permettre l'envoi de headers personnalisés (comme 'Authorization' pour le JWT)
+    credentials: true,
+    
+    // Méthodes autorisées
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    
+    // Headers personnalisés que le client est autorisé à envoyer (utile si vous avez des headers spécifiques)
+    allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions)); // Utiliser la configuration corsOptions
 app.use(bodyParser.json()); // Pour analyser les corps de requêtes JSON
 
 // =================================================================================
