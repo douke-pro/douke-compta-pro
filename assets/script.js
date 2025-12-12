@@ -10,9 +10,9 @@
 
 let API_BASE_URL;
 
-// 🛑 CORRECTION CRITIQUE : Définir la base URL de votre Web Service Backend (Node.js).
-// REMPLACER CE PLACEHOLDER PAR L'URL RÉELLE DE VOTRE SERVICE RENDER BACKEND !
-const RENDER_BACKEND_URL = 'https://[VOTRE-URL-BACKEND-RENDER].onrender.com'; 
+// 🛑 MISE À JOUR CRITIQUE : URL de votre Web Service Backend (Node.js)
+// C'est le service qui héberge l'API /api/auth/login.
+const RENDER_BACKEND_URL = 'https://douke-compta-pro.onrender.com'; 
 const LOCAL_BACKEND_URL = 'http://localhost:3000';
 
 
