@@ -1,12 +1,6 @@
 // =================================================================================
 // FICHIER DE MOCK SERVER (Node.js / Express)
 // Simule l'API backend pour l'application K-Compta SYSCOHADA.
-//
-// Pour démarrer:
-// 1. Assurez-vous d'avoir Node.js installé.
-// 2. Initialisez votre projet: npm init -y
-// 3. Installez les dépendances: npm install express cors body-parser
-// 4. Exécutez: node server.js
 // =================================================================================
 
 const express = require('express');
@@ -14,7 +8,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = 3000;
+// 🛑 CORRECTION CRITIQUE POUR RENDER : Utiliser process.env.PORT ou le port par défaut 3000
+const PORT = process.env.PORT || 3000;
 
 // Configuration des Middlewares
 app.use(cors()); // Permet les requêtes depuis le frontend (port 80 ou fichier)
@@ -249,9 +244,9 @@ app.get('/', (req, res) => {
 // Démarrage du serveur
 app.listen(PORT, () => {
     console.log(`\n=================================================`);
-    console.log(`  K-Compta Mock Server démarré.`);
-    console.log(`  Accès frontend via: http://localhost:${PORT}/index.html`);
-    console.log(`  API Mock à: http://localhost:${PORT}/api/*`);
+    console.log(`  K-Compta Mock Server démarré.`);
+    console.log(`  Accès frontend via: http://localhost:${PORT}/index.html`);
+    console.log(`  API Mock à: http://localhost:${PORT}/api/*`);
     console.log(`=================================================\n`);
     console.log(`Endpoints actifs: /api/auth/login, /api/companies/:userId, /api/saisie/flux, /api/saisie/journal`);
 });
