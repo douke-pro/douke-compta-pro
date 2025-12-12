@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Logique complète de l'application Doukè Compta Pro
-// VERSION : FINALE PRODUCTION (RENDER Optimized - MOCK Forcé pour Dépannage)
+// VERSION : FINALE PRODUCTION (FIX 'undefined' + MOCK Forcé pour Dépannage RENDER)
 // =================================================================================
 
 // =================================================================================
@@ -248,7 +248,8 @@ async function changeCompanyContext(newId, newName) {
         window.userContext.entrepriseContextName = newName;
         // Mise à jour de la navigation avant de charger la vue pour éviter un flash
         updateNavigationMenu(window.userContext.utilisateurRole); 
-        await loadView('dashboard');
+        // La logique de loadView ci-dessous gérera le rendu du dashboard
+        await loadView('dashboard'); 
         updateHeaderContext(window.userContext);
     }
 }
@@ -388,40 +389,50 @@ async function loadView(viewName) {
 
     if (requiresContext.includes(viewName) && !window.userContext.entrepriseContextId && window.userContext.multiEntreprise) {
         alert('🚨 Opération Bloquée. Veuillez sélectionner une entreprise.');
-        return renderEnterpriseSelectorView(viewName);
+        // Charge le sélecteur, mais ne retourne rien (la fonction sortira ensuite)
+        return renderEnterpriseSelectorView(viewName); 
     }
+
+    let htmlContent = ''; // Variable pour stocker le contenu HTML à insérer
 
     switch (viewName) {
         case 'dashboard':
-            contentArea.innerHTML = await renderDashboard(window.userContext);
+            // renderDashboard peut retourner du HTML OU appeler renderEnterpriseSelectorView (qui ne retourne rien)
+            htmlContent = await renderDashboard(window.userContext); 
             break;
         case 'selector':
+            // La vue 'selector' modifie elle-même le DOM et ne retourne rien
             renderEnterpriseSelectorView();
-            break;
+            return; // Sortir immédiatement après le rendu direct du DOM
         case 'saisie':
-            contentArea.innerHTML = renderSaisieFormCaissier();
+            htmlContent = renderSaisieFormCaissier();
             break;
         case 'journal-entry':
-            contentArea.innerHTML = renderJournalEntryForm();
+            htmlContent = renderJournalEntryForm();
             break;
         case 'validation':
-            contentArea.innerHTML = generateValidationTable();
+            htmlContent = generateValidationTable();
             break;
         case 'reports':
-            contentArea.innerHTML = renderReportsView();
+            htmlContent = renderReportsView();
             break;
         case 'create-company':
-            contentArea.innerHTML = renderCreateCompanyForm();
+            htmlContent = renderCreateCompanyForm();
             break;
         case 'user-management':
             if (window.userContext.utilisateurRole === ROLES.ADMIN) {
-                contentArea.innerHTML = renderUserManagementView();
+                htmlContent = renderUserManagementView();
             } else {
-                contentArea.innerHTML = renderAccessDenied();
+                htmlContent = renderAccessDenied();
             }
             break;
         default:
-            contentArea.innerHTML = renderNotFound();
+            htmlContent = renderNotFound();
+    }
+
+    // N'insérer le contenu que s'il a été retourné par une fonction de rendu (évite le 'undefined')
+    if (htmlContent) {
+        contentArea.innerHTML = htmlContent;
     }
 }
 
@@ -434,7 +445,7 @@ async function renderEnterpriseSelectorView(blockedViewName = null) {
     contentArea.innerHTML = '<div class="text-center p-8"><i class="fas fa-spinner fa-spin fa-3x text-primary"></i><p>Chargement des entreprises...</p></div>';
 
     try {
-        console.log('--- Etape 1: TENTATIVE de chargement des entreprises ---');
+        console.log('--- Etape 1: TENTATIVE de chargement des entreprises (MOCK FORCÉ) ---');
 
         // 🛑 LIGNE CRITIQUE MODIFIÉE: Nous court-circuitons l'appel API qui échoue
         // const companies = await fetchUserCompanies(window.userContext); 
@@ -526,12 +537,25 @@ async function renderCaissierDashboard(context) {
 }
 
 async function renderDashboard(context) {
-    // ... (Logique de routage conservée)
     if (context.multiEntreprise && !context.entrepriseContextId) {
-        // Force le sélecteur si Multi-Entreprise mais aucune sélectionnée
-        return renderEnterpriseSelectorView();
+        // Si l'utilisateur est multi-entreprise mais n'a pas sélectionné de contexte,
+        // on appelle la fonction de rendu qui modifie le DOM directement.
+        await renderEnterpriseSelectorView(); 
+        return null; // <--- FIX CRITIQUE: Retourne null pour éviter que loadView insère 'undefined'
     }
-    // ... (Logique de routage conservée)
+
+    // Routage des dashboards spécifiques après la sélection
+    switch (context.utilisateurRole) {
+        case ROLES.ADMIN:
+            return await renderAdminGlobalDashboard(context);
+        case ROLES.CAISSIER:
+            return await renderCaissierDashboard(context);
+        case ROLES.COLLABORATEUR:
+        case ROLES.USER:
+            return await renderUserDashboard(context);
+        default:
+            return renderNotFound();
+    }
 }
 
 // =================================================================================
@@ -540,6 +564,7 @@ async function renderDashboard(context) {
 
 function renderActivityFeed() {
     // ... (Logique de rendu conservée)
+    return `<h3 class="text-2xl font-bold mb-4 text-primary">Fil d'Activités Récentes</h3><p>Affichage du fil d'activité pour l'entreprise ${window.userContext.entrepriseContextName}. (MOCK)</p>`
 }
 
 function renderAccountingReports() {
@@ -547,31 +572,31 @@ function renderAccountingReports() {
 }
 
 function renderNotFound() {
-    // ... (Logique de rendu conservée)
+    return `<div class="p-8 text-center"><i class="fas fa-exclamation-triangle fa-5x text-warning mb-4"></i><h2 class="text-3xl font-bold">Vue Non Trouvée</h2><p class="text-lg">La page demandée n'existe pas ou n'est pas encore implémentée.</p></div>`;
 }
 
 function renderAccessDenied() {
-    // ... (Logique de rendu conservée)
+    return `<div class="p-8 text-center"><i class="fas fa-lock fa-5x text-danger mb-4"></i><h2 class="text-3xl font-bold text-danger">Accès Refusé</h2><p class="text-lg">Votre rôle ne vous permet pas d'accéder à cette fonctionnalité.</p></div>`;
 }
 
 function renderReportsView() {
-    // ... (Logique de rendu conservée)
+    return `<h3 class="text-2xl font-bold mb-4 text-primary">États Financiers (MOCK)</h3><p>Rapports pour ${window.userContext.entrepriseContextName}.</p>`;
 }
 
 function renderCreateCompanyForm() {
-    // ... (Logique de rendu conservée)
+    return `<h3 class="text-2xl font-bold mb-4 text-primary">Créer une Nouvelle Entreprise (MOCK)</h3><p>Formulaire de création d'entreprise.</p>`;
 }
 
 function renderSaisieFormCaissier() {
-    // ... (Logique de rendu conservée)
+    return `<h3 class="text-2xl font-bold mb-4 text-primary">Saisie des Flux de Caisse (MOCK)</h3><p>Formulaire de saisie des flux pour ${window.userContext.entrepriseContextName}.</p>`;
 }
 
 function renderJournalEntryForm() {
-    // ... (Logique de rendu conservée)
+    return `<h3 class="text-2xl font-bold mb-4 text-primary">Saisie Écriture Journal (MOCK)</h3><p>Formulaire d'écriture journal pour ${window.userContext.entrepriseContextName}.</p>`;
 }
 
 function generateValidationTable() {
-    // ... (Logique de rendu conservée)
+    return `<h3 class="text-2xl font-bold mb-4 text-primary">Validation des Opérations (MOCK)</h3><p>Liste des opérations en attente de validation pour ${window.userContext.entrepriseContextName}.</p>`;
 }
 
 
@@ -595,9 +620,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 displayAuthMessage('login', `Connexion réussie! Bienvenue, ${context.utilisateurNom}.`, 'success');
                 
+                // Délai pour afficher le message de succès avant de lancer le dashboard
                 setTimeout(() => {
                     initDashboard(context);
-                }, 1500); // Délai pour afficher le message de succès
+                }, 1500); 
 
             } catch (error) {
                 displayAuthMessage('login', error.message, 'danger');
@@ -657,7 +683,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Fonctions globales pour les événements onclick dans index.html
 window.renderLoginView = renderLoginView;
-window.renderRegisterView = renderRegisterView; // Renommé de showRegisterView pour uniformité
+window.renderRegisterView = renderRegisterView;
 window.changeCompanyContext = changeCompanyContext;
-window.loadView = loadView; // Pour les boutons de navigation intégrés au contenu
-// ... (et les autres fonctions de rendu si elles sont appelées directement via onclick)
+window.loadView = loadView;
