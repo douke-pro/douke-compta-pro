@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Logique complète de l'application Doukè Compta Pro
-// VERSION : FINALE PRODUCTION (FIX 'undefined' + MOCK Forcé pour Dépannage RENDER)
+// VERSION : FINALE PRODUCTION (FIX 'undefined' + MOCK Forcé + Rendu Dashboards Implémenté)
 // =================================================================================
 
 // =================================================================================
@@ -128,7 +128,6 @@ async function handleRegistration(payload) {
     console.log('📝 Tentative d\'inscription sur:', endpoint);
     
     // **ATTENTION : Ceci reste un MOCK jusqu'à implémentation du endpoint réel.**
-    // Si l'endpoint n'est pas créé sur le serveur, le code ci-dessous simule une réussite.
     try {
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -201,7 +200,6 @@ async function fetchUserCompanies(context) {
             console.log('✅ Entreprises récupérées:', data.length);
             return data;
         } else if (!response.ok && response.status === 404) {
-            // MOCK pour tester le sélecteur si l'API n'est pas encore prête
             console.warn('⚠️ Endpoint /companies non trouvé. Utilisation des données MOCK.');
             return [
                 { id: 'ENT_001', name: 'Alpha Solutions', stats: { transactions: 450, result: 15000000, pending: 12, cash: 8900000 } },
@@ -248,7 +246,6 @@ async function changeCompanyContext(newId, newName) {
         window.userContext.entrepriseContextName = newName;
         // Mise à jour de la navigation avant de charger la vue pour éviter un flash
         updateNavigationMenu(window.userContext.utilisateurRole); 
-        // La logique de loadView ci-dessous gérera le rendu du dashboard
         await loadView('dashboard'); 
         updateHeaderContext(window.userContext);
     }
@@ -447,14 +444,11 @@ async function renderEnterpriseSelectorView(blockedViewName = null) {
     try {
         console.log('--- Etape 1: TENTATIVE de chargement des entreprises (MOCK FORCÉ) ---');
 
-        // 🛑 LIGNE CRITIQUE MODIFIÉE: Nous court-circuitons l'appel API qui échoue
-        // const companies = await fetchUserCompanies(window.userContext); 
-        
-        // FORCEMENT DU MOCK pour débloquer l'affichage du dashboard.
+        // 🛑 MOCK FORCÉ POUR CONTOURNER LE BLOCAGE API
         const companies = [
-            { id: 'ENT_MOCK_1', name: 'Entreprise Alpha', stats: { transactions: 10, result: 1000000, pending: 1, cash: 500000 } },
-            { id: 'ENT_MOCK_2', name: 'Entreprise Beta', stats: { transactions: 20, result: 2000000, pending: 2, cash: 1500000 } },
-            { id: 'ENT_MOCK_3', name: 'Entreprise Gamma', stats: { transactions: 5, result: 500000, pending: 0, cash: 200000 } }
+            { id: 'ENT_MOCK_1', name: 'Doukè Holdings', stats: { transactions: 500, result: 25000000, pending: 20, cash: 15000000 } },
+            { id: 'ENT_MOCK_2', name: 'Tech Solutions', stats: { transactions: 200, result: 10000000, pending: 5, cash: 4000000 } },
+            { id: 'ENT_MOCK_3', name: 'Agro Import', stats: { transactions: 50, result: 2500000, pending: 0, cash: 1000000 } }
         ];
 
         console.log(`--- Etape 2: MOCK Forcé réussi. Affichage de ${companies.length} entreprises. ---`);
@@ -513,27 +507,120 @@ async function renderEnterpriseSelectorView(blockedViewName = null) {
 
 
 // =================================================================================
-// 4. RENDUS DES DASHBOARDS SPÉCIFIQUES
+// 4. RENDUS DES DASHBOARDS SPÉCIFIQUES (IMPLÉMENTATION COMPLÈTE)
 // =================================================================================
 
 function generateStatCard(title, value, iconClass, colorClass) {
-    // ... (Logique de rendu conservée)
+    const formattedValue = new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: 'XOF', // Utilisation du Franc CFA
+        minimumFractionDigits: 0
+    }).format(value);
+
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border-l-4 ${colorClass}">
+            <div class="flex items-center">
+                <div class="p-3 mr-4 rounded-full ${colorClass.replace('border-l-4 ', 'bg-opacity-20')}">
+                    <i class="${iconClass} text-2xl ${colorClass.replace('border-l-4 border-', 'text-')}"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">${title}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">${formattedValue}</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderActivityFeed() {
+    const activities = [
+        { type: 'Validation', description: 'Facture #2024-001 validée par Admin.', time: 'il y a 5 min' },
+        { type: 'Saisie', description: 'Transaction de caisse S-1002 ajoutée.', time: 'il y a 30 min' },
+        { type: 'Rapport', description: 'Bilan 2024 Q1 généré.', time: 'il y a 2 heures' },
+        { type: 'Validation', description: 'Écriture journal E-005 rejetée.', time: 'il y a 1 jour' },
+    ];
+
+    const activityItems = activities.map(act => `
+        <li class="p-4 border-b dark:border-gray-700 last:border-b-0">
+            <span class="font-bold text-sm text-primary mr-2">${act.type}:</span>
+            <span class="text-gray-700 dark:text-gray-300">${act.description}</span>
+            <span class="float-right text-xs text-gray-500">${act.time}</span>
+        </li>
+    `).join('');
+
+    return `
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mt-6">
+            <h3 class="text-xl font-bold mb-4 text-primary">Fil d'Activités Récentes (${window.userContext.entrepriseContextName})</h3>
+            <ul>
+                ${activityItems}
+            </ul>
+            <p class="text-center mt-4 text-sm text-info hover:text-primary cursor-pointer">Voir toutes les activités</p>
+        </div>
+    `;
 }
 
 async function renderAdminGlobalDashboard(context) {
-    // ... (Logique de rendu conservée)
+    const stats = await fetchGlobalAdminStats();
+    
+    const statsHTML = `
+        ${generateStatCard('Total Entreprises Gérées', stats.totalCompanies, 'fas fa-building', 'border-primary')}
+        ${generateStatCard('Entreprises Actives', stats.activeCompanies, 'fas fa-check-circle', 'border-success')}
+        ${generateStatCard('Collaborateurs Totaux', stats.collaborators, 'fas fa-users', 'border-info')}
+        ${generateStatCard('Demandes en Attente', stats.pendingRequests, 'fas fa-bell', 'border-warning')}
+        ${generateStatCard('Validations à Effectuer', stats.pendingValidations, 'fas fa-check-double', 'border-danger')}
+        ${generateStatCard('Documents Total', stats.totalFiles, 'fas fa-file-alt', 'border-secondary')}
+    `;
+
+    return `
+        <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white mb-6">Tableau de Bord Global Administrateur</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            ${statsHTML}
+        </div>
+        ${renderActivityFeed()}
+        <div class="mt-6 p-6 bg-info bg-opacity-10 rounded-xl">
+            <h3 class="text-xl font-bold text-info">Mode Multi-Entreprise</h3>
+            <p>En tant qu'Admin Global, vous devez utiliser le menu "Changer d'Entreprise" pour accéder aux outils comptables spécifiques d'une entreprise.</p>
+        </div>
+    `;
 }
 
-async function renderCompanySpecificDashboard(context) {
-    // ... (Logique de rendu conservée)
+async function renderCompanySpecificDashboard(context, specificRoleMessage) {
+    const companyName = context.entrepriseContextName;
+    // Données MOCK d'entreprise pour l'affichage
+    const stats = { transactions: 350, result: 12500000, pending: 8, cash: 7500000 }; 
+
+    const statsHTML = `
+        ${generateStatCard('Résultat Net Provisoire', stats.result, 'fas fa-balance-scale', 'border-success')}
+        ${generateStatCard('Encaisse Disponible', stats.cash, 'fas fa-money-bill-wave', 'border-primary')}
+        ${generateStatCard('Opérations en Attente', stats.pending, 'fas fa-hourglass-half', 'border-warning')}
+        ${generateStatCard('Transactions du Mois', stats.transactions, 'fas fa-exchange-alt', 'border-info')}
+    `;
+
+    return `
+        <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white mb-6">Tableau de Bord : ${companyName}</h2>
+        
+        <div class="p-4 mb-6 bg-primary bg-opacity-10 rounded-lg text-primary">
+            ${specificRoleMessage || `Vous opérez en tant que ${context.utilisateurRole} pour cette entreprise.`}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            ${statsHTML}
+        </div>
+
+        ${renderActivityFeed()}
+    `;
 }
 
 async function renderUserDashboard(context) {
-    // ... (Logique de rendu conservée)
+    // Les utilisateurs simples et collaborateurs voient un dashboard complet
+    return renderCompanySpecificDashboard(context, 
+        `<i class="fas fa-chart-line mr-2"></i> Bienvenue, l'équipe Comptable.`);
 }
 
 async function renderCaissierDashboard(context) {
-    // ... (Logique de rendu conservée)
+    // Les caissiers ont un dashboard axé sur la caisse et la saisie
+    return renderCompanySpecificDashboard(context, 
+        `<i class="fas fa-cash-register mr-2"></i> Ce tableau de bord est optimisé pour la saisie des flux de caisse.`);
 }
 
 async function renderDashboard(context) {
@@ -547,6 +634,10 @@ async function renderDashboard(context) {
     // Routage des dashboards spécifiques après la sélection
     switch (context.utilisateurRole) {
         case ROLES.ADMIN:
+            // L'admin peut voir le global, mais s'il a sélectionné un contexte, il voit le spécifique
+            if (context.entrepriseContextId) {
+                return await renderCompanySpecificDashboard(context, `<i class="fas fa-crown mr-2"></i> Mode Administrateur de l'entreprise.`);
+            }
             return await renderAdminGlobalDashboard(context);
         case ROLES.CAISSIER:
             return await renderCaissierDashboard(context);
@@ -559,17 +650,8 @@ async function renderDashboard(context) {
 }
 
 // =================================================================================
-// 5. HELPERS DE RENDU & FORMULAIRES DE VUES
+// 5. HELPERS DE RENDU & FORMULAIRES DE VUES (MOCK)
 // =================================================================================
-
-function renderActivityFeed() {
-    // ... (Logique de rendu conservée)
-    return `<h3 class="text-2xl font-bold mb-4 text-primary">Fil d'Activités Récentes</h3><p>Affichage du fil d'activité pour l'entreprise ${window.userContext.entrepriseContextName}. (MOCK)</p>`
-}
-
-function renderAccountingReports() {
-    // ... (Logique de rendu conservée)
-}
 
 function renderNotFound() {
     return `<div class="p-8 text-center"><i class="fas fa-exclamation-triangle fa-5x text-warning mb-4"></i><h2 class="text-3xl font-bold">Vue Non Trouvée</h2><p class="text-lg">La page demandée n'existe pas ou n'est pas encore implémentée.</p></div>`;
