@@ -1,6 +1,9 @@
 // Dossier : middleware/auth.js
 const jwt = require('jsonwebtoken');
-const User = require('../models/User'); 
+// IMPORTS PRISMA REMPLACENT MONGOOSE
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient(); 
+
 require('dotenv').config();
 
 const protect = async (req, res, next) => {
@@ -12,8 +15,20 @@ const protect = async (req, res, next) => {
             // Vérifie et décode le jeton en utilisant le JWT_SECRET
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            // Attache les données utilisateur à la requête (sans le mot de passe)
-            req.user = await User.findById(decoded.id).select('-password');
+            // --- CORRECTION CRITIQUE POUR PRISMA/POSTGRESQL ---
+            // Remplacement de User.findById(decoded.id).select('-password');
+            req.user = await prisma.user.findUnique({
+                where: { id: decoded.id }, // Utilise l'ID décodé du JWT
+                // Sélectionne explicitement les champs nécessaires, excluant le mot de passe
+                select: { 
+                    id: true, 
+                    utilisateurNom: true, 
+                    utilisateurRole: true, 
+                    entrepriseContextId: true, 
+                    entreprisesAccessibles: true,
+                    multiEntreprise: true // Utile pour la gestion du contexte
+                }
+            });
             
             if (!req.user) {
                 return res.status(401).json({ error: 'Utilisateur non trouvé ou jeton altéré.' });
