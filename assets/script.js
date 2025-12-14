@@ -3,6 +3,72 @@
 // Description : Logique complète de l'application Doukè Compta Pro
 // VERSION : PROFESSIONNELLE V1.2 (Correction Erreur 'body stream already read')
 // =================================================================================
+// ============================================================================
+// 0. GESTIONNAIRE D'INTÉGRATION ET SÉCURITÉ (À placer en haut du script.js)
+// ============================================================================
+
+/**
+ * Gestionnaire de sécurité et d'intégration pour les couches de calculs SYSCOHADA
+ */
+const SYSCOHADAIntegrationManager = {
+    // Vérification des dépendances critiques (window.app, unifiedManager, entreprise sélectionnée)
+    validateDependencies() {
+        const errors = [];
+        if (typeof window === 'undefined') {
+            errors.push('Environnement window non disponible'); [cite_start]// [cite: 4014]
+        }
+        if (!window.app) {
+            errors.push('Module principal (window.app) non initialisé'); [cite_start]// [cite: 4015]
+        }
+        if (!window.unifiedManager) {
+            errors.push('Gestionnaire unifié (window.unifiedManager) non disponible'); [cite_start]// [cite: 4016]
+        }
+        if (window.app && !window.app.currentCompanyId) {
+            errors.push('Aucune entreprise sélectionnée'); [cite_start]// [cite: 4017]
+        }
+        if (errors.length > 0) {
+            throw new Error(`Erreurs d'intégration détectées: ${errors.join(', ')}`); [cite_start]// [cite: 4018, 4019]
+        }
+        return true;
+    },
+    
+    // Vérification sécurisée de l'existence des données pour le calcul (écritures, plan comptable)
+    checkDataAvailability() {
+        try {
+            this.validateDependencies(); [cite_start]// [cite: 4021]
+            [cite_start]// ... (Vérifie window.app.filteredData.entries et window.app.accounts) // [cite: 4022, 4023, 4024, 4025]
+            return true;
+        } catch (error) {
+            this.handleIntegrationError(error, 'Vérification des données'); [cite_start]// [cite: 4026]
+            return false;
+        }
+    },
+    
+    // Obtenir le nom de l'entreprise sélectionnée de manière sécurisée (Logique Multi-Entreprise)
+    getSelectedCompanyName() {
+        try {
+            if (window.unifiedManager && typeof window.unifiedManager.getSelectedCompanyName === 'function') {
+                return window.unifiedManager.getSelectedCompanyName(); [cite_start]// [cite: 4036]
+            } else if (window.app && window.app.companies && window.app.currentCompanyId) {
+                const company = window.app.companies.find(c => c.id === window.app.currentCompanyId); [cite_start]// [cite: 4037]
+                return company ? company.name : 'Entreprise inconnue';
+            } else {
+                return 'Entreprise non définie'; [cite_start]// [cite: 4038]
+            }
+        } catch (error) {
+            console.error('Erreur récupération nom entreprise:', error); [cite_start]// [cite: 4039]
+            return 'Entreprise (erreur)';
+        }
+    },
+    
+    // Gestionnaire d'erreur et de notification unifié
+    handleIntegrationError(error, context = 'Opération SYSCOHADA') {
+        console.error(`[SYSCOHADA Integration Error] ${context}:`, error); [cite_start]// [cite: 4027]
+        [cite_start]// Utilise le NotificationManager pour alerter l'utilisateur (si disponible) // [cite: 4028, 4029]
+    },
+    
+    [cite_start]// showNotification, showModal (utilisent window.unifiedManager.notificationManager et modalManager) // [cite: 4030, 4033]
+};
 
 // =================================================================================
 // 1. CONFIGURATION GLOBALE - DÉTECTION AUTOMATIQUE DE L'ENVIRONNEMENT
