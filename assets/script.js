@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Logique complète de l'application Doukè Compta Pro
-// VERSION : PROFESSIONNELLE V1.1 (Correction Erreur JSON/HTML sur Inscription)
+// VERSION : PROFESSIONNELLE V1.2 (Correction Erreur 'body stream already read')
 // =================================================================================
 
 // =================================================================================
@@ -11,7 +11,7 @@
 let API_BASE_URL;
 
 // 🛑 URL de votre Web Service Backend (Node.js)
-const RENDER_BACKEND_URL = 'https://douke-compta-pro.onrender.com'; 
+const RENDER_BACKEND_URL = 'https://douke-compta-pro.onrender.com'; 
 const LOCAL_BACKEND_URL = 'http://localhost:3000';
 
 
@@ -157,6 +157,7 @@ function displayAuthMessage(viewId, message, type) {
 
 /**
  * Connexion utilisateur via l'API serveur.
+ * Correction : Lecture du corps en texte d'abord, puis parsing JSON.
  */
 async function handleLogin(email, password) {
     const endpoint = `${API_BASE_URL}/auth/login`;
@@ -166,8 +167,22 @@ async function handleLogin(email, password) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
+        
+        // --- CORRECTION CLÉ : Lire le corps en texte une seule fois ---
+        const responseText = await response.text();
+        let data;
 
-        const data = await response.json();
+        try {
+            // Tenter de parser le JSON
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('❌ Réponse API non-JSON ou malformée:', responseText.substring(0, 100) + '...');
+            // Si le statut n'est pas OK, le texte brut est probablement l'erreur
+            if (!response.ok) {
+                throw new Error(`Erreur du serveur (${response.status}) : ${responseText.substring(0, 50)}...`);
+            }
+            throw new Error('Réponse du serveur non valide ou non-JSON.');
+        }
 
         if (response.ok) {
             console.log('✅ Connexion réussie:', data.utilisateurRole);
@@ -195,8 +210,8 @@ async function handleLogin(email, password) {
 }
 
 /**
- * Inscription utilisateur (MOCK)
- * CORRIGÉE pour gérer l'erreur "Unexpected token <" (Réponse HTML)
+ * Inscription utilisateur (MOCK si API inaccessible)
+ * Correction : Lecture du corps en texte d'abord, puis parsing JSON.
  */
 async function handleRegistration(payload) {
     const endpoint = `${API_BASE_URL}/auth/register`;
@@ -207,22 +222,22 @@ async function handleRegistration(payload) {
             body: JSON.stringify(payload)
         });
 
+        // --- CORRECTION CLÉ : Lire le corps en texte une seule fois ---
+        const responseText = await response.text();
         let data;
         
         try {
-            // Tente de lire la réponse comme du JSON
-            data = await response.json();
+            // Tenter de lire le JSON
+            data = JSON.parse(responseText);
         } catch (e) {
-            // Si le parsing JSON échoue (ex: 'Unexpected token <'), on analyse la raison
+            // Échec du JSON, c'est probablement du HTML d'erreur
             if (!response.ok) {
-                // Si la réponse n'est pas OK (4xx ou 5xx), le serveur a probablement renvoyé du HTML.
-                const textError = await response.text();
-                console.error('❌ Le serveur a renvoyé un corps non-JSON (HTML probable) sur une erreur HTTP:', response.status, textError.substring(0, 100) + '...');
-                // On utilise un message spécifique pour déclencher le MOCK dans le catch externe.
+                console.error('❌ Le serveur a renvoyé un corps non-JSON (HTML probable) sur une erreur HTTP:', response.status, responseText.substring(0, 100) + '...');
+                // On lève une erreur spécifique pour déclencher le MOCK
                 throw new Error(`Erreur Serveur ${response.status}: L'endpoint d'inscription est introuvable ou a échoué.`);
             }
-            // Si la réponse était OK mais le JSON malformé, on propage l'erreur de JSON originale.
-            throw e; 
+            // Si la réponse était OK mais le JSON malformé
+            throw new Error(`Réponse API non valide (JSON malformé). Erreur de parsing: ${e.message}`); 
         }
 
         if (response.ok) {
@@ -264,6 +279,7 @@ async function handleRegistration(payload) {
 
 /**
  * Récupère les écritures comptables pour une entreprise. (DataService.getEntries)
+ * Correction : Lecture du corps en texte d'abord, puis parsing JSON.
  *
  * @param {string} companyId - ID de l'entreprise.
  * @param {string} token - Token d'autorisation.
@@ -293,7 +309,18 @@ async function fetchCompanyEntries(companyId, token) {
             }
         });
 
-        const data = await response.json();
+        // --- CORRECTION CLÉ : Lire le corps en texte une seule fois ---
+        const responseText = await response.text();
+        let data;
+        
+        try {
+            // Tenter de lire le JSON
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('❌ Réponse API non-JSON ou malformée:', responseText.substring(0, 100) + '...');
+            return []; // Retourne un tableau vide en cas d'erreur non-JSON
+        }
+
 
         if (response.ok && Array.isArray(data)) {
             console.log(`✅ ${data.length} écritures récupérées pour ${companyId}.`);
@@ -325,6 +352,7 @@ async function fetchCompanyEntries(companyId, token) {
 /**
  * Récupère les entreprises accessibles à l'utilisateur.
  * Endpoint: GET /api/companies/:userId (DataService.getCompanies)
+ * Correction : Lecture du corps en texte d'abord, puis parsing JSON.
  */
 async function fetchUserCompanies(context) {
     if (!context || !context.utilisateurId) {
@@ -345,16 +373,32 @@ async function fetchUserCompanies(context) {
                 'Authorization': `Bearer ${context.token}`
             }
         });
+        
+        // --- CORRECTION CLÉ : Lire le corps en texte une seule fois ---
+        const responseText = await response.text();
+        let data;
+        
+        try {
+            // Tenter de lire le JSON
+            data = JSON.parse(responseText);
+        } catch (e) {
+            // Échec du JSON. Si c'est un 404, on passe au MOCK.
+            if (!response.ok && response.status === 404) {
+                console.warn('⚠️ Endpoint /companies non trouvé. Utilisation des données MOCK.');
+                // Fallback to MOCK logic below
+            } else {
+                console.error('❌ Réponse API non-JSON ou malformée:', responseText.substring(0, 100) + '...');
+                // Fallback to MOCK
+            }
+        }
 
-        const data = await response.json();
 
         if (response.ok && Array.isArray(data)) {
             console.log('✅ Entreprises récupérées:', data.length);
             window.cacheManager.setCached(cacheKey, data); // Mise en cache
             return data;
-        } else if (!response.ok && response.status === 404) {
-            console.warn('⚠️ Endpoint /companies non trouvé. Utilisation des données MOCK.');
-            // MOCK forcé (comme dans votre original)
+        } else if (response.status === 404 || !response.ok) {
+            // MOCK forcé (si 404 ou non-OK)
             const mockCompanies = [
                 { id: 'ENT_001', name: 'Alpha Solutions', stats: { transactions: 450, result: 15000000, pending: 12, cash: 8900000 } },
                 { id: 'ENT_002', name: 'Beta Consulting', stats: { transactions: 120, result: 2500000, pending: 5, cash: 1200000 } },
@@ -735,7 +779,6 @@ async function renderEnterpriseSelectorView(blockedViewName = null) {
                         <i class="fas fa-undo mr-1"></i> Revenir au Contexte Global
                     </button>
                 </div>
-            </div>
         `;
 
         contentArea.querySelectorAll('.company-card').forEach(element => {
@@ -812,21 +855,33 @@ function renderActivityFeed() {
     `;
 }
 
+function renderStatCardSimple(title, value, iconClass, colorClass) {
+    const formattedValue = new Intl.NumberFormat('fr-FR').format(value);
+    const textClass = colorClass.replace('border-', 'text-');
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">${title}</p>
+                <p class="text-3xl font-bold ${textClass}">${formattedValue}</p>
+            </div>
+            <i class="${iconClass} text-5xl opacity-20 ${textClass}"></i>
+        </div>
+    `;
+}
+
 async function renderAdminGlobalDashboard(context) {
     const stats = await fetchGlobalAdminStats();
     
     const statsHTML = `
-        ${generateStatCard('Total Entreprises Gérées', stats.totalCompanies, 'fas fa-building', 'border-primary')}
-        ${generateStatCard('Entreprises Actives', stats.activeCompanies, 'fas fa-check-circle', 'border-success')}
-        ${generateStatCard('Collaborateurs Totaux', stats.collaborators, 'fas fa-users', 'border-info')}
-        ${generateStatCard('Demandes en Attente', stats.pendingRequests, 'fas fa-bell', 'border-warning')}
-        ${generateStatCard('Validations à Effectuer', stats.pendingValidations, 'fas fa-check-double', 'border-danger')}
-        ${generateStatCard('Documents Total', stats.totalFiles, 'fas fa-file-alt', 'border-secondary')}
+        ${renderStatCardSimple('Total Entreprises', stats.totalCompanies, 'fas fa-building', 'text-primary')}
+        ${renderStatCardSimple('Collaborateurs', stats.collaborators, 'fas fa-users', 'text-info')}
+        ${renderStatCardSimple('Validations en Attente', stats.pendingValidations, 'fas fa-check-double', 'text-danger')}
+        ${renderStatCardSimple('Documents Total', stats.totalFiles, 'fas fa-file-alt', 'text-secondary')}
     `;
 
     return `
         <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white mb-6">Tableau de Bord Global Administrateur</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             ${statsHTML}
         </div>
         ${renderActivityFeed()}
