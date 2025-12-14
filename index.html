@@ -42,15 +42,15 @@
                 <div>
                     <label for="email" class="block text-sm font-medium">Adresse Email</label>
                     <input type="email" id="email" required 
-                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                           placeholder="mock_admin@app.com">
+                            class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            placeholder="mock_admin@app.com">
                 </div>
                 
                 <div>
                     <label for="password" class="block text-sm font-medium">Mot de Passe</label>
                     <input type="password" id="password" required 
-                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                           placeholder="Mot de passe">
+                            class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            placeholder="Mot de passe">
                 </div>
 
                 <p id="login-message" class="text-center text-sm font-bold hidden"></p>
@@ -62,7 +62,49 @@
             
             <div class="mt-6 text-center">
                 <p class="text-sm text-gray-500 dark:text-gray-400">Pas encore de compte ? 
-                    <a href="#" class="font-medium text-secondary hover:text-primary">S'inscrire</a>
+                    <a href="#" id="show-register-btn" class="font-medium text-secondary hover:text-primary">S'inscrire</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="register-view" class="hidden min-h-screen items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
+            <h1 class="text-4xl font-extrabold text-center text-secondary mb-2">Inscription - Doukè Pro</h1>
+            <p class="text-center text-lg text-gray-600 dark:text-gray-400 mb-8">Créez votre compte et votre première entreprise</p>
+
+            <form id="register-form" class="space-y-6">
+                <div>
+                    <label for="reg-name" class="block text-sm font-medium">Nom/Prénom</label>
+                    <input type="text" id="reg-name" required 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                           placeholder="Votre nom complet">
+                </div>
+                <div>
+                    <label for="reg-email" class="block text-sm font-medium">Adresse Email</label>
+                    <input type="email" id="reg-email" required 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                           placeholder="exemple@entreprise.com">
+                </div>
+                
+                <div>
+                    <label for="reg-password" class="block text-sm font-medium">Mot de Passe</label>
+                    <input type="password" id="reg-password" required 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                           placeholder="Min. 8 caractères">
+                </div>
+
+                <p id="register-message" class="text-center text-sm font-bold hidden"></p>
+                
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-secondary hover:bg-primary transition duration-150">
+                    <i class="fas fa-user-plus mr-2"></i> S'inscrire & Démarrer
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-500 dark:text-gray-400">Déjà inscrit ?
+                    <a href="#" id="show-login-btn" class="font-medium text-primary hover:text-secondary">Se connecter</a>
                 </p>
             </div>
         </div>
@@ -79,7 +121,7 @@
             
             <nav class="flex-grow p-4 space-y-2 overflow-y-auto">
                 <div id="role-navigation-menu">
-                    </div>
+                </div>
             </nav>
 
             <div class="p-4 border-t border-gray-200 dark:border-gray-700">
@@ -104,7 +146,7 @@
                             <strong id="current-role" class="text-danger">-- RÔLE --</strong>
                         </span>
                     </div>
-                    <a href="#" id="logout-button" class="flex items-center py-2 px-3 bg-danger text-white rounded-lg hover:bg-red-700 transition">
+                    <a href="#" id="logout-btn" class="flex items-center py-2 px-3 bg-danger text-white rounded-lg hover:bg-red-700 transition">
                         <i class="fas fa-sign-out-alt mr-2"></i> Déconnexion
                     </a>
                 </div>
