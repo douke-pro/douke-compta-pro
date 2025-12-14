@@ -1,165 +1,225 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doukè Compta Pro - Application de Gestion Comptable</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <title>DOUKÈ Compta Pro - Système Comptable SYSCOHADA Intégré</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE', // Couleur principale Doukè
+                        'primary-light': '#8B8BF0',
+                        'primary-dark': '#1E40AF',
+                        secondary: '#1D4ED8',
+                        success: '#10B981', // Vert pour validation
+                        warning: '#F59E0B', // Jaune/Orange pour attente
+                        danger: '#EF4444', // Rouge pour erreur
+                        info: '#3B82F6', // Bleu pour information
+                        // Couleurs de fond/texte professionnelles
+                        'background-light': '#f7f7f9',
+                        'background-dark': '#1f2937',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     
     <style>
-        :root {
-            --color-primary: #0A66C2; /* Bleu LinkedIn/Pro */
-            --color-secondary: #008000; /* Vert pour Actions Positives */
-            --color-danger: #D32F2F; /* Rouge pour Erreurs */
-            --color-success: #388E3C; /* Vert pour Succès */
-            --color-warning: #FFA000; /* Jaune pour Alertes */
-            --color-info: #1976D2; /* Bleu clair pour Info */
+        body {
+            background-color: var(--background-light);
+            transition: background-color 0.3s;
         }
-        .bg-primary { background-color: var(--color-primary); }
-        .text-primary { color: var(--color-primary); }
-        .bg-secondary { background-color: var(--color-secondary); }
-        .text-secondary { color: var(--color-secondary); }
-        .bg-danger { background-color: var(--color-danger); }
-        .text-danger { color: var(--color-danger); }
-        .bg-success { background-color: var(--color-success); }
-        .text-success { color: var(--color-success); }
-        .bg-warning { background-color: var(--color-warning); }
-        .text-warning { color: var(--color-warning); }
-        .bg-info { background-color: var(--color-info); }
-        .text-info { color: var(--color-info); }
+        .dark body {
+            background-color: var(--background-dark);
+        }
+
+        /* Animations d'apparition */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #5D5CDE; /* Couleur primaire */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Effet squelette pour les placeholders de données */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        .dark .skeleton {
+            background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+        }
+        @keyframes loading { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+        /* Styles pour les modales (pour rapports) */
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            z-index: 50;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            transform: scale(0.9);
+            transition: transform 0.3s ease-out;
+        }
+        .modal-open .modal-backdrop { display: flex; }
+        .modal-open .modal-content { transform: scale(1); }
+
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
-    <div id="auth-view" class="min-h-screen flex items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
-            <h1 class="text-4xl font-extrabold text-center text-primary mb-2">Doukè Compta Pro</h1>
-            <p class="text-center text-lg text-gray-600 dark:text-gray-400 mb-8">Connexion à votre espace de travail</p>
-
-            <form id="login-form" class="space-y-6">
-                <div>
-                    <label for="email" class="block text-sm font-medium">Adresse Email</label>
-                    <input type="email" id="email" required 
-                            class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            placeholder="mock_admin@app.com">
-                </div>
-                
-                <div>
-                    <label for="password" class="block text-sm font-medium">Mot de Passe</label>
-                    <input type="password" id="password" required 
-                            class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            placeholder="Mot de passe">
-                </div>
-
-                <p id="login-message" class="text-center text-sm font-bold hidden"></p>
-                
-                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-primary hover:bg-secondary transition duration-150">
-                    <i class="fas fa-sign-in-alt mr-2"></i> Se Connecter
+<body class="min-h-full">
+    
+    <div id="notification-zone" class="fixed top-4 right-4 z-[9999] space-y-2">
+        </div>
+    
+    <div id="professional-modal" class="modal-backdrop">
+        <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-4xl">
+            <div class="flex justify-between items-center border-b pb-4 mb-4">
+                <h3 id="modal-title" class="text-2xl font-bold text-primary dark:text-white">Titre de la Modale</h3>
+                <button id="modal-close-btn" class="text-gray-400 hover:text-danger transition">
+                    <i class="fas fa-times fa-lg"></i>
                 </button>
-            </form>
-            
-            <div class="mt-6 text-center">
-                <p class="text-sm text-gray-500 dark:text-gray-400">Pas encore de compte ? 
-                    <a href="#" id="show-register-btn" class="font-medium text-secondary hover:text-primary">S'inscrire</a>
-                </p>
             </div>
+            <div id="modal-body" class="max-h-[70vh] overflow-y-auto">
+                </div>
         </div>
     </div>
 
-
-    <div id="register-view" class="hidden min-h-screen items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
-            <h1 class="text-4xl font-extrabold text-center text-secondary mb-2">Inscription - Doukè Pro</h1>
-            <p class="text-center text-lg text-gray-600 dark:text-gray-400 mb-8">Créez votre compte et votre première entreprise</p>
-
-            <form id="register-form" class="space-y-6">
-                <div>
-                    <label for="reg-name" class="block text-sm font-medium">Nom/Prénom</label>
-                    <input type="text" id="reg-name" required 
-                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                           placeholder="Votre nom complet">
-                </div>
-                <div>
-                    <label for="reg-email" class="block text-sm font-medium">Adresse Email</label>
-                    <input type="email" id="reg-email" required 
-                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                           placeholder="exemple@entreprise.com">
-                </div>
-                
-                <div>
-                    <label for="reg-password" class="block text-sm font-medium">Mot de Passe</label>
-                    <input type="password" id="reg-password" required 
-                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                           placeholder="Min. 8 caractères">
-                </div>
-
-                <p id="register-message" class="text-center text-sm font-bold hidden"></p>
-                
-                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-secondary hover:bg-primary transition duration-150">
-                    <i class="fas fa-user-plus mr-2"></i> S'inscrire & Démarrer
-                </button>
-            </form>
-            
-            <div class="mt-6 text-center">
-                <p class="text-sm text-gray-500 dark:text-gray-400">Déjà inscrit ?
-                    <a href="#" id="show-login-btn" class="font-medium text-primary hover:text-secondary">Se connecter</a>
-                </p>
-            </div>
-        </div>
-    </div>
-
-
-    <div id="dashboard-view" class="hidden min-h-screen flex">
+    <div id="auth-view" class="h-screen flex items-center justify-center bg-background-light dark:bg-gray-900 transition-colors">
         
-        <aside class="w-64 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700 flex flex-col">
-            <div class="p-6">
-                <h2 class="text-2xl font-extrabold text-secondary">Doukè Pro</h2>
-                <span class="text-xs text-gray-500 dark:text-gray-400">Comptabilité Facile</span>
+        <div id="login-form-container" class="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 space-y-6 fade-in">
+            <div class="text-center">
+                <h1 class="text-4xl font-extrabold text-primary dark:text-white">DOUKÈ</h1>
+                <p class="text-xl text-secondary dark:text-primary-light font-semibold">Compta Pro</p>
+                <p class="mt-4 text-gray-500 dark:text-gray-400">Connectez-vous pour accéder à votre espace.</p>
+            </div>
+
+            <div id="login-message" class="hidden p-3 rounded-lg text-center font-medium"></div>
+
+            <form id="login-form">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                    <input type="email" id="email" class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg shadow-sm focus:ring-primary focus:border-primary" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mot de passe</label>
+                    <input type="password" id="password" class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg shadow-sm focus:ring-primary focus:border-primary" required>
+                </div>
+                <button type="submit" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-primary hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Connexion
+                </button>
+            </form>
+
+            <div class="text-center">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Pas encore de compte ? 
+                    <button type="button" id="show-register-btn" class="font-medium text-secondary hover:text-primary transition-colors">Inscrivez-vous</button>
+                </p>
+            </div>
+        </div>
+        
+        <div id="register-view" class="hidden w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 space-y-6 fade-in">
+            <div class="text-center">
+                <h2 class="text-2xl font-bold text-secondary dark:text-white">Inscription</h2>
+                <p class="mt-2 text-gray-500 dark:text-gray-400">Créez votre compte et votre première entreprise.</p>
             </div>
             
-            <nav class="flex-grow p-4 space-y-2 overflow-y-auto">
-                <div id="role-navigation-menu">
-                </div>
-            </nav>
+            <div id="register-message" class="hidden p-3 rounded-lg text-center font-medium"></div>
 
-            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-                <p class="text-xs text-gray-500 dark:text-gray-400">Version 4.1.0</p>
+            <form id="register-form">
+                <div>
+                    <label for="reg-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom Complet</label>
+                    <input type="text" id="reg-name" class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg shadow-sm focus:ring-primary focus:border-primary" required>
+                </div>
+                <div>
+                    <label for="reg-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                    <input type="email" id="reg-email" class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg shadow-sm focus:ring-primary focus:border-primary" required>
+                </div>
+                <div>
+                    <label for="reg-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mot de passe</label>
+                    <input type="password" id="reg-password" class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg shadow-sm focus:ring-primary focus:border-primary" required>
+                </div>
+                <button type="submit" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-success hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-success">
+                    <i class="fas fa-user-plus mr-2"></i> S'inscrire & Créer l'Entreprise
+                </button>
+            </form>
+
+            <div class="text-center">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Déjà un compte ? 
+                    <button type="button" id="show-login-btn" class="font-medium text-secondary hover:text-primary transition-colors">Connectez-vous</button>
+                </p>
             </div>
-        </aside>
-
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">
-            
-            <header class="flex items-center justify-between p-6 bg-white dark:bg-gray-800 shadow-md">
-                <div class="flex flex-col">
-                    <h2 id="welcome-message" class="text-xl font-semibold text-primary">Bienvenue !</h2>
-                    <p id="context-message" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Contexte de travail actuel:
-                        <strong id="current-company-name">-- Aucune sélectionnée --</strong>
-                    </p>
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    <div class="flex flex-col items-end">
-                        <span class="text-sm font-medium">Rôle: 
-                            <strong id="current-role" class="text-danger">-- RÔLE --</strong>
-                        </span>
-                    </div>
-                    <a href="#" id="logout-btn" class="flex items-center py-2 px-3 bg-danger text-white rounded-lg hover:bg-red-700 transition">
-                        <i class="fas fa-sign-out-alt mr-2"></i> Déconnexion
-                    </a>
-                </div>
-            </header>
-
-            <div class="p-6 md:p-8">
-                <div id="dashboard-content-area" class="w-full">
-                    </div>
-            </div>
-        </main>
+        </div>
+        
     </div>
 
-    <script src="assets/script.js"></script>
+    <div id="dashboard-view" class="hidden min-h-screen">
+        <div class="flex flex-col lg:flex-row">
+            
+            <aside class="w-full lg:w-64 bg-white dark:bg-gray-800 shadow-xl lg:min-h-screen p-6 border-r border-gray-200 dark:border-gray-700">
+                <div class="text-center mb-10">
+                    <h1 class="text-3xl font-extrabold text-primary dark:text-white">DOUKÈ</h1>
+                    <p class="text-sm text-secondary dark:text-primary-light font-semibold">Compta Pro</p>
+                </div>
+                
+                <div class="mb-8 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-secondary">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400" id="welcome-message">Bienvenue, Utilisateur</p>
+                    <p class="text-lg font-bold text-gray-900 dark:text-white" id="current-role">ROLE</p>
+                    <p class="text-xs text-info mt-2">Contexte: <span class="font-bold" id="current-company-name">-- Global --</span></p>
+                </div>
 
+                <nav id="role-navigation-menu" class="space-y-2">
+                    </nav>
+                
+                <div class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <button id="logout-btn" class="w-full flex items-center p-3 text-danger dark:text-red-400 hover:bg-danger hover:text-white rounded-lg transition duration-200 font-medium">
+                        <i class="fas fa-sign-out-alt mr-3"></i> Déconnexion
+                    </button>
+                </div>
+            </aside>
+
+            <main class="flex-1 p-6 md:p-10 bg-background-light dark:bg-gray-900">
+                
+                <header class="mb-8 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg border-l-4 border-info">
+                    <p class="text-lg font-semibold text-gray-900 dark:text-white" id="context-message">
+                        Contexte de travail actuel: <strong class="text-primary">Entreprise S.A.</strong>
+                    </p>
+                </header>
+
+                <div id="dashboard-content-area" class="fade-in">
+                    </div>
+
+            </main>
+        </div>
+    </div>
+    
+    <script src="assets/script.js"></script>
 </body>
-</html>
+    </html>
