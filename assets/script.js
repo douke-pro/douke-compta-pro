@@ -1,7 +1,7 @@
 // =================================================================================
 // FICHIER : assets/script.js
 // Description : Logique complète de l'application Doukè Compta Pro
-// VERSION : PROFESSIONNELLE V1.0 (Cache, Contexte, SYSCOHADA Dual-System Ready)
+// VERSION : PROFESSIONNELLE V1.1 (Correction Erreur JSON/HTML sur Inscription)
 // =================================================================================
 
 // =================================================================================
@@ -106,7 +106,6 @@ window.cacheManager = new CacheManager();
 
 /**
  * Centralisation de l'état crucial pour le routing et les rapports comptables.
- * (Répond à la validation SYSCOHADAIntegrationManager du fichier 2.txt)
  */
 window.app = {
     currentCompanyId: null, // ID de l'entreprise actuellement sélectionnée
@@ -128,7 +127,6 @@ window.app = {
  * Affiche un message flash dans la vue de connexion/inscription.
  */
 function displayAuthMessage(viewId, message, type) {
-    // [Implémentation non modifiée]
     const msgElement = document.getElementById(`${viewId}-message`);
     if (!msgElement) return;
 
@@ -161,9 +159,7 @@ function displayAuthMessage(viewId, message, type) {
  * Connexion utilisateur via l'API serveur.
  */
 async function handleLogin(email, password) {
-    // [Implémentation non modifiée]
     const endpoint = `${API_BASE_URL}/auth/login`;
-    // ... (Logique de fetch) ...
     try {
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -200,11 +196,10 @@ async function handleLogin(email, password) {
 
 /**
  * Inscription utilisateur (MOCK)
+ * CORRIGÉE pour gérer l'erreur "Unexpected token <" (Réponse HTML)
  */
 async function handleRegistration(payload) {
-    // [Implémentation non modifiée]
     const endpoint = `${API_BASE_URL}/auth/register`;
-    // ... (Logique de MOCK) ...
     try {
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -212,7 +207,23 @@ async function handleRegistration(payload) {
             body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
+        let data;
+        
+        try {
+            // Tente de lire la réponse comme du JSON
+            data = await response.json();
+        } catch (e) {
+            // Si le parsing JSON échoue (ex: 'Unexpected token <'), on analyse la raison
+            if (!response.ok) {
+                // Si la réponse n'est pas OK (4xx ou 5xx), le serveur a probablement renvoyé du HTML.
+                const textError = await response.text();
+                console.error('❌ Le serveur a renvoyé un corps non-JSON (HTML probable) sur une erreur HTTP:', response.status, textError.substring(0, 100) + '...');
+                // On utilise un message spécifique pour déclencher le MOCK dans le catch externe.
+                throw new Error(`Erreur Serveur ${response.status}: L'endpoint d'inscription est introuvable ou a échoué.`);
+            }
+            // Si la réponse était OK mais le JSON malformé, on propage l'erreur de JSON originale.
+            throw e; 
+        }
 
         if (response.ok) {
             console.log('✅ Inscription réussie:', data.utilisateurRole);
@@ -229,11 +240,12 @@ async function handleRegistration(payload) {
             throw new Error(data.error || 'Erreur d\'inscription inconnue');
         }
     } catch (error) {
-        if (error.message.includes('fetch')) {
-            displayAuthMessage('register', 'Endpoint d\'inscription non implémenté côté serveur. Simulation de la réussite...', 'info');
+        // Déclenche le MOCK si l'API est injoignable (fetch) OU si l'endpoint a échoué (message d'erreur personnalisé)
+        if (error.message.includes('fetch') || error.message.includes('L\'endpoint d\'inscription est introuvable')) {
+            displayAuthMessage('register', 'Endpoint d\'inscription non implémenté côté serveur ou injoignable. Simulation de la réussite...', 'info');
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // MOCK de succès si l'API est injoignable ou l'endpoint absent
+            // MOCK de succès
             const mockContext = {
                 utilisateurRole: 'USER',
                 utilisateurId: 'USR_NEW_MOCK',
@@ -248,6 +260,7 @@ async function handleRegistration(payload) {
         throw new Error(error.message);
     }
 }
+
 
 /**
  * Récupère les écritures comptables pour une entreprise. (DataService.getEntries)
@@ -314,7 +327,6 @@ async function fetchCompanyEntries(companyId, token) {
  * Endpoint: GET /api/companies/:userId (DataService.getCompanies)
  */
 async function fetchUserCompanies(context) {
-    // [Implémentation non modifiée (utilise le MOCK si API injoignable)]
     if (!context || !context.utilisateurId) {
         console.error('❌ Impossible de récupérer les entreprises sans utilisateurId');
         return [];
@@ -370,7 +382,6 @@ async function fetchUserCompanies(context) {
  * Simule les statistiques globales admin (MOCK)
  */
 async function fetchGlobalAdminStats() {
-    // [Implémentation non modifiée]
     await new Promise(resolve => setTimeout(resolve, 300));
     return {
         totalCompanies: 4,
@@ -507,19 +518,19 @@ async function genererEtatsFinanciers() {
  * Affiche la vue de connexion et masque les autres.
  */
 function renderLoginView() {
-    // [Implémentation non modifiée]
     document.getElementById('auth-view').classList.remove('hidden');
+    document.getElementById('auth-view').classList.add('flex'); // Assure l'affichage flex
     document.getElementById('dashboard-view').classList.add('hidden');
     const registerView = document.getElementById('register-view');
     if (registerView) {
         registerView.classList.add('hidden');
+        registerView.classList.remove('flex');
     }
 }
 
-// ... (renderRegisterView, initDashboard, updateHeaderContext, updateNavigationMenu - Non modifiées) ...
-
 function renderRegisterView() {
     document.getElementById('auth-view').classList.add('hidden');
+    document.getElementById('auth-view').classList.remove('flex');
     document.getElementById('dashboard-view').classList.add('hidden');
     const registerView = document.getElementById('register-view');
     if (registerView) {
@@ -536,9 +547,11 @@ function initDashboard(context) {
     window.app.currentCompanyName = context.entrepriseContextName;
 
     document.getElementById('auth-view').classList.add('hidden');
+    document.getElementById('auth-view').classList.remove('flex');
     const registerView = document.getElementById('register-view');
     if (registerView) {
         registerView.classList.add('hidden');
+        registerView.classList.remove('flex');
     }
     document.getElementById('dashboard-view').classList.remove('hidden');
     document.getElementById('dashboard-view').classList.add('flex');
@@ -560,15 +573,13 @@ function updateHeaderContext(context) {
     companyNameElement.textContent = companyName;
 
     if (context.multiEntreprise && !context.entrepriseContextId) {
-        contextMessage.innerHTML = 'Contexte de travail actuel: <strong class="text-red-700">AUCUNE SÉLECTIONNÉE</strong>. (Cliquez sur "Changer d\'Entreprise")';
+        contextMessage.innerHTML = 'Contexte de travail actuel: <strong class="text-danger">AUCUNE SÉLECTIONNÉE</strong>. (Cliquez sur "Changer d\'Entreprise")';
     } else {
         contextMessage.innerHTML = `Contexte de travail actuel: <strong class="text-primary">${companyName}</strong>.`;
     }
 }
 
 function updateNavigationMenu(role) {
-    // [Implémentation non modifiée]
-    // ... (Logique de menu) ...
     const navMenu = document.getElementById('role-navigation-menu');
     navMenu.innerHTML = '';
 
@@ -684,7 +695,6 @@ async function loadView(viewName) {
  * Affiche le sélecteur d'entreprise pour les rôles multi-entreprises
  */
 async function renderEnterpriseSelectorView(blockedViewName = null) {
-    // [Implémentation non modifiée (utilise le MOCK forcé)]
     const contentArea = document.getElementById('dashboard-content-area');
     contentArea.innerHTML = '<div class="text-center p-8"><i class="fas fa-spinner fa-spin fa-3x text-primary"></i><p>Chargement des entreprises...</p></div>';
 
@@ -714,7 +724,7 @@ async function renderEnterpriseSelectorView(blockedViewName = null) {
             <div class="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl">
                 <h2 class="text-3xl font-extrabold text-primary mb-2">Sélectionner un Contexte d'Entreprise</h2>
                 <p class="text-lg text-gray-600 dark:text-gray-400 mb-6">
-                    ${blockedViewName ? `<strong class="text-red-700">Action Bloquée:</strong> Sélectionnez une entreprise pour "${blockedViewName}"` : 'Choisissez l\'entreprise sur laquelle vous souhaitez travailler.'}
+                    ${blockedViewName ? `<strong class="text-danger">Action Bloquée:</strong> Sélectionnez une entreprise pour "${blockedViewName}"` : 'Choisissez l\'entreprise sur laquelle vous souhaitez travailler.'}
                 </p>
                 <div id="company-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     ${companyListHTML}
@@ -739,9 +749,9 @@ async function renderEnterpriseSelectorView(blockedViewName = null) {
 
     } catch (error) {
         contentArea.innerHTML = `
-            <div class="max-w-4xl mx-auto p-8 bg-red-100 bg-opacity-10 border-4 border-red-700 rounded-xl text-center">
-                <i class="fas fa-exclamation-circle fa-3x text-red-700 mb-4"></i>
-                <h2 class="text-2xl font-extrabold text-red-700">Erreur de Chargement</h2>
+            <div class="max-w-4xl mx-auto p-8 bg-red-100 bg-opacity-10 border-4 border-danger rounded-xl text-center">
+                <i class="fas fa-exclamation-circle fa-3x text-danger mb-4"></i>
+                <h2 class="text-2xl font-extrabold text-danger">Erreur de Chargement</h2>
                 <p class="text-lg">Impossible de charger les entreprises. ${error.message}</p>
             </div>
         `;
@@ -754,7 +764,6 @@ async function renderEnterpriseSelectorView(blockedViewName = null) {
 // =================================================================================
 
 function generateStatCard(title, value, iconClass, colorClass) {
-    // [Implémentation non modifiée]
     const formattedValue = new Intl.NumberFormat('fr-FR', {
         style: 'currency',
         currency: 'XOF', // Utilisation du Franc CFA
@@ -777,7 +786,6 @@ function generateStatCard(title, value, iconClass, colorClass) {
 }
 
 function renderActivityFeed() {
-    // [Implémentation non modifiée]
     const activities = [
         { type: 'Validation', description: 'Facture #2024-001 validée par Admin.', time: 'il y a 5 min' },
         { type: 'Saisie', description: 'Transaction de caisse S-1002 ajoutée.', time: 'il y a 30 min' },
@@ -790,7 +798,7 @@ function renderActivityFeed() {
             <span class="font-bold text-sm text-primary mr-2">${act.type}:</span>
             <span class="text-gray-700 dark:text-gray-300">${act.description}</span>
             <span class="float-right text-xs text-gray-500">${act.time}</span>
-        </li>
+            </li>
     `).join('');
 
     return `
@@ -805,7 +813,6 @@ function renderActivityFeed() {
 }
 
 async function renderAdminGlobalDashboard(context) {
-    // [Implémentation non modifiée]
     const stats = await fetchGlobalAdminStats();
     
     const statsHTML = `
@@ -813,7 +820,7 @@ async function renderAdminGlobalDashboard(context) {
         ${generateStatCard('Entreprises Actives', stats.activeCompanies, 'fas fa-check-circle', 'border-success')}
         ${generateStatCard('Collaborateurs Totaux', stats.collaborators, 'fas fa-users', 'border-info')}
         ${generateStatCard('Demandes en Attente', stats.pendingRequests, 'fas fa-bell', 'border-warning')}
-        ${generateStatCard('Validations à Effectuer', stats.pendingValidations, 'fas fa-check-double', 'border-red-700')}
+        ${generateStatCard('Validations à Effectuer', stats.pendingValidations, 'fas fa-check-double', 'border-danger')}
         ${generateStatCard('Documents Total', stats.totalFiles, 'fas fa-file-alt', 'border-secondary')}
     `;
 
@@ -831,7 +838,6 @@ async function renderAdminGlobalDashboard(context) {
 }
 
 async function renderCompanySpecificDashboard(context, specificRoleMessage) {
-    // [Implémentation non modifiée]
     const companyName = context.entrepriseContextName;
     // Données MOCK d'entreprise pour l'affichage
     const stats = { transactions: 350, result: 12500000, pending: 8, cash: 7500000 }; 
@@ -859,19 +865,16 @@ async function renderCompanySpecificDashboard(context, specificRoleMessage) {
 }
 
 async function renderUserDashboard(context) {
-    // [Implémentation non modifiée]
     return renderCompanySpecificDashboard(context, 
         `<i class="fas fa-chart-line mr-2"></i> Bienvenue, l'équipe Comptable.`);
 }
 
 async function renderCaissierDashboard(context) {
-    // [Implémentation non modifiée]
     return renderCompanySpecificDashboard(context, 
         `<i class="fas fa-cash-register mr-2"></i> Ce tableau de bord est optimisé pour la saisie des flux de caisse.`);
 }
 
 async function renderDashboard(context) {
-    // [Implémentation non modifiée]
     if (context.multiEntreprise && !context.entrepriseContextId) {
         await renderEnterpriseSelectorView(); 
         return null; 
@@ -898,13 +901,11 @@ async function renderDashboard(context) {
 // =================================================================================
 
 function renderNotFound() {
-    // [Implémentation non modifiée]
     return `<div class="p-8 text-center"><i class="fas fa-exclamation-triangle fa-5x text-warning mb-4"></i><h2 class="text-3xl font-bold">Vue Non Trouvée</h2><p class="text-lg">La page demandée n'existe pas ou n'est pas encore implémentée.</p></div>`;
 }
 
 function renderAccessDenied() {
-    // [Implémentation non modifiée]
-    return `<div class="p-8 text-center"><i class="fas fa-lock fa-5x text-red-700 mb-4"></i><h2 class="text-3xl font-bold text-red-700">Accès Refusé</h2><p class="text-lg">Votre rôle ne vous permet pas d'accéder à cette fonctionnalité.</p></div>`;
+    return `<div class="p-8 text-center"><i class="fas fa-lock fa-5x text-danger mb-4"></i><h2 class="text-3xl font-bold text-danger">Accès Refusé</h2><p class="text-lg">Votre rôle ne vous permet pas d'accéder à cette fonctionnalité.</p></div>`;
 }
 
 /**
@@ -1002,22 +1003,18 @@ async function initialiserRapportsEtSysteme(context) {
 
 
 function renderCreateCompanyForm() {
-    // [Implémentation non modifiée]
     return `<h3 class="text-2xl font-bold mb-4 text-primary">Créer une Nouvelle Entreprise (MOCK)</h3><p>Formulaire de création d'entreprise.</p>`;
 }
 
 function renderSaisieFormCaissier() {
-    // [Implémentation non modifiée]
     return `<h3 class="text-2xl font-bold mb-4 text-primary">Saisie des Flux de Caisse (MOCK)</h3><p>Formulaire de saisie des flux pour ${window.userContext.entrepriseContextName}.</p>`;
 }
 
 function renderJournalEntryForm() {
-    // [Implémentation non modifiée]
     return `<h3 class="text-2xl font-bold mb-4 text-primary">Saisie Écriture Journal (MOCK)</h3><p>Formulaire d'écriture journal pour ${window.userContext.entrepriseContextName}.</p>`;
 }
 
 function generateValidationTable() {
-    // [Implémentation non modifiée]
     return `<h3 class="text-2xl font-bold mb-4 text-primary">Validation des Opérations (MOCK)</h3><p>Liste des opérations en attente de validation pour ${window.userContext.entrepriseContextName}.</p>`;
 }
 
@@ -1027,9 +1024,8 @@ function generateValidationTable() {
 // =================================================================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    // [Implémentation non modifiée]
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
