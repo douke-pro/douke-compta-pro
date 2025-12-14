@@ -5,10 +5,6 @@
   "scripts": {
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    
-    // CORRECTION CRITIQUE POUR RENDER/PRISMA
-    // Cette étape lance la génération du client Prisma ('node_modules/.prisma/client')
-    // qui manquait, causant l'erreur MODULE_NOT_FOUND.
     "postinstall": "npx prisma generate" 
   },
   "keywords": [],
@@ -16,7 +12,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    // Dépendances de production (nécessaires au runtime)
     "@prisma/client": "^7.1.0",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.1",
@@ -26,7 +21,6 @@
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
-    // Dépendances de développement (nécessaires pour les commandes comme 'db push')
     "prisma": "^7.1.0"
   }
 }
