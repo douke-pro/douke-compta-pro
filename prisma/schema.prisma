@@ -17,37 +17,37 @@ datasource db {
 
 // Modèle User
 model User {
-  id                    String   @id @default(cuid()) 
-  utilisateurNom        String
-  email                 String   @unique // Contrainte d'unicité
-  password              String // Hash (stocké en tant que string)
-  utilisateurRole       String   @default("USER")
-  entrepriseContextId   String? 
+  id                     String   @id @default(cuid()) 
+  utilisateurNom         String
+  email                  String   @unique // Contrainte d'unicité
+  password               String   // Hash (stocké en tant que string)
+  utilisateurRole        String   @default("USER")
+  entrepriseContextId    String? 
   // Dans PostgreSQL, les listes sont gérées par des tableaux de chaînes
   entreprisesAccessibles String[] 
-  multiEntreprise       Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  multiEntreprise        Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   @@map("users") // Nom de la table dans la DB
 }
 
 // Modèle Company (Entreprise)
 model Company {
-  id                    String   @id @default(cuid()) 
-  nom                   String   @unique
-  systemeComptable      String   @default("normal")
-  devise                String   @default("XOF")
-  dateDebutExercice     DateTime
-  statut                String   @default("Actif")
-  administrateurId      String 
+  id                     String   @id @default(cuid()) 
+  nom                    String   @unique
+  systemeComptable       String   @default("normal")
+  devise                 String   @default("XOF")
+  dateDebutExercice      DateTime
+  statut                 String   @default("Actif")
+  administrateurId       String 
 
   // Relations futures pour l'isolation (Plan Comptable, Écritures)
-  accounts              Account[]
-  entries               Entry[]
+  accounts               Account[]
+  entries                Entry[]
   
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   @@map("companies")
 }
@@ -55,7 +55,9 @@ model Company {
 // Modèle Account (Plan Comptable)
 model Account {
   id                    String   @id @default(cuid()) 
-  numero                Int      @unique(name: "compte_unique_par_entreprise") // Clé unique par combinaison
+  // CORRECTION : Suppression de l'attribut @unique(name: "...") invalide. 
+  // La contrainte combinée est définie en bas du bloc.
+  numero                Int     
   intitule              String
   classe                Int
   soldeInitialDebit     Float    @default(0)
