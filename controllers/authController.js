@@ -1,11 +1,7 @@
-// Dossier : controllers/authController.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); // Initialisation de l'accès à PostgreSQL
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs'); // Récupération du hachage car Prisma ne le gère pas directement
-
-// Logique pour créer la première entreprise (pour le registre initial)
-const createCompany = require('./companyController').createCompany; 
 
 
 // Génère un JWT
@@ -33,8 +29,7 @@ const registerUser = async (req, res) => {
 
     try {
         // --- 3. Création de l'Entreprise d'abord (Pour obtenir l'ID réel) ---
-        // Cette logique devrait être déplacée vers un service, mais pour le déblocage:
-
+        
         // Création de l'entreprise dans la DB (Remplacement du MOCK)
         const newCompany = await prisma.company.create({
             data: {
