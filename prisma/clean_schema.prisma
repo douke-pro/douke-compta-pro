@@ -1,24 +1,92 @@
+// 1. Configuration du Client (pour l'API)
 generator client {
   provider = "prisma-client-js"
 }
 
+// 2. Configuration de la Base de Données (PostgreSQL)
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Le reste de vos modèles...
+// =========================================================================
+// MODÈLES DE DONNÉES
+// =========================================================================
+
+// Modèle User (Utilisateurs du système)
 model User {
-  id                     String   @id @default(cuid()) 
+  id                     String   @id @default(cuid())
   utilisateurNom         String
-  email                  String   @unique 
-  password               String   
+  email                  String   @unique
+  password               String   // Hash stocké
   utilisateurRole        String   @default("USER")
-  entrepriseContextId    String? 
-  entreprisesAccessibles String[] 
+  entrepriseContextId    String?
+  entreprisesAccessibles String[]
   multiEntreprise        Boolean  @default(false)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
-  @@map("users") 
+
+  @@map("users")
 }
-// ... (inclure tous vos autres modèles)
+
+// Modèle Company (Entreprise / Entité comptable)
+model Company {
+  id                String   @id @default(cuid())
+  nom               String   @unique
+  systemeComptable  String   @default("normal")
+  devise            String   @default("XOF")
+  dateDebutExercice DateTime
+  statut            String   @default("Actif")
+  administrateurId  String
+
+  // Relations
+  accounts          Account[]
+  entries           Entry[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("companies")
+}
+
+// Modèle Account (Plan Comptable SYSCOHADA)
+model Account {
+  id                 String   @id @default(cuid())
+  numero             Int
+  intitule           String
+  classe             Int
+  soldeInitialDebit  Float    @default(0)
+  soldeInitialCredit Float    @default(0)
+
+  // Relation avec Company
+  companyId          String
+  company            Company  @relation(fields: [companyId], references: [id])
+  
+  // Contrainte : le numéro de compte doit être unique PAR entreprise.
+  @@unique([companyId, numero], name: "compte_unique_par_entreprise")
+  @@map("accounts")
+}
+
+// Modèle Entry (Écriture de Journal)
+model Entry {
+  id          String   @id @default(cuid())
+  journalCode String
+  date        DateTime
+  pieceRef    String?
+  status      String   @default("en attente")
+  
+  // Relation avec Company
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  // Lignes d'écriture (Stockées en JSON pour la flexibilité Débit/Crédit)
+  lignes      Json
+  
+  createdBy   String
+  validatedBy String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("entries")
+}
