@@ -1,55 +1,102 @@
-// 1. Configuration du Client (pour l'API)
+// 1. Configuration du Client
 generator client {
   provider = "prisma-client-js"
 }
 
-// 2. Configuration de la Base de Données (PostgreSQL)
+// 2. Configuration de la Base de Données
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 // =========================================================================
+// ÉNUMÉRATIONS (Pour la cohérence des données)
+// =========================================================================
+
+enum Role {
+  ADMIN
+  COLLABORATEUR
+  USER
+  CAISSIER
+}
+
+enum SystemeComptable {
+  NORMAL
+  SMT
+}
+
+enum StatutEcriture {
+  BROUILLON // Utilisé par le Caissier
+  EN_ATTENTE // Saisi par User, en attente de validation
+  VALIDE     // Validé par Admin ou Collaborateur
+}
+
+// =========================================================================
 // MODÈLES DE DONNÉES
 // =========================================================================
 
-// Modèle User (Utilisateurs du système)
 model User {
-  id                     String   @id @default(cuid())
-  utilisateurNom         String
-  email                  String   @unique
-  password               String   // Hash stocké
-  utilisateurRole        String   @default("USER")
-  entrepriseContextId    String?
-  entreprisesAccessibles String[]
-  multiEntreprise        Boolean  @default(false)
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                    String    @id @default(cuid())
+  utilisateurNom        String
+  email                 String    @unique
+  password              String
+  utilisateurRole       Role      @default(USER)
+  
+  // --- GOUVERNANCE ---
+  isOnline              Boolean   @default(false)
+  entrepriseContextId   String?   // ID de l'entreprise actuellement active
+  
+  // Relation avec les accès affectés par l'ADMIN (Multi-entreprises pour COLLABORATEUR)
+  affectations          UserCompanyAccess[]
+  
+  // Pour le profil USER (Lien strict 1:1 géré par la logique métier)
+  // entreprisesAccessibles est maintenu pour la compatibilité avec votre code actuel
+  entreprisesAccessibles String[] 
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@map("users")
 }
 
-// Modèle Company (Entreprise / Entité comptable)
+// Table pivot pour l'affectation des entreprises par l'ADMIN
+model UserCompanyAccess {
+  id          String   @id @default(cuid())
+  userId      String
+  companyId   String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedAt  DateTime @default(now())
+
+  @@unique([userId, companyId])
+  @@map("user_company_access")
+}
+
 model Company {
-  id                String   @id @default(cuid())
-  nom               String   @unique
-  systemeComptable  String   @default("normal")
-  devise            String   @default("XOF")
+  id                String           @id @default(cuid())
+  nom               String           @unique
+  
+  // --- PARAMÉTRAGE SYSCOHADA (Post-création) ---
+  systemeComptable  SystemeComptable @default(NORMAL)
   dateDebutExercice DateTime
-  statut            String   @default("Actif")
+  exerciceCloture   Boolean          @default(false)
+  
+  devise            String           @default("XOF")
+  statut            String           @default("Actif")
   administrateurId  String
 
   // Relations
   accounts          Account[]
   entries           Entry[]
+  caisses           Caisse[]
+  collaborateurs    UserCompanyAccess[]
   
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@map("companies")
 }
 
-// Modèle Account (Plan Comptable SYSCOHADA)
 model Account {
   id                 String   @id @default(cuid())
   numero             Int
@@ -62,31 +109,47 @@ model Account {
   companyId          String
   company            Company  @relation(fields: [companyId], references: [id])
   
-  // Contrainte : le numéro de compte doit être unique PAR entreprise.
+  // Pour le profil CAISSIER : indique si ce compte est éligible à la liste auto-défilante
+  isCashAccount      Boolean  @default(false)
+
   @@unique([companyId, numero], name: "compte_unique_par_entreprise")
   @@map("accounts")
 }
 
-// Modèle Entry (Écriture de Journal)
+model Caisse {
+  id        String   @id @default(cuid())
+  nom       String   // ex: "Caisse Principale", "Caisse Menue Fretin"
+  code      String   // ex: "CAI01"
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  
+  // Une caisse appartient à une entreprise, mais peut avoir plusieurs écritures
+  entries   Entry[]
+
+  @@map("caisses")
+}
+
 model Entry {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   journalCode String
   date        DateTime
   pieceRef    String?
-  status      String   @default("en attente")
+  status      StatutEcriture @default(EN_ATTENTE)
   
-  // Relation avec Company
+  // --- TRAÇABILITÉ ---
   companyId   String
-  company     Company  @relation(fields: [companyId], references: [id])
-
-  // Lignes d'écriture (Stockées en JSON pour la flexibilité Débit/Crédit)
-  lignes      Json
+  company     Company        @relation(fields: [companyId], references: [id])
   
-  createdBy   String
-  validatedBy String?
+  caisseId    String?        // Si l'écriture vient d'un CAISSIER
+  caisse      Caisse?        @relation(fields: [caisseId], references: [id])
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  lignes      Json           // Détails Débit/Crédit
+  
+  createdBy   String         // ID de l'utilisateur (Admin, Collaborateur, User ou Caissier)
+  validatedBy String?        // ID de l'Admin ou Collaborateur qui a validé
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@map("entries")
 }
