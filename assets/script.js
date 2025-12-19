@@ -252,7 +252,7 @@ window.cacheManager = new CacheManager();
 window.app = {
     currentCompanyId: null, // ID de l'entreprise actuellement sélectionnée
     currentCompanyName: null,
-    currentSysteme: 'normal', // 'normal' ou 'minimal' (pour SYSCOHADA)
+    currentSysteme: 'NORMAL', // 'NORMAL' ou 'MINIMAL' (pour SYSCOHADA)
     filteredData: {
         // Contient les données prêtes à être traitées par les modules SYSCOHADA
         entries: [],
