@@ -1,121 +1,177 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient(); // Initialisation de l'accès à PostgreSQL
+const prisma = new PrismaClient();
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // Récupération du hachage car Prisma ne le gère pas directement
 
-
-// Génère un JWT
+/**
+ * GÉNÉRATION DU TOKEN JWT
+ */
 const generateToken = (id) => {
-    // Note : L'ID est maintenant un String CUID (ou UUID) généré par Prisma
     return jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: '30d', // 30 jours de validité
+        expiresIn: '30d',
     });
 };
 
-// Logique POST /api/auth/register (CRÉATION DE COMPTE + ENTREPRISE)
+/**
+ * INSCRIPTION (REGISTER) 
+ * Crée l'Admin, l'Entreprise et l'Affectation de manière atomique (Transaction)
+ */
 const registerUser = async (req, res) => {
-    const { username, email, password, companyName, dateDebutExercice } = req.body; 
-    
-    // 1. Recherche d'utilisateur via Prisma (PostgreSQL)
-    // Remplacement de User.findOne({ email })
-    const userExists = await prisma.user.findUnique({ where: { email } });
-    if (userExists) {
-        return res.status(400).json({ error: 'Cet email est déjà utilisé.' });
-    }
-    
-    // 2. Hachage du mot de passe (Doit être fait ici, car nous n'avons plus le middleware Mongoose)
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const { username, email, password, companyName, dateDebutExercice } = req.body;
 
     try {
-        // --- 3. Création de l'Entreprise d'abord (Pour obtenir l'ID réel) ---
-        
-        // Création de l'entreprise dans la DB (Remplacement du MOCK)
-        const newCompany = await prisma.company.create({
-            data: {
-                nom: companyName,
-                // Les autres champs sont par défaut (XOF, normal)
-                dateDebutExercice: new Date(dateDebutExercice || Date.now()),
-                // L'administrateurId sera mis à jour après la création de l'utilisateur
-            }
-        });
-        
-        // --- 4. Création de l'Utilisateur ---
-        // Remplacement de User.create({ ... })
-        const user = await prisma.user.create({
-            data: {
-                utilisateurNom: username,
-                email,
-                password: hashedPassword, // Haché
-                utilisateurRole: 'ADMIN', 
-                entrepriseContextId: newCompany.id, // ID réel de la nouvelle entreprise
-                entreprisesAccessibles: [newCompany.id],
-                multiEntreprise: true,
-            },
-            // On sélectionne les champs que l'on veut retourner, excluant le hash du mot de passe
-            select: { id: true, utilisateurNom: true, utilisateurRole: true, entrepriseContextId: true, multiEntreprise: true }
+        // 1. Vérification email unique
+        const userExists = await prisma.user.findUnique({ where: { email } });
+        if (userExists) {
+            return res.status(400).json({ error: 'Cet email est déjà utilisé.' });
+        }
+
+        // 2. Hachage du mot de passe
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // 3. TRANSACTION PRISMA : Tout ou rien
+        const result = await prisma.$transaction(async (tx) => {
+            // A. Création de l'entreprise (Système NORMAL par défaut post-création)
+            const newCompany = await tx.company.create({
+                data: {
+                    nom: companyName,
+                    dateDebutExercice: new Date(dateDebutExercice || Date.now()),
+                    administrateurId: "TEMP_ID", // Sera mis à jour après
+                    systemeComptable: 'NORMAL'
+                }
+            });
+
+            // B. Création de l'utilisateur Admin
+            const user = await tx.user.create({
+                data: {
+                    utilisateurNom: username,
+                    email,
+                    password: hashedPassword,
+                    utilisateurRole: 'ADMIN', // Utilise l'Enum du schéma
+                    isOnline: true,           // Session active dès l'inscription
+                    entrepriseContextId: newCompany.id,
+                    entreprisesAccessibles: [newCompany.id] // Compatibilité legacy
+                }
+            });
+
+            // C. Mise à jour de l'ID administrateur réel de l'entreprise
+            await tx.company.update({
+                where: { id: newCompany.id },
+                data: { administrateurId: user.id }
+            });
+
+            // D. Création de l'affectation dans la table pivot (Exigence Pro v1.4)
+            await tx.userCompanyAccess.create({
+                data: {
+                    userId: user.id,
+                    companyId: newCompany.id
+                }
+            });
+
+            return { user, newCompany };
         });
 
-        // 5. Mise à jour de l'administrateurId de l'entreprise
-        await prisma.company.update({
-            where: { id: newCompany.id },
-            data: { administrateurId: user.id }
-        });
-
-
-        // --- 6. Réponse Succès ---
+        // 4. Réponse Succès
         res.status(201).json({
-            utilisateurId: user.id,
-            utilisateurNom: user.utilisateurNom,
-            utilisateurRole: user.utilisateurRole,
-            entrepriseContextId: user.entrepriseContextId, 
-            entrepriseContextName: newCompany.nom, // Nom réel
-            multiEntreprise: user.multiEntreprise,
-            token: generateToken(user.id), 
+            utilisateurId: result.user.id,
+            utilisateurNom: result.user.utilisateurNom,
+            utilisateurRole: result.user.utilisateurRole,
+            entrepriseContextId: result.user.entrepriseContextId,
+            entrepriseContextName: result.newCompany.nom,
+            token: generateToken(result.user.id),
         });
 
     } catch (error) {
-        // Gérer les erreurs de la DB ou du hachage
-        console.error("Erreur d'enregistrement :", error);
-        res.status(500).json({ error: 'Erreur serveur lors de l\'enregistrement : ' + error.message });
+        console.error("ERREUR CRITIQUE REGISTER :", error);
+        res.status(500).json({ error: 'Erreur serveur lors de la création : ' + error.message });
     }
 };
 
-// Logique POST /api/auth/login
+/**
+ * CONNEXION (LOGIN)
+ * Met à jour le statut isOnline pour valider l'accès middleware
+ */
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
-    // 1. Recherche d'utilisateur via Prisma
-    // Remplacement de User.findOne({ email }).select('+password');
-    // Prisma renvoie tous les champs par défaut, y compris le hash, si non exclus explicitement.
-    const user = await prisma.user.findUnique({ 
-        where: { email },
-    });
-
-    if (user && (await bcrypt.compare(password, user.password))) {
-        
-        // 2. Récupérer le nom de l'entreprise à partir de l'ID de contexte
-        // Remplacement du placeholder 'Alpha Solutions (Placeholder)'
-        const company = await prisma.company.findUnique({
-            where: { id: user.entrepriseContextId }
+    try {
+        const user = await prisma.user.findUnique({
+            where: { email },
+            include: {
+                affectations: { select: { companyId: true } }
+            }
         });
 
-        // Succès: Générer le token et retourner le contexte
-        res.json({
-            utilisateurId: user.id,
-            utilisateurNom: user.utilisateurNom,
-            utilisateurRole: user.utilisateurRole,
-            entrepriseContextId: user.entrepriseContextId, 
-            entrepriseContextName: company ? company.nom : 'Entreprise Inconnue', 
-            multiEntreprise: user.multiEntreprise,
-            token: generateToken(user.id),
+        if (user && (await bcrypt.compare(password, user.password))) {
+            
+            // Mise à jour du statut isOnline (Requis par le nouveau middleware auth.js)
+            const updatedUser = await prisma.user.update({
+                where: { id: user.id },
+                data: { isOnline: true }
+            });
+
+            // Récupérer le nom de l'entreprise de contexte
+            const company = await prisma.company.findUnique({
+                where: { id: user.entrepriseContextId || "" }
+            });
+
+            res.json({
+                utilisateurId: updatedUser.id,
+                utilisateurNom: updatedUser.utilisateurNom,
+                utilisateurRole: updatedUser.utilisateurRole,
+                entrepriseContextId: updatedUser.entrepriseContextId,
+                entrepriseContextName: company ? company.nom : 'Aucun contexte',
+                token: generateToken(updatedUser.id),
+            });
+        } else {
+            res.status(401).json({ error: 'Identifiants invalides.' });
+        }
+    } catch (error) {
+        console.error("ERREUR CRITIQUE LOGIN :", error);
+        res.status(500).json({ error: 'Erreur serveur : ' + error.message });
+    }
+};
+
+/**
+ * GOUVERNANCE ADMIN : Affecter une entreprise à un Collaborateur/User
+ */
+const assignCompany = async (req, res) => {
+    const { targetUserId, companyId } = req.body; // Seul l'Admin peut appeler cette route
+
+    try {
+        const access = await prisma.userCompanyAccess.create({
+            data: {
+                userId: targetUserId,
+                companyId: companyId
+            }
         });
-    } else {
-        res.status(401).json({ error: 'Identifiants invalides.' });
+        res.json({ message: "Affectation réussie", access });
+    } catch (error) {
+        res.status(400).json({ error: "L'utilisateur a déjà accès ou ID invalide." });
+    }
+};
+
+/**
+ * GOUVERNANCE ADMIN : Déconnexion forcée (Kick)
+ */
+const forceLogout = async (req, res) => {
+    const { targetUserId } = req.body;
+
+    try {
+        await prisma.user.update({
+            where: { id: targetUserId },
+            data: { isOnline: false }
+        });
+        res.json({ message: "L'utilisateur a été déconnecté avec succès." });
+    } catch (error) {
+        res.status(500).json({ error: "Erreur lors de la déconnexion forcée." });
     }
 };
 
 module.exports = {
     registerUser,
     loginUser,
+    assignCompany,
+    forceLogout
 };
