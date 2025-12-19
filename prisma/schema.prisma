@@ -43,7 +43,6 @@ model User {
   utilisateurRole       Role      @default(USER)
   
   // --- GOUVERNANCE ---
-  isOnline              Boolean   @default(false)
   entrepriseContextId   String?   // ID de l'entreprise actuellement active
   
   // Relation avec les accès affectés par l'ADMIN (Multi-entreprises pour COLLABORATEUR)
