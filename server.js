@@ -138,3 +138,4 @@ connectToDatabase().then(() => {
         console.log(`DB : PostgreSQL via Render (Prisma)`);
     });
 });
+// Last Update: Odoo Connection Only
