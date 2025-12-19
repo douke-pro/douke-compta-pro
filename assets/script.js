@@ -1079,3 +1079,110 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 });
+/* ==========================================================================
+   EXTENSIONS DOUKÈ PRO V1.4 - MODULES EXPERTS & OHADA
+   ========================================================================== */
+
+// 1. GESTIONNAIRE D'ÉTAT PRIVÉ (Évite les conflits avec vos 1000 lignes)
+const DoukeExpert = {
+    currentFluxType: 'RECETTE',
+    
+    // Rendu de la vue Paramètres (Admin)
+    renderSettings: function(companyData) {
+        const contentArea = document.getElementById('dashboard-content-area');
+        if(!contentArea) return;
+        
+        contentArea.innerHTML = `
+        <div class="fade-in space-y-6">
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border-l-8 border-primary">
+                <h2 class="text-2xl font-black mb-6"><i class="fas fa-cog mr-3 text-primary"></i>Configuration Expert</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-black uppercase text-gray-400 mb-2">Système de Reporting</label>
+                        <select id="set-systeme" class="w-full p-4 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-primary">
+                            <option value="NORMAL" ${companyData?.systeme === 'NORMAL' ? 'selected' : ''}>SYSTÈME NORMAL (Complet)</option>
+                            <option value="SMT" ${companyData?.systeme === 'SMT' ? 'selected' : ''}>SYSTÈME MINIMAL (SMT)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black uppercase text-gray-400 mb-2">Clôture Exercice</label>
+                        <input type="date" id="set-cloture" class="w-full p-4 bg-gray-50 dark:bg-gray-700 border-none rounded-xl">
+                    </div>
+                </div>
+                <button onclick="DoukeExpert.saveSettings()" class="mt-8 bg-primary text-white font-bold py-4 px-10 rounded-xl shadow-lg hover:bg-primary-dark transition-all">
+                    METTRE À JOUR LE RÉGIME
+                </button>
+            </div>
+        </div>`;
+    },
+
+    // Rendu de la vue Caissier (Liste auto-défilante)
+    renderCashier: function() {
+        const contentArea = document.getElementById('dashboard-content-area');
+        contentArea.innerHTML = `
+        <div class="max-w-3xl mx-auto fade-in">
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-10 border-b-8 border-warning">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-3xl font-black">Saisie de Flux</h2>
+                    <i class="fas fa-cash-register text-4xl text-warning/30"></i>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-8">
+                    <button onclick="DoukeExpert.setType('RECETTE')" id="btn-recette" class="p-5 rounded-2xl border-2 border-success text-success font-black transition-all bg-success/5">RECETTE</button>
+                    <button onclick="DoukeExpert.setType('DEPENSE')" id="btn-depense" class="p-5 rounded-2xl border-2 border-danger text-danger font-black transition-all">DÉPENSE</button>
+                </div>
+                <div class="space-y-6">
+                    <input list="oper-list" id="cash-label" class="w-full p-5 bg-gray-50 dark:bg-gray-900 border-none rounded-2xl text-lg shadow-inner" placeholder="Nature de l'opération...">
+                    <datalist id="oper-list">
+                        <option value="Vente de marchandises">
+                        <option value="Prestation de service">
+                        <option value="Achat fournitures">
+                        <option value="Frais de transport">
+                    </datalist>
+                    <input type="number" id="cash-val" class="w-full p-8 text-5xl font-black text-center text-primary bg-primary/5 rounded-3xl" placeholder="0">
+                    <button onclick="DoukeExpert.submitEntry()" class="w-full py-6 bg-primary text-white text-xl font-black rounded-2xl shadow-xl hover:scale-[1.01] transition-transform">
+                        VALIDER LA SAISIE
+                    </button>
+                </div>
+            </div>
+        </div>`;
+        this.setType('RECETTE'); // Initialisation visuelle
+    },
+
+    // Logique interne
+    setType: function(type) {
+        this.currentFluxType = type;
+        const r = document.getElementById('btn-recette');
+        const d = document.getElementById('btn-depense');
+        if(type === 'RECETTE') {
+            r.className = 'p-5 rounded-2xl border-2 border-success bg-success text-white font-black shadow-lg shadow-success/30';
+            d.className = 'p-5 rounded-2xl border-2 border-danger text-danger font-black';
+        } else {
+            d.className = 'p-5 rounded-2xl border-2 border-danger bg-danger text-white font-black shadow-lg shadow-danger/30';
+            r.className = 'p-5 rounded-2xl border-2 border-success text-success font-black';
+        }
+    },
+
+    submitEntry: async function() {
+        const data = {
+            libelle: document.getElementById('cash-label').value,
+            montant: document.getElementById('cash-val').value,
+            type: this.currentFluxType,
+            status: 'BROUILLON'
+        };
+        
+        console.log("Transmission PostgreSQL via Prisma...", data);
+        // Ici l'appel fetch('/api/entries', ...)
+        alert("Enregistré ! En attente de validation par le comptable.");
+    },
+
+    saveSettings: async function() {
+        const systeme = document.getElementById('set-systeme').value;
+        alert("Changement de régime : " + systeme + ". Le moteur de Bilan va s'adapter.");
+    }
+};
+
+// INITIALISATION DU ROUTAGE (À appeler dans votre fonction de navigation)
+function routeToModule(moduleName) {
+    if(moduleName === 'settings') DoukeExpert.renderSettings();
+    if(moduleName === 'cashier') DoukeExpert.renderCashier();
+}
