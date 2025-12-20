@@ -1,7 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
-const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Mise à jour des données...");
@@ -9,7 +7,6 @@ async function main() {
   const hashedPassword = await bcrypt.hash("admin123", 10);
 
   // 1. Créer d'abord l'entreprise
-  const defaultCompany = await prisma.company.upsert({
     where: { nom: 'Ma Première Entreprise' },
     update: {},
     create: {
@@ -23,7 +20,6 @@ async function main() {
   });
 
   // 2. Créer l'utilisateur lié à cette entreprise
-  const admin = await prisma.user.upsert({
     where: { email: 'admin@douke.com' },
     update: {
       entrepriseContextId: defaultCompany.id,
@@ -47,4 +43,3 @@ async function main() {
 
 main()
   .catch((e) => { console.error(e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });

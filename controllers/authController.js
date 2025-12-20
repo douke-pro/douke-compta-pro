@@ -1,5 +1,3 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -21,7 +19,6 @@ const registerUser = async (req, res) => {
 
     try {
         // 1. Vérification email unique
-        const userExists = await prisma.user.findUnique({ where: { email } });
         if (userExists) {
             return res.status(400).json({ error: 'Cet email est déjà utilisé.' });
         }
@@ -31,7 +28,6 @@ const registerUser = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // 3. TRANSACTION PRISMA : Tout ou rien
-        const result = await prisma.$transaction(async (tx) => {
             // A. Création de l'entreprise (Système NORMAL par défaut post-création)
             const newCompany = await tx.company.create({
                 data: {
@@ -96,7 +92,6 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await prisma.user.findUnique({
             where: { email },
             include: {
                 affectations: { select: { companyId: true } }
@@ -106,13 +101,11 @@ const loginUser = async (req, res) => {
         if (user && (await bcrypt.compare(password, user.password))) {
             
             // Mise à jour du statut isOnline (Requis par le nouveau middleware auth.js)
-            const updatedUser = await prisma.user.update({
                 where: { id: user.id },
                 data: { isOnline: true }
             });
 
             // Récupérer le nom de l'entreprise de contexte
-            const company = await prisma.company.findUnique({
                 where: { id: user.entrepriseContextId || "" }
             });
 
@@ -140,7 +133,6 @@ const assignCompany = async (req, res) => {
     const { targetUserId, companyId } = req.body; // Seul l'Admin peut appeler cette route
 
     try {
-        const access = await prisma.userCompanyAccess.create({
             data: {
                 userId: targetUserId,
                 companyId: companyId
@@ -159,7 +151,6 @@ const forceLogout = async (req, res) => {
     const { targetUserId } = req.body;
 
     try {
-        await prisma.user.update({
             where: { id: targetUserId },
             data: { isOnline: false }
         });

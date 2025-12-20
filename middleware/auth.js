@@ -1,8 +1,6 @@
 // Dossier : middleware/auth.js
 const jwt = require('jsonwebtoken');
 // IMPORTS PRISMA REMPLACENT MONGOOSE
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient(); 
 
 require('dotenv').config();
 
@@ -17,7 +15,6 @@ const protect = async (req, res, next) => {
 
             // --- CORRECTION CRITIQUE POUR PRISMA/POSTGRESQL ---
             // Remplacement de User.findById(decoded.id).select('-password');
-            req.user = await prisma.user.findUnique({
                 where: { id: decoded.id }, // Utilise l'ID décodé du JWT
                 // Sélectionne explicitement les champs nécessaires, excluant le mot de passe
                 select: { 
