@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-// Importation des fonctions du contrôleur
+const { protect, restrictTo } = require('../middleware/auth');
 const { 
     registerUser, 
     loginUser, 
@@ -8,20 +8,16 @@ const {
     forceLogout 
 } = require('../controllers/authController');
 
-// @route   POST /api/auth/register
-// @desc    Inscription (Création Société + Utilisateur dans Odoo)
+// Inscription : Création Utilisateur + Partenaire + Coffre Analytique
 router.post('/register', registerUser);
 
-// @route   POST /api/auth/login
-// @desc    Connexion (Authentification via Odoo XML-RPC)
+// Connexion : Authentification XML-RPC
 router.post('/login', loginUser);
 
-// @route   POST /api/auth/assign-company
-// @desc    Gouvernance : Affecter une société à un utilisateur
-router.post('/assign-company', assignCompany);
+// Gouvernance (Sécurisée) : Seul un ADMIN peut réaffecter des droits
+router.post('/assign-company', protect, restrictTo('ADMIN'), assignCompany);
 
-// @route   POST /api/auth/force-logout
-// @desc    Gouvernance : Déconnexion forcée
-router.post('/force-logout', forceLogout);
+// Sécurité : Déconnexion forcée
+router.post('/force-logout', protect, forceLogout);
 
 module.exports = router;
