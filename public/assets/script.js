@@ -486,17 +486,55 @@ async function loadModule(moduleName, forceReload = false) {
 function renderDashboard(contentArea, profile) {
     const data = window.app.filteredData.entries;
     const isNormalSystem = window.app.currentSysteme === 'NORMAL';
-    // Calculs basés sur le mock data
+    
+    // --- Calculs Compta Générale (Communs à ADMIN/USER/COLLAB) ---
     const totalRevenue = data.filter(e => e.compte >= 700000 && e.compte < 800000).reduce((sum, e) => sum + e.credit, 0); 
     const pendingEntries = data.filter(e => e.status === 'En attente').length; 
-    const totalCash = data.filter(e => e.compte === 571000).reduce((sum, e) => sum + (e.debit - e.credit), 0) + 1000000; // Mock de solde initial
+    const totalCash = data.filter(e => e.compte === 571000).reduce((sum, e) => sum + (e.debit - e.credit), 0) + 1000000; 
+    
+    // --- Calculs Spécifiques ---
+    let specificKPIs = '';
+    
+    if (profile === 'ADMIN') {
+        // Mocks pour les stats ADMIN (basé sur le mock de user_management)
+        const totalCollaborators = 3; // (Collab, User, Caissier)
+        const totalCompanies = window.app.companiesList.length; // Max 3 dans le mock actuel
+        const avgCompanyPerCollab = (totalCompanies / totalCollaborators).toFixed(1);
+        
+        specificKPIs = `
+            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-info">
+                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-users mr-2"></i> Collaborateurs Actifs</p>
+                <h3 class="text-2xl font-black text-info mt-2">${totalCollaborators}</h3>
+            </div>
+            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-secondary">
+                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-briefcase mr-2"></i> Dossiers / Collab (Moyenne)</p>
+                <h3 class="text-2xl font-black text-secondary mt-2">${avgCompanyPerCollab}</h3>
+            </div>
+        `;
+    } else if (profile === 'USER' || profile === 'CAISSIER') {
+        const userMocks = window.app.MOCK_USERS.find(u => u.profile === profile);
+        const totalCaisses = userMocks?.total_caisses || 0;
+        const activeCaisses = userMocks?.active_caisses || 0;
 
+        specificKPIs = `
+            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-info">
+                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-cash-register mr-2"></i> Caisses (Comptes 571) Crées</p>
+                <h3 class="text-2xl font-black text-info mt-2">${totalCaisses}</h3>
+            </div>
+            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-secondary">
+                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-check-circle mr-2"></i> Caisses Actives / Actuelles</p>
+                <h3 class="text-2xl font-black ${activeCaisses > 0 ? 'text-success' : 'text-danger'} mt-2">${activeCaisses}</h3>
+            </div>
+        `;
+    }
+    
+    // --- Rendu Final ---
     contentArea.innerHTML = `
         <div class="space-y-8 fade-in">
-            <h2 class="text-3xl font-black text-gray-900 dark:text-white">Tableau de Bord ${profile === 'ADMIN' ? 'Global' : 'Opérationnel'}</h2>
+            <h2 class="text-3xl font-black text-gray-900 dark:text-white">Tableau de Bord ${profile === 'ADMIN' ? 'Global' : (profile === 'USER' ? 'Stratégique' : 'Opérationnel')}</h2>
             <p class="text-lg text-gray-700 dark:text-gray-300">Synthèse du dossier <strong class="text-primary">${window.app.currentCompanyName}</strong></p>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
                 <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-primary">
                     <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-coins mr-2"></i> Trésorerie Actuelle (512/571)</p>
                     <h3 class="text-2xl font-black text-primary mt-2">${totalCash.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}</h3>
@@ -513,6 +551,8 @@ function renderDashboard(contentArea, profile) {
                     <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-chart-pie mr-2"></i> Système Comptable</p>
                     <h3 class="text-2xl font-black text-secondary mt-2">${isNormalSystem ? 'NORMAL' : 'MINIMAL'}</h3>
                 </div>
+                
+                ${specificKPIs}
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
