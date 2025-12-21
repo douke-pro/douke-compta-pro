@@ -26,12 +26,12 @@ window.app = {
     companiesList: [], // Liste complète des entreprises accessibles
     UI_LOADED: false,
     // Mock pour les données utilisateur (utilisé dans handleLogin)
-    MOCK_USERS: [
-        { email: 'admin@douke.com', profile: 'ADMIN', name: 'Admin DOUKÈ' },
-        { email: 'collab@douke.com', profile: 'COLLABORATEUR', name: 'Collab Senior' },
-        { email: 'user@douke.com', profile: 'USER', name: 'User Standard' },
-        { email: 'caisse@douke.com', profile: 'CAISSIER', name: 'Patrice Caisse' },
-    ]
+MOCK_USERS: [
+    { email: 'admin@douke.com', profile: 'ADMIN', name: 'Admin DOUKÈ' },
+    { email: 'collab@douke.com', profile: 'COLLABORATEUR', name: 'Collab Senior' },
+    { email: 'user@douke.com', profile: 'USER', name: 'User Standard', total_caisses: 3, active_caisses: 2 }, // <-- AJOUTÉ
+    { email: 'caisse@douke.com', profile: 'CAISSIER', name: 'Patrice Caisse', total_caisses: 1, active_caisses: 1 }, // <-- AJOUTÉ
+]
 };
 
 // ------------------- GESTIONNAIRES D'INTERFACE UTILISATEUR (Adaptés à votre HTML) -------------------
@@ -258,6 +258,7 @@ function renderRoleNavigation() {
         'ADMIN': [
             ['Vue Globale (KPI)', 'fa-layer-group', 'global_dashboard'],
             ['Gestion Utilisateurs', 'fa-users-cog', 'user_management'],
+            ['Saisie et Validation', 'fa-keyboard', 'quick_entry'], // <-- AJOUTÉ
             ['États Financiers SYSCOHADA', 'fa-balance-scale', 'financial_statements'],
             ['Journal & Grand Livre', 'fa-book-open', 'grand_livre'],
             ['Audit & Sécurité', 'fa-shield-alt', 'audit_logs'],
@@ -275,6 +276,7 @@ function renderRoleNavigation() {
         ],
         'COLLABORATEUR': [ // Portefeuille Client et Validation
             ['Portefeuille & Suivi', 'fa-briefcase', 'collab_dashboard'],
+            ['Saisie et Validation', 'fa-keyboard', 'quick_entry'], // <-- AJOUTÉ
             ['Validation d\'Écritures', 'fa-check-circle', 'entries_validation'],
             ['Balance & Pré-Rapports', 'fa-calculator', 'reports_syscohada'],
         ]
