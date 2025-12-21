@@ -50,13 +50,33 @@ const NotificationManager = {
             info: 'border-info text-info'
         };
         
-        const html = `<div class="notification p-4 bg-white dark:bg-gray-700 rounded-lg shadow-xl border-l-4 ${typeClasses[type]} transition-all duration-300">
-            <p class="font-bold text-gray-900 dark:text-white">${title}</p><p class="text-sm text-gray-600 dark:text-gray-300">${message}</p>
+        const iconClasses = {
+             success: 'fas fa-check-circle', danger: 'fas fa-times-circle',
+             warning: 'fas fa-exclamation-triangle', info: 'fas fa-info-circle'
+        };
+
+        const html = `
+            <div class="notification p-4 bg-white dark:bg-gray-700 rounded-lg shadow-xl border-l-4 ${typeClasses[type]} transition-all duration-300 transform translate-x-0 opacity-100">
+                <div class="flex items-center">
+                    <i class="${iconClasses[type]} mr-3"></i>
+                    <div>
+                        <p class="font-bold text-gray-900 dark:text-white">${title}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">${message}</p>
+                    </div>
+                </div>
             </div>`;
+        
         const el = document.createElement('div');
         el.innerHTML = html.trim();
-        zone.prepend(el.firstChild);
-        setTimeout(() => el.firstChild.remove(), duration);
+        const notificationElement = el.firstChild;
+        zone.prepend(notificationElement);
+
+        setTimeout(() => {
+             // Démarrer l'animation de disparition
+             notificationElement.classList.remove('opacity-100');
+             notificationElement.classList.add('opacity-0', 'scale-95'); 
+             setTimeout(() => notificationElement.remove(), 300); // Supprimer après la fin de la transition
+        }, duration);
     }
 };
 window.unifiedManager = { notificationManager: NotificationManager };
@@ -71,67 +91,61 @@ const ModalManager = {
     },
     close: () => {
         document.body.classList.remove('modal-open');
+        // Nettoyer le contenu pour la prochaine ouverture
+        document.getElementById('modal-body').innerHTML = `<div class="p-8 text-center text-gray-500">Contenu chargé dynamiquement...</div>`;
     }
 };
 
 document.getElementById('modal-close-btn')?.addEventListener('click', ModalManager.close);
 
 const CacheManager = {
-    get: (key) => { return null; }, // Fonctionnalité à étendre
-    set: (key, data, ttl) => { console.log(`[CACHE] Mise en cache de ${key}`); },
-    clearCache: () => { console.log('[CACHE] Cache nettoyé.'); }
+    // Les fonctions de cache sont laissées minimales pour ne pas complexifier le front-end avec des dépendances non requises ici.
+    get: (key) => { return null; }, 
+    set: (key, data, ttl) => { /* console.log(`[CACHE] Mise en cache de ${key}`); */ },
+    clearCache: () => { /* console.log('[CACHE] Cache nettoyé.'); */ }
 };
 
 // =================================================================================
-// 1. SERVICES D'API & AUTHENTIFICATION
+// 1. SERVICES D'API & AUTHENTIFICATION (Logique de Mock Odoo)
 // =================================================================================
 
+// Cette fonction simule un appel API vers le backend Odoo/Render
 async function apiFetch(endpoint, options = {}) {
-    const token = window.app.userContext?.token;
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-    };
-
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+    // Simuler le délai de l'API
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Simuler un échec si l'email ou le mot de passe est 'fail' (pour les tests)
+    if (options.body && JSON.parse(options.body).email.includes('fail')) {
+         throw new Error('Erreur de connexion simulée. Veuillez vérifier vos identifiants.');
     }
 
-    try {
-        // Simulation d'un appel API réel
-        // const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers: headers, });
-        
-        // Simuler le délai de l'API
-        await new Promise(resolve => setTimeout(resolve, 800));
+    // MOCK pour la connexion
+    if (endpoint.startsWith('/login')) {
+         const email = JSON.parse(options.body).email.toLowerCase();
+         const mockUser = window.app.MOCK_USERS.find(u => email.includes(u.email.split('@')[0])) || window.app.MOCK_USERS.find(u => u.profile === 'USER');
+         
+         if (!mockUser) throw new Error('Identifiants non reconnus.');
 
-        // Remplacement par un mock en attendant le raccordement au backend
-        if (endpoint.startsWith('/login')) {
-             return {
-                token: 'valid_jwt_token_12345',
-                name: 'Jean Pro',
-                profile: 'USER',
-                accessible_companies: [
-                    { id: 1, name: 'Alpha Solutions SA', systeme: 'NORMAL' },
-                ]
-            };
-        }
-
-        return {}; // Retour d'un objet vide pour les autres appels mockés
-
-    } catch (error) {
-        console.error("Erreur dans apiFetch:", error);
-        // Gérer les erreurs de déconnexion et d'affichage
-        if (error.message.includes('401') || error.message.includes('expired')) {
-             handleLogout();
-             NotificationManager.show('danger', 'Session expirée', 'Veuillez vous reconnecter.');
-        }
-        throw error;
+         return {
+            token: 'valid_jwt_token_' + Date.now(),
+            name: mockUser.name,
+            profile: mockUser.profile,
+            accessible_companies: [
+                { id: 1, name: 'Alpha Solutions SA', systeme: 'NORMAL' },
+                { id: 2, name: 'Beta Consulting SARL', systeme: 'MINIMAL' },
+                // Plus d'options pour l'admin
+                ...(mockUser.profile === 'ADMIN' ? [{ id: 3, name: 'Gamma Holding S.A.', systeme: 'NORMAL' }] : []),
+                ...(mockUser.profile === 'COLLABORATEUR' ? [{ id: 4, name: 'Delta Projet', systeme: 'MINIMAL' }] : []),
+            ]
+        };
     }
+
+    return {}; 
 }
 
 async function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('email').value.toLowerCase();
+    const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     const submitBtn = e.target.querySelector('button[type="submit"]');
 
@@ -139,49 +153,33 @@ async function handleLogin(e) {
     submitBtn.disabled = true;
 
     try {
-        // --- LOGIQUE DE MOCK AMÉLIORÉE BASÉE SUR L'EMAIL POUR SIMULER LES PROFILS ---
-        const mockUser = window.app.MOCK_USERS.find(u => email.includes(u.email.split('@')[0])) || window.app.MOCK_USERS.find(u => u.profile === 'USER');
-        
-        if (!mockUser || password === '') { // Simple check pour le mock
-             throw new Error('Identifiants invalides (Demo: admin, collab, user, caisse)');
-        }
+        const response = await apiFetch('/login', {
+             method: 'POST',
+             body: JSON.stringify({ email, password })
+        });
 
-        const profile = mockUser.profile;
-        const name = mockUser.name;
-
-        const mockResponse = {
-            token: 'valid_jwt_token_' + Date.now(),
-            name: name,
-            profile: profile,
-            // Les entreprises accessibles (filtrées par Odoo)
-            accessible_companies: [
-                { id: 1, name: 'Alpha Solutions SA', systeme: 'NORMAL' },
-                { id: 2, name: 'Beta Consulting SARL', systeme: 'MINIMAL' },
-                // L'admin et le collaborateur (s'il gère plusieurs) voient plus d'options
-                ...(profile === 'ADMIN' ? [{ id: 3, name: 'Gamma Holding S.A.', systeme: 'NORMAL' }] : []),
-                ...(profile === 'COLLABORATEUR' ? [{ id: 4, name: 'Delta Projet', systeme: 'MINIMAL' }] : []),
-            ]
-        };
-
-        window.app.userContext = mockResponse;
-        window.app.currentProfile = mockResponse.profile;
-        window.app.companiesList = mockResponse.accessible_companies;
+        window.app.userContext = response;
+        window.app.currentProfile = response.profile;
+        window.app.companiesList = response.accessible_companies;
 
         if (window.app.companiesList.length > 0) {
             // Sélectionne automatiquement la première entreprise disponible
             switchCompany(window.app.companiesList[0].id, true);
-        } else {
-            renderDashboardView(); // Vue sans dossier actif (ex: écran d'onboarding)
         }
 
         NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${window.app.userContext.name} (${window.app.currentProfile})!`, 3000);
         document.getElementById('auth-view').classList.add('hidden');
         document.getElementById('dashboard-view').classList.remove('hidden');
+        
+        renderDashboardView(); // Affiche la vue appropriée au profil
 
     } catch (error) {
-        NotificationManager.show('danger', 'Échec de la connexion', error.message, 5000);
+        // Afficher le message d'erreur dans le conteneur du formulaire
+        const messageEl = document.getElementById('login-message');
+        messageEl.textContent = error.message.includes('Identifiants') ? error.message : "Erreur de connexion au service. Réessayez.";
+        messageEl.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/10 text-danger border border-danger';
+        messageEl.classList.remove('hidden');
     } finally {
-        // Rétablir l'état du bouton après l'opération
         submitBtn.innerHTML = `<span>ACCÉDER AU SYSTÈME</span><i class="fas fa-arrow-right ml-3 text-sm opacity-50"></i>`;
         submitBtn.disabled = false;
     }
@@ -196,12 +194,15 @@ function handleLogout() {
     window.app.companiesList = [];
     CacheManager.clearCache();
 
-    renderLoginView();
+    document.getElementById('auth-view').classList.remove('hidden');
+    document.getElementById('dashboard-view').classList.add('hidden');
+    document.getElementById('login-message').classList.add('hidden'); // Cacher le message d'erreur
+    
     NotificationManager.show('info', 'Déconnexion', 'Vous avez été déconnecté avec succès.', 3000);
 }
 
 // =================================================================================
-// 2. LOGIQUE DE RENDU DU DASHBOARD PAR PROFIL
+// 2. LOGIQUE DE RENDU DU DASHBOARD ET NAVIGATION
 // =================================================================================
 
 function updateSecureUserInfo() {
@@ -216,7 +217,9 @@ function updateSecureUserInfo() {
     // Mise à jour du header de contenu
     const contextMessageEl = document.getElementById('context-message');
     if (contextMessageEl) {
-         contextMessageEl.textContent = `Dossier Actif : ${companyName}`;
+         // Affichage du système comptable à côté du nom de l'entreprise si sélectionné
+         const systemeInfo = window.app.currentCompanyId ? ` (${window.app.currentSysteme})` : '';
+         contextMessageEl.innerHTML = `Dossier Actif : <span class="text-primary font-bold">${companyName}</span>${systemeInfo}`;
     }
     
     // Mise à jour de l'avatar (première lettre du nom)
@@ -225,8 +228,7 @@ function updateSecureUserInfo() {
         avatarEl.textContent = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
     }
 
-    // On s'assure que le sélecteur d'entreprise est à jour
-    renderHeaderSelectors();
+    renderHeaderSelectors(); // Mise à jour du sélecteur
 }
 
 function createNavItem(text, icon, action, active = false) {
@@ -248,33 +250,33 @@ function createNavItem(text, icon, action, active = false) {
  */
 function renderRoleNavigation() {
     const menu = document.getElementById('role-navigation-menu');
+    if (!menu) return; // Sécurité
     menu.innerHTML = '';
     const profile = window.app.currentProfile;
 
     const navItems = {
         'ADMIN': [
-            ['Vue Globale', 'fa-layer-group', 'global_dashboard'],
-            ['Gestion Utilisateurs', 'fa-users-cog', 'user_management'], // Gestion Admin
-            ['États Financiers SYSCOHADA', 'fa-balance-scale', 'financial_statements'], // SYSCOHADA NORMAL/MINIMAL
+            ['Vue Globale (KPI)', 'fa-layer-group', 'global_dashboard'],
+            ['Gestion Utilisateurs', 'fa-users-cog', 'user_management'],
+            ['États Financiers SYSCOHADA', 'fa-balance-scale', 'financial_statements'],
             ['Journal & Grand Livre', 'fa-book-open', 'grand_livre'],
-            ['Audit & Logs', 'fa-shield-alt', 'audit_logs'],
+            ['Audit & Sécurité', 'fa-shield-alt', 'audit_logs'],
         ],
         'USER': [ // Pilotage Stratégique / Manager
             ['Pilotage & Synthèse', 'fa-tachometer-alt', 'user_dashboard'],
+            ['Saisie et Validation', 'fa-keyboard', 'quick_entry'],
             ['États Financiers SYSCOHADA', 'fa-balance-scale', 'financial_statements'],
             ['Trésorerie & Cash Flow', 'fa-wallet', 'cash_flow'],
-            ['Saisie Comptable', 'fa-keyboard', 'quick_entry'],
         ],
         'CAISSIER': [ // Saisie Rapide / Trésorerie
             ['Synthèse Caisse', 'fa-chart-line', 'cashier_dashboard'],
-            ['Saisie Rapide Débit/Crédit', 'fa-keyboard', 'quick_entry'],
-            ['Mouvements de Caisse', 'fa-cash-register', 'cash_movements'],
+            ['Saisie Mouvements', 'fa-keyboard', 'quick_entry'],
             ['Rapports de Caisse', 'fa-file-invoice', 'cash_reports'],
         ],
         'COLLABORATEUR': [ // Portefeuille Client et Validation
-            ['Portefeuille Clients', 'fa-briefcase', 'collab_dashboard'],
+            ['Portefeuille & Suivi', 'fa-briefcase', 'collab_dashboard'],
             ['Validation d\'Écritures', 'fa-check-circle', 'entries_validation'],
-            ['Balance Simplifiée', 'fa-calculator', 'reports_syscohada'],
+            ['Balance & Pré-Rapports', 'fa-calculator', 'reports_syscohada'],
         ]
     };
 
@@ -286,7 +288,7 @@ function renderRoleNavigation() {
 }
 
 /**
- * Ajout du sélecteur d'entreprise dans l'en-tête (MAJ pour ADMIN/COLLABORATEUR).
+ * Ajout du sélecteur d'entreprise dans l'en-tête (MAJ pour multi-entreprises).
  */
 function renderHeaderSelectors() {
     const quickActions = document.getElementById('quick-actions');
@@ -295,12 +297,12 @@ function renderHeaderSelectors() {
     // Supprimer l'ancien sélecteur s'il existe
     document.getElementById('company-selector-container')?.remove();
 
-    // SÉLECTEUR RIGOUROUX : Disponible pour ADMIN, COLLABORATEUR et s'il gère plus d'une entreprise
-    if (user && window.app.companiesList.length > 1 && ['ADMIN', 'COLLABORATEUR'].includes(user.profile)) {
+    // Afficher le sélecteur seulement s'il y a plus d'une entreprise accessible
+    if (user && window.app.companiesList.length > 1) {
         const selectHTML = `
             <div id="company-selector-container" class="relative">
                 <select id="company-selector" onchange="switchCompany(this.value)"
-                    class="p-2 border border-primary dark:border-primary-light bg-primary text-white dark:bg-primary-dark rounded-xl text-sm font-bold shadow-lg shadow-primary/30 outline-none appearance-none pr-8">
+                    class="p-2 border border-primary dark:border-primary-light bg-primary text-white dark:bg-primary-dark rounded-xl text-sm font-bold shadow-lg shadow-primary/30 outline-none appearance-none pr-8 cursor-pointer">
                     ${window.app.companiesList.map(c => `
                         <option value="${c.id}" ${c.id == window.app.currentCompanyId ? 'selected' : ''}>
                             ${c.name} (${c.systeme.substring(0, 3)})
@@ -324,8 +326,8 @@ function renderHeaderSelectors() {
 function renderDashboardView() {
     updateSecureUserInfo();
     renderRoleNavigation();
-    renderHeaderSelectors();
-
+    
+    // Déterminer le module par défaut à charger au login
     const defaultModule = {
         'ADMIN': 'global_dashboard',
         'USER': 'user_dashboard',
@@ -333,19 +335,28 @@ function renderDashboardView() {
         'COLLABORATEUR': 'collab_dashboard',
     }[window.app.currentProfile] || 'user_dashboard';
 
-    loadModule(defaultModule, true);
+    // Si aucune entreprise n'est sélectionnée (cas rare, sauf nouvel admin)
+    if (!window.app.currentCompanyId && window.app.companiesList.length > 0) {
+         switchCompany(window.app.companiesList[0].id, true);
+    } else if (!window.app.currentCompanyId && window.app.companiesList.length === 0) {
+         // Vue par défaut si aucun dossier disponible
+         const contentArea = document.getElementById('dashboard-content-area');
+         if (contentArea) contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-handshake fa-4x text-info mb-4"></i><p class="text-xl font-bold">Bienvenue chez DOUKÈ PRO !</p><p>Votre espace est en cours de configuration. Contactez le support pour affecter votre première entreprise.</p></div>`;
+    } else {
+         loadModule(defaultModule, true);
+    }
 }
 
 
 async function switchCompany(companyId, isInitialLoad = false) {
     const company = window.app.companiesList.find(c => c.id == companyId);
     if (!company) {
-        NotificationManager.show('danger', 'Erreur', 'Entreprise non trouvée.', 3000);
+        NotificationManager.show('danger', 'Erreur de Contexte', 'Entreprise non trouvée dans votre liste d\'accès.', 3000);
         return;
     }
 
     if (company.id == window.app.currentCompanyId && !isInitialLoad) {
-         return; // Ne rien faire si c'est la même entreprise
+         return; 
     }
 
     window.app.currentCompanyId = company.id;
@@ -354,12 +365,14 @@ async function switchCompany(companyId, isInitialLoad = false) {
 
     updateSecureUserInfo();
     if (!isInitialLoad) {
-        NotificationManager.show('info', 'Changement de Contexte', `Dossier actif: ${company.name}`, 3000);
+        NotificationManager.show('info', 'Contexte mis à jour', `Dossier actif: ${company.name} (SYSCOHADA ${company.systeme})`, 3000);
     }
 
     // Recharger le module actif pour rafraîchir les données
     const activeModuleButton = document.querySelector('#role-navigation-menu button[data-active="true"]');
-    const activeModule = activeModuleButton ? activeModuleButton.dataset.module : 'user_dashboard';
+    const activeModule = activeModuleButton ? activeModuleButton.dataset.module : 
+                         ({ 'ADMIN': 'global_dashboard', 'USER': 'user_dashboard', 'CAISSIER': 'cashier_dashboard', 'COLLABORATEUR': 'collab_dashboard' }[window.app.currentProfile] || 'user_dashboard');
+    
     await loadModule(activeModule, true);
 }
 
@@ -368,12 +381,11 @@ async function switchCompany(companyId, isInitialLoad = false) {
 // =================================================================================
 
 async function fetchAccountingData() {
-    // Simule la récupération des données filtrées par l'entreprise actuelle
     const companyId = window.app.currentCompanyId;
     if (!companyId) return { entries: [], accounts: [] };
 
-    // Simuler le délai de chargement des données
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // MOCK du chargement des données
+    await new Promise(resolve => setTimeout(resolve, 600));
 
     // Mock de données (enrichi pour les tests)
     const mockData = {
@@ -382,12 +394,15 @@ async function fetchAccountingData() {
             { id: 102, date: '2025-10-01', journal: 'JA', compte: 701000, libelle: 'Vente Marchandises', debit: 0, credit: 500000, status: 'Validé' },
             { id: 103, date: '2025-10-02', journal: 'CA', compte: 571000, libelle: 'Encaissement Client', debit: 100000, credit: 0, status: 'Validé' },
             { id: 104, date: '2025-10-02', journal: 'CA', compte: 411000, libelle: 'Règlement Facture 101', debit: 0, credit: 100000, status: 'Validé' },
-            { id: 105, date: '2025-10-03', journal: 'BQ', compte: 601000, libelle: 'Achat Fournitures', debit: 50000, credit: 0, status: 'En attente' }, 
-            { id: 106, date: '2025-10-03', journal: 'BQ', compte: 512000, libelle: 'Paiement Fournisseur', debit: 0, credit: 50000, status: 'En attente' }, 
+            { id: 105, date: '2025-10-03', journal: 'BQ', compte: 601000, libelle: 'Achat Fournitures', debit: 50000, credit: 0, status: 'En attente' }, // Écriture en attente
+            { id: 106, date: '2025-10-03', journal: 'BQ', compte: 512000, libelle: 'Paiement Fournisseur', debit: 0, credit: 50000, status: 'En attente' }, // Écriture en attente
+            { id: 107, date: '2025-10-04', journal: 'BQ', compte: 621000, libelle: 'Frais de Bureau', debit: 15000, credit: 0, status: 'Validé' },
+            { id: 108, date: '2025-10-04', journal: 'BQ', compte: 512000, libelle: 'Règlement Frais', debit: 0, credit: 15000, status: 'Validé' },
         ],
         accounts: [
-            { code: 411000, name: 'Clients' }, { code: 701000, name: 'Ventes' },
-            { code: 571000, name: 'Caisse' }, { code: 601000, name: 'Achats' },
+            { code: 411000, name: 'Clients' }, { code: 701000, name: 'Ventes de marchandises' },
+            { code: 571000, name: 'Caisse' }, { code: 601000, name: 'Achats de marchandises' },
+            { code: 512000, name: 'Banque' }, { code: 621000, name: 'Frais postaux et de télécommunications' },
         ]
     };
     
@@ -398,37 +413,43 @@ async function loadModule(moduleName, forceReload = false) {
     const contentArea = document.getElementById('dashboard-content-area');
     contentArea.innerHTML = `<div class="p-10 flex items-center justify-center"><div class="loading-spinner"></div><span class="ml-4 text-primary font-bold">Chargement du module ${moduleName}...</span></div>`;
 
-    // Mise à jour de la classe active dans le menu
+    // 1. Mise à jour de la classe active dans le menu
     document.querySelectorAll('#role-navigation-menu button').forEach(btn => {
         const isActive = btn.dataset.module === moduleName;
         btn.dataset.active = isActive.toString();
-        // Reset classes
-        btn.classList.remove('bg-primary', 'text-white', 'shadow-lg', 'shadow-primary/30');
-        btn.classList.add('text-gray-600', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
-        // Apply active classes
-        if (isActive) {
-            btn.classList.add('bg-primary', 'text-white', 'shadow-lg', 'shadow-primary/30');
-            btn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
-        }
+        btn.classList.toggle('bg-primary', isActive);
+        btn.classList.toggle('text-white', isActive);
+        btn.classList.toggle('shadow-lg', isActive);
+        btn.classList.toggle('shadow-primary/30', isActive);
+        btn.classList.toggle('text-gray-600', !isActive);
+        btn.classList.toggle('dark:text-gray-300', !isActive);
+        btn.classList.toggle('hover:bg-gray-100', !isActive);
+        btn.classList.toggle('dark:hover:bg-gray-700', !isActive);
     });
 
-    // VÉRIFICATION et CHARGEMENT des données comptables
-    if (window.app.currentCompanyId && 
-        ['global_dashboard', 'user_dashboard', 'cashier_dashboard', 'collab_dashboard', 'financial_statements', 'grand_livre', 'reports_syscohada'].includes(moduleName)) {
+    // 2. VÉRIFICATION du contexte et CHARGEMENT des données
+    if (window.app.currentCompanyId) {
+        // Liste des modules nécessitant des données comptables
+        const requiresData = ['global_dashboard', 'user_dashboard', 'cashier_dashboard', 'collab_dashboard', 'financial_statements', 'grand_livre', 'reports_syscohada', 'entries_validation'];
         
-        window.app.filteredData = await fetchAccountingData();
+        if (requiresData.includes(moduleName) || forceReload) {
+             window.app.filteredData = await fetchAccountingData();
+        }
 
-        if (window.app.filteredData.entries.length === 0 && window.app.currentCompanyId) {
-             contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-exclamation-triangle fa-3x text-warning mb-4"></i><p class="text-xl font-bold">Aucune donnée comptable trouvée pour ce dossier.</p><p>Veuillez vérifier l'intégration Odoo.</p></div>`;
+        if (window.app.filteredData.entries.length === 0 && requiresData.includes(moduleName)) {
+             contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-exclamation-triangle fa-3x text-warning mb-4"></i><p class="text-xl font-bold">Aucune donnée comptable trouvée pour ce dossier.</p><p>Veuillez importer des écritures pour commencer.</p></div>`;
              return;
         }
-    } else if (!window.app.currentCompanyId) {
-        contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-building fa-3x text-info mb-4"></i><p class="text-xl font-bold">Veuillez sélectionner une entreprise pour accéder au module.</p></div>`;
-        return;
+    } else {
+        // Pas d'entreprise sélectionnée
+        if (!['user_management', 'audit_logs', 'global_dashboard'].includes(moduleName)) { // Ces modules peuvent être consultés sans entreprise
+            contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-building fa-3x text-info mb-4"></i><p class="text-xl font-bold">Veuillez sélectionner une entreprise pour accéder au module.</p></div>`;
+            return;
+        }
     }
 
 
-    // Rendu spécifique du module
+    // 3. Rendu spécifique du module
     switch (moduleName) {
         case 'global_dashboard':
         case 'user_dashboard':
@@ -447,16 +468,10 @@ async function loadModule(moduleName, forceReload = false) {
         case 'reports_syscohada':
             renderFinancialStatementsModule(contentArea); // ÉTATS FINANCIERS SYSCOHADA (NORMAL/MINIMAL)
             break;
-        // Tous les autres modules sont rendus par défaut
-        case 'grand_livre':
-        case 'cash_flow':
-        case 'quick_entry':
-        case 'cash_movements':
-        case 'cash_reports':
         case 'entries_validation':
-        case 'audit_logs':
-            renderStubModule(contentArea, moduleName);
+            renderEntriesValidationModule(contentArea); // Validation des écritures pour COLLAB
             break;
+        // Tous les autres modules sont rendus par défaut
         default:
             renderStubModule(contentArea, moduleName);
             break;
@@ -469,29 +484,29 @@ async function loadModule(moduleName, forceReload = false) {
 function renderDashboard(contentArea, profile) {
     const data = window.app.filteredData.entries;
     const isNormalSystem = window.app.currentSysteme === 'NORMAL';
+    // Calculs basés sur le mock data
     const totalRevenue = data.filter(e => e.compte >= 700000 && e.compte < 800000).reduce((sum, e) => sum + e.credit, 0); 
     const pendingEntries = data.filter(e => e.status === 'En attente').length; 
-    const totalCash = 12500000; // Mock pour l'exemple
+    const totalCash = data.filter(e => e.compte === 571000).reduce((sum, e) => sum + (e.debit - e.credit), 0) + 1000000; // Mock de solde initial
 
     contentArea.innerHTML = `
         <div class="space-y-8 fade-in">
-            <h2 class="text-3xl font-black text-gray-900 dark:text-white">Tableau de Bord de ${profile}</h2>
+            <h2 class="text-3xl font-black text-gray-900 dark:text-white">Tableau de Bord ${profile === 'ADMIN' ? 'Global' : 'Opérationnel'}</h2>
             <p class="text-lg text-gray-700 dark:text-gray-300">Synthèse du dossier <strong class="text-primary">${window.app.currentCompanyName}</strong></p>
             
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-primary">
-                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-coins mr-2"></i> Trésorerie Actuelle</p>
+                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-coins mr-2"></i> Trésorerie Actuelle (512/571)</p>
                     <h3 class="text-2xl font-black text-primary mt-2">${totalCash.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}</h3>
                 </div>
                 <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-success">
-                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-hand-holding-usd mr-2"></i> Chiffre d'Affaires YTD</p>
+                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-hand-holding-usd mr-2"></i> Chiffre d'Affaires YTD (7xx)</p>
                     <h3 class="text-2xl font-black text-success mt-2">${totalRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}</h3>
                 </div>
-                ${['ADMIN', 'COLLABORATEUR'].includes(profile) ? `
                 <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-warning">
-                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-check-circle mr-2"></i> Écritures en Attente</p>
+                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-check-circle mr-2"></i> Écritures à Valider</p>
                     <h3 class="text-2xl font-black ${pendingEntries > 0 ? 'text-danger' : 'text-success'} mt-2">${pendingEntries}</h3>
-                </div>` : ''}
+                </div>
                 <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-secondary">
                     <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-chart-pie mr-2"></i> Système Comptable</p>
                     <h3 class="text-2xl font-black text-secondary mt-2">${isNormalSystem ? 'NORMAL' : 'MINIMAL'}</h3>
@@ -500,51 +515,53 @@ function renderDashboard(contentArea, profile) {
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="mt-4 lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
-                    <h3 class="font-black text-lg mb-4">Évolution des Flux (Graphique Mock)</h3>
+                    <h3 class="font-black text-lg mb-4">Évolution Mensuelle des Flux (Revenus vs Dépenses)</h3>
                     <canvas id="mainChart" height="100"></canvas>
                 </div>
                 <div class="mt-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
-                     <h3 class="font-black text-lg mb-4 text-warning"><i class="fas fa-bell mr-2"></i> Alertes et Notifications</h3>
+                     <h3 class="font-black text-lg mb-4 text-warning"><i class="fas fa-bell mr-2"></i> Alertes et Tâches Prioritaires</h3>
                      <ul class="space-y-3 text-sm text-gray-700 dark:text-gray-300">
                         <li><i class="fas fa-arrow-up text-success mr-2"></i> Forte croissance du CA (+12% ce mois)</li>
-                        <li><i class="fas fa-exclamation-circle text-danger mr-2"></i> ${pendingEntries} écritures nécessitent une validation.</li>
-                        <li><i class="fas fa-calendar-alt text-info mr-2"></i> Date limite du DSN dans 15 jours.</li>
+                        ${pendingEntries > 0 ? `<li><i class="fas fa-exclamation-circle text-danger mr-2"></i> ${pendingEntries} écritures nécessitent une validation.</li>` : `<li><i class="fas fa-check text-success mr-2"></i> Aucune écriture en attente.</li>`}
+                        <li><i class="fas fa-calendar-alt text-info mr-2"></i> Date limite de clôture mensuelle (J+5).</li>
                      </ul>
                 </div>
             </div>
         </div>
     `;
 
-    // S'assurer que Chart.js est chargé avant de dessiner
-    if (typeof Chart !== 'undefined') {
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai'],
-                datasets: [{ label: 'Revenus', data: [totalRevenue * 0.1, totalRevenue * 0.15, totalRevenue * 0.3, totalRevenue * 0.25, totalRevenue * 0.2], backgroundColor: 'rgba(93, 92, 222, 0.7)', borderColor: '#5D5CDE', borderWidth: 1, },
-                           { label: 'Dépenses', data: [totalCash * 0.1, totalCash * 0.12, totalCash * 0.2, totalCash * 0.25, totalCash * 0.33], backgroundColor: 'rgba(239, 68, 68, 0.7)', borderColor: '#EF4444', borderWidth: 1, }]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        });
-    }
+    // Dessin du graphique (Déchargé pour la performance)
+    setTimeout(() => {
+        if (typeof Chart !== 'undefined' && document.getElementById('mainChart')) {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+                    datasets: [{ label: 'Revenus', data: [totalRevenue * 0.1, totalRevenue * 0.15, totalRevenue * 0.3, totalRevenue * 0.25, totalRevenue * 0.2, totalRevenue * 0.4], backgroundColor: 'rgba(93, 92, 222, 0.7)', borderColor: '#5D5CDE', borderWidth: 1, },
+                               { label: 'Dépenses', data: [totalCash * 0.1, totalCash * 0.12, totalCash * 0.2, totalCash * 0.25, totalCash * 0.33, totalCash * 0.5], backgroundColor: 'rgba(239, 68, 68, 0.7)', borderColor: '#EF4444', borderWidth: 1, }]
+                },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+        }
+    }, 100);
 }
 
 function renderCollaboratorDashboard(contentArea) {
     const data = window.app.filteredData.entries;
     const pendingValidation = data.filter(e => e.status === 'En attente').length;
-    const clientsCount = 5; // Mock
-    const totalFees = 8000000; // Mock
+    const clientsCount = window.app.companiesList.length; // Nombre d'entreprises accessibles par le collaborateur
+    const totalFees = 8000000; // Mock pour l'exemple
 
     contentArea.innerHTML = `
         <div class="space-y-8 fade-in">
             <h2 class="text-3xl font-black text-gray-900 dark:text-white">Portefeuille et Suivi Collaborateur</h2>
-            <p class="text-lg text-gray-700 dark:text-gray-300">Gestion de l'intégrité et de la validation de votre portefeuille client.</p>
+            <p class="text-lg text-gray-700 dark:text-gray-300">Gestion de l'intégrité et de la validation des écritures pour votre portefeuille.</p>
             
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border-l-4 border-info">
                     <p class="text-gray-400 text-xs font-black uppercase">Entreprises Managées</p>
-                    <h3 class="text-2xl font-black text-info mt-2">${window.app.companiesList.length}</h3>
+                    <h3 class="text-2xl font-black text-info mt-2">${clientsCount}</h3>
                 </div>
                 <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border-l-4 border-warning">
                     <p class="text-gray-400 text-xs font-black uppercase">Écritures à Valider</p>
@@ -557,10 +574,10 @@ function renderCollaboratorDashboard(contentArea) {
             </div>
             
             <div class="mt-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
-                <h3 class="font-black text-xl mb-4 text-primary">Vue Détaillée du Portefeuille (${clientsCount} Clients)</h3>
-                <p class="text-gray-500">Un tableau dynamique listera ici tous les clients/dossiers sous votre responsabilité avec leur état de progression comptable (Solde, Taux d'avancement des déclarations, etc.)</p>
-                <button onclick="loadModule('entries_validation')" class="mt-4 px-5 py-2 bg-success text-white rounded-xl font-bold hover:bg-green-600 transition-colors">
-                    <i class="fas fa-check-circle mr-2"></i> Passer à la Validation
+                <h3 class="font-black text-xl mb-4 text-primary">Tableau de Bord de Validation</h3>
+                <p class="text-gray-500 mb-4">Concentrez-vous sur les actions nécessitant votre approbation.</p>
+                <button onclick="loadModule('entries_validation')" class="mt-2 px-5 py-2 bg-success text-white rounded-xl font-bold hover:bg-green-600 transition-colors">
+                    <i class="fas fa-check-circle mr-2"></i> Accéder à la Validation (${pendingValidation} en attente)
                 </button>
             </div>
         </div>
@@ -569,7 +586,7 @@ function renderCollaboratorDashboard(contentArea) {
 
 function renderCashierDashboard(contentArea) {
     const data = window.app.filteredData.entries;
-    const totalCash = 150000; // Mock pour la caisse
+    const totalCash = data.filter(e => e.compte === 571000).reduce((sum, e) => sum + (e.debit - e.credit), 0) + 10000; // Solde de Caisse Mock
     const todayTransactions = data.filter(e => e.journal === 'CA').length;
     
     contentArea.innerHTML = `
@@ -587,18 +604,18 @@ function renderCashierDashboard(contentArea) {
                     <h3 class="text-2xl font-black text-primary mt-2">${todayTransactions}</h3>
                 </div>
                 <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border-l-4 border-danger">
-                    <p class="text-gray-400 text-xs font-black uppercase">Écarts de Caisse (Mois)</p>
-                    <h3 class="text-2xl font-black text-danger mt-2">0 XOF</h3>
+                    <p class="text-gray-400 text-xs font-black uppercase">Opérations en Attente (Rapprochement)</p>
+                    <h3 class="text-2xl font-black text-warning mt-2">0</h3>
                 </div>
             </div>
             
             <div class="mt-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 flex justify-start space-x-4">
                 <h3 class="font-black text-lg mr-4">Accès Rapide:</h3>
                 <button onclick="loadModule('quick_entry')" class="px-5 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary-dark transition-colors">
-                    <i class="fas fa-keyboard mr-2"></i> Nouvelle Saisie Caisse
+                    <i class="fas fa-plus-circle mr-2"></i> Nouvelle Opération
                 </button>
                 <button onclick="loadModule('cash_reports')" class="px-5 py-2 bg-secondary text-white rounded-xl font-bold hover:bg-secondary/80 transition-colors">
-                    <i class="fas fa-file-invoice mr-2"></i> Rapport Journalier
+                    <i class="fas fa-file-invoice mr-2"></i> Clôturer Caisse
                 </button>
             </div>
         </div>
@@ -649,7 +666,7 @@ function renderUserManagementModule(contentArea) {
                                 <td class="font-bold">${user.name}</td>
                                 <td><span class="font-black text-xs p-1 rounded-md text-white ${user.profile === 'ADMIN' ? 'bg-danger' : (user.profile === 'COLLABORATEUR' ? 'bg-info' : (user.profile === 'CAISSIER' ? 'bg-secondary' : 'bg-primary'))}">${user.profile}</span></td>
                                 <td>${user.email}</td>
-                                <td><span class="text-xs p-1 rounded-md text-white ${user.status === 'Actif' ? 'bg-success' : 'bg-danger'}">${user.status}</span></td>
+                                <td><span class="text-xs p-1 px-2 rounded-full text-white ${user.status === 'Actif' ? 'bg-success' : 'bg-danger'}">${user.status}</span></td>
                                 <td>${user.companies} / ${window.app.companiesList.length}</td>
                                 <td class="whitespace-nowrap">
                                     <button onclick="showAssignmentModal(${user.id}, '${user.name}')" class="text-primary hover:text-primary-dark mr-3 text-sm"><i class="fas fa-link mr-1"></i> Affecter</button>
@@ -666,7 +683,7 @@ function renderUserManagementModule(contentArea) {
 
 function showAssignmentModal(userId, userName) {
     const companyOptions = window.app.companiesList.map(c => `
-        <label class="flex items-center space-x-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <label class="flex items-center space-x-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
             <input type="checkbox" name="company" value="${c.id}" class="rounded text-primary focus:ring-primary h-5 w-5">
             <span class="font-medium text-gray-900 dark:text-gray-100">${c.name}</span>
             <span class="text-xs text-gray-500 ml-auto">(${c.systeme})</span>
@@ -687,8 +704,8 @@ function showAssignmentModal(userId, userName) {
     );
 }
 
-function showCreateUserModal() { NotificationManager.show('info', 'Création', 'Modal de création d\'utilisateur en cours de développement.'); }
-function showEditUserModal() { NotificationManager.show('info', 'Modification', 'Modal de modification d\'utilisateur en cours de développement.'); }
+function showCreateUserModal() { NotificationManager.show('warning', 'En cours', 'Modal de création d\'utilisateur en cours de développement.'); }
+function showEditUserModal() { NotificationManager.show('warning', 'En cours', 'Modal de modification d\'utilisateur en cours de développement.'); }
 
 
 // ------------------- RENDU SPÉCIFIQUE 3 : ÉTATS FINANCIERS SYSCOHADA (Tous) -------------------
@@ -699,7 +716,6 @@ function renderFinancialStatementsModule(contentArea) {
         return;
     }
     
-    // Récupère le système de l'entreprise active
     const currentSystem = window.app.currentSysteme || 'NORMAL';
     
     contentArea.innerHTML = `
@@ -710,20 +726,19 @@ function renderFinancialStatementsModule(contentArea) {
             
             <div class="mb-4 max-w-sm">
                 <label for="systeme-report" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Système Comptable Appliqué :</label>
-                <select id="systeme-report" onchange="generateFinancialStatements()" class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary focus:border-primary">
+                <select id="systeme-report" onchange="generateFinancialStatements()" class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary focus:border-primary cursor-pointer">
                     <option value="NORMAL" ${currentSystem === 'NORMAL' ? 'selected' : ''}>Système Normal (Grandes entités)</option>
                     <option value="MINIMAL" ${currentSystem === 'MINIMAL' ? 'selected' : ''}>Système Minimal de Trésorerie (Petites entités)</option>
                 </select>
             </div>
             
-            <button onclick="generateFinancialStatements()" class="px-6 py-3 bg-primary text-white rounded-xl font-bold transition-all hover:shadow-lg hover:bg-primary-dark">
+            <button onclick="generateFinancialStatements(document.getElementById('systeme-report').value)" class="px-6 py-3 bg-primary text-white rounded-xl font-bold transition-all hover:shadow-lg hover:bg-primary-dark">
                 <i class="fas fa-chart-bar mr-2"></i> Générer les Rapports
             </button>
         </div>
         
         <div id="financial-reports-area" class="mt-6 space-y-4">
-             <div class="p-6 bg-info/10 text-info rounded-xl border border-info/50 font-medium">Les rapports générés (Bilan, Compte de Résultat, etc.) s'afficheront ici en fonction du système comptable sélectionné.</div>
-        </div>
+             </div>
     `;
     // Lancement de la génération initiale
     generateFinancialStatements(currentSystem); 
@@ -733,8 +748,7 @@ function generateFinancialStatements(systeme = null) {
     const area = document.getElementById('financial-reports-area');
     if (!area) return;
 
-    // Utiliser la valeur du sélecteur s'il existe, sinon utiliser l'argument/le système actif.
-    const selectedSystem = systeme || (document.getElementById('systeme-report')?.value || window.app.currentSysteme);
+    const selectedSystem = systeme || window.app.currentSysteme;
     const entriesCount = window.app.filteredData.entries.length;
 
     area.innerHTML = `<div class="p-8 text-center"><div class="loading-spinner mx-auto mb-4"></div><p class="text-primary font-bold">Génération en cours des états financiers SYSCOHADA (${selectedSystem})...</p></div>`;
@@ -742,25 +756,112 @@ function generateFinancialStatements(systeme = null) {
     setTimeout(() => {
         let reportsHTML = '';
         if (selectedSystem === 'NORMAL') {
-            reportsHTML += generateReportBlock('Bilan Actif/Passif', `Montant Total Actif: ${(entriesCount * 500000).toLocaleString('fr-FR')} XOF - Équilibré (conforme SYSCOHADA NORMAL).`, 'fa-file-alt');
-            reportsHTML += generateReportBlock('Compte de Résultat (CPC)', `Résultat Net: ${(entriesCount * 50000).toLocaleString('fr-FR')} XOF. (Intégration Odoo) - Rapport complet.`, 'fa-chart-pie');
-            reportsHTML += generateReportBlock('Tableau de Flux de Trésorerie', `Flux d'exploitation: Calculé. Permet l'analyse des mouvements financiers.`, 'fa-exchange-alt');
+            reportsHTML += generateReportBlock('Bilan Actif/Passif', `Montant Total Actif: ${(entriesCount * 500000).toLocaleString('fr-FR')} XOF - Équilibré (conforme SYSCOHADA NORMAL).`, 'fa-file-alt', `Détail du Bilan SYSCOHADA NORMAL ${window.app.currentCompanyName}`);
+            reportsHTML += generateReportBlock('Compte de Résultat (CPC)', `Résultat Net: ${(entriesCount * 50000).toLocaleString('fr-FR')} XOF. (Intégration Odoo) - Rapport complet.`, 'fa-chart-pie', `Détail du Compte de Résultat SYSCOHADA NORMAL`);
+            reportsHTML += generateReportBlock('Tableau de Flux de Trésorerie', `Flux d'exploitation: Calculé. Permet l'analyse des mouvements financiers.`, 'fa-exchange-alt', `Détail du Tableau de Flux de Trésorerie`);
         } else { // MINIMAL
-            reportsHTML += generateReportBlock('État des Recettes et Dépenses', `Solde de Trésorerie Final: ${(entriesCount * 100000).toLocaleString('fr-FR')} XOF. Simplifié pour les PME.`, 'fa-list-alt');
-            reportsHTML += generateReportBlock('Bilan Minimal', `Synthèse de l'Actif et du Passif simplifié. Format allégé.`, 'fa-file-invoice-dollar');
+            reportsHTML += generateReportBlock('État des Recettes et Dépenses', `Solde de Trésorerie Final: ${(entriesCount * 100000).toLocaleString('fr-FR')} XOF. Simplifié pour les PME.`, 'fa-list-alt', `Détail de l'État Recettes/Dépenses SYSCOHADA MINIMAL`);
+            reportsHTML += generateReportBlock('Bilan Minimal', `Synthèse de l'Actif et du Passif simplifié. Format allégé.`, 'fa-file-invoice-dollar', `Détail du Bilan SYSCOHADA MINIMAL`);
         }
         
-        reportsHTML += generateReportBlock('Notes Annexes (NA)', `Synthèse des méthodes comptables, basée sur les règles SYSCOHADA.`, 'fa-file-medical-alt');
+        reportsHTML += generateReportBlock('Notes Annexes (NA)', `Synthèse des méthodes comptables, basée sur les règles SYSCOHADA.`, 'fa-file-medical-alt', `Notes Annexes (NA)`);
 
         area.innerHTML = reportsHTML;
         NotificationManager.show('success', 'Rapports Générés', `Rapports affichés pour le système ${selectedSystem}.`, 3000);
     }, 1200);
 }
 
+// ------------------- RENDU SPÉCIFIQUE 4 : VALIDATION DES ÉCRITURES (COLLABORATEUR) -------------------
 
-// ------------------- RENDU UTILITAIRES -------------------
+function renderEntriesValidationModule(contentArea) {
+    const data = window.app.filteredData.entries;
+    const pendingEntries = data.filter(e => e.status === 'En attente');
 
-function generateReportBlock(title, content, icon) {
+    contentArea.innerHTML = `
+        <h2 class="text-3xl font-black text-primary dark:text-white mb-6">Validation des Écritures Comptables</h2>
+        <p class="text-lg text-gray-700 dark:text-gray-300 mb-6">Liste des écritures en attente d'approbation pour ${window.app.currentCompanyName}.</p>
+        
+        <div class="space-y-4 fade-in">
+            ${pendingEntries.length > 0 ? `
+                <div class="flex justify-between items-center p-4 bg-warning/10 border border-warning rounded-xl">
+                    <p class="font-bold text-warning"><i class="fas fa-exclamation-triangle mr-2"></i> ${pendingEntries.length} écritures nécessitent votre attention.</p>
+                    <button onclick="validateAllPending()" class="px-4 py-2 bg-success text-white rounded-xl font-bold hover:bg-green-600 transition-colors">
+                        <i class="fas fa-check-double mr-2"></i> Valider Tout
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
+                    <table class="report-table w-full">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Date</th>
+                                <th>Journal</th>
+                                <th>Compte</th>
+                                <th>Libellé</th>
+                                <th>Débit</th>
+                                <th>Crédit</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pendingEntries.map(e => `
+                                <tr id="entry-${e.id}">
+                                    <td>#${e.id}</td>
+                                    <td>${e.date}</td>
+                                    <td>${e.journal}</td>
+                                    <td>${e.compte}</td>
+                                    <td class="max-w-[200px] truncate">${e.libelle}</td>
+                                    <td class="${e.debit > 0 ? 'font-bold text-danger' : 'text-gray-500'}">${e.debit.toLocaleString('fr-FR')}</td>
+                                    <td class="${e.credit > 0 ? 'font-bold text-success' : 'text-gray-500'}">${e.credit.toLocaleString('fr-FR')}</td>
+                                    <td class="whitespace-nowrap">
+                                        <button onclick="validateEntry(${e.id})" class="text-success hover:text-green-600 mr-2 text-sm"><i class="fas fa-check mr-1"></i> Valider</button>
+                                        <button onclick="rejectEntry(${e.id})" class="text-danger hover:text-red-600 text-sm"><i class="fas fa-times mr-1"></i> Rejeter</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            ` : `
+                <div class="text-center p-20 bg-success/10 rounded-2xl border border-success/50">
+                    <i class="fas fa-thumbs-up fa-4x text-success mb-4"></i>
+                    <p class="text-xl font-bold text-success">Aucune écriture en attente de validation.</p>
+                    <p class="text-gray-700 dark:text-gray-300">Tout votre portefeuille est à jour. Bon travail !</p>
+                </div>
+            `}
+        </div>
+    `;
+}
+
+function validateEntry(entryId) {
+    document.getElementById(`entry-${entryId}`).classList.add('bg-success/20', 'animate-pulse');
+    NotificationManager.show('success', 'Écriture Validée', `L'écriture #${entryId} a été approuvée.`, 3000);
+    // Simulation d'une suppression (pour le mock)
+    setTimeout(() => loadModule('entries_validation', true), 500);
+}
+
+function rejectEntry(entryId) {
+    document.getElementById(`entry-${entryId}`).classList.add('bg-danger/20', 'animate-pulse');
+    NotificationManager.show('danger', 'Écriture Rejetée', `L'écriture #${entryId} a été rejetée. Un motif sera demandé dans la version finale.`, 5000);
+    // Simulation d'une suppression (pour le mock)
+    setTimeout(() => loadModule('entries_validation', true), 500);
+}
+
+function validateAllPending() {
+    NotificationManager.show('info', 'Validation en masse', `Validation de toutes les écritures en cours...`, 3000);
+    // Simulation d'un délai de traitement et rechargement
+    setTimeout(() => {
+        window.app.filteredData.entries = window.app.filteredData.entries.filter(e => e.status !== 'En attente');
+        loadModule('entries_validation', true);
+        NotificationManager.show('success', 'Opération Complète', `Toutes les écritures ont été validées avec succès.`, 5000);
+    }, 1500);
+}
+
+
+// ------------------- RENDU UTILITAIRES et STUBS -------------------
+
+function generateReportBlock(title, content, icon, modalTitle) {
     return `
         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border-l-4 border-secondary fade-in">
             <div class="flex justify-between items-start">
@@ -768,12 +869,28 @@ function generateReportBlock(title, content, icon) {
                     <h3 class="text-xl font-bold text-secondary mb-2"><i class="fas ${icon} mr-2"></i> ${title}</h3>
                     <p class="text-gray-700 dark:text-gray-300 text-sm">${content}</p>
                 </div>
-                <button onclick="ModalManager.open('${title}', 'Détail du rapport', 'Contenu détaillé du rapport ${title}...')">
-                    <i class="fas fa-external-link-alt text-gray-500 hover:text-primary transition-colors ml-4"></i>
+                <button onclick="showDetailedReport('${modalTitle}', '${title}')" class="h-10 w-10 flex items-center justify-center rounded-full hover:bg-primary/10 text-gray-500 hover:text-primary transition-all">
+                    <i class="fas fa-file-pdf fa-lg"></i>
                 </button>
             </div>
         </div>
     `;
+}
+
+function showDetailedReport(modalTitle, reportType) {
+    ModalManager.open(
+        modalTitle,
+        `Rapport ${reportType} - Période: Année Fiscale 2025`,
+        `
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <h4 class="text-lg font-bold text-primary dark:text-white mb-4">${reportType} (Tableau Détaillé)</h4>
+            <div class="h-64 flex items-center justify-center text-center text-gray-500">
+                <i class="fas fa-table fa-2x mr-2"></i>
+                <p>Le tableau de données réel du rapport (Bilan, CPC) sera injecté ici depuis l'API.</p>
+            </div>
+        </div>
+        `
+    );
 }
 
 function renderStubModule(contentArea, moduleName) {
@@ -781,18 +898,16 @@ function renderStubModule(contentArea, moduleName) {
         'grand_livre': 'Grand Livre Général',
         'cash_flow': 'Tableau de Flux de Trésorerie (Détail)',
         'quick_entry': 'Saisie Rapide d\'Écritures',
-        'entries_validation': 'Validation et Approbation d\'Écritures',
         'audit_logs': 'Journal d\'Audit et Sécurité',
         'cash_movements': 'Liste des Mouvements de Caisse',
         'cash_reports': 'Rapports de Clôture de Caisse',
-        'reports_syscohada': 'Balance Simplifiée (SYSCOHADA)'
     };
     const title = moduleTitles[moduleName] || `Module ${moduleName}`;
     contentArea.innerHTML = `
-        <div class="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl space-y-4 fade-in min-h-[400px] flex flex-col items-center justify-center text-center">
-            <i class="fas fa-hammer fa-4x text-warning/50 mb-4"></i>
-            <h1 class="text-3xl font-bold text-primary">${title}</h1>
-            <p class="text-gray-700 dark:text-gray-300 max-w-xl">Cette rubrique est le point d'intégration pour l'API Odoo. Elle est prête pour le raccordement en direct (affichage des tableaux de données, filtres, formulaires de saisie, etc.).</p>
+        <div class="p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl space-y-4 fade-in min-h-[400px] flex flex-col items-center justify-center text-center">
+            <i class="fas fa-tools fa-4x text-warning/50 mb-4"></i>
+            <h1 class="text-3xl font-bold text-secondary">${title}</h1>
+            <p class="text-gray-700 dark:text-gray-300 max-w-xl">Cette interface est prête. Raccordement direct à l'API Odoo pour charger le contenu dynamique (tableaux de données, formulaires de saisie, filtres) de ce module.</p>
             <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-warning font-semibold">
                 ⚠️ Interface de module prête. En attente de données du Backend.
             </div>
@@ -822,16 +937,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('login-form')?.addEventListener('submit', handleLogin);
     
-    // Modification de l'écouteur de déconnexion pour utiliser le ModalManager
+    // Écouteur de déconnexion avec modale de confirmation
     document.getElementById('logout-btn')?.addEventListener('click', () => {
         ModalManager.open(
             'Confirmation de Déconnexion',
             'Êtes-vous sûr de vouloir vous déconnecter du système DOUKÈ PRO ?',
             `
-            <p class="text-gray-700 dark:text-gray-300">Vos données de session seront effacées. Vous devrez vous reconnecter.</p>
+            <p class="text-gray-700 dark:text-gray-300">Vos données de session locales seront effacées. Vous devrez vous reconnecter.</p>
             <div class="mt-6 flex justify-end space-x-3">
                 <button onclick="ModalManager.close()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition">Annuler</button>
-                <button onclick="handleLogout(); ModalManager.close();" class="px-4 py-2 bg-danger text-white rounded-xl hover:bg-red-600 font-bold transition-colors">Confirmer la Déconnexion</button>
+                <button onclick="handleLogout(); ModalManager.close();" class="px-4 py-2 bg-danger text-white rounded-xl hover:bg-red-600 font-bold transition-colors shadow-lg shadow-danger/30">Confirmer la Déconnexion</button>
             </div>
             `
         );
@@ -841,37 +956,34 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('show-login-btn')?.addEventListener('click', () => toggleAuthView(false));
     document.getElementById('register-form')?.addEventListener('submit', (e) => {
         e.preventDefault();
-        NotificationManager.show('warning', 'Enregistrement', 'Fonctionnalité d\'enregistrement non raccordée à l\'API Odoo pour le moment. Veuillez utiliser les comptes de démonstration pour le login.', 8000);
+        NotificationManager.show('warning', 'Enregistrement', 'Fonctionnalité d\'enregistrement non raccordée pour le moment. Utilisez les comptes de démonstration pour le login.', 8000);
     });
 
     renderLoginView(); // Affichage initial de la vue de connexion
 
-    // Fonctionnalité de Basculement Dark/Light Mode (intégrée dans votre index.html)
-    document.querySelector('#quick-actions button')?.addEventListener('click', (e) => {
-         // L'index a un onclick direct, mais on peut s'assurer que l'icône change
-         const icon = e.currentTarget.querySelector('.fas');
-         if (document.documentElement.classList.contains('dark')) {
-            icon.classList.remove('fa-sun');
-            icon.classList.add('fa-moon');
-         } else {
-            icon.classList.remove('fa-moon');
-            icon.classList.add('fa-sun');
-         }
-    });
-
-    // Auto-login de démonstration pour un test rapide du dashboard (optionnel, à retirer en prod)
-    if (!IS_PROD && window.location.hash === '#dev') {
-        const mockEvent = { preventDefault: () => {} };
-        document.getElementById('email').value = 'admin@douke.com';
-        document.getElementById('password').value = 'password';
-        setTimeout(() => handleLogin(mockEvent), 500);
+    // Synchronisation du Dark/Light Mode
+    const darkModeButton = document.querySelector('#quick-actions button');
+    if (darkModeButton) {
+        darkModeButton.onclick = function() {
+            document.documentElement.classList.toggle('dark');
+            const icon = this.querySelector('.fas');
+            if (document.documentElement.classList.contains('dark')) {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        };
     }
 
-    console.log(' ╔═══════════════════════════════════════════════════════════╗ ');
-    console.log(' ║        🚀  DOUKÈ COMPTA PRO v1.7 - Système Unifié         ║ ');
-    console.log(` ║        📡  API: ${API_BASE_URL.padEnd(43)} ║ `);
-    console.log(' ║        ✅  Front-end complètement initialisé.             ║ ');
-    console.log(' ╚═══════════════════════════════════════════════════════════╝ ');
+    // Auto-login de démonstration pour un test rapide (Optionnel)
+    if (!IS_PROD && window.location.hash === '#dev') {
+        document.getElementById('email').value = 'admin@douke.com';
+        document.getElementById('password').value = 'password';
+        const mockEvent = { preventDefault: () => {} };
+        setTimeout(() => handleLogin(mockEvent), 500);
+    }
 });
 
 // Rendre les fonctions d'action spécifiques disponibles globalement pour l'onclick
@@ -881,3 +993,7 @@ window.showAssignmentModal = showAssignmentModal;
 window.showCreateUserModal = showCreateUserModal;
 window.showEditUserModal = showEditUserModal;
 window.generateFinancialStatements = generateFinancialStatements;
+window.showDetailedReport = showDetailedReport;
+window.validateEntry = validateEntry;
+window.rejectEntry = rejectEntry;
+window.validateAllPending = validateAllPending;
