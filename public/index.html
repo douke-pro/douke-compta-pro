@@ -1,265 +1,284 @@
-<!DOCTYPE html>
-<html lang="fr" class="h-full">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DOUKÈ Compta Pro - Système Comptable SYSCOHADA Intégré</title>
+/**
+ * APPLICATION : DOUKÈ Compta Pro
+ * VERSION : 4.0.0 (Production Stable - Backend Restauré)
+ * État : Correction majeure de l'initialisation et du routage
+ */
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+const DoukeApp = {
+    // 1. ÉTAT DE L'APPLICATION
+    state: {
+        user: JSON.parse(localStorage.getItem('user')) || null,
+        token: localStorage.getItem('token') || null,
+        activeCompany: JSON.parse(localStorage.getItem('activeCompany')) || null,
+        companies: [],
+        view: 'dashboard',
+        API_BASE_URL: 'https://douke-compta-pro.onrender.com/api'
+    },
 
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#5D5CDE', 
-                        'primary-light': '#8B8BF0',
-                        'primary-dark': '#1E40AF',
-                        secondary: '#1D4ED8',
-                        success: '#10B981', 
-                        warning: '#F59E0B', 
-                        danger: '#EF4444', 
-                        info: '#3B82F6', 
-                        'background-light': '#f7f7f9',
-                        'background-dark': '#1f2937',
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <style>
-        body {
-            background-color: #f7f7f9;
-            transition: background-color 0.3s;
-            font-family: 'Inter', sans-serif;
-        }
-        .dark body {
-            background-color: #111827;
-        }
-
-        /* Animations d'apparition fluides */
-        .fade-in { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Loading Spinner Haute Performance */
-        .loading-spinner {
-            border: 3px solid rgba(93, 92, 222, 0.1);
-            border-top: 3px solid #5D5CDE;
-            border-radius: 50%;
-            width: 35px;
-            height: 35px;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Effet squelette pour le chargement des données comptables */
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e5e7eb 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-        }
-        @keyframes loading { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-
-        /* Structure des rapports SYSCOHADA */
-        .report-table th { @apply bg-gray-100 dark:bg-gray-700 p-2 text-left text-xs font-bold uppercase tracking-wider border-b; }
-        .report-table td { @apply p-3 text-sm border-b border-gray-100 dark:border-gray-700; }
+    // 2. INITIALISATION CRITIQUE
+    init() {
+        console.log("🚀 Lancement de DOUKÈ Compta Pro...");
         
-        /* Modales Contextuelles */
-        .modal-backdrop {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0, 0, 0, 0.8);
-            z-index: 100;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(4px);
-        }
-        .modal-content {
-            max-width: 95%;
-            max-height: 90%;
-            overflow-y: auto;
-            transform: scale(0.95);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .modal-open .modal-backdrop { display: flex; }
-        .modal-open .modal-content { transform: scale(1); }
-
-        /* Custom scrollbar pour l'aspect Pro */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-        .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
-    </style>
-</head>
-
-<body class="min-h-full">
-    
-    <div id="notification-zone" class="fixed top-4 right-4 z-[9999] space-y-3"></div>
-    
-    <div id="professional-modal" class="modal-backdrop">
-        <div class="modal-content bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-5xl">
-            <div class="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-5 mb-6">
-                <div>
-                    <h3 id="modal-title" class="text-2xl font-black text-primary dark:text-white">Rapport Financier</h3>
-                    <p id="modal-subtitle" class="text-sm text-gray-500">SYSCOHADA Révisé - Système Normal</p>
-                </div>
-                <button id="modal-close-btn" class="h-10 w-10 flex items-center justify-center rounded-full hover:bg-danger/10 text-gray-400 hover:text-danger transition-all">
-                    <i class="fas fa-times fa-lg"></i>
-                </button>
-            </div>
-            <div id="modal-body" class="overflow-x-auto min-h-[400px]">
-                </div>
-            <div class="mt-8 pt-5 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4">
-                <button onclick="window.print()" class="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                    <i class="fas fa-print mr-2"></i> Imprimer PDF
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div id="auth-view" class="h-screen flex items-center justify-center bg-background-light dark:bg-gray-900 transition-colors p-4">
+        // On vide le body pour éviter les conflits HTML/JS
+        document.body.className = "bg-gray-950 text-gray-200 font-sans";
         
-        <div id="login-form-container" class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-10 space-y-8 fade-in border border-gray-100 dark:border-gray-700">
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-3xl mb-4 text-primary">
-                    <i class="fas fa-shield-halved fa-3x"></i>
-                </div>
-                <h1 class="text-4xl font-black text-primary dark:text-white tracking-tight">DOUKÈ</h1>
-                <p class="text-sm text-secondary dark:text-primary-light font-bold tracking-widest uppercase">Compta Pro v1.4</p>
-            </div>
+        // Vérification de la session
+        if (!this.state.token) {
+            console.log("🔑 Aucune session - Affichage du Login");
+            this.renderLoginView();
+        } else {
+            console.log("✅ Session active - Chargement Dashboard");
+            this.startProtectedSession();
+        }
+    },
 
-            <div id="login-message" class="hidden p-4 rounded-xl text-center text-sm font-bold"></div>
-
-            <form id="login-form" class="space-y-5">
-                <div class="space-y-2">
-                    <label for="email" class="text-xs font-black uppercase text-gray-500 dark:text-gray-400 ml-1">Identifiant Email</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fas fa-envelope"></i></span>
-                        <input type="email" id="email" class="block w-full pl-10 pr-3 py-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-900 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="votre@email.com" required>
-                    </div>
-                </div>
-                <div class="space-y-2">
-                    <label for="password" class="text-xs font-black uppercase text-gray-500 dark:text-gray-400 ml-1">Mot de passe</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fas fa-lock"></i></span>
-                        <input type="password" id="password" class="block w-full pl-10 pr-3 py-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-900 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="••••••••" required>
-                    </div>
-                </div>
-                <button type="submit" class="w-full bg-primary hover:bg-primary-dark text-white font-black py-4 rounded-xl shadow-lg shadow-primary/30 transition-all active:scale-[0.98] flex justify-center items-center text-lg">
-                    <span>ACCÉDER AU SYSTÈME</span>
-                    <i class="fas fa-arrow-right ml-3 text-sm opacity-50"></i>
-                </button>
-            </form>
-
-            <div class="pt-6 border-t border-gray-100 dark:border-gray-700 text-center">
-                <p class="text-sm text-gray-500">Pas encore partenaire ? 
-                    <button type="button" id="show-register-btn" class="font-black text-secondary hover:underline ml-1">Créer un compte</button>
-                </p>
-            </div>
-        </div>
-
-        <div id="register-view" class="hidden w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-10 space-y-8 fade-in">
-            <div class="text-center">
-                <h2 class="text-3xl font-black text-secondary dark:text-white">Nouvelle Instance</h2>
-                <p class="text-gray-500">Configurez votre environnement professionnel</p>
-            </div>
-            
-            <form id="register-form" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="reg-name" placeholder="Nom du Gérant" class="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-secondary" required>
-                    <input type="email" id="reg-email" placeholder="Email Pro" class="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-secondary" required>
-                </div>
-                <input type="password" id="reg-password" placeholder="Définir un mot de passe robuste" class="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-secondary" required>
-                
-                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
-                    <p class="text-xs text-blue-600 dark:text-blue-400 font-bold mb-2 uppercase tracking-widest"><i class="fas fa-building mr-2"></i>Première Entreprise</p>
-                    <input type="text" id="reg-company" placeholder="Dénomination Sociale" class="w-full p-3 bg-white dark:bg-gray-800 border-none rounded-lg shadow-sm" required>
-                </div>
-
-                <button type="submit" class="w-full bg-success hover:bg-green-600 text-white font-black py-4 rounded-xl shadow-xl transition-all flex justify-center items-center">
-                    <i class="fas fa-rocket mr-3"></i> INITIALISER L'INSTANCE
-                </button>
-            </form>
-
-            <button id="show-login-btn" class="w-full text-center text-sm font-bold text-gray-500 hover:text-primary transition-colors">
-                <i class="fas fa-chevron-left mr-2"></i> Retour à la connexion
-            </button>
-        </div>
-    </div>
-
-    <div id="dashboard-view" class="hidden min-h-screen">
-        <div class="flex flex-col lg:flex-row min-h-screen">
-            
-            <aside class="w-full lg:w-72 bg-white dark:bg-gray-800 shadow-2xl lg:h-screen p-8 border-r border-gray-100 dark:border-gray-700 flex flex-col">
+    // 3. VUE DE CONNEXION (Fixée : Injectée directement dans le body)
+    renderLoginView() {
+        document.body.innerHTML = `
+        <div class="min-h-screen flex items-center justify-center p-4 bg-gray-950">
+            <div class="max-w-md w-full bg-gray-900 rounded-3xl shadow-2xl border border-gray-800 p-10 animate-fade-in">
                 <div class="text-center mb-10">
-                    <div class="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-3 text-white shadow-lg shadow-primary/40">
-                        <i class="fas fa-chart-pie fa-lg"></i>
-                    </div>
-                    <h1 class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">DOUKÈ PRO</h1>
-                </div>
-                
-                <div class="mb-10 p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10">
-                    <div class="flex items-center space-x-3 mb-3">
-                        <div class="relative">
-                            <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 font-bold" id="user-avatar-text">U</div>
-                            <span class="absolute bottom-0 right-0 w-3 h-3 bg-success border-2 border-white dark:border-gray-800 rounded-full"></span>
-                        </div>
-                        <div class="overflow-hidden">
-                            <p class="text-xs font-black text-primary uppercase" id="current-role">RÔLE</p>
-                            <p class="text-sm font-bold text-gray-900 dark:text-white truncate" id="welcome-message">Chargement...</p>
-                        </div>
-                    </div>
-                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                        Dossier Actif : <span class="text-secondary dark:text-primary-light" id="current-company-name">-- GLOBAL --</span>
-                    </div>
+                    <h1 class="text-3xl font-black text-white italic tracking-tighter uppercase">DOUKÈ <span class="text-indigo-500">Compta Pro</span></h1>
+                    <p class="text-gray-500 mt-2 text-sm uppercase tracking-widest font-bold">Connexion SYSCOHADA</p>
                 </div>
 
-                <nav id="role-navigation-menu" class="flex-1 space-y-2 overflow-y-auto">
-                    </nav>
+                <div id="auth-error" class="hidden mb-6 p-4 bg-red-900/20 border border-red-800 text-red-400 text-xs rounded-2xl text-center font-bold"></div>
+
+                <form id="login-form" class="space-y-6">
+                    <input type="email" id="email" placeholder="Email professionnel" required 
+                        class="w-full p-4 bg-gray-800 border border-gray-700 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                    <input type="password" id="password" placeholder="Mot de passe" required 
+                        class="w-full p-4 bg-gray-800 border border-gray-700 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                    <button type="submit" id="btn-login" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl transition-all">
+                        SE CONNECTER
+                    </button>
+                </form>
+
+                <div class="mt-8 pt-6 border-t border-gray-800 text-center">
+                    <p class="text-gray-500 text-sm">Pas encore de compte ? 
+                        <button onclick="DoukeApp.renderRegisterView()" class="text-indigo-400 font-bold hover:underline">Créer un profil</button>
+                    </p>
+                </div>
+            </div>
+        </div>`;
+
+        // Écouteur d'événement immédiat
+        document.getElementById('login-form').onsubmit = (e) => this.handleLogin(e);
+    },
+
+    // 4. VUE D'INSCRIPTION (Restaurée avec les rubriques v1.4)
+    renderRegisterView() {
+        document.body.innerHTML = `
+        <div class="min-h-screen flex items-center justify-center p-4 bg-gray-950">
+            <div class="max-w-md w-full bg-gray-900 rounded-3xl shadow-2xl border border-gray-800 p-10">
+                <h2 class="text-2xl font-bold text-white mb-2 text-center uppercase tracking-tighter">Nouvel Utilisateur</h2>
+                <p class="text-gray-500 text-center mb-8 text-[10px] font-black uppercase tracking-widest">Configuration DOUKÈ Compta Pro</p>
                 
-                <div class="mt-auto pt-6 border-t border-gray-100 dark:border-gray-700">
-                    <button id="logout-btn" class="w-full flex items-center p-4 text-danger font-black rounded-xl hover:bg-danger/10 transition-all group">
-                        <i class="fas fa-power-off mr-4 group-hover:rotate-90 transition-transform"></i>
-                        <span>DÉCONNEXION</span>
+                <form id="register-form" class="space-y-4">
+                    <input type="text" id="reg-name" placeholder="Nom complet / Cabinet" required class="w-full p-4 bg-gray-800 border border-gray-700 rounded-2xl text-white outline-none">
+                    <input type="email" id="reg-email" placeholder="Email professionnel" required class="w-full p-4 bg-gray-800 border border-gray-700 rounded-2xl text-white outline-none">
+                    <input type="password" id="reg-password" placeholder="Mot de passe" required class="w-full p-4 bg-gray-800 border border-gray-700 rounded-2xl text-white outline-none">
+                    
+                    <div class="bg-gray-800 rounded-2xl p-4 border border-gray-700">
+                        <label class="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Type de profil</label>
+                        <select id="reg-role" class="w-full bg-transparent text-white font-bold outline-none cursor-pointer">
+                            <option value="USER">Client Entreprise</option>
+                            <option value="COLLABORATEUR">Collaborateur Cabinet</option>
+                            <option value="ADMIN">Administrateur</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl transition-all shadow-lg">
+                        S'INSCRIRE
+                    </button>
+                </form>
+
+                <button onclick="DoukeApp.renderLoginView()" class="w-full mt-6 text-gray-500 text-xs font-bold hover:text-white transition-all uppercase tracking-widest text-center">
+                    <i class="fas fa-arrow-left mr-2"></i> Retour à la connexion
+                </button>
+            </div>
+        </div>`;
+
+        document.getElementById('register-form').onsubmit = (e) => this.handleRegister(e);
+    },
+
+    // 5. LOGIQUE BACKEND (FETCH)
+    async handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const errBox = document.getElementById('auth-error');
+        const btn = document.getElementById('btn-login');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Authentification...';
+
+        try {
+            const res = await fetch(`${this.state.API_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || 'Erreur de connexion');
+
+            // Stockage exactement comme dans votre v1.4
+            this.state.token = data.token;
+            this.state.user = { 
+                id: data.utilisateurId, 
+                name: data.utilisateurNom, 
+                role: data.utilisateurRole 
+            };
+            
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(this.state.user));
+
+            console.log("✅ Login réussi, redirection...");
+            this.init(); // Relance init() pour charger le dashboard
+
+        } catch (error) {
+            btn.disabled = false;
+            btn.textContent = 'SE CONNECTER';
+            errBox.textContent = error.message;
+            errBox.classList.remove('hidden');
+        }
+    },
+
+    async handleRegister(e) {
+        e.preventDefault();
+        const payload = {
+            name: document.getElementById('reg-name').value,
+            email: document.getElementById('reg-email').value,
+            password: document.getElementById('reg-password').value,
+            role: document.getElementById('reg-role').value
+        };
+
+        try {
+            const res = await fetch(`${this.state.API_BASE_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error);
+            }
+
+            alert("Bienvenue sur DOUKÈ Compta Pro ! Votre compte est créé.");
+            this.renderLoginView();
+        } catch (error) {
+            alert("Erreur: " + error.message);
+        }
+    },
+
+    // 6. DASHBOARD & NAVIGATION
+    async startProtectedSession() {
+        try {
+            const endpoint = (this.state.user.role === 'ADMIN') ? '/companies' : '/companies/assigned';
+            const res = await fetch(`${this.state.API_BASE_URL}${endpoint}`, {
+                headers: { 'Authorization': `Bearer ${this.state.token}` }
+            });
+            
+            const data = await res.json();
+            this.state.companies = Array.isArray(data) ? data : [];
+            
+            if (this.state.companies.length > 0 && !this.state.activeCompany) {
+                this.state.activeCompany = this.state.companies[0];
+            }
+            
+            this.renderFullInterface();
+        } catch (err) {
+            console.warn("Mode dégradé (Server Unreachable)");
+            this.renderFullInterface();
+        }
+    },
+
+    renderFullInterface() {
+        document.body.innerHTML = `
+        <div class="flex h-screen bg-gray-950 text-gray-200">
+            <aside class="w-72 bg-gray-900 border-r border-gray-800 flex flex-col">
+                <div class="p-8">
+                    <h1 class="text-xl font-black text-white italic tracking-tighter uppercase">DOUKÈ <span class="text-indigo-500">PRO</span></h1>
+                </div>
+                <nav class="flex-1 px-4 space-y-2" id="nav-menu"></nav>
+                <div class="p-6 border-t border-gray-800">
+                    <button onclick="DoukeApp.logout()" class="w-full flex items-center gap-3 p-3 text-red-500 hover:bg-red-500/10 rounded-xl transition-all text-xs font-bold uppercase tracking-widest">
+                        <i class="fas fa-power-off"></i> Déconnexion
                     </button>
                 </div>
             </aside>
-
-            <main class="flex-1 flex flex-col bg-[#f3f4f6] dark:bg-gray-900">
-                
-                <header class="bg-white dark:bg-gray-800 p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div id="context-header">
-                        <p class="text-xs font-black text-gray-400 uppercase mb-1">Périmètre de travail</p>
-                        <h2 class="text-xl font-black text-gray-900 dark:text-white" id="context-message">
-                            Sélectionnez une entreprise pour commencer
-                        </h2>
-                    </div>
-                    <div class="flex items-center space-x-3" id="quick-actions">
-                        <button onclick="document.documentElement.classList.toggle('dark')" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                            <i class="fas fa-moon"></i>
-                        </button>
+            <main class="flex-1 flex flex-col overflow-hidden">
+                <header class="h-20 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-10">
+                    <div id="company-selector-container"></div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-xs font-bold text-gray-500 uppercase">${this.state.user.name}</span>
+                        <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white">${this.state.user.name.charAt(0)}</div>
                     </div>
                 </header>
-
-                <div id="dashboard-content-area" class="p-6 md:p-8 flex-1 overflow-y-auto">
-                    <div class="h-full flex flex-col items-center justify-center text-center opacity-50">
-                        <i class="fas fa-layer-group fa-4x text-gray-300 mb-4"></i>
-                        <p class="text-xl font-bold text-gray-400 italic">En attente de chargement du module...</p>
-                    </div>
-                </div>
-
+                <div id="main-content" class="flex-1 overflow-y-auto p-10"></div>
             </main>
-        </div>
-    </div>
-    
-    <script src="assets/script.js"></script>
-</body>
-</html>
+        </div>`;
+
+        this.renderMenu();
+        this.renderCompanySelector();
+        this.route('dashboard');
+    },
+
+    renderMenu() {
+        const nav = document.getElementById('nav-menu');
+        const role = this.state.user.role;
+        
+        let html = `<a href="#" onclick="DoukeApp.route('dashboard')" class="flex items-center gap-3 p-4 bg-indigo-600/10 text-indigo-400 rounded-2xl border border-indigo-600/20 mb-4"><i class="fas fa-chart-line"></i> <span class="text-xs font-black uppercase tracking-widest">Dashboard</span></a>`;
+
+        if (role === 'ADMIN' || role === 'COLLABORATEUR') {
+            html += `
+                <div class="pt-4 pb-2 px-4 text-[9px] font-black text-gray-600 uppercase tracking-[0.3em]">Comptabilité</div>
+                <a href="#" onclick="DoukeApp.route('journal')" class="flex items-center gap-3 p-4 text-gray-400 hover:text-white rounded-2xl transition-all"><i class="fas fa-book"></i> <span class="text-xs font-bold uppercase">Journaux</span></a>
+                <a href="#" onclick="DoukeApp.route('balance')" class="flex items-center gap-3 p-4 text-gray-400 hover:text-white rounded-2xl transition-all"><i class="fas fa-balance-scale"></i> <span class="text-xs font-bold uppercase">Grand Livre</span></a>
+            `;
+        }
+        nav.innerHTML = html;
+    },
+
+    route(view) {
+        this.state.view = view;
+        const main = document.getElementById('main-content');
+        if (view === 'dashboard') {
+            main.innerHTML = `
+                <h2 class="text-3xl font-black text-white tracking-tighter uppercase mb-6">Résumé d'activité</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="bg-gray-900 p-8 rounded-3xl border border-gray-800">
+                        <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Trésorerie Actuelle</p>
+                        <h3 class="text-4xl font-black text-emerald-500">0 <span class="text-xs text-gray-600 ml-1">FCFA</span></h3>
+                    </div>
+                </div>`;
+        } else {
+            main.innerHTML = `<div class="p-20 text-center border-2 border-dashed border-gray-800 rounded-3xl text-gray-600 font-bold uppercase tracking-widest text-xs">Module ${view} en attente de données</div>`;
+        }
+    },
+
+    renderCompanySelector() {
+        const container = document.getElementById('company-selector-container');
+        if (this.state.companies.length === 0) return;
+        container.innerHTML = `
+            <select onchange="DoukeApp.switchCompany(this.value)" class="bg-gray-800 text-white rounded-xl px-4 py-2 text-xs font-black border border-gray-700 outline-none cursor-pointer">
+                ${this.state.companies.map(c => `<option value="${c.id}" ${this.state.activeCompany?.id == c.id ? 'selected' : ''}>${c.name.toUpperCase()}</option>`).join('')}
+            </select>`;
+    },
+
+    switchCompany(id) {
+        this.state.activeCompany = this.state.companies.find(c => c.id == id);
+        this.route(this.state.view);
+    },
+
+    logout() {
+        localStorage.clear();
+        location.reload();
+    }
+};
+
+// INITIALISATION AU CHARGEMENT DU DOM
+window.onload = () => DoukeApp.init();
