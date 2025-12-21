@@ -32,7 +32,7 @@ app.use('/api/accounting', accountingRoutes);
 
 // 4. ROUTAGE FRONT-END (Le correctif radical)
 // On remplace le res.send() par l'envoi du fichier index.html
-app.get('*', (req, res) => {
+app.get('(.*)', (req, res) => {
     // Si la requête ne commence pas par /api, on envoie l'interface
     if (!req.url.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
