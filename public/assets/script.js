@@ -876,6 +876,256 @@ function renderEntriesValidationModule(contentArea) {
     `;
 }
 
+// =================================================================================
+// RENDU SPÉCIFIQUE 5 : MODULE DE SAISIE RAPIDE (QUICK ENTRY)
+// Disponible pour ADMIN, COLLABORATEUR, USER, CAISSIER
+// =================================================================================
+
+// Mock des journaux disponibles
+const MOCK_JOURNALS = [
+    { code: 'CA', name: 'Caisse' },
+    { code: 'BQ', name: 'Banque' },
+    { code: 'JA', name: 'Achats' },
+    { code: 'JV', name: 'Opérations Diverses' },
+    { code: 'VD', name: 'Ventes' },
+];
+
+let entryLineCounter = 0; // Compteur pour les lignes d'écriture
+
+/**
+ * Génère la structure HTML du module de saisie rapide.
+ */
+function renderQuickEntryModule(contentArea) {
+    if (!window.app.currentCompanyId) {
+        contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-building fa-3x text-warning mb-4"></i><p class="text-xl font-bold">Sélectionnez d'abord une entreprise pour enregistrer une écriture.</p></div>`;
+        return;
+    }
+
+    const currentProfile = window.app.currentProfile;
+    const accountOptions = window.app.filteredData.accounts || [];
+
+    // Sélecteur d'options du plan comptable
+    const getAccountOptionsHTML = (selectedCode = '') => accountOptions.map(acc => `
+        <option value="${acc.code}" ${acc.code == selectedCode ? 'selected' : ''}>${acc.code} - ${acc.name}</option>
+    `).join('');
+    
+    // Sélecteur d'options de journal
+    const getJournalOptionsHTML = () => MOCK_JOURNALS.map(j => `
+        <option value="${j.code}">${j.code} - ${j.name}</option>
+    `).join('');
+
+    contentArea.innerHTML = `
+        <h2 class="text-3xl font-black text-primary dark:text-white mb-6">Saisie Rapide d'Écriture (Journal)</h2>
+        <p class="text-lg text-gray-700 dark:text-gray-300 mb-6">Enregistrement d'une nouvelle écriture pour le dossier **${window.app.currentCompanyName}**.</p>
+        
+        <div class="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 fade-in">
+            <form id="quick-entry-form" onsubmit="handleQuickEntrySubmit(event)">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 p-4 border rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                    <div>
+                        <label for="entry-date" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1"><i class="fas fa-calendar-alt mr-2"></i> Date de l'Opération</label>
+                        <input type="date" id="entry-date" value="${new Date().toISOString().split('T')[0]}" required class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div>
+                        <label for="entry-journal" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1"><i class="fas fa-book mr-2"></i> Journal</label>
+                        <select id="entry-journal" required class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white cursor-pointer">
+                            ${getJournalOptionsHTML()}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="entry-ref" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1"><i class="fas fa-hashtag mr-2"></i> Référence (Optionnel)</label>
+                        <input type="text" id="entry-ref" placeholder="Ex: Fact. N° 2025/001" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-bold mb-4 text-secondary dark:text-secondary">Détail des Lignes</h3>
+                
+                <div id="entry-lines-container" class="space-y-4">
+                    </div>
+                
+                <div class="flex justify-between items-center mt-6">
+                    <button type="button" onclick="addEntryLine(event, '${getAccountOptionsHTML()}')" class="px-4 py-2 bg-info text-white rounded-xl font-bold hover:bg-blue-600 transition-colors">
+                        <i class="fas fa-plus-circle mr-2"></i> Ajouter une Ligne
+                    </button>
+
+                    <div id="balance-check" class="font-black text-lg p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
+                        Balance : <span id="balance-amount" class="text-warning">0 XOF</span>
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <button type="submit" id="submit-entry-btn" class="w-full py-4 bg-success text-white text-xl font-black rounded-xl hover:bg-green-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg shadow-success/30">
+                        <i class="fas fa-save mr-3"></i> Enregistrer l'Écriture
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    `;
+    
+    // Initialisation avec deux lignes (minimum pour la partie double)
+    entryLineCounter = 0;
+    addEntryLine(null, getAccountOptionsHTML(), 411000); // Ex: Ligne Client (Débit)
+    addEntryLine(null, getAccountOptionsHTML(), 701000); // Ex: Ligne Produit (Crédit)
+
+    // Attacher les écouteurs pour le calcul de la balance
+    document.getElementById('entry-lines-container').addEventListener('input', updateBalance);
+}
+
+/**
+ * Ajoute une ligne de saisie à l'écriture.
+ */
+function addEntryLine(event, accountOptionsHTML, defaultAccountCode = '') {
+    if (event) event.preventDefault();
+    entryLineCounter++;
+    const lineId = entryLineCounter;
+    
+    const lineHTML = `
+        <div id="line-${lineId}" class="entry-line grid grid-cols-12 gap-3 items-center p-4 border border-dashed rounded-lg bg-gray-50 dark:bg-gray-700/50">
+            <div class="col-span-12 lg:col-span-3">
+                <label for="compte-${lineId}" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Compte (SYSCOHADA)</label>
+                <select id="compte-${lineId}" name="compte" required class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white">
+                    ${accountOptionsHTML}
+                </select>
+            </div>
+            <div class="col-span-12 lg:col-span-4">
+                <label for="libelle-${lineId}" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Libellé</label>
+                <input type="text" id="libelle-${lineId}" name="libelle" required placeholder="Description de l'opération" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white">
+            </div>
+            <div class="col-span-6 lg:col-span-2">
+                <label for="debit-${lineId}" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Débit (XOF)</label>
+                <input type="number" id="debit-${lineId}" name="debit" value="0" min="0" step="1" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white text-danger font-bold">
+            </div>
+            <div class="col-span-6 lg:col-span-2">
+                <label for="credit-${lineId}" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Crédit (XOF)</label>
+                <input type="number" id="credit-${lineId}" name="credit" value="0" min="0" step="1" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white text-success font-bold">
+            </div>
+            <div class="col-span-12 lg:col-span-1 flex justify-end items-center">
+                <button type="button" onclick="removeEntryLine(${lineId})" class="text-danger hover:text-red-700 transition-colors p-2 rounded-full">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    const container = document.getElementById('entry-lines-container');
+    container.insertAdjacentHTML('beforeend', lineHTML);
+    
+    // Si un compte par défaut est spécifié, le sélectionner
+    if (defaultAccountCode) {
+        document.getElementById(`compte-${lineId}`).value = defaultAccountCode;
+    }
+}
+
+/**
+ * Supprime une ligne de saisie et met à jour la balance.
+ */
+function removeEntryLine(lineId) {
+    document.getElementById(`line-${lineId}`)?.remove();
+    updateBalance();
+}
+
+/**
+ * Calcule et affiche l'écart Débit/Crédit de l'écriture en cours.
+ */
+function updateBalance() {
+    const lines = document.querySelectorAll('.entry-line');
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    lines.forEach(line => {
+        const debitInput = line.querySelector('input[name="debit"]');
+        const creditInput = line.querySelector('input[name="credit"]');
+        
+        // Assurer que les valeurs sont des nombres
+        totalDebit += parseFloat(debitInput?.value || 0);
+        totalCredit += parseFloat(creditInput?.value || 0);
+    });
+
+    const balance = totalDebit - totalCredit;
+    const balanceEl = document.getElementById('balance-amount');
+    const submitBtn = document.getElementById('submit-entry-btn');
+
+    balanceEl.textContent = `${Math.abs(balance).toLocaleString('fr-FR')} XOF`;
+
+    if (balance === 0) {
+        balanceEl.classList.remove('text-warning', 'text-danger');
+        balanceEl.classList.add('text-success');
+        submitBtn.disabled = false;
+        submitBtn.querySelector('span')?.textContent = "Écriture Équilibrée";
+        submitBtn.innerHTML = '<i class="fas fa-check-circle mr-3"></i> Écriture Équilibrée - Enregistrer';
+    } else {
+        balanceEl.classList.remove('text-success');
+        balanceEl.classList.add(balance > 0 ? 'text-danger' : 'text-warning');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fas fa-exclamation-triangle mr-3"></i> Écart de ${balance.toLocaleString('fr-FR')} XOF`;
+    }
+}
+
+/**
+ * Gère la soumission du formulaire de saisie rapide.
+ */
+async function handleQuickEntrySubmit(event) {
+    event.preventDefault();
+    const submitBtn = document.getElementById('submit-entry-btn');
+    submitBtn.innerHTML = `<div class="loading-spinner w-5 h-5 border-white"></div><span class="ml-3">Envoi en cours...</span>`;
+    submitBtn.disabled = true;
+
+    const date = document.getElementById('entry-date').value;
+    const journal = document.getElementById('entry-journal').value;
+    const reference = document.getElementById('entry-ref').value;
+    const lines = [];
+
+    document.querySelectorAll('.entry-line').forEach(line => {
+        const compte = line.querySelector('select[name="compte"]').value;
+        const libelle = line.querySelector('input[name="libelle"]').value;
+        const debit = parseFloat(line.querySelector('input[name="debit"]').value || 0);
+        const credit = parseFloat(line.querySelector('input[name="credit"]').value || 0);
+
+        if (debit > 0 || credit > 0) {
+            lines.push({ compte, libelle, debit, credit });
+        }
+    });
+
+    const entryData = {
+        companyId: window.app.currentCompanyId,
+        date,
+        journal,
+        reference,
+        lines,
+        submittedBy: window.app.userContext.name,
+    };
+    
+    try {
+        // MOCK d'envoi à l'API (Remplacer par un apiFetch réel plus tard)
+        await new Promise(resolve => setTimeout(resolve, 1500)); 
+
+        console.log("Écriture à envoyer :", entryData);
+        NotificationManager.show('success', 'Écriture Enregistrée', `Écriture "${journal}/${reference || 'Saisie rapide'}" enregistrée avec succès. ${lines.length} lignes traitées.`, 5000);
+
+        // Réinitialiser le formulaire
+        document.getElementById('quick-entry-form').reset();
+        document.getElementById('entry-lines-container').innerHTML = ''; // Vider les lignes
+        entryLineCounter = 0;
+        addEntryLine(null, document.getElementById('compte-1') ? document.getElementById('compte-1').outerHTML : '', 411000); // Réinitialisation ligne 1
+        addEntryLine(null, document.getElementById('compte-1') ? document.getElementById('compte-1').outerHTML : '', 701000); // Réinitialisation ligne 2
+        updateBalance(); // Réinitialiser l'affichage de la balance
+
+    } catch (error) {
+        NotificationManager.show('danger', 'Erreur de Saisie', 'Échec de l\'enregistrement de l\'écriture. ' + error.message, 8000);
+    } finally {
+        submitBtn.innerHTML = '<i class="fas fa-save mr-3"></i> Enregistrer l\'Écriture';
+        // La désactivation sera gérée par updateBalance, sauf si une erreur se produit.
+        if (document.getElementById('balance-amount').classList.contains('text-success')) {
+             submitBtn.disabled = false;
+        }
+    }
+}
+// Rendre les fonctions d'action spécifiques disponibles globalement
+window.addEntryLine = addEntryLine;
+window.removeEntryLine = removeEntryLine;
+window.updateBalance = updateBalance;
+window.handleQuickEntrySubmit = handleQuickEntrySubmit;
+
 function validateEntry(entryId) {
     document.getElementById(`entry-${entryId}`).classList.add('bg-success/20', 'animate-pulse');
     NotificationManager.show('success', 'Écriture Validée', `L'écriture #${entryId} a été approuvée.`, 3000);
