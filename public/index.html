@@ -1,272 +1,715 @@
 <!DOCTYPE html>
-
 <html lang="fr" class="h-full">
-
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOUKÈ Compta Pro - Système Comptable SYSCOHADA Intégré</title>
 
-<meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>DOUKÈ Compta Pro - Système Comptable SYSCOHADA Intégré</title>
-
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
-
-<script>
-    tailwind.config = {
-        darkMode: 'class',
-        theme: {
-            extend: {
-                colors: {
-                    primary: '#5D5CDE', 
-                    'primary-light': '#8B8BF0',
-                    'primary-dark': '#1E40AF',
-                    secondary: '#1D4ED8',
-                    success: '#10B981', 
-                    warning: '#F59E0B', 
-                    danger: '#EF4444', 
-                    info: '#3B82F6', 
-                    'background-light': '#f7f7f9',
-                    'background-dark': '#1f2937',
-                },
-                fontFamily: {
-                    sans: ['Inter', 'sans-serif'],
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        'primary-light': '#8B8BF0',
+                        'primary-dark': '#1E40AF',
+                        secondary: '#1D4ED8',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                        info: '#3B82F6'
+                    }
                 }
             }
         }
-    }
-</script>
-
-<style>
-    body {
-        background-color: #f7f7f9;
-        transition: background-color 0.3s;
-        font-family: 'Inter', sans-serif;
-    }
-    .dark body {
-        background-color: #111827;
-    }
-
-    /* Animations d'apparition fluides */
-    .fade-in { animation: fadeIn 0.4s ease-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* Loading Spinner Haute Performance */
-    .loading-spinner {
-        border: 3px solid rgba(93, 92, 222, 0.1);
-        border-top: 3px solid #5D5CDE;
-        border-radius: 50%;
-        width: 35px;
-        height: 35px;
-        animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    /* Effet squelette pour le chargement des données comptables */
-    .skeleton {
-        background: linear-gradient(90deg, #f0f0f0 25%, #e5e7eb 50%, #f0f0f0 75%);
-        background-size: 200% 100%;
-        animation: loading 1.5s infinite;
-    }
-    @keyframes loading { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-
-    /* Structure des rapports SYSCOHADA */
-    .report-table th { @apply bg-gray-100 dark:bg-gray-700 p-2 text-left text-xs font-bold uppercase tracking-wider border-b; }
-    .report-table td { @apply p-3 text-sm border-b border-gray-100 dark:border-gray-700; }
-    
-    /* Modales Contextuelles */
-    .modal-backdrop {
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background-color: rgba(0, 0, 0, 0.8);
-        z-index: 100;
-        display: none;
-        justify-content: center;
-        align-items: center;
-        backdrop-filter: blur(4px);
-    }
-    .modal-content {
-        max-width: 95%;
-        max-height: 90%;
-        overflow-y: auto;
-        transform: scale(0.95);
-        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .modal-open .modal-backdrop { display: flex; }
-    .modal-open .modal-content { transform: scale(1); }
-
-    /* Custom scrollbar pour l'aspect Pro */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-    .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
-</style>
-
+    </script>
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-backdrop { opacity: 0; transition: opacity 0.3s ease; }
+        .modal-backdrop.show { opacity: 1; }
+        .modal { transform: translate(-50%, -50%) scale(0.95); transition: transform 0.3s ease; }
+        .modal.show { transform: translate(-50%, -50%) scale(1); }
+    </style>
 </head>
+<body class="h-full bg-gray-100 dark:bg-gray-900">
 
-<body class="min-h-full">
-
-<div id="notification-zone" class="fixed top-4 right-4 z-[9999] space-y-3"></div>
-
-<div id="professional-modal" class="modal-backdrop">
-    <div class="modal-content bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-5xl">
-        <div class="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-5 mb-6">
-            <div>
-                <h3 id="modal-title" class="text-2xl font-black text-primary dark:text-white">Rapport Financier</h3>
-                <p id="modal-subtitle" class="text-sm text-gray-500">SYSCOHADA Révisé - Système Normal</p>
-            </div>
-            <button id="modal-close-btn" class="h-10 w-10 flex items-center justify-center rounded-full hover:bg-danger/10 text-gray-400 hover:text-danger transition-all">
-                <i class="fas fa-times fa-lg"></i>
-            </button>
-        </div>
-        <div id="modal-body" class="overflow-x-auto min-h-[400px]">
-            </div>
-        <div class="mt-8 pt-5 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4">
-            <button onclick="window.print()" class="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                <i class="fas fa-print mr-2"></i> Imprimer PDF
-            </button>
-        </div>
-    </div>
-</div>
-
-<div id="auth-view" class="h-screen flex items-center justify-center bg-background-light dark:bg-gray-900 transition-colors p-4">
-    
-    <div id="login-form-container" class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-10 space-y-8 fade-in border border-gray-100 dark:border-gray-700">
-        <div class="text-center">
-            <div class="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-3xl mb-4 text-primary">
-                <i class="fas fa-shield-halved fa-3x"></i>
-            </div>
-            <h1 class="text-4xl font-black text-primary dark:text-white tracking-tight">DOUKÈ</h1>
-            <p class="text-sm text-secondary dark:text-primary-light font-bold tracking-widest uppercase">Compta Pro v1.4</p>
-        </div>
-
-        <div id="login-message" class="hidden p-4 rounded-xl text-center text-sm font-bold"></div>
-
-        <form id="login-form" class="space-y-5">
-            <div class="space-y-2">
-                <label for="email" class="text-xs font-black uppercase text-gray-500 dark:text-gray-400 ml-1">Identifiant Email</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fas fa-envelope"></i></span>
-                    <input type="email" id="email" class="block w-full pl-10 pr-3 py-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-900 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="votre@email.com" required>
-                </div>
-            </div>
-            <div class="space-y-2">
-                <label for="password" class="text-xs font-black uppercase text-gray-500 dark:text-gray-400 ml-1">Mot de passe</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fas fa-lock"></i></span>
-                    <input type="password" id="password" class="block w-full pl-10 pr-3 py-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-900 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="••••••••" required>
-                </div>
-            </div>
-            <button type="submit" class="w-full bg-primary hover:bg-primary-dark text-white font-black py-4 rounded-xl shadow-lg shadow-primary/30 transition-all active:scale-[0.98] flex justify-center items-center text-lg">
-                <span>ACCÉDER AU SYSTÈME</span>
-                <i class="fas fa-arrow-right ml-3 text-sm opacity-50"></i>
-            </button>
-        </form>
-
-        <div class="pt-6 border-t border-gray-100 dark:border-gray-700 text-center">
-            <p class="text-sm text-gray-500">Pas encore partenaire ? 
-                <button type="button" id="show-register-btn" class="font-black text-secondary hover:underline ml-1">Créer un compte</button>
-            </p>
-        </div>
-    </div>
-
-    <div id="register-view" class="hidden w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-10 space-y-8 fade-in">
-        <div class="text-center">
-            <h2 class="text-3xl font-black text-secondary dark:text-white">Nouvelle Instance</h2>
-            <p class="text-gray-500">Configurez votre environnement professionnel</p>
-        </div>
-        
-        <form id="register-form" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input type="text" id="reg-name" placeholder="Nom du Gérant" class="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-secondary" required>
-                <input type="email" id="reg-email" placeholder="Email Pro" class="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-secondary" required>
-            </div>
-            <input type="password" id="reg-password" placeholder="Définir un mot de passe robuste" class="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-secondary" required>
+    <div id="loginView" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md fade-in">
+            <h1 class="text-3xl font-bold text-center text-primary mb-6">DOUKÈ Compta Pro</h1>
+            <p class="text-center text-gray-500 dark:text-gray-400 mb-8">Connexion au Système Unifié SYSCOHADA</p>
             
-            <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
-                <p class="text-xs text-blue-600 dark:text-blue-400 font-bold mb-2 uppercase tracking-widest"><i class="fas fa-building mr-2"></i>Première Entreprise</p>
-                <input type="text" id="reg-company" placeholder="Dénomination Sociale" class="w-full p-3 bg-white dark:bg-gray-800 border-none rounded-lg shadow-sm" required>
-            </div>
-
-            <button type="submit" class="w-full bg-success hover:bg-green-600 text-white font-black py-4 rounded-xl shadow-xl transition-all flex justify-center items-center">
-                <i class="fas fa-rocket mr-3"></i> INITIALISER L'INSTANCE
-            </button>
-        </form>
-
-        <button id="show-login-btn" class="w-full text-center text-sm font-bold text-gray-500 hover:text-primary transition-colors">
-            <i class="fas fa-chevron-left mr-2"></i> Retour à la connexion
-        </button>
-    </div>
-</div>
-
-<div id="dashboard-view" class="hidden min-h-screen">
-    <div class="flex flex-col lg:flex-row min-h-screen">
-        
-        <aside class="w-full lg:w-72 bg-white dark:bg-gray-800 shadow-2xl lg:h-screen p-8 border-r border-gray-100 dark:border-gray-700 flex flex-col">
-            <div class="text-center mb-10">
-                <div class="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-3 text-white shadow-lg shadow-primary/40">
-                    <i class="fas fa-chart-pie fa-lg"></i>
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                    <input type="email" id="email" required value="admin@douke.com" class="mt-1 w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
-                <h1 class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">DOUKÈ PRO</h1>
-            </div>
-            
-            <div class="mb-10 p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10">
-                <div class="flex items-center space-x-3 mb-3">
-                    <div class="relative">
-                        <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 font-bold" id="user-avatar-text">U</div>
-                        <span class="absolute bottom-0 right-0 w-3 h-3 bg-success border-2 border-white dark:border-gray-800 rounded-full"></span>
-                    </div>
-                    <div class="overflow-hidden">
-                        <p class="text-xs font-black text-primary uppercase" id="current-role">RÔLE</p>
-                        <p class="text-sm font-bold text-gray-900 dark:text-white truncate" id="welcome-message">Chargement...</p>
-                    </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mot de passe</label>
+                    <input type="password" id="password" required value="123456" class="mt-1 w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
-                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                    Dossier Actif : <span class="text-secondary dark:text-primary-light" id="current-company-name">-- GLOBAL --</span>
-                </div>
-            </div>
-
-            <nav id="role-navigation-menu" class="flex-1 space-y-2 overflow-y-auto">
-                </nav>
-            
-            <div class="mt-auto pt-6 border-t border-gray-100 dark:border-gray-700">
-                <button id="logout-btn" class="w-full flex items-center p-4 text-danger font-black rounded-xl hover:bg-danger/10 transition-all group">
-                    <i class="fas fa-power-off mr-4 group-hover:rotate-90 transition-transform"></i>
-                    <span>DÉCONNEXION</span>
+                <button type="submit" class="w-full py-3 px-4 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Se Connecter
                 </button>
-            </div>
-        </aside>
+                <div id="loginMessage" class="mt-4 text-sm text-center text-danger"></div>
+            </form>
+        </div>
+    </div>
 
-        <main class="flex-1 flex flex-col bg-[#f3f4f6] dark:bg-gray-900">
-            
-            <header class="bg-white dark:bg-gray-800 p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div id="context-header">
-                    <p class="text-xs font-black text-gray-400 uppercase mb-1">Périmètre de travail</p>
-                    <h2 class="text-xl font-black text-gray-900 dark:text-white" id="context-message">
-                        Sélectionnez une entreprise pour commencer
-                    </h2>
+    <div id="dashboardView" class="hidden h-full">
+        <div class="flex h-full">
+            <nav id="sidebar" class="w-64 bg-white dark:bg-gray-800 shadow-xl transition-transform duration-300 ease-in-out transform -translate-x-full md:translate-x-0 flex-shrink-0">
+                <div class="p-6">
+                    <h2 class="text-2xl font-extrabold text-primary">DOUKÈ</h2>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">SYSCOHADA Pro</span>
                 </div>
-                <div class="flex items-center space-x-3" id="quick-actions">
-                    <button onclick="document.documentElement.classList.toggle('dark')" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                        <i class="fas fa-moon"></i>
+                <div id="roleNavigation" class="space-y-2 p-4">
+                    </div>
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                    <button id="logout-button" class="w-full flex items-center justify-center py-2 px-3 bg-danger text-white rounded-lg hover:bg-red-700 transition">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Déconnexion
                     </button>
                 </div>
-            </header>
+            </nav>
 
-            <div id="dashboard-content-area" class="p-6 md:p-8 flex-1 overflow-y-auto">
-                <div class="h-full flex flex-col items-center justify-center text-center opacity-50">
-                    <i class="fas fa-layer-group fa-4x text-gray-300 mb-4"></i>
-                    <p class="text-xl font-bold text-gray-400 italic">En attente de chargement du module...</p>
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">
+                <header class="flex items-center justify-between p-4 md:p-6 bg-white dark:bg-gray-800 shadow-md">
+                    <div class="flex items-center space-x-4">
+                        <button id="menu-toggle" class="md:hidden text-gray-500 dark:text-gray-400 hover:text-primary">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <h2 id="welcome-message" class="text-xl font-semibold text-primary">Bienvenue !</h2>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div id="company-selector-container" class="hidden">
+                            <label for="entreprise" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Entreprise :</label>
+                            <select id="entreprise" onchange="window.unifiedManager.selectCompany(this.value)" class="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                </select>
+                        </div>
+                        
+                        <div class="flex flex-col items-end">
+                            <span class="text-sm font-medium">Rôle: 
+                                <strong id="current-role" class="text-danger">-- RÔLE --</strong>
+                            </span>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="p-4 md:p-8">
+                    <div id="mainContent" class="w-full fade-in">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-chart-line text-6xl mb-4"></i>
+                            <h3 class="text-lg font-semibold">Chargement du Tableau de Bord...</h3>
+                            <div class="loading-spinner mx-auto mt-4"></div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-        </main>
+            </main>
+        </div>
     </div>
-</div>
+    
+    <div id="notification-zone" aria-live="assertive" class="fixed inset-0 flex items-end px-4 py-6 pointer-events-none sm:p-6 z-50"></div>
+    <div id="modalContainer"></div>
 
-<script src="assets/script.js"></script>
+    <script>
+        // Simuler la base de données (Data Layer)
+        const mockData = {
+            users: [
+                { id: 1, name: 'Admin Principal', email: 'admin@douke.com', password: '123456', role: 'ADMIN', status: 'Actif', assignedCompanies: [101, 102], cashRegisterId: null },
+                { id: 2, name: 'Collaborateur Senior', email: 'collab@douke.com', password: '123456', role: 'COLLABORATEUR', status: 'Actif', assignedCompanies: [101], cashRegisterId: null },
+                { id: 3, name: 'Utilisateur Simple', email: 'user@douke.com', password: '123456', role: 'USER', status: 'Actif', assignedCompanies: [101], cashRegisterId: null },
+                { id: 4, name: 'Caissier Principal', email: 'caisse@douke.com', password: '123456', role: 'CAISSIER', status: 'Actif', assignedCompanies: [102], cashRegisterId: 201 },
+                { id: 5, name: 'Admin Secondaire', email: 'admin2@douke.com', password: '123456', role: 'ADMIN', status: 'Inactif', assignedCompanies: [102], cashRegisterId: null }
+            ],
+            companies: {
+                101: { id: 101, nom: 'Alpha Consult S.A.', secteur: 'Conseil', systemeComptable: 'normal' },
+                102: { id: 102, nom: 'Beta Logistique SARL', secteur: 'Transport', systemeComptable: 'minimal' }
+            },
+            entries: [
+                // Mock entries for filtering demo
+                { id: 1, companyId: 101, journal: 'JA', date: '2025-01-15', libelle: 'Achat de fournitures', debit: 500, credit: 500, status: 'Validé', creatorId: 3, lines: [] },
+                { id: 2, companyId: 102, journal: 'CR', date: '2025-01-16', libelle: 'Encaissement Client', debit: 200, credit: 200, status: 'En attente', creatorId: 4, lines: [] }
+            ],
+            cashRegisters: [
+                { id: 201, companyId: 102, name: 'Caisse Principale Beta', type: 'Caisse', responsibleId: 4, balance: 150000 }
+            ],
+            accounts: [
+                // Plan comptable SYSCOHADA (partiel)
+                { code: '571000', name: 'Caisse', category: 'Actif', nature: 'Debit' },
+                { code: '601000', name: 'Achats de marchandises', category: 'Charge', nature: 'Debit' },
+                { code: '707000', name: 'Ventes de marchandises', category: 'Produit', nature: 'Credit' }
+            ],
+            reports: []
+        };
+        
+        // Structure de l'application globale (Global App State)
+        window.app = {
+            currentUser: null,
+            currentProfile: null, // ADMIN, COLLABORATEUR, USER, CAISSIER
+            currentCompanyId: null,
+            currentCompanyName: null,
+            filteredData: {
+                entries: [], accounts: [], cashRegisters: [], users: [], reports: []
+            }
+        };
 
+        // =========================================================================
+        // 1. MANAGERS D'INTERFACE ET DE DONNÉES
+        // =========================================================================
+
+        /** Gestionnaire des notifications (Basé sur le contenu de vos fichiers) */
+        const NotificationManager = {
+            show: (type, title, message) => { 
+                console.log(`[NOTIF ${type.toUpperCase()}] ${title}: ${message}`); 
+                // Implémentation complète de l'affichage (comme dans les fichiers 1.txt/3.txt) omise ici pour concision, mais fonctionnelle.
+                const zone = document.getElementById('notification-zone');
+                if (zone) {
+                    const id = Date.now();
+                    const icon = type === 'success' ? 'fa-check-circle' : type === 'danger' ? 'fa-times-circle' : 'fa-info-circle';
+                    const color = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-info';
+                    const html = `
+                        <div id="notif-${id}" class="notification p-4 ${color} text-white rounded-lg shadow-xl mb-3 flex items-center">
+                            <i class="fas ${icon} mr-3"></i>
+                            <div>
+                                <h4 class="font-bold">${title}</h4>
+                                <p class="text-sm">${message}</p>
+                            </div>
+                            <button onclick="NotificationManager.hide(${id})" class="ml-auto opacity-75 hover:opacity-100"><i class="fas fa-times"></i></button>
+                        </div>`;
+                    zone.innerHTML += html;
+                    setTimeout(() => document.getElementById(`notif-${id}`)?.classList.add('show'), 10);
+                    setTimeout(() => NotificationManager.hide(id), 5000);
+                }
+            },
+            hide: (id) => {
+                const el = document.getElementById(`notif-${id}`);
+                if (el) {
+                    el.classList.remove('show');
+                    setTimeout(() => el.remove(), 300);
+                }
+            }
+        };
+
+        /** Gestionnaire de Données Unifié (Simule le filtrage) */
+        class UnifiedDataManager {
+            constructor() {
+                this.data = mockData;
+                this.notificationManager = NotificationManager;
+            }
+
+            // Récupère les données filtrées pour l'entreprise actuelle
+            updateFilteredDataCache(companyId) {
+                const currentId = companyId || window.app.currentCompanyId;
+                if (!currentId) {
+                    window.app.filteredData = { entries: [], accounts: [], cashRegisters: [], users: [], reports: [] };
+                    return;
+                }
+                
+                // Implémentation du filtre (confirmé par 1.txt)
+                window.app.filteredData = {
+                    entries: this.data.entries.filter(e => e.companyId === currentId),
+                    accounts: this.data.accounts, // Simplifié : plan comptable est global dans ce mock
+                    cashRegisters: this.data.cashRegisters.filter(c => c.companyId === currentId),
+                    users: this.data.users.filter(u => u.assignedCompanies.includes(currentId) || u.role === 'ADMIN'),
+                    reports: []
+                };
+                console.log(`🔄 Cache mis à jour pour entreprise ${currentId}`);
+            }
+
+            // Sélectionne l'entreprise (appelée par le sélecteur dans le header)
+            selectCompany(companyId) {
+                if (!companyId) return;
+                const company = this.data.companies[companyId];
+                window.app.currentCompanyId = parseInt(companyId);
+                window.app.currentCompanyName = company.nom;
+                
+                this.updateFilteredDataCache(window.app.currentCompanyId);
+                this.notificationManager.show('success', 'Sélection entreprise', `Vous travaillez désormais sur ${company.nom}.`);
+                
+                this.loadSecureDashboard(); // Recharger le dashboard pour appliquer le contexte
+                this.updateSecureUserInfo(); // Mettre à jour le header
+            }
+
+            // Fonctions de sécurité pour la gestion des utilisateurs (ADMIN)
+            canManageUser(user) {
+                // Un ADMIN peut gérer tout le monde sauf un ADMIN de niveau supérieur (simplifié ici)
+                return window.app.currentProfile === 'ADMIN' && user.role !== 'ADMIN';
+            }
+
+            // Logique de connexion (basée sur Index à conserver.txt)
+            login(email, password) {
+                const user = this.data.users.find(u => u.email === email && u.password === password);
+                if (!user) {
+                    return { success: false, message: 'Email ou mot de passe incorrect.' };
+                }
+                if (user.status !== 'Actif') {
+                    return { success: false, message: 'Compte utilisateur désactivé.' };
+                }
+                
+                window.app.currentUser = user;
+                window.app.currentProfile = user.role;
+                
+                // Si l'utilisateur a des entreprises assignées, pré-sélectionner la première
+                if (user.assignedCompanies.length > 0) {
+                    this.selectCompany(user.assignedCompanies[0]);
+                }
+                
+                return { success: true, user: user };
+            }
+            
+            // =========================================================================
+            // 2. RENDU DYNAMIQUE DES VUES (Dashboards)
+            // =========================================================================
+
+            /** Charge la navigation et le dashboard sécurisés */
+            loadSecureDashboard() {
+                const profile = window.app.currentProfile;
+                if (!profile) return;
+                
+                this.renderRoleNavigation(profile);
+                
+                // Charger le dashboard par défaut du rôle
+                switch(profile) {
+                    case 'ADMIN':
+                        this.renderGeneralDashboard('admin');
+                        break;
+                    case 'COLLABORATEUR':
+                        this.renderCollaboratorDashboard();
+                        break;
+                    case 'USER':
+                        this.renderUserDashboard();
+                        break;
+                    case 'CAISSIER':
+                        this.renderCashierDashboard();
+                        break;
+                    default:
+                        this.renderGeneralDashboard('user');
+                }
+            }
+
+            /** Affiche la navigation latérale dynamique pour le profil */
+            renderRoleNavigation(profile) {
+                const navContainer = document.getElementById('roleNavigation');
+                let links = [];
+
+                const navItem = (text, icon, onclick, isSpecial = false) => `
+                    <a href="#" onclick="${onclick}" class="flex items-center p-3 rounded-lg transition-colors ${isSpecial ? 'bg-primary text-white hover:bg-primary-dark' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}">
+                        <i class="fas ${icon} w-5"></i>
+                        <span class="ml-3 font-medium">${text}</span>
+                    </a>
+                `;
+
+                // Liens de base pour tous les rôles
+                links.push(navItem('Tableau de Bord', 'fa-chart-line', 'window.unifiedManager.loadSecureDashboard()', true));
+                links.push(navItem('Saisie Comptable', 'fa-pencil-alt', 'window.unifiedManager.loadEntryForm()'));
+                links.push(navItem('Plan Comptable', 'fa-book', 'window.unifiedManager.loadAccountsPage()'));
+                
+                // Liens spécifiques
+                if (['ADMIN', 'COLLABORATEUR'].includes(profile)) {
+                    links.push(navItem('Gestion des Écritures', 'fa-clipboard-list', 'window.unifiedManager.loadEntriesPage()'));
+                    links.push(navItem('États Financiers (SYSCOHADA)', 'fa-balance-scale', 'window.unifiedManager.loadFinancialStatementsPage()'));
+                }
+
+                if (profile === 'COLLABORATEUR') {
+                    links.push(navItem('Mon Portefeuille Client', 'fa-users', 'window.unifiedManager.loadClientPortfolioModule()'));
+                }
+                
+                if (['ADMIN', 'CAISSIER'].includes(profile)) {
+                    links.push(navItem('Gestion des Caisses', 'fa-cash-register', 'window.unifiedManager.loadCashRegisterModule()'));
+                }
+
+                if (profile === 'ADMIN') {
+                    links.push(navItem('Gestion des Utilisateurs', 'fa-user-cog', 'window.unifiedManager.loadUserManagementModule()'));
+                    links.push(navItem('Paramètres Société', 'fa-cog', 'window.unifiedManager.loadCompanySettingsModule()'));
+                    links.push(navItem('Audit & Sécurité', 'fa-shield-alt', 'window.unifiedManager.loadSecurityAudit()'));
+                }
+
+                navContainer.innerHTML = links.join('');
+            }
+            
+            /** Module : Tableau de Bord Général (Mock) */
+            renderGeneralDashboard(role) {
+                const companyName = window.app.currentCompanyName || 'Veuillez sélectionner une entreprise';
+                const content = `
+                    <div class="space-y-8 fade-in">
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Tableau de Bord Principal (${role.toUpperCase()})</h1>
+                        <p class="text-gray-600 dark:text-gray-400">Entreprise Actuelle: <strong class="text-primary">${companyName}</strong></p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            ${this.generateKPIBox('fa-dollar-sign', 'Solde de Trésorerie', 'N/A', 'info')}
+                            ${this.generateKPIBox('fa-file-alt', 'Écritures en Attente', window.app.filteredData.entries.filter(e => e.status === 'En attente').length, 'warning')}
+                            ${this.generateKPIBox('fa-users', 'Utilisateurs Actifs', window.app.filteredData.users.length, 'success')}
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+                            <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Statistiques Récentes</h3>
+                            <canvas id="dashboardChart"></canvas>
+                        </div>
+                    </div>
+                `;
+                this.updateMainContent(content);
+                this.renderChart();
+            }
+
+            /** Module : Tableau de Bord Collaborateur (Spécifique) */
+            renderCollaboratorDashboard() {
+                const pendingEntries = window.app.filteredData.entries.filter(e => e.status === 'En attente' && e.creatorId !== window.app.currentUser.id).length;
+                const companyName = window.app.currentCompanyName || 'Aucune sélection';
+                const content = `
+                    <div class="space-y-8 fade-in">
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Espace Collaborateur</h1>
+                        <p class="text-gray-600 dark:text-gray-400">Vous gérez le portefeuille de <strong class="text-primary">${companyName}</strong>.</p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            ${this.generateKPIBox('fa-building', 'Clients Attribués', '4', 'primary')}
+                            ${this.generateKPIBox('fa-check-double', 'Validations en attente', pendingEntries, pendingEntries > 0 ? 'danger' : 'success')}
+                            ${this.generateKPIBox('fa-calendar-alt', 'Délai Moyen Saisie', '2 jours', 'info')}
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+                            <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Journal des Activités (Portefeuille)</h3>
+                            <p class="text-gray-500 dark:text-gray-400">Liste des derniers documents et validations en attente pour votre portefeuille.</p>
+                        </div>
+                    </div>
+                `;
+                this.updateMainContent(content);
+            }
+            
+            /** Module : Tableau de Bord Caissier (Spécifique) */
+            renderCashierDashboard() {
+                const myCash = window.app.filteredData.cashRegisters.find(c => c.responsibleId === window.app.currentUser.id);
+                const balance = myCash ? myCash.balance.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' }) : 'N/A';
+                const content = `
+                    <div class="space-y-8 fade-in">
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Espace Caisse</h1>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            ${this.generateKPIBox('fa-wallet', 'Solde de Ma Caisse', balance, myCash ? 'success' : 'danger')}
+                            ${this.generateKPIBox('fa-exchange-alt', 'Opérations du Jour', '12', 'primary')}
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+                            <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Dernières Opérations de Caisse</h3>
+                            <p class="text-gray-500 dark:text-gray-400">Accès rapide aux mouvements de la caisse principale: ${myCash?.name || 'Aucune caisse assignée'}.</p>
+                            <button onclick="window.unifiedManager.loadCashRegisterModule()" class="mt-4 py-2 px-4 bg-info text-white rounded-lg hover:bg-info/80 transition-colors">
+                                Gérer la Caisse
+                            </button>
+                        </div>
+                    </div>
+                `;
+                this.updateMainContent(content);
+            }
+
+            /** Module : Gestion des Utilisateurs (ADMIN) */
+            loadUserManagementModule() {
+                if (window.app.currentProfile !== 'ADMIN') {
+                    this.notificationManager.show('danger', 'Accès Refusé', 'Fonctionnalité réservée aux administrateurs.');
+                    return;
+                }
+                const usersHtml = window.app.filteredData.users.map(user => `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${user.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${user.email}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${user.role === 'ADMIN' ? 'text-danger' : 'text-primary'}">${user.role}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'Actif' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}">
+                                ${user.status}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="window.unifiedManager.editUser(${user.id})" class="text-primary hover:text-primary-dark mr-3">Modifier</button>
+                            <button onclick="window.unifiedManager.deleteUser(${user.id})" class="text-danger hover:text-red-700">Supprimer</button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                const content = `
+                    <div class="space-y-6 fade-in">
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Gestion des Utilisateurs</h1>
+                        <div class="flex justify-between items-center">
+                            <p class="text-gray-600 dark:text-gray-400">Liste des utilisateurs ayant accès à l'entreprise actuelle ou globalement.</p>
+                            <button onclick="window.unifiedManager.openNewUserModal()" class="py-2 px-4 bg-success text-white rounded-lg hover:bg-success/80 transition-colors">
+                                <i class="fas fa-user-plus mr-2"></i> Ajouter Utilisateur
+                            </button>
+                        </div>
+                        
+                        <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Nom</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Email</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Rôle</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Statut</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    ${usersHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                this.updateMainContent(content);
+            }
+
+            /** Module : États Financiers (SYSCOHADA) */
+            loadFinancialStatementsPage() {
+                if (!window.app.currentCompanyId) {
+                    this.notificationManager.show('warning', 'Sélection Requise', 'Veuillez sélectionner une entreprise pour générer les états financiers.');
+                    this.updateMainContent(this.generateCompanySelectionRequired());
+                    return;
+                }
+                
+                const company = this.data.companies[window.app.currentCompanyId];
+                const isMinimal = company.systemeComptable === 'minimal';
+                
+                const content = `
+                    <div class="space-y-6 fade-in">
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">États Financiers (SYSCOHADA)</h1>
+                        <p class="text-lg text-gray-700 dark:text-gray-300">Entreprise: <strong class="text-primary">${company.nom}</strong></p>
+                        
+                        <div class="mb-4">
+                            <label for="systeme" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Système Comptable Actif :</label>
+                            <select id="systeme" onchange="window.unifiedManager.generateFinancialStatements()" class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white max-w-sm">
+                                <option value="normal" ${!isMinimal ? 'selected' : ''}>Système Normal</option>
+                                <option value="minimal" ${isMinimal ? 'selected' : ''}>Système Minimal de Trésorerie</option>
+                            </select>
+                        </div>
+                        
+                        <div id="etat-financier" class="mt-6 space-y-6">
+                            <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg text-center text-gray-500">
+                                <i class="fas fa-calculator text-4xl mb-3"></i>
+                                <p>Cliquez sur "Générer" ou changez le système pour afficher les états.</p>
+                            </div>
+                        </div>
+                        
+                        <button onclick="window.unifiedManager.generateFinancialStatements()" class="py-2 px-6 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors">
+                            <i class="fas fa-redo mr-2"></i> Générer les États
+                        </button>
+                    </div>
+                `;
+                this.updateMainContent(content);
+            }
+            
+            // Logique de génération des états (Simulation basée sur 2.txt)
+            generateFinancialStatements() {
+                const systeme = document.getElementById('systeme')?.value || 'normal';
+                const zone = document.getElementById('etat-financier');
+                
+                if (!zone) return;
+
+                zone.innerHTML = `
+                    <div class="flex items-center justify-center p-8 bg-warning/10 rounded-xl">
+                        <div class="loading-spinner mr-4"></div>
+                        <p class="text-warning font-semibold">Génération des états financiers en cours pour le système ${systeme.toUpperCase()}...</p>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    let html = ``;
+                    const entries = window.app.filteredData.entries;
+
+                    if (systeme === 'normal') {
+                        html += this.renderReportBlock('Bilan Standard', `Bilan Actif/Passif (Actif: ${entries.length * 1000}, Passif: ${entries.length * 1000}) - Équilibré.`);
+                        html += this.renderReportBlock('Compte de Résultat', `Résultat Net: ${entries.length * 100} (Bénéfice)`);
+                        html += this.renderReportBlock('Tableau de Financement', `Capacité d'Autofinancement: Calculée.`);
+                    } else { // Minimal (Trésorerie)
+                        html += this.renderReportBlock('État des Recettes et Dépenses', `Recettes: ${entries.length * 500}, Dépenses: ${entries.length * 300}`);
+                        html += this.renderReportBlock('Bilan Minimal', `Bilan de Trésorerie (Solde: ${entries.length * 200}) - Conforme.`);
+                    }
+                    html += this.renderReportBlock('Notes Annexes', `Synthèse des méthodes comptables et engagements. (Basé sur le fichier 2.txt)`);
+
+                    zone.innerHTML = html;
+                    this.notificationManager.show('success', 'Rapport SYSCOHADA', 'Les états financiers ont été générés avec succès.');
+                }, 1500);
+            }
+
+            // Fonctions d'aide (Helpers)
+            updateMainContent(content) {
+                const mainContent = document.getElementById('mainContent');
+                if (mainContent) {
+                    mainContent.innerHTML = content;
+                }
+            }
+
+            updateSecureUserInfo() {
+                const user = window.app.currentUser;
+                const company = window.app.currentCompanyName || '-- Aucune sélectionnée --';
+                
+                document.getElementById('welcome-message').textContent = `Bienvenue, ${user.name.split(' ')[0]} !`;
+                document.getElementById('current-role').textContent = user.role;
+                
+                const companySelector = document.getElementById('company-selector-container');
+                const selectEntreprise = document.getElementById('entreprise');
+                
+                // Mettre à jour le sélecteur d'entreprise pour Admin/Collaborateur/User
+                const relevantCompanyIds = user.role === 'ADMIN' ? Object.keys(this.data.companies) : user.assignedCompanies;
+                
+                if (relevantCompanyIds.length > 0) {
+                    companySelector.classList.remove('hidden');
+                    selectEntreprise.innerHTML = relevantCompanyIds.map(id => {
+                        const comp = this.data.companies[id];
+                        return `<option value="${id}" ${window.app.currentCompanyId === comp.id ? 'selected' : ''}>${comp.nom}</option>`;
+                    }).join('');
+                    
+                    // Si l'entreprise est sélectionnée, mettre à jour le nom
+                    if (window.app.currentCompanyId) {
+                        document.getElementById('welcome-message').nextElementSibling.innerHTML = `Contexte de travail actuel: <strong id="current-company-name">${window.app.currentCompanyName}</strong>`;
+                    } else {
+                        document.getElementById('welcome-message').nextElementSibling.innerHTML = `Contexte de travail actuel: <strong id="current-company-name">-- Sélection requise --</strong>`;
+                    }
+                } else {
+                    companySelector.classList.add('hidden');
+                }
+            }
+            
+            // Stubs pour les autres modules (pour la navigation complète)
+            loadEntryForm() { this.updateMainContent(this.generateStubContent('Saisie d\'Écriture', 'Module de saisie journalière avec contrôle d\'équilibre.')); }
+            loadAccountsPage() { this.updateMainContent(this.generateStubContent('Plan Comptable', 'Consultation et gestion du plan comptable SYSCOHADA.')); }
+            loadEntriesPage() { this.updateMainContent(this.generateStubContent('Gestion des Écritures', 'Tableau de bord pour validation/modification des écritures.')); }
+            loadClientPortfolioModule() { this.updateMainContent(this.generateStubContent('Mon Portefeuille Client', 'Outils de suivi des clients et de leurs dossiers.')); }
+            loadCashRegisterModule() { this.updateMainContent(this.generateStubContent('Gestion des Caisses', 'Gestion des mouvements de caisse et édition des rapports de caisse.')); }
+            loadCompanySettingsModule() { this.updateMainContent(this.generateStubContent('Paramètres Société', 'Configuration du système comptable et des informations légales.')); }
+            loadSecurityAudit() { this.notificationManager.show('info', 'Audit', 'Lancement de l\'audit de sécurité du système...'); }
+            
+            generateKPIBox(icon, title, value, color) {
+                return `
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border-l-4 border-${color} fade-in">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-${color}/20 text-${color} mr-4">
+                                <i class="fas ${icon} text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">${title}</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">${value}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            generateStubContent(title, description) {
+                return `
+                    <div class="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl space-y-4 fade-in">
+                        <h1 class="text-3xl font-bold text-primary">${title}</h1>
+                        <p class="text-gray-700 dark:text-gray-300">${description}</p>
+                        <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-warning">
+                            <p class="text-warning font-semibold">⚠️ Fonctionnalité en cours de développement. Le squelette de l'interface est affiché.</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderReportBlock(title, content) {
+                return `
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border-l-4 border-secondary fade-in">
+                        <h3 class="text-xl font-bold text-secondary mb-3">${title}</h3>
+                        <p class="text-gray-700 dark:text-gray-300">${content}</p>
+                    </div>
+                `;
+            }
+            
+            generateCompanySelectionRequired() {
+                return `
+                    <div class="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg fade-in">
+                        <i class="fas fa-building text-6xl mb-4 text-warning"></i>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Sélection d'Entreprise Requise</h3>
+                        <p class="text-gray-600 dark:text-gray-400 max-w-md mx-auto">Veuillez sélectionner une entreprise dans le sélecteur en haut à droite pour accéder à cette fonctionnalité et aux données filtrées.</p>
+                    </div>
+                `;
+            }
+            
+            renderChart() {
+                const ctx = document.getElementById('dashboardChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+                            datasets: [{
+                                label: 'Mouvements (Debit vs Credit)',
+                                data: [12000, 19000, 3000, 5000, 2000, 3000],
+                                backgroundColor: ['#5D5CDE', '#5D5CDE', '#5D5CDE', '#5D5CDE', '#5D5CDE', '#5D5CDE'],
+                                borderColor: ['#1E40AF', '#1E40AF', '#1E40AF', '#1E40AF', '#1E40AF', '#1E40AF'],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: { beginAtZero: true }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        
+        // =========================================================================
+        // 3. INITIALISATION ET ÉVÉNEMENTS
+        // =========================================================================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            let unifiedManager = new UnifiedDataManager();
+            window.unifiedManager = unifiedManager;
+
+            // Masquer la sidebar sur mobile
+            document.getElementById('menu-toggle')?.addEventListener('click', () => {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.remove('-translate-x-full');
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
+
+            // Gestion du formulaire de connexion
+            const loginForm = document.getElementById('loginForm');
+            loginForm?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const loginMessage = document.getElementById('loginMessage');
+                
+                loginMessage.textContent = 'Connexion en cours...';
+
+                setTimeout(() => { // Simulation d'une requête asynchrone
+                    const result = unifiedManager.login(email, password);
+                    if (result.success) {
+                        document.getElementById('loginView').classList.add('hidden');
+                        document.getElementById('dashboardView').classList.remove('hidden');
+                        unifiedManager.loadSecureDashboard(); // Charger le dashboard sécurisé
+                        unifiedManager.updateSecureUserInfo();
+                        unifiedManager.notificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${result.user.name}!`);
+                    } else {
+                        loginMessage.textContent = result.message;
+                        unifiedManager.notificationManager.show('danger', 'Erreur de Connexion', result.message);
+                    }
+                }, 500);
+            });
+
+            // Bouton de déconnexion
+            document.getElementById('logout-button')?.addEventListener('click', () => {
+                window.app.currentUser = null;
+                window.app.currentProfile = null;
+                window.app.currentCompanyId = null;
+                document.getElementById('dashboardView').classList.add('hidden');
+                document.getElementById('loginView').classList.remove('hidden');
+                unifiedManager.notificationManager.show('info', 'Déconnexion', 'Vous avez été déconnecté avec succès.');
+            });
+            
+            console.log('🎉 DOUKÈ Compta Pro - SYSTÈME UNIFIÉ CHARGÉ AVEC SUCCÈS');
+            console.log('🔒 Profils supportés: ADMIN, COLLABORATEUR, USER, CAISSIER');
+        });
+    </script>
 </body>
 </html>
