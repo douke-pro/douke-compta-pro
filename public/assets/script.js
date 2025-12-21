@@ -1,280 +1,275 @@
 /**
- * DOUKÈ PRO - ERP COMPTABLE SYSCOHADA RÉVISÉ
- * Version : 3.5.0 (Fusion Intégrale Stable)
- * Description : Gestion multi-profils, Inscription, Login et Dashboard dynamique.
+ * DOUKÈ PRO - ERP COMPTABLE
+ * Version : 3.6.0 (Restauration Logique Auth Backend + Dashboard)
  */
 
 const DoukeApp = {
-    // ==========================================
-    // 1. ÉTAT DE L'APPLICATION (STORE)
-    // ==========================================
     state: {
         user: JSON.parse(localStorage.getItem('user')) || null,
         token: localStorage.getItem('token') || null,
         activeCompany: JSON.parse(localStorage.getItem('activeCompany')) || null,
         companies: [],
         view: 'dashboard',
-        isDarkMode: true,
-        API_BASE_URL: window.location.hostname.includes('localhost') 
+        // Ajustez cette URL selon votre backend
+        API_BASE_URL: window.location.origin.includes('localhost') 
             ? 'http://localhost:3000/api' 
             : 'https://douke-compta-pro.onrender.com/api'
     },
 
-    // ==========================================
-    // 2. INITIALISATION & ROUTING INITIAL
-    // ==========================================
     async init() {
-        console.log("🚀 Initialisation DOUKÈ PRO v3.5...");
+        console.log("🚀 Initialisation système...");
         
-        // Si pas de token, on force la vue de connexion
+        // Si pas de session, on affiche la page de connexion initiale
         if (!this.state.token) {
             this.renderLoginView();
         } else {
             try {
+                // Si session active, on charge les données et l'interface
                 await this.loadCompanies();
                 this.renderFullInterface();
             } catch (error) {
-                console.error("Session expirée ou erreur serveur:", error);
+                console.error("Session invalide:", error);
                 this.logout();
             }
         }
     },
 
     // ==========================================
-    // 3. AUTHENTIFICATION (LOGIN / REGISTER)
+    // 1. VUE CONNEXION (Restaurée à l'identique)
     // ==========================================
     renderLoginView() {
-        const root = document.getElementById('app-root') || document.body;
-        root.innerHTML = `
-            <div class="min-h-screen flex items-center justify-center bg-gray-950 p-4">
-                <div class="max-w-md w-full bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 p-8 fade-in">
-                    <div class="text-center mb-8">
-                        <h1 class="text-3xl font-black text-white italic">DOUKÈ<span class="text-primary text-4xl">.</span></h1>
-                        <p class="text-gray-400 mt-2">Accédez à votre espace professionnel</p>
-                    </div>
-                    <div id="auth-message" class="mb-4 hidden p-3 rounded-lg text-sm"></div>
-                    <form id="login-form" class="space-y-5">
-                        <input type="email" id="login-email" placeholder="Email professionnel" required 
-                            class="w-full p-4 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-primary outline-none transition">
-                        <input type="password" id="login-password" placeholder="Mot de passe" required 
-                            class="w-full p-4 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-primary outline-none transition">
-                        <button type="submit" class="w-full py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all transform hover:scale-[1.02]">
-                            SE CONNECTER
-                        </button>
-                    </form>
-                    <div class="mt-6 text-center">
-                        <p class="text-gray-500 text-sm">Pas encore de compte ? 
-                            <a href="#" onclick="DoukeApp.renderRegisterView()" class="text-primary font-bold hover:underline">S'inscrire</a>
-                        </p>
-                    </div>
+        document.body.innerHTML = `
+        <div class="min-h-screen flex items-center justify-center bg-gray-950 p-4">
+            <div class="max-w-md w-full bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 p-8">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-black text-white italic">DOUKÈ<span class="text-primary text-4xl">.</span></h1>
+                    <p class="text-gray-400 mt-2">Connectez-vous à votre espace SYSCOHADA</p>
                 </div>
-            </div>`;
+                
+                <div id="auth-error" class="hidden mb-4 p-3 bg-red-900/30 border border-red-800 text-red-200 text-sm rounded-lg text-center"></div>
 
+                <form id="login-form" class="space-y-5">
+                    <input type="email" id="email" placeholder="Email professionnel" required 
+                        class="w-full p-4 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-primary outline-none transition">
+                    <input type="password" id="password" placeholder="Mot de passe" required 
+                        class="w-full p-4 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-primary outline-none transition">
+                    <button type="submit" class="w-full py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all">
+                        SE CONNECTER
+                    </button>
+                </form>
+                
+                <div class="mt-6 text-center">
+                    <p class="text-gray-500 text-sm">Pas de compte ? 
+                        <a href="#" onclick="DoukeApp.renderRegisterView()" class="text-primary font-bold hover:underline">Créer un compte</a>
+                    </p>
+                </div>
+            </div>
+        </div>`;
+
+        // Écouteur de soumission (Logique Backend initiale)
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            await this.handleAuth('login', { email, password });
+            await this.handleLogin();
         });
     },
 
+    // ==========================================
+    // 2. VUE INSCRIPTION (Restaurée à l'identique)
+    // ==========================================
     renderRegisterView() {
-        const root = document.getElementById('app-root') || document.body;
-        root.innerHTML = `
-            <div class="min-h-screen flex items-center justify-center bg-gray-950 p-4">
-                <div class="max-w-md w-full bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 p-8 fade-in">
-                    <h2 class="text-2xl font-bold text-white mb-6">Créer un compte</h2>
-                    <form id="register-form" class="space-y-4">
-                        <input type="text" id="reg-name" placeholder="Nom complet" required class="w-full p-4 bg-gray-800 border-gray-700 rounded-xl text-white">
-                        <input type="email" id="reg-email" placeholder="Email" required class="w-full p-4 bg-gray-800 border-gray-700 rounded-xl text-white">
-                        <input type="password" id="reg-password" placeholder="Mot de passe" required class="w-full p-4 bg-gray-800 border-gray-700 rounded-xl text-white">
-                        <select id="reg-role" class="w-full p-4 bg-gray-800 border-gray-700 rounded-xl text-white">
-                            <option value="USER">Client Entreprise</option>
-                            <option value="COLLABORATEUR">Collaborateur Cabinet</option>
-                            <option value="ADMIN">Administrateur</option>
-                        </select>
-                        <button type="submit" class="w-full py-4 bg-success text-white font-bold rounded-xl hover:bg-green-600 transition">S'INSCRIRE</button>
-                    </form>
-                    <button onclick="DoukeApp.renderLoginView()" class="w-full mt-4 text-gray-400 text-sm">Retour à la connexion</button>
-                </div>
-            </div>`;
+        document.body.innerHTML = `
+        <div class="min-h-screen flex items-center justify-center bg-gray-950 p-4">
+            <div class="max-w-md w-full bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 p-8">
+                <h2 class="text-2xl font-bold text-white mb-6 text-center">Inscription Professionnelle</h2>
+                
+                <form id="register-form" class="space-y-4">
+                    <input type="text" id="reg-name" placeholder="Nom complet / Cabinet" required class="w-full p-4 bg-gray-800 border border-gray-700 rounded-xl text-white">
+                    <input type="email" id="reg-email" placeholder="Email" required class="w-full p-4 bg-gray-800 border border-gray-700 rounded-xl text-white">
+                    <input type="password" id="reg-password" placeholder="Mot de passe" required class="w-full p-4 bg-gray-800 border border-gray-700 rounded-xl text-white">
+                    
+                    <select id="reg-role" class="w-full p-4 bg-gray-800 border border-gray-700 rounded-xl text-white outline-none">
+                        <option value="USER">Client Entreprise</option>
+                        <option value="COLLABORATEUR">Collaborateur Cabinet</option>
+                        <option value="ADMIN">Administrateur</option>
+                    </select>
+
+                    <button type="submit" class="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition">
+                        CRÉER LE COMPTE
+                    </button>
+                </form>
+
+                <button onclick="DoukeApp.renderLoginView()" class="w-full mt-4 text-gray-500 text-sm hover:text-white transition">
+                    Retour à la connexion
+                </button>
+            </div>
+        </div>`;
 
         document.getElementById('register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const payload = {
-                name: document.getElementById('reg-name').value,
-                email: document.getElementById('reg-email').value,
-                password: document.getElementById('reg-password').value,
-                role: document.getElementById('reg-role').value
-            };
-            await this.handleAuth('register', payload);
+            await this.handleRegister();
         });
     },
 
-    async handleAuth(type, payload) {
-        const msg = document.getElementById('auth-message');
+    // ==========================================
+    // 3. LOGIQUE BACKEND (Communication API)
+    // ==========================================
+    async handleLogin() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('auth-error');
+
         try {
-            const res = await fetch(`${this.state.API_BASE_URL}/auth/${type}`, {
+            const response = await fetch(`${this.state.API_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error || 'Identifiants invalides');
+
+            // Sauvegarde de la session (Comme dans votre fichier initial)
+            this.state.token = data.token;
+            this.state.user = {
+                id: data.utilisateurId,
+                name: data.utilisateurNom,
+                role: data.utilisateurRole
+            };
+
+            localStorage.setItem('token', this.state.token);
+            localStorage.setItem('user', JSON.stringify(this.state.user));
+
+            // Succès -> Initialisation de l'interface complète
+            await this.init();
+
+        } catch (error) {
+            errorDiv.textContent = error.message;
+            errorDiv.classList.remove('hidden');
+        }
+    },
+
+    async handleRegister() {
+        const payload = {
+            name: document.getElementById('reg-name').value,
+            email: document.getElementById('reg-email').value,
+            password: document.getElementById('reg-password').value,
+            role: document.getElementById('reg-role').value
+        };
+
+        try {
+            const response = await fetch(`${this.state.API_BASE_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || "Échec de l'authentification");
-
-            // Sauvegarde Session
-            this.state.token = data.token;
-            this.state.user = { id: data.utilisateurId, name: data.utilisateurNom, role: data.utilisateurRole };
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(this.state.user));
-
-            // Succès -> Vers l'interface
-            await this.init(); 
-        } catch (err) {
-            msg.textContent = err.message;
-            msg.className = "mb-4 p-3 rounded-lg text-sm bg-red-900/50 text-red-200 border border-red-800 block";
+            if (response.ok) {
+                alert("Compte créé avec succès ! Connectez-vous.");
+                this.renderLoginView();
+            } else {
+                const data = await response.json();
+                alert("Erreur: " + data.error);
+            }
+        } catch (error) {
+            alert("Erreur de connexion au serveur.");
         }
     },
 
     // ==========================================
-    // 4. LOGIQUE DE DONNÉES & INTERFACE
+    // 4. CHARGEMENT & DASHBOARD (Après Connexion)
     // ==========================================
     async loadCompanies() {
+        const role = this.state.user.role;
+        const endpoint = (role === 'ADMIN') ? '/companies' : '/companies/assigned';
+        
         try {
-            // Dans votre logique initiale, l'admin voit tout, le collab voit ses affectations
-            const endpoint = (this.state.user.role === 'ADMIN') ? '/companies' : '/companies/assigned';
             const data = await this.apiFetch(endpoint);
-            this.state.companies = Array.isArray(data) ? data : [];
-            
+            this.state.companies = data || [];
             if (!this.state.activeCompany && this.state.companies.length > 0) {
                 this.state.activeCompany = this.state.companies[0];
-                localStorage.setItem('activeCompany', JSON.stringify(this.state.activeCompany));
             }
         } catch (e) {
-            console.warn("Utilisation des données MOCK car le serveur est indisponible.");
-            this.state.companies = [{id: 1, name: "ENTREPRISE TEST SARL"}];
-            this.state.activeCompany = this.state.companies[0];
+            console.warn("Mode déconnecté ou erreur API entreprises.");
         }
     },
 
     renderFullInterface() {
-        const root = document.getElementById('app-root') || document.body;
-        root.innerHTML = `
-            <div class="flex h-screen bg-gray-950 text-white overflow-hidden">
-                <aside class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
-                    <div class="p-6">
-                        <h1 class="text-2xl font-black italic">DOUKÈ<span class="text-primary">.</span></h1>
-                    </div>
-                    <nav id="sidebar-menu" class="flex-1 px-4 space-y-2 overflow-y-auto"></nav>
-                    <div class="p-4 border-t border-gray-800">
-                        <button onclick="DoukeApp.logout()" class="flex items-center w-full px-4 py-3 text-red-400 hover:bg-red-900/20 rounded-lg transition">
-                            <i class="fas fa-sign-out-alt mr-3"></i> Déconnexion
-                        </button>
-                    </div>
-                </aside>
+        // Cette fonction remplace tout le body par le Dashboard
+        document.body.innerHTML = `
+        <div class="flex h-screen bg-gray-950 text-white overflow-hidden">
+            <aside class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
+                <div class="p-6 text-2xl font-black italic">DOUKÈ<span class="text-primary">.</span></div>
+                <nav id="sidebar-menu" class="flex-1 px-4 space-y-2"></nav>
+                <div class="p-4 border-t border-gray-800">
+                    <button onclick="DoukeApp.logout()" class="w-full p-3 text-red-400 hover:bg-red-900/20 rounded-lg flex items-center transition">
+                        <i class="fas fa-power-off mr-3"></i> Déconnexion
+                    </button>
+                </div>
+            </aside>
 
-                <main class="flex-1 flex flex-col overflow-hidden">
-                    <header class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-8">
-                        <div id="company-selector-container"></div>
-                        <div class="flex items-center space-x-4">
-                            <span class="text-sm text-gray-400">${this.state.user.name} (${this.state.user.role})</span>
-                            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center font-bold text-xs">
-                                ${this.state.user.name.charAt(0)}
-                            </div>
-                        </div>
-                    </header>
-                    <div id="main-content-area" class="flex-1 overflow-y-auto p-8 bg-gray-950"></div>
-                </main>
-            </div>`;
+            <main class="flex-1 flex flex-col">
+                <header class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-8">
+                    <div id="company-selector-container"></div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm text-gray-400">${this.state.user.name}</span>
+                        <div class="bg-primary px-3 py-1 rounded text-xs font-bold uppercase">${this.state.user.role}</div>
+                    </div>
+                </header>
+                <div id="main-content-area" class="flex-1 overflow-y-auto p-8"></div>
+            </main>
+        </div>`;
 
-        this.updateSidebarByRole(this.state.user.role);
+        this.renderSidebar();
         this.renderCompanySelector();
         this.route('dashboard');
     },
 
-    updateSidebarByRole(role) {
-        const sidebar = document.getElementById('sidebar-menu');
-        if (!sidebar) return;
-
-        let menuHtml = `
-            <div class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 mt-2 px-4">Menu</div>
-            <a href="#" onclick="DoukeApp.route('dashboard')" class="nav-item flex items-center px-4 py-3 hover:bg-gray-800 rounded-xl transition">
-                <i class="fas fa-chart-line mr-3 text-primary"></i> Dashboard
-            </a>
-        `;
-
+    renderSidebar() {
+        const menu = document.getElementById('sidebar-menu');
+        const role = this.state.user.role;
+        
+        let html = `<a href="#" onclick="DoukeApp.route('dashboard')" class="block p-3 hover:bg-gray-800 rounded-lg"><i class="fas fa-chart-pie mr-2 text-primary"></i> Dashboard</a>`;
+        
         if (role === 'ADMIN' || role === 'COLLABORATEUR') {
-            menuHtml += `
-                <div class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 mt-6 px-4">Comptabilité</div>
-                <a href="#" onclick="DoukeApp.route('journal')" class="nav-item flex items-center px-4 py-3 hover:bg-gray-800 rounded-xl transition">
-                    <i class="fas fa-book mr-3 text-success"></i> Journaux
-                </a>
-                <a href="#" onclick="DoukeApp.route('grand-livre')" class="nav-item flex items-center px-4 py-3 hover:bg-gray-800 rounded-xl transition">
-                    <i class="fas fa-list mr-3 text-warning"></i> Grand Livre
-                </a>
+            html += `
+                <div class="pt-4 pb-2 text-xs text-gray-500 uppercase px-3">Comptabilité</div>
+                <a href="#" onclick="DoukeApp.route('journal')" class="block p-3 hover:bg-gray-800 rounded-lg"><i class="fas fa-book mr-2"></i> Journal</a>
+                <a href="#" onclick="DoukeApp.route('balance')" class="block p-3 hover:bg-gray-800 rounded-lg"><i class="fas fa-balance-scale mr-2"></i> Balance</a>
             `;
         }
 
         if (role === 'ADMIN') {
-            menuHtml += `
-                <div class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 mt-6 px-4">Paramètres</div>
-                <a href="#" onclick="DoukeApp.route('users')" class="nav-item flex items-center px-4 py-3 hover:bg-gray-800 rounded-xl transition">
-                    <i class="fas fa-users-cog mr-3 text-info"></i> Utilisateurs
-                </a>
+            html += `
+                <div class="pt-4 pb-2 text-xs text-gray-500 uppercase px-3">Admin</div>
+                <a href="#" onclick="DoukeApp.route('users')" class="block p-3 hover:bg-gray-800 rounded-lg"><i class="fas fa-users-cog mr-2"></i> Affectations</a>
             `;
         }
-        sidebar.innerHTML = menuHtml;
+        menu.innerHTML = html;
     },
 
-    // ==========================================
-    // 5. ROUTAGE ET VUES
-    // ==========================================
     async route(view) {
         this.state.view = view;
         const area = document.getElementById('main-content-area');
-        this.showLoader(area);
-
-        switch (view) {
-            case 'dashboard':
-                area.innerHTML = `
-                    <div class="fade-in">
-                        <h2 class="text-3xl font-bold mb-2 text-white">Bonjour, ${this.state.user.name} 👋</h2>
-                        <p class="text-gray-400 mb-8">Voici l'état financier de ${this.state.activeCompany?.name || 'votre entreprise'}.</p>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800">
-                                <p class="text-gray-500 text-sm font-bold uppercase">Trésorerie Disponible</p>
-                                <h3 class="text-3xl font-black text-success mt-2">12 450 000 FCFA</h3>
-                            </div>
-                            <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800">
-                                <p class="text-gray-500 text-sm font-bold uppercase">Chiffre d'Affaires</p>
-                                <h3 class="text-3xl font-black text-primary mt-2">45 800 000 FCFA</h3>
-                            </div>
-                            <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800">
-                                <p class="text-gray-500 text-sm font-bold uppercase">Charges à Payer</p>
-                                <h3 class="text-3xl font-black text-red-500 mt-2">5 200 000 FCFA</h3>
-                            </div>
-                        </div>
-                    </div>`;
-                break;
-            case 'journal':
-                area.innerHTML = `<div class="p-8 bg-gray-900 rounded-2xl border border-gray-800"><h2 class="text-xl font-bold">Journal des écritures</h2><p class="text-gray-400 mt-2">Chargement des données SYSCOHADA...</p></div>`;
-                break;
-            default:
-                area.innerHTML = `<div class="text-center p-20 text-gray-600">Module [${view}] en cours de développement.</div>`;
+        
+        if (view === 'dashboard') {
+            area.innerHTML = `
+                <h1 class="text-2xl font-bold mb-6">Tableau de Bord - ${this.state.activeCompany?.name || 'Client'}</h1>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-900 p-6 rounded-xl border border-gray-800">
+                        <p class="text-gray-400 text-sm">Trésorerie Actuelle</p>
+                        <h2 class="text-3xl font-black text-green-500 mt-2">En attente...</h2>
+                    </div>
+                </div>
+            `;
+        } else {
+            area.innerHTML = `<div class="p-10 text-gray-500 border border-dashed border-gray-800 rounded-xl text-center">Module ${view.toUpperCase()} en cours de chargement...</div>`;
         }
     },
 
-    // ==========================================
-    // 6. UTILITAIRES (API, STORAGE, UI)
-    // ==========================================
     async apiFetch(endpoint) {
         const response = await fetch(`${this.state.API_BASE_URL}${endpoint}`, {
-            headers: {
-                'Authorization': `Bearer ${this.state.token}`,
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Authorization': `Bearer ${this.state.token}` }
         });
         if (response.status === 401) this.logout();
         return await response.json();
@@ -283,37 +278,22 @@ const DoukeApp = {
     renderCompanySelector() {
         const container = document.getElementById('company-selector-container');
         if (!container || this.state.companies.length === 0) return;
-
         container.innerHTML = `
-            <select onchange="DoukeApp.switchCompany(this.value)" class="bg-gray-800 border-none text-white text-sm rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary transition cursor-pointer">
-                ${this.state.companies.map(c => `
-                    <option value="${c.id}" ${this.state.activeCompany?.id == c.id ? 'selected' : ''}>🏢 ${c.name}</option>
-                `).join('')}
+            <select onchange="DoukeApp.switchCompany(this.value)" class="bg-gray-800 text-white rounded px-3 py-1 text-sm border-none outline-none focus:ring-1 focus:ring-primary">
+                ${this.state.companies.map(c => `<option value="${c.id}" ${this.state.activeCompany?.id == c.id ? 'selected' : ''}>🏢 ${c.name}</option>`).join('')}
             </select>`;
     },
 
     switchCompany(id) {
-        const company = this.state.companies.find(c => c.id == id);
-        this.state.activeCompany = company;
-        localStorage.setItem('activeCompany', JSON.stringify(company));
+        this.state.activeCompany = this.state.companies.find(c => c.id == id);
         this.route(this.state.view);
-    },
-
-    showLoader(container) {
-        container.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-64 space-y-4">
-                <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <p class="text-gray-500 animate-pulse text-sm">Traitement en cours...</p>
-            </div>`;
     },
 
     logout() {
         localStorage.clear();
         this.state.token = null;
-        this.state.user = null;
-        this.renderLoginView();
+        this.init(); // Relance le cycle (affichera le login car token vide)
     }
 };
 
-// Démarrage de l'application
 document.addEventListener('DOMContentLoaded', () => DoukeApp.init());
