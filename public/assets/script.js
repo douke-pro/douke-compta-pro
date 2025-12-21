@@ -451,34 +451,36 @@ async function loadModule(moduleName, forceReload = false) {
     }
 
 
-    // 3. Rendu spécifique du module
-    switch (moduleName) {
-        case 'global_dashboard':
-        case 'user_dashboard':
-            renderDashboard(contentArea, window.app.currentProfile);
-            break;
-        case 'collab_dashboard':
-            renderCollaboratorDashboard(contentArea);
-            break;
-        case 'cashier_dashboard':
-            renderCashierDashboard(contentArea);
-            break;
-        case 'user_management':
-            renderUserManagementModule(contentArea); // GESTION UTILISATEUR ADMIN
-            break;
-        case 'financial_statements':
-        case 'reports_syscohada':
-            renderFinancialStatementsModule(contentArea); // ÉTATS FINANCIERS SYSCOHADA (NORMAL/MINIMAL)
-            break;
-        case 'entries_validation':
-            renderEntriesValidationModule(contentArea); // Validation des écritures pour COLLAB
-            break;
-        // Tous les autres modules sont rendus par défaut
-        default:
-            renderStubModule(contentArea, moduleName);
-            break;
-    }
-}
+ // 3. Rendu spécifique du module
+switch (moduleName) {
+    case 'global_dashboard':
+    case 'user_dashboard':
+        renderDashboard(contentArea, window.app.currentProfile);
+        break;
+    case 'collab_dashboard':
+        renderCollaboratorDashboard(contentArea);
+        break;
+    case 'cashier_dashboard':
+        renderCashierDashboard(contentArea);
+        break;
+    case 'user_management':
+        renderUserManagementModule(contentArea); // GESTION UTILISATEUR ADMIN
+        break;
+    case 'financial_statements':
+    case 'reports_syscohada':
+        renderFinancialStatementsModule(contentArea); // ÉTATS FINANCIERS SYSCOHADA (NORMAL/MINIMAL)
+        break;
+    case 'entries_validation':
+        renderEntriesValidationModule(contentArea); // Validation des écritures pour COLLAB
+        break;
+    case 'quick_entry': // <--- NOUVELLE FONCTIONNALITÉ AJOUTÉE
+        renderQuickEntryModule(contentArea);
+        break;
+    // Tous les autres modules sont rendus par défaut
+    default:
+        renderStubModule(contentArea, moduleName);
+        break;
+} 
 
 
 // ------------------- RENDU SPÉCIFIQUE 1 : DASHBOARDS (Tous les profils) -------------------
