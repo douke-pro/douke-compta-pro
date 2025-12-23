@@ -479,104 +479,61 @@ async function switchCompany(companyId, isInitialLoad = false) {
 // =================================================================================
 
 async function fetchAccountingData() {
-    const companyId = window.app.currentCompanyId;
-    if (!companyId) return { entries: [], accounts: [] };
-
-    // MOCK du chargement des données
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    // Mock de données (enrichi pour les tests)
-    const mockData = {
-        entries: [
-            { id: 101, date: '2025-10-01', journal: 'JA', compte: 411000, libelle: 'Facture Vente Alpha', debit: 500000, credit: 0, status: 'Validé' },
-            { id: 102, date: '2025-10-01', journal: 'JA', compte: 701000, libelle: 'Vente Marchandises', debit: 0, credit: 500000, status: 'Validé' },
-            { id: 103, date: '2025-10-02', journal: 'CA', compte: 571000, libelle: 'Encaissement Client', debit: 100000, credit: 0, status: 'Validé' },
-            { id: 104, date: '2025-10-02', journal: 'CA', compte: 411000, libelle: 'Règlement Facture 101', debit: 0, credit: 100000, status: 'Validé' },
-            { id: 105, date: '2025-10-03', journal: 'BQ', compte: 601000, libelle: 'Achat Fournitures', debit: 50000, credit: 0, status: 'En attente' }, // Écriture en attente
-            { id: 106, date: '2025-10-03', journal: 'BQ', compte: 512000, libelle: 'Paiement Fournisseur', debit: 0, credit: 50000, status: 'En attente' }, // Écriture en attente
-            { id: 107, date: '2025-10-04', journal: 'BQ', compte: 621000, libelle: 'Frais de Bureau', debit: 15000, credit: 0, status: 'Validé' },
-            { id: 108, date: '2025-10-04', journal: 'BQ', compte: 512000, libelle: 'Règlement Frais', debit: 0, credit: 15000, status: 'Validé' },
-        ],
-        accounts: [
-            { code: 411000, name: 'Clients' }, { code: 701000, name: 'Ventes de marchandises' },
-            { code: 571000, name: 'Caisse' }, { code: 601000, name: 'Achats de marchandises' },
-            { code: 512000, name: 'Banque' }, { code: 621000, name: 'Frais postaux et de télécommunications' },
-        ]
-    };
+    if (!window.app.currentCompanyId) {
+        console.warn("Tentative de chargement des données sans Company ID sélectionné.");
+        return { report: null, accounts: [], entries: [] };
+    }
     
-    return mockData;
-}
-
-async function loadModule(moduleName, forceReload = false) {
-    const contentArea = document.getElementById('dashboard-content-area');
-    contentArea.innerHTML = `<div class="p-10 flex items-center justify-center"><div class="loading-spinner"></div><span class="ml-4 text-primary font-bold">Chargement du module ${moduleName}...</span></div>`;
-
-    // 1. Mise à jour de la classe active dans le menu
-    document.querySelectorAll('#role-navigation-menu button').forEach(btn => {
-        const isActive = btn.dataset.module === moduleName;
-        btn.dataset.active = isActive.toString();
-        btn.classList.toggle('bg-primary', isActive);
-        btn.classList.toggle('text-white', isActive);
-        btn.classList.toggle('shadow-lg', isActive);
-        btn.classList.toggle('shadow-primary/30', isActive);
-        btn.classList.toggle('text-gray-600', !isActive);
-        btn.classList.toggle('dark:text-gray-300', !isActive);
-        btn.classList.toggle('hover:bg-gray-100', !isActive);
-        btn.classList.toggle('dark:hover:bg-gray-700', !isActive);
-    });
-
-    // 2. VÉRIFICATION du contexte et CHARGEMENT des données
-    if (window.app.currentCompanyId) {
-        // Liste des modules nécessitant des données comptables
-        const requiresData = ['global_dashboard', 'user_dashboard', 'cashier_dashboard', 'collab_dashboard', 'financial_statements', 'grand_livre', 'reports_syscohada', 'entries_validation'];
-        
-        if (requiresData.includes(moduleName) || forceReload) {
-             window.app.filteredData = await fetchAccountingData();
-        }
-
-        if (window.app.filteredData.entries.length === 0 && requiresData.includes(moduleName)) {
-             contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-exclamation-triangle fa-3x text-warning mb-4"></i><p class="text-xl font-bold">Aucune donnée comptable trouvée pour ce dossier.</p><p>Veuillez importer des écritures pour commencer.</p></div>`;
-             return;
-        }
-    } else {
-        // Pas d'entreprise sélectionnée
-        if (!['user_management', 'audit_logs', 'global_dashboard'].includes(moduleName)) { // Ces modules peuvent être consultés sans entreprise
-            contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-building fa-3x text-info mb-4"></i><p class="text-xl font-bold">Veuillez sélectionner une entreprise pour accéder au module.</p></div>`;
-            return;
-        }
+    // Indiquer le chargement dans l'interface
+    const dashboardContent = document.getElementById('dashboard-content-area');
+    if(dashboardContent) {
+        dashboardContent.innerHTML = `<div class="text-center p-20"><div class="loading-spinner w-10 h-10 border-primary"></div><p class="mt-4 text-primary font-bold">Chargement des données comptables...</p></div>`;
     }
 
+    try {
+        const companyId = window.app.currentCompanyId;
+        // Le système doit être 'NORMAL' ou 'SMT' (Minimal de Trésorerie)
+        const systemType = window.app.currentSysteme === 'NORMAL' ? 'NORMAL' : 'SMT';
+        
+        // 1. Appel à la route de Rapport Financier (Fichier 6)
+        const reportEndpoint = `/api/accounting/report/${companyId}?systemType=${systemType}`;
+        const reportData = await apiFetch(reportEndpoint, { method: 'GET' });
 
- // 3. Rendu spécifique du module
-switch (moduleName) {
-    case 'global_dashboard':
-    case 'user_dashboard':
-        renderDashboard(contentArea, window.app.currentProfile);
-        break;
-    case 'collab_dashboard':
-        renderCollaboratorDashboard(contentArea);
-        break;
-    case 'cashier_dashboard':
-        renderCashierDashboard(contentArea);
-        break;
-    case 'user_management':
-        renderUserManagementModule(contentArea); // GESTION UTILISATEUR ADMIN
-        break;
-    case 'financial_statements':
-    case 'reports_syscohada':
-        renderFinancialStatementsModule(contentArea); // ÉTATS FINANCIERS SYSCOHADA (NORMAL/MINIMAL)
-        break;
-    case 'entries_validation':
-        renderEntriesValidationModule(contentArea); // Validation des écritures pour COLLAB
-        break;
-    case 'quick_entry': // <--- NOUVELLE FONCTIONNALITÉ AJOUTÉE
-        renderQuickEntryModule(contentArea);
-        break;
-    // Tous les autres modules sont rendus par défaut
-    default:
-        renderStubModule(contentArea, moduleName);
-        break;
-} 
+        // 2. MOCK du Plan Comptable (Route de Plan Comptable manquante dans le backend)
+        const accountsMock = [
+            { id: 1, code: 411000, name: 'Clients' },
+            { id: 2, code: 701000, name: 'Ventes de biens' },
+            { id: 3, code: 601000, name: 'Achats de Marchandises' },
+            { id: 4, code: 521000, name: 'Banque' },
+            { id: 5, code: 571000, name: 'Caisse' },
+            { id: 6, code: 611000, name: 'Services extérieurs' },
+            { id: 7, code: 211000, name: 'Terrains' },
+            // Ces comptes sont vitaux pour la Saisie Rapide (Quick Entry)
+        ];
+
+        // 3. Mise à jour de l'état global
+        window.app.filteredData = {
+            report: reportData, // Contient les KPIs réels (chiffreAffaires, chargesExploitation, etc.)
+            accounts: accountsMock, // Mock temporaire
+            entries: [], // La route /report ne renvoie pas le détail des écritures, donc on laisse vide.
+        };
+        
+        return window.app.filteredData;
+
+    } catch (error) {
+        NotificationManager.show('danger', 'Erreur de Chargement', `Impossible de charger les données : ${error.message}`, 8000);
+        
+        // Réinitialiser les données en cas d'échec
+        window.app.filteredData = { report: null, accounts: [], entries: [] };
+        
+        // Afficher un message d'erreur clair dans le dashboard
+        if(dashboardContent) {
+             dashboardContent.innerHTML = `<div class="text-center p-20 text-danger"><i class="fas fa-exclamation-triangle fa-3x mb-4"></i><p class="text-xl font-bold">Échec de la connexion aux données comptables.</p><p>Vérifiez l'état de votre backend Express et si le service Odoo est accessible.</p></div>`;
+        }
+        
+        throw error;
+    }
+}
 
 
 // ------------------- RENDU SPÉCIFIQUE 1 : DASHBOARDS (Tous les profils) -------------------
