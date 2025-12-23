@@ -298,6 +298,61 @@ function handleLogout() {
 }
 
 // =================================================================================
+// 1.5. GESTION DU RENDU DES VUES PRINCIPALES (Login/Dashboard)
+//      (Bloc Manquant pour l'initialisation de l'UI)
+// =================================================================================
+
+/**
+ * Fonction d'initialisation pour afficher la vue de connexion.
+ * Appelée au chargement complet de la page (DOMContentLoaded).
+ */
+function renderLoginView() {
+    // Afficher la vue de connexion
+    const authView = document.getElementById('auth-view');
+    if (authView) {
+        authView.classList.remove('hidden');
+    }
+
+    // Cacher le tableau de bord principal
+    const dashboardView = document.getElementById('dashboard-view');
+    if (dashboardView) {
+        dashboardView.classList.add('hidden');
+    }
+    
+    // Réinitialisation des champs pour une bonne UX
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    if (emailInput) emailInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+    
+    // Cacher les messages d'erreur précédents
+    const messageEl = document.getElementById('login-message');
+    if (messageEl) messageEl.classList.add('hidden');
+}
+
+
+/**
+ * Fonction pour afficher la vue principale (Dashboard).
+ * Note : Cette logique est surtout gérée par handleLogin/handleLogout,
+ * mais cette fonction sert de point de référence conceptuel pour la vue principale.
+ */
+function renderMainView() {
+    // Cacher la vue de connexion
+    const authView = document.getElementById('auth-view');
+    if (authView) {
+        authView.classList.add('hidden');
+    }
+
+    // Afficher le tableau de bord principal
+    const dashboardView = document.getElementById('dashboard-view');
+    if (dashboardView) {
+        dashboardView.classList.remove('hidden');
+    }
+    
+    // Charger le contenu par défaut du tableau de bord
+    renderDashboardView();
+}
+// =================================================================================
 // 2. LOGIQUE DE RENDU DU DASHBOARD ET NAVIGATION
 // =================================================================================
 
