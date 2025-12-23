@@ -298,66 +298,57 @@ function handleLogout() {
 }
 
 // =================================================================================
-// 1.5. SERVICES TECHNIQUES : CACHE MANAGER ET GESTIONNAIRE D'ÉTAT
+// 1.9. GESTION DU RENDU DES VUES PRINCIPALES (Login/Register/Dashboard)
+//      (Ajout de la logique de bascule manquante pour l'initialisation)
 // =================================================================================
 
-const CACHE_LIFETIME_MS = 300000; // 5 minutes
-
 /**
- * Gère un cache en mémoire simple avec expiration.
+ * Affiche la vue de connexion et masque les autres vues d'authentification.
  */
-class CacheManager {
-    constructor() {
-        this.cache = new Map();
-    }
-
-    getCached(key) {
-        if (this.cache.has(key)) {
-            const entry = this.cache.get(key);
-            if (Date.now() < entry.expiry) {
-                return entry.data;
-            } else {
-                this.cache.delete(key);
-            }
-        }
-        return null;
-    }
-
-    setCached(key, data, lifetimeMs = CACHE_LIFETIME_MS) {
-        const expiry = Date.now() + lifetimeMs;
-        this.cache.set(key, { data, expiry });
-    }
+function renderLoginView() {
+    // Supposons que votre HTML a des conteneurs avec les IDs 'auth-view-login' et 'auth-view-register'
+    document.getElementById('auth-view-login').classList.remove('hidden');
+    document.getElementById('auth-view-register')?.classList.add('hidden'); 
     
-    clearCache(prefix = null) {
-        if (!prefix) {
-            this.cache.clear();
-            console.log('[CACHE CLEAR] Cache complet vidé.');
-            return;
-        }
-        
-        for (const key of this.cache.keys()) {
-            if (key.startsWith(prefix)) {
-                this.cache.delete(key);
-            }
-        }
-    }
+    // Assurer que le conteneur principal d'auth est visible et le dashboard masqué
+    document.getElementById('auth-view').classList.remove('hidden');
+    document.getElementById('dashboard-view').classList.add('hidden');
+    
+    document.getElementById('login-message')?.classList.add('hidden'); // Cacher le message
+    
+    // Nettoyage des champs
+    document.getElementById('email').value = '';
+    document.getElementById('password').value = '';
 }
 
-window.cacheManager = new CacheManager();
+/**
+ * Affiche la vue d'enregistrement et masque les autres vues d'authentification.
+ * Nécessite un conteneur HTML avec l'ID 'auth-view-register'.
+ */
+function renderRegisterView() {
+    if (!document.getElementById('auth-view-register')) {
+        NotificationManager.show('info', 'Inscription', "La fonction d'inscription est désactivée. Contactez l'administrateur.", 5000);
+        renderLoginView();
+        return;
+    }
+    
+    document.getElementById('auth-view-login').classList.add('hidden');
+    document.getElementById('auth-view-register').classList.remove('hidden');
+
+    document.getElementById('auth-view').classList.remove('hidden');
+    document.getElementById('dashboard-view').classList.add('hidden');
+}
 
 /**
- * Centralisation de l'état crucial pour le routing et les rapports comptables.
+ * Gère la bascule entre Login et Register (à attacher au lien HTML).
  */
-window.app = {
-    currentCompanyId: null,
-    currentCompanyName: null,
-    currentSysteme: 'NORMAL',
-    filteredData: {
-        entries: [],
-        accounts: [],
-    },
-};
-
+function toggleAuthView(view) {
+    if (view === 'register') {
+        renderRegisterView();
+    } else {
+        renderLoginView();
+    }
+}
 // =================================================================================
 // 2. LOGIQUE DE RENDU DU DASHBOARD ET NAVIGATION
 // =================================================================================
