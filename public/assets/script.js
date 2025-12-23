@@ -12,7 +12,7 @@
 // Définition de l'URL de base de l'API Odoo (Render Backend)
 const IS_PROD = window.location.hostname !== 'localhost';
 const API_BASE_URL = IS_PROD
-    ? 'https://doukepro.odoo.com' // TODO: Remplacer par l'URL finale de votre backend
+    ? 'https://douke-compta-pro.onrender.com' // TODO: Remplacer par l'URL finale de votre backend
     : 'http://localhost:3000';
 
 // État global de l'application
@@ -113,87 +113,176 @@ const CacheManager = {
 };
 
 // =================================================================================
-// 1. SERVICES D'API & AUTHENTIFICATION (Logique de Mock Odoo)
+// 1. SERVICES D'API & AUTHENTIFICATION (Version Production et Sécurisée)
 // =================================================================================
 
-// Cette fonction simule un appel API vers le backend Odoo/Render
+/**
+ * Fonction centrale pour toutes les communications sécurisées avec le backend Express.
+ * Injecte automatiquement le token JWT (Bearer Token) pour protéger les routes.
+ */
 async function apiFetch(endpoint, options = {}) {
-    // Simuler le délai de l'API
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Construction de l'URL (ex: http://localhost:3000 + /api/auth/login)
+    const url = `${API_BASE_URL}${endpoint}`;
+    const token = window.app.userContext?.token;
     
-    // Simuler un échec si l'email ou le mot de passe est 'fail' (pour les tests)
-    if (options.body && JSON.parse(options.body).email.includes('fail')) {
-         throw new Error('Erreur de connexion simulée. Veuillez vérifier vos identifiants.');
+    // 1. Définir les en-têtes (Headers)
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers // Permet d'ajouter des headers spécifiques
+    };
+
+    // 2. Injecter le token Bearer si l'utilisateur est connecté et si ce n'est pas l'appel de login
+    // Le header 'Authorization': null est la convention pour désactiver l'injection (pour /auth/login)
+    if (token && headers['Authorization'] !== null) { 
+        headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // MOCK pour la connexion
-    if (endpoint.startsWith('/login')) {
-         const email = JSON.parse(options.body).email.toLowerCase();
-         const mockUser = window.app.MOCK_USERS.find(u => email.includes(u.email.split('@')[0])) || window.app.MOCK_USERS.find(u => u.profile === 'USER');
-         
-         if (!mockUser) throw new Error('Identifiants non reconnus.');
+    // 3. Exécuter la requête
+    try {
+        const response = await fetch(url, {
+            method: options.method || 'GET',
+            headers: headers,
+            body: options.body, 
+        });
 
-         return {
-            token: 'valid_jwt_token_' + Date.now(),
-            name: mockUser.name,
-            profile: mockUser.profile,
-            accessible_companies: [
-                { id: 1, name: 'Alpha Solutions SA', systeme: 'NORMAL' },
-                { id: 2, name: 'Beta Consulting SARL', systeme: 'MINIMAL' },
-                // Plus d'options pour l'admin
-                ...(mockUser.profile === 'ADMIN' ? [{ id: 3, name: 'Gamma Holding S.A.', systeme: 'NORMAL' }] : []),
-                ...(mockUser.profile === 'COLLABORATEUR' ? [{ id: 4, name: 'Delta Projet', systeme: 'MINIMAL' }] : []),
-            ]
-        };
+        // 4. Gérer les erreurs HTTP (4xx ou 5xx)
+        if (!response.ok) {
+            let errorData;
+            try {
+                // Tenter de lire le corps JSON pour un message d'erreur détaillé du backend
+                errorData = await response.json();
+            } catch (e) {
+                errorData = { error: `Erreur HTTP ${response.status}: ${response.statusText}` };
+            }
+            
+            // Si c'est une 401 (Non autorisé/Session expirée), notifier l'utilisateur
+            if (response.status === 401) {
+                 NotificationManager.show('danger', 'Session Expirée', errorData.error || 'Veuillez vous reconnecter.', 8000);
+            }
+
+            throw new Error(errorData.error || errorData.message || 'Erreur inconnue du serveur.');
+        }
+
+        // 5. Retourner le JSON
+        return await response.json();
+
+    } catch (error) {
+        console.error(`[API FETCH ERROR] Endpoint: ${endpoint}`, error.message);
+        throw new Error(`Problème de connexion au serveur : ${error.message}`);
     }
-
-    return {}; 
 }
 
+/**
+ * Récupère la liste des entreprises (analytic IDs) liées à l'utilisateur connecté 
+ * via la route réelle /api/company/list.
+ */
+async function fetchUserCompanies() {
+    try {
+        // Route du Company Controller (Fichier 8)
+        const response = await apiFetch('/api/company/list');
+        
+        if (!response.companies || response.companies.length === 0) {
+            window.app.companiesList = [];
+            NotificationManager.show('warning', 'Aucun Dossier', 'Aucune entreprise n\'est affectée à votre compte.', 5000);
+            return;
+        }
+        
+        // Le backend doit renvoyer un tableau de { id: analyticId, name: nomEntreprise, systeme: 'NORMAL'|'SMT' }
+        window.app.companiesList = response.companies;
+        
+        // Initialiser l'entreprise par défaut
+        if (window.app.companiesList.length > 0) {
+            const defaultCompany = window.app.companiesList[0];
+            window.app.currentCompanyId = defaultCompany.id; // L'analyticId
+            window.app.currentCompanyName = defaultCompany.name;
+            window.app.currentSysteme = defaultCompany.systeme || 'NORMAL'; 
+        }
+        
+        // Mettre à jour l'interface avec les nouvelles entreprises
+        renderHeaderSelectors(); 
+        
+    } catch (error) {
+        console.error("Erreur lors du chargement des entreprises:", error);
+        NotificationManager.show('danger', 'Erreur de Données', 'Impossible de charger la liste des entreprises.', 8000);
+        window.app.companiesList = [];
+        window.app.currentCompanyId = null;
+    }
+}
+
+
+/**
+ * Gère le processus de connexion en appelant l'API backend Express (/api/auth/login).
+ */
 async function handleLogin(e) {
     e.preventDefault();
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
-    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const loginButton = e.target.querySelector('button[type="submit"]');
+    const originalText = loginButton.innerHTML;
+    const messageEl = document.getElementById('login-message');
 
-    submitBtn.innerHTML = `<div class="loading-spinner w-5 h-5 border-white"></div>`;
-    submitBtn.disabled = true;
+    // Désactiver le bouton
+    loginButton.innerHTML = `<div class="loading-spinner w-5 h-5 border-white"></div><span class="ml-3">Connexion...</span>`;
+    loginButton.disabled = true;
+    messageEl.classList.add('hidden'); // Cacher l'ancien message d'erreur
 
     try {
-        const response = await apiFetch('/login', {
-             method: 'POST',
-             body: JSON.stringify({ email, password })
+        // 1. Appel à la route /api/auth/login (Fichier 7)
+        const response = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': null // IMPORTANT: Pas de token pour l'appel de login
+            } 
         });
 
-        window.app.userContext = response;
-        window.app.currentProfile = response.profile;
-        window.app.companiesList = response.accessible_companies;
-
-        if (window.app.companiesList.length > 0) {
-            // Sélectionne automatiquement la première entreprise disponible
-            switchCompany(window.app.companiesList[0].id, true);
+        if (response.error || !response.token) {
+            throw new Error(response.error || 'Identifiants invalides ou serveur indisponible.');
         }
 
-        NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${window.app.userContext.name} (${window.app.currentProfile})!`, 3000);
+        // --- AUTHENTIFICATION RÉUSSIE ---
+        
+        // 2. Stocker le token et les infos utilisateur
+        window.app.userContext = {
+            token: response.token,
+            email: response.email,
+            name: response.name || email, 
+            profile: response.role || 'USER' 
+        };
+        
+        // 3. Mettre à jour l'état et charger les entreprises
+        window.app.currentProfile = window.app.userContext.profile;
+        await fetchUserCompanies(); 
+
+        // 4. Passer à l'affichage principal
+        NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${window.app.userContext.name}.`, 3000);
+        
         document.getElementById('auth-view').classList.add('hidden');
         document.getElementById('dashboard-view').classList.remove('hidden');
+        renderDashboardView(); 
         
-        renderDashboardView(); // Affiche la vue appropriée au profil
 
     } catch (error) {
-        // Afficher le message d'erreur dans le conteneur du formulaire
-        const messageEl = document.getElementById('login-message');
-        messageEl.textContent = error.message.includes('Identifiants') ? error.message : "Erreur de connexion au service. Réessayez.";
+        // Afficher l'erreur de connexion dans le conteneur du formulaire
+        messageEl.textContent = error.message.includes('Identifiants') || error.message.includes('token')
+                               ? error.message 
+                               : "Erreur de connexion au service. Vérifiez le statut du backend.";
         messageEl.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/10 text-danger border border-danger';
         messageEl.classList.remove('hidden');
+        
     } finally {
-        submitBtn.innerHTML = `<span>ACCÉDER AU SYSTÈME</span><i class="fas fa-arrow-right ml-3 text-sm opacity-50"></i>`;
-        submitBtn.disabled = false;
+        // Rétablir le bouton
+        loginButton.innerHTML = originalText;
+        loginButton.disabled = false;
     }
 }
 
+/**
+ * Gère la déconnexion en réinitialisant l'état global et en revenant à la vue de connexion.
+ */
 function handleLogout() {
-    window.app.userContext = null;
+    window.app.userContext = { token: null, profile: null, name: null, email: null };
     window.app.currentProfile = null;
     window.app.currentCompanyId = null;
     window.app.currentCompanyName = null;
@@ -203,7 +292,7 @@ function handleLogout() {
 
     document.getElementById('auth-view').classList.remove('hidden');
     document.getElementById('dashboard-view').classList.add('hidden');
-    document.getElementById('login-message').classList.add('hidden'); // Cacher le message d'erreur
+    document.getElementById('login-message').classList.add('hidden'); 
     
     NotificationManager.show('info', 'Déconnexion', 'Vous avez été déconnecté avec succès.', 3000);
 }
