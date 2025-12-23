@@ -12,12 +12,18 @@
 // Définition de l'URL de base de l'API Odoo (Render Backend)
 const IS_PROD = window.location.hostname !== 'localhost';
 const API_BASE_URL = IS_PROD
-    ? 'https://douke-compta-pro.onrender.com' // TODO: Remplacer par l'URL finale de votre backend
+    ? 'https://doukepro.odoo.com' // TODO: Remplacer par l'URL finale de votre backend
     : 'http://localhost:3000';
 
 // État global de l'application
 window.app = {
-    userContext: null, // Contient { token, profile, name, accessible_companies }
+    // CORRECTION ICI: Initialisation avec la structure des données réelles
+    userContext: {
+        token: null,     // Le JWT récupéré après login
+        profile: null,   // Rôle de l'utilisateur (ADMIN, COLLABORATEUR, etc.)
+        name: null,      // Nom de l'utilisateur
+        email: null,     // Email
+    }, 
     currentProfile: null,
     currentCompanyId: null,
     currentCompanyName: null,
@@ -25,13 +31,14 @@ window.app = {
     filteredData: { entries: [], accounts: [] }, // Données comptables du dossier actif
     companiesList: [], // Liste complète des entreprises accessibles
     UI_LOADED: false,
-    // Mock pour les données utilisateur (utilisé dans handleLogin)
-MOCK_USERS: [
-    { email: 'admin@douke.com', profile: 'ADMIN', name: 'Admin DOUKÈ' },
-    { email: 'collab@douke.com', profile: 'COLLABORATEUR', name: 'Collab Senior' },
-    { email: 'user@douke.com', profile: 'USER', name: 'User Standard', total_caisses: 3, active_caisses: 2 }, // <-- AJOUTÉ
-    { email: 'caisse@douke.com', profile: 'CAISSIER', name: 'Patrice Caisse', total_caisses: 1, active_caisses: 1 }, // <-- AJOUTÉ
-]
+    
+    // Mock pour les données utilisateur (à des fins de démonstration ou de tests non-API)
+    MOCK_USERS: [
+        { email: 'admin@douke.com', profile: 'ADMIN', name: 'Admin DOUKÈ' },
+        { email: 'collab@douke.com', profile: 'COLLABORATEUR', name: 'Collab Senior' },
+        { email: 'user@douke.com', profile: 'USER', name: 'User Standard', total_caisses: 3, active_caisses: 2 },
+        { email: 'caisse@douke.com', profile: 'CAISSIER', name: 'Patrice Caisse', total_caisses: 1, active_caisses: 1 },
+    ]
 };
 
 // ------------------- GESTIONNAIRES D'INTERFACE UTILISATEUR (Adaptés à votre HTML) -------------------
