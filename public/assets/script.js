@@ -1329,14 +1329,15 @@ function toggleAuthView(showRegister) {
 }
 
 // =================================================================================
-// 4. ÉCOUTEURS D'ÉVÉNEMENTS ET INITIALISATION
+// 4. ÉCOUTEURS D'ÉVÉNEMENTS ET INITIALISATION (Bloc Unique et Définitif)
 // =================================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    // 1. ÉCOUTEURS DE FORMULAIRES ET DÉCONNEXION
     document.getElementById('login-form')?.addEventListener('submit', handleLogin);
     
-    // Écouteur de déconnexion avec modale de confirmation
+    // Écouteur de déconnexion avec modale de confirmation (Logique correcte)
     document.getElementById('logout-btn')?.addEventListener('click', () => {
         ModalManager.open(
             'Confirmation de Déconnexion',
@@ -1351,6 +1352,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     });
 
+    // 2. ÉCOUTEURS DE BASCULE LOGIN/REGISTER
     document.getElementById('show-register-btn')?.addEventListener('click', () => toggleAuthView(true));
     document.getElementById('show-login-btn')?.addEventListener('click', () => toggleAuthView(false));
     document.getElementById('register-form')?.addEventListener('submit', (e) => {
@@ -1358,9 +1360,11 @@ document.addEventListener('DOMContentLoaded', () => {
         NotificationManager.show('warning', 'Enregistrement', 'Fonctionnalité d\'enregistrement non raccordée pour le moment. Utilisez les comptes de démonstration pour le login.', 8000);
     });
 
-    renderLoginView(); // Affichage initial de la vue de connexion
+    // 3. AFFICHAGE INITIAL
+    renderLoginView(); 
 
-    // Synchronisation du Dark/Light Mode
+    // 4. SYNCHRONISATION ET DÉMO
+    // Synchronisation du Dark/Light Mode (Logique correcte)
     const darkModeButton = document.querySelector('#quick-actions button');
     if (darkModeButton) {
         darkModeButton.onclick = function() {
@@ -1385,9 +1389,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// =================================================================================
+// EXPORTS GLOBAUX (Placement Final)
+// =================================================================================
 // Rendre les fonctions d'action spécifiques disponibles globalement pour l'onclick
 window.loadModule = loadModule;
 window.switchCompany = switchCompany;
+window.toggleAuthView = toggleAuthView; // N'oubliez pas cette nouvelle fonction !
+
+// ... et toutes les autres fonctions nécessaires pour les onclicks (modal, etc.)
 window.showAssignmentModal = showAssignmentModal;
 window.showCreateUserModal = showCreateUserModal;
 window.showEditUserModal = showEditUserModal;
