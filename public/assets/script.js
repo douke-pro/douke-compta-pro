@@ -298,60 +298,66 @@ function handleLogout() {
 }
 
 // =================================================================================
-// 1.5. GESTION DU RENDU DES VUES PRINCIPALES (Login/Dashboard)
-//      (Bloc Manquant pour l'initialisation de l'UI)
+// 1.5. SERVICES TECHNIQUES : CACHE MANAGER ET GESTIONNAIRE D'ÉTAT
 // =================================================================================
 
-/**
- * Fonction d'initialisation pour afficher la vue de connexion.
- * Appelée au chargement complet de la page (DOMContentLoaded).
- */
-function renderLoginView() {
-    // Afficher la vue de connexion
-    const authView = document.getElementById('auth-view');
-    if (authView) {
-        authView.classList.remove('hidden');
-    }
-
-    // Cacher le tableau de bord principal
-    const dashboardView = document.getElementById('dashboard-view');
-    if (dashboardView) {
-        dashboardView.classList.add('hidden');
-    }
-    
-    // Réinitialisation des champs pour une bonne UX
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    if (emailInput) emailInput.value = '';
-    if (passwordInput) passwordInput.value = '';
-    
-    // Cacher les messages d'erreur précédents
-    const messageEl = document.getElementById('login-message');
-    if (messageEl) messageEl.classList.add('hidden');
-}
-
+const CACHE_LIFETIME_MS = 300000; // 5 minutes
 
 /**
- * Fonction pour afficher la vue principale (Dashboard).
- * Note : Cette logique est surtout gérée par handleLogin/handleLogout,
- * mais cette fonction sert de point de référence conceptuel pour la vue principale.
+ * Gère un cache en mémoire simple avec expiration.
  */
-function renderMainView() {
-    // Cacher la vue de connexion
-    const authView = document.getElementById('auth-view');
-    if (authView) {
-        authView.classList.add('hidden');
+class CacheManager {
+    constructor() {
+        this.cache = new Map();
     }
 
-    // Afficher le tableau de bord principal
-    const dashboardView = document.getElementById('dashboard-view');
-    if (dashboardView) {
-        dashboardView.classList.remove('hidden');
+    getCached(key) {
+        if (this.cache.has(key)) {
+            const entry = this.cache.get(key);
+            if (Date.now() < entry.expiry) {
+                return entry.data;
+            } else {
+                this.cache.delete(key);
+            }
+        }
+        return null;
+    }
+
+    setCached(key, data, lifetimeMs = CACHE_LIFETIME_MS) {
+        const expiry = Date.now() + lifetimeMs;
+        this.cache.set(key, { data, expiry });
     }
     
-    // Charger le contenu par défaut du tableau de bord
-    renderDashboardView();
+    clearCache(prefix = null) {
+        if (!prefix) {
+            this.cache.clear();
+            console.log('[CACHE CLEAR] Cache complet vidé.');
+            return;
+        }
+        
+        for (const key of this.cache.keys()) {
+            if (key.startsWith(prefix)) {
+                this.cache.delete(key);
+            }
+        }
+    }
 }
+
+window.cacheManager = new CacheManager();
+
+/**
+ * Centralisation de l'état crucial pour le routing et les rapports comptables.
+ */
+window.app = {
+    currentCompanyId: null,
+    currentCompanyName: null,
+    currentSysteme: 'NORMAL',
+    filteredData: {
+        entries: [],
+        accounts: [],
+    },
+};
+
 // =================================================================================
 // 2. LOGIQUE DE RENDU DU DASHBOARD ET NAVIGATION
 // =================================================================================
