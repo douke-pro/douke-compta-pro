@@ -216,43 +216,51 @@ async function handleLogin(event) {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     const submitBtn = document.getElementById('login-submit-btn');
+    const messageEl = document.getElementById('login-message'); 
 
+    // Affichage de l'état de chargement
     submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5 border-white"></div><span class="ml-3">Connexion en cours...</span>';
     submitBtn.disabled = true;
+    messageEl.classList.add('hidden'); // Masquer les messages précédents
 
-    // MOCK: Remplacement de l'API par la vérification locale
-    const mockUser = window.app.MOCK_USERS.find(u => u.email === email && u.password === password);
-    
-    if (mockUser) {
-        // 1. Simuler l'appel API de Login
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+        // ***************************************************************
+        // ***** REMPLACEMENT DE LA LOGIQUE MOCK PAR L'APPEL API RÉEL *****
+        // ***************************************************************
+        const response = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
+
+        // Extraction des données réelles du backend (Odoo Context, Token, etc.)
+        const { token, profile, name, companiesList, defaultCompany } = response.data;
         
-        // 2. Mettre à jour l'état global avec les données d'authentification
-        window.app.userContext = {
-            token: 'mock-jwt-token-12345', // Token factice
-            profile: mockUser.profile,
-            name: mockUser.name,
-            email: mockUser.email,
-        };
-        window.app.currentProfile = mockUser.profile;
-        window.app.companiesList = window.app.MOCK_COMPANIES; // Assigner la liste complète (simule l'autorisation)
-
-        // 3. Sélectionner la première entreprise par défaut
-        const defaultCompany = window.app.companiesList[0];
+        // 1. Mise à jour de l'état global
+        window.app.userContext = { token, profile, name, email };
+        window.app.currentProfile = profile;
+        window.app.companiesList = companiesList;
         window.app.currentCompanyId = defaultCompany.id;
         window.app.currentCompanyName = defaultCompany.name;
         window.app.currentSysteme = defaultCompany.systeme;
-
-        // 4. Charger les données comptables initiales
-        await fetchAccountingData();
         
-        // 5. Afficher la vue du tableau de bord
+        // 2. Chargement des données et redirection vers le dashboard
+        await fetchAccountingData();
         renderAppView();
-        NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${mockUser.name}! Profile: ${mockUser.profile}.`, 5000);
-    } else {
-        // Gérer l'échec d'authentification
-        NotificationManager.show('danger', 'Échec de Connexion', 'Email ou mot de passe incorrect.', 8000);
-        submitBtn.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i> Se Connecter';
+        NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${name}!`, 5000);
+
+    } catch (error) {
+        // 3. Gérer les erreurs (API injoignable ou identifiants invalides)
+        const errorMessage = error.message.includes('Failed to fetch') 
+            ? "Erreur de connexion au service. Veuillez vérifier le statut du backend (Render)."
+            : error.message || "Identifiants invalides ou erreur serveur.";
+
+        // Afficher le message d'erreur
+        messageEl.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/10 text-danger';
+        messageEl.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> ${errorMessage}`;
+        messageEl.classList.remove('hidden');
+
+        // Rétablir le bouton
+        submitBtn.innerHTML = '<span>ACCÉDER AU SYSTÈME</span> <i class="fas fa-arrow-right ml-3 text-sm opacity-50"></i>';
         submitBtn.disabled = false;
     }
 }
