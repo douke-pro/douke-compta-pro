@@ -219,13 +219,26 @@ function renderLoginView() {
 // =================================================================================
 // 1. GESTION D'AUTHENTIFICATION ET DE CONTEXTE
 // =================================================================================
+// DANS public/assets/script.js
 
 async function handleLogin(event) {
-    event.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+    // Si l'événement est présent, on l'annule pour éviter le rechargement de la page
+    if (event) {
+        event.preventDefault();
+    }
+    
+    // Tentative de récupération des éléments - CRUCIAL
+    const email = document.getElementById('email')?.value;
+    const password = document.getElementById('password')?.value;
     const submitBtn = document.getElementById('login-submit-btn');
     const messageEl = document.getElementById('login-message'); 
+
+    // Vérification de sécurité des éléments DOM
+    if (!submitBtn || !messageEl || !email || !password) {
+        console.error("Éléments de connexion manquants ou non initialisés. Vérifiez l'ordre de chargement du script ou les IDs HTML.");
+        // Le retour ici empêche l'exécution de tout code si un élément est null
+        return; 
+    }
 
     // Affichage de l'état de chargement
     submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5 border-white"></div><span class="ml-3">Connexion en cours...</span>';
@@ -233,24 +246,19 @@ async function handleLogin(event) {
     messageEl.classList.add('hidden'); // Masquer les messages précédents
 
     try {
-
-        // ***************************************************************
-        // ***** REMPLACEMENT DE LA LOGIQUE MOCK PAR L'APPEL API RÉEL *****
-        // ***************************************************************
+        // C'EST L'APPEL API RÉEL
         const response = await apiFetch('/api/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password }),
         });
 
-        // ***************************************************************
-        // ***** VÉRIFICATION DE LA STRUCTURE (Évite le crash de déstructuration) ********
-        // ***************************************************************
-        if (!response || !response.data || !response.data.token) {
-            // Cela se produit si Odoo renvoie 200 mais sans le token attendu
-            throw new Error("Identifiants incorrects ou réponse du serveur incomplète.");
+        // CONTRÔLE DE SÉCURITÉ POUR ÉVITER LE CRASH DE DÉSTRUCTURATION
+        if (!response || !response.data || typeof response.data !== 'object' || !response.data.token) {
+            // Si la réponse n'est pas la structure attendue, on lance une erreur
+            throw new Error("Authentification échouée.");
         }
         
-        // Extraction des données réelles du backend (Odoo Context, Token, etc.)
+        // Extraction SÉCURISÉE des données réelles
         const { token, profile, name, companiesList, defaultCompany } = response.data;
         
         // 1. Mise à jour de l'état global
@@ -261,24 +269,27 @@ async function handleLogin(event) {
         window.app.currentCompanyName = defaultCompany.name;
         window.app.currentSysteme = defaultCompany.systeme;
         
-        // 2. Chargement des données et redirection vers le dashboard
+        // 2. Chargement des données et redirection
         await fetchAccountingData();
         renderAppView();
         NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${name}!`, 5000);
 
     } catch (error) {
-        // 3. Gérer les erreurs (API injoignable ou identifiants invalides)
+        // 3. Gérer les erreurs
         let errorMessage;
         
         if (error.message.includes('Failed to fetch')) {
-            errorMessage = "Erreur de connexion au service. Veuillez vérifier le statut du backend (Render).";
-        } else if (error.message.includes("Identifiants incorrects")) {
-             // Erreur forcée par la vérification de la structure
-            errorMessage = "Échec de l'authentification. Identifiant ou mot de passe incorrect."; 
-        } else {
-            // Erreur Odoo/API ou autre erreur non identifiée
-            errorMessage = error.message || "Échec de l'authentification. Identifiant ou mot de passe incorrect.";
+            errorMessage = "Erreur de connexion au service. Vérifiez le statut du backend (Render).";
+        } 
+        else if (error.message.includes("Authentification échouée") || error.message.includes("401")) {
+            // Code 401 ou notre propre erreur de vérification
+            errorMessage = "Échec de l'authentification. Identifiant ou mot de passe incorrect.";
         }
+        else {
+             // Erreur par défaut
+            errorMessage = "Une erreur inconnue est survenue lors de la connexion.";
+        }
+
 
         // Afficher le message d'erreur
         messageEl.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/10 text-danger';
