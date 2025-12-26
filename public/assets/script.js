@@ -224,45 +224,64 @@ async function handleLogin(event) {
     messageEl.classList.add('hidden'); // Masquer les messages précédents
 
     try {
-        // ***************************************************************
-        // ***** REMPLACEMENT DE LA LOGIQUE MOCK PAR L'APPEL API RÉEL *****
-        // ***************************************************************
-        const response = await apiFetch('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-        });
+    // ***************************************************************
+    // ***** REMPLACEMENT DE LA LOGIQUE MOCK PAR L'APPEL API RÉEL *****
+    // ***************************************************************
+    const response = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+    });
 
-        // Extraction des données réelles du backend (Odoo Context, Token, etc.)
-        const { token, profile, name, companiesList, defaultCompany } = response.data;
-        
-        // 1. Mise à jour de l'état global
-        window.app.userContext = { token, profile, name, email };
-        window.app.currentProfile = profile;
-        window.app.companiesList = companiesList;
-        window.app.currentCompanyId = defaultCompany.id;
-        window.app.currentCompanyName = defaultCompany.name;
-        window.app.currentSysteme = defaultCompany.systeme;
-        
-        // 2. Chargement des données et redirection vers le dashboard
-        await fetchAccountingData();
-        renderAppView();
-        NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${name}!`, 5000);
-
-    } catch (error) {
-        // 3. Gérer les erreurs (API injoignable ou identifiants invalides)
-        const errorMessage = error.message.includes('Failed to fetch') 
-            ? "Erreur de connexion au service. Veuillez vérifier le statut du backend (Render)."
-            : error.message || "Identifiants invalides ou erreur serveur.";
-
-        // Afficher le message d'erreur
-        messageEl.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/10 text-danger';
-        messageEl.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> ${errorMessage}`;
-        messageEl.classList.remove('hidden');
-
-        // Rétablir le bouton
-        submitBtn.innerHTML = '<span>ACCÉDER AU SYSTÈME</span> <i class="fas fa-arrow-right ml-3 text-sm opacity-50"></i>';
-        submitBtn.disabled = false;
+    // ***************************************************************
+    // ***** NOUVEAU CONTRÔLE DE SÉCURITÉ POUR ÉVITER LE CRASH ********
+    // ***************************************************************
+    if (!response || !response.data || !response.data.token) {
+        // Cette erreur est déclenchée si la structure attendue n'est pas présente.
+        throw new Error("Réponse d'authentification invalide. Identifiants incorrects ou configuration du backend erronée.");
     }
+    
+    // Extraction des données réelles du backend (Odoo Context, Token, etc.)
+    const { token, profile, name, companiesList, defaultCompany } = response.data;
+    
+    // 1. Mise à jour de l'état global
+    window.app.userContext = { token, profile, name, email };
+    window.app.currentProfile = profile;
+    window.app.companiesList = companiesList;
+    window.app.currentCompanyId = defaultCompany.id;
+    window.app.currentCompanyName = defaultCompany.name;
+    window.app.currentSysteme = defaultCompany.systeme;
+    
+    // 2. Chargement des données et redirection vers le dashboard
+    await fetchAccountingData();
+    renderAppView();
+    NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${name}!`, 5000);
+
+} catch (error) {
+    // 3. Gérer les erreurs (API injoignable ou identifiants invalides)
+    let errorMessage;
+    
+    // Si l'erreur vient d'un "Failed to fetch" (API injoignable)
+    if (error.message.includes('Failed to fetch')) {
+        errorMessage = "Erreur de connexion au service. Veuillez vérifier le statut du backend (Render).";
+    } 
+    // Si l'erreur vient de notre nouveau contrôle de sécurité
+    else if (error.message.includes("Réponse d'authentification invalide")) {
+        errorMessage = "Échec de l'authentification. Identifiant ou mot de passe incorrect."; // Message utilisateur plus simple
+    }
+    // Pour toutes les autres erreurs (y compris l'échec de la déstructuration)
+    else {
+        errorMessage = "Échec de l'authentification. Identifiant ou mot de passe incorrect.";
+    }
+
+
+    // Afficher le message d'erreur
+    messageEl.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/10 text-danger';
+    messageEl.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> ${errorMessage}`;
+    messageEl.classList.remove('hidden');
+
+    // Rétablir le bouton
+    submitBtn.innerHTML = '<span>ACCÉDER AU SYSTÈME</span> <i class="fas fa-arrow-right ml-3 text-sm opacity-50"></i>';
+    submitBtn.disabled = false;
 }
 
 function handleLogout() {
