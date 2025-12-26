@@ -219,49 +219,49 @@ function renderLoginView() {
 // =================================================================================
 // 1. GESTION D'AUTHENTIFICATION ET DE CONTEXTE
 // =================================================================================
-// DANS public/assets/script.js
-
 async function handleLogin(event) {
-    // Si l'événement est présent, on l'annule pour éviter le rechargement de la page
+    // 1. Démarrage et prévention du rechargement de page
     if (event) {
         event.preventDefault();
     }
     
-    // Tentative de récupération des éléments - CRUCIAL
+    // 2. Récupération des éléments DOM et des valeurs (utilisation de l'opérateur ?. pour la robustesse)
     const email = document.getElementById('email')?.value;
     const password = document.getElementById('password')?.value;
     const submitBtn = document.getElementById('login-submit-btn');
     const messageEl = document.getElementById('login-message'); 
 
-    // Vérification de sécurité des éléments DOM
+    // Vérification de base: si l'un des éléments critiques manque, on sort pour éviter un crash immédiat.
     if (!submitBtn || !messageEl || !email || !password) {
-        console.error("Éléments de connexion manquants ou non initialisés. Vérifiez l'ordre de chargement du script ou les IDs HTML.");
-        // Le retour ici empêche l'exécution de tout code si un élément est null
+        console.error("Erreur critique: Un élément du formulaire de connexion est manquant dans le DOM.");
         return; 
     }
 
-    // Affichage de l'état de chargement
+    // 3. Affichage de l'état de chargement
     submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5 border-white"></div><span class="ml-3">Connexion en cours...</span>';
     submitBtn.disabled = true;
-    messageEl.classList.add('hidden'); // Masquer les messages précédents
+    messageEl.classList.add('hidden'); 
 
     try {
-        // C'EST L'APPEL API RÉEL
+        // 4. L'appel API réel
         const response = await apiFetch('/api/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password }),
         });
 
-        // CONTRÔLE DE SÉCURITÉ POUR ÉVITER LE CRASH DE DÉSTRUCTURATION
+        // ***************************************************************
+        // ***** CORRECTION CRITIQUE (ROBUSTESSE) pour 'undefined' ********
+        // ***************************************************************
+        // Nous vérifions si la réponse et le jeton existent avant de tenter la déstructuration.
         if (!response || !response.data || typeof response.data !== 'object' || !response.data.token) {
-            // Si la réponse n'est pas la structure attendue, on lance une erreur
-            throw new Error("Authentification échouée.");
+            // Si la réponse du serveur est invalide (souvent 401 déguisé)
+            throw new Error("Authentification échouée. Veuillez vérifier vos identifiants.");
         }
         
-        // Extraction SÉCURISÉE des données réelles
+        // 5. Extraction SÉCURISÉE des données
         const { token, profile, name, companiesList, defaultCompany } = response.data;
         
-        // 1. Mise à jour de l'état global
+        // 6. Mise à jour de l'état global et de la session
         window.app.userContext = { token, profile, name, email };
         window.app.currentProfile = profile;
         window.app.companiesList = companiesList;
@@ -269,29 +269,28 @@ async function handleLogin(event) {
         window.app.currentCompanyName = defaultCompany.name;
         window.app.currentSysteme = defaultCompany.systeme;
         
-        // 2. Chargement des données et redirection
+        // 7. Redirection
         await fetchAccountingData();
         renderAppView();
         NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${name}!`, 5000);
 
     } catch (error) {
-        // 3. Gérer les erreurs
+        // 8. Gestion des erreurs (Affichage d'un message clair à l'utilisateur)
         let errorMessage;
         
         if (error.message.includes('Failed to fetch')) {
-            errorMessage = "Erreur de connexion au service. Vérifiez le statut du backend (Render).";
+            errorMessage = "Erreur de connexion au service. Veuillez vérifier le statut du backend (Render).";
         } 
         else if (error.message.includes("Authentification échouée") || error.message.includes("401")) {
-            // Code 401 ou notre propre erreur de vérification
+            // Erreur attrapée par notre vérification de robustesse
             errorMessage = "Échec de l'authentification. Identifiant ou mot de passe incorrect.";
         }
         else {
-             // Erreur par défaut
-            errorMessage = "Une erreur inconnue est survenue lors de la connexion.";
+             // Afficher le message d'erreur Odoo/Serveur si disponible, sinon un message générique.
+            errorMessage = error.message || "Erreur serveur inconnue.";
         }
 
-
-        // Afficher le message d'erreur
+        // Afficher le message d'erreur dans le conteneur prévu
         messageEl.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/10 text-danger';
         messageEl.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> ${errorMessage}`;
         messageEl.classList.remove('hidden');
