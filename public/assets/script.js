@@ -511,39 +511,58 @@ function checkAuthAndRender() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  checkAuthAndRender();
+    // 1. Initialisation de la vue (Connexion ou Dashboard)
+    checkAuthAndRender();
 
-  const loginForm = document.getElementById('login-form');
-  if (loginForm) loginForm.addEventListener('submit', handleLogin);
+    // 2. Attachement du formulaire de connexion
+    // NOTE: L'arrêt du rafraîchissement est maintenant garanti par l'attribut
+    // onsubmit="handleLogin(event); return false;" dans index.html
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+    }
 
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+    // 3. Attachement des boutons de bascule Connexion <-> Inscription
+    const loginContainer = document.getElementById('login-form-container');
+    const registerView = document.getElementById('register-view');
+    const showRegisterBtn = document.getElementById('show-register-btn'); // Le bouton "Créer un compte"
+    const showLoginBtn = document.getElementById('show-login-btn');      // Le bouton "Retour à la connexion"
+    const modalCloseBtn = document.getElementById('modal-close-btn');
 
-  const loginContainer = document.getElementById('login-form-container');
-  const registerView = document.getElementById('register-view');
-  const showRegisterBtn = document.getElementById('show-register-btn');
-  const showLoginBtn = document.getElementById('show-login-btn');
+    // Bascule vers l'inscription
+    if (showRegisterBtn && loginContainer && registerView) {
+        showRegisterBtn.addEventListener('click', () => {
+            loginContainer.classList.add('hidden');
+            registerView.classList.remove('hidden');
+        });
+    }
 
-  if (showRegisterBtn && loginContainer && registerView) {
-    showRegisterBtn.addEventListener('click', () => {
-      loginContainer.classList.add('hidden');
-      registerView.classList.remove('hidden');
-    });
-  }
+    // Bascule vers la connexion
+    if (showLoginBtn && loginContainer && registerView) {
+        showLoginBtn.addEventListener('click', () => {
+            registerView.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+        });
+    }
+    
+    // 4. Attachement des boutons de déconnexion et de Modale
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+    
+    // Attachement du bouton de fermeture de Modale (pour plus de robustesse)
+    if(modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', ModalManager.close);
+    }
 
-  if (showLoginBtn && loginContainer && registerView) {
-    showLoginBtn.addEventListener('click', () => {
-      registerView.classList.add('hidden');
-      loginContainer.classList.remove('hidden');
-    });
-  }
-
-  if (!IS_PROD && window.location.hash === '#dev') {
-    document.getElementById('email').value = 'admin@douke.com';
-    document.getElementById('password').value = 'password';
-    const mockEvent = { preventDefault: () => {} };
-    setTimeout(() => handleLogin(mockEvent), 500);
-  }
+    // 5. Outil de Dev (laissé intact)
+    if (!IS_PROD && window.location.hash === '#dev') {
+        document.getElementById('email').value = 'admin@douke.com';
+        document.getElementById('password').value = 'password';
+        const mockEvent = { preventDefault: () => {} };
+        setTimeout(() => handleLogin(mockEvent), 500);
+    }
 });
 
 // =================================================================================
