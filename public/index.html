@@ -144,7 +144,7 @@
 
         <div id="login-message" class="hidden p-4 rounded-xl text-center text-sm font-bold"></div>
 
-        <form id="login-form" class="space-y-5">
+        <form id="login-form" class="space-y-5" onsubmit="handleLogin(event); return false;">
             <div class="space-y-2">
                 <label for="email" class="text-xs font-black uppercase text-gray-500 dark:text-gray-400 ml-1">Identifiant Email</label>
                 <div class="relative">
