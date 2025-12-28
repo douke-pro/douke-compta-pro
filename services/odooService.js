@@ -1,3 +1,13 @@
+// =============================================================================
+// FICHIER : services/odooService.js (Version Définitive)
+// =============================================================================
+
+// ✅ 1. IMPORTATION DU MODULE URL
+const url = require('url'); 
+// ✅ 2. IMPORTATION DU MODULE ODOO
+const odooXmlrpc = require('odoo-xmlrpc'); 
+
+
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
@@ -13,7 +23,7 @@ if (!ODOO_URL || !ODOO_DB) {
 // -----------------------------------------------------------------------------
 
 // CRITIQUE : Utiliser url.parse() pour garantir la compatibilité
-const urlParts = url.parse(ODOO_URL);
+const urlParts = url.parse(ODOO_URL); 
 
 // Configuration de base pour la connexion Odoo
 const baseConfig = {
@@ -22,7 +32,7 @@ const baseConfig = {
     port: urlParts.port || (urlParts.protocol === 'https:' ? 443 : 80),
     // CRITIQUE: Active le SSL/TLS si le protocole est HTTPS
     secure: urlParts.protocol === 'https:', 
-    allowUnsafeSSL: true, // Peut être nécessaire si vous utilisez un certificat auto-signé
+    allowUnsafeSSL: true, 
 };
 
 // Client pour les requêtes communes (authentification)
