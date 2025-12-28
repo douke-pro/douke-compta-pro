@@ -1,148 +1,121 @@
 // =============================================================================
-// FICHIER : services/odooService.js
-// Description : Service d'interface avec l'API XML-RPC d'Odoo
+// FICHIER : services/odooService.js (Version Robuste)
+// Objectif : Gérer l'interface XML-RPC avec Odoo en HTTPS
 // =============================================================================
 
-const odoo = require('odoo-xmlrpc');
+const { URL } = require('url'); // Nécessaire pour parser l'URL de manière fiable
+const odooXmlrpc = require('odoo-xmlrpc');
 
-// Configuration Odoo (Récupérée des variables d'environnement)
-const ODOO_CONFIG = {
-    // URL du backend Odoo (doit être définie dans .env)
-    url: process.env.ODOO_URL || 'http://localhost:8069', 
-    // Base de données Odoo
-    db: process.env.ODOO_DB || 'douke_prod_db', 
-    // Utilisateur technique Odoo (avec droits d'API ou Admin pour les services)
-    username: process.env.ODOO_USERNAME_API || 'api_user@douke.com', 
-    // Mot de passe technique
-    password: process.env.ODOO_PASSWORD_API || 'Douke@2024Api', 
+// Variables d'environnement critiques
+const ODOO_URL = process.env.ODOO_URL;
+const ODOO_DB = process.env.ODOO_DB;
+
+// --- Vérification de Base ---
+if (!ODOO_URL || !ODOO_DB) {
+    console.error("FATAL: Les variables ODOO_URL ou ODOO_DB sont manquantes.");
+    // Empêcher le serveur de démarrer si la configuration est incomplète
+    throw new Error("Configuration Odoo Manquante. Vérifiez .env et Render Environment.");
+}
+
+// -----------------------------------------------------------------------------
+// Configuration des Clients XML-RPC
+// -----------------------------------------------------------------------------
+
+const urlParts = new URL(ODOO_URL);
+
+// Configuration de base pour la connexion Odoo
+const baseConfig = {
+    host: urlParts.hostname,
+    // Détermine le port : utilise le port spécifié, sinon 443 pour HTTPS ou 80 pour HTTP
+    port: urlParts.port || (urlParts.protocol === 'https:' ? 443 : 80),
+    // CRITIQUE: Active le SSL/TLS si le protocole est HTTPS
+    secure: urlParts.protocol === 'https:', 
+    allowUnsafeSSL: true, // Peut être nécessaire si vous utilisez un certificat auto-signé
 };
 
-// Initialisation de la connexion Odoo
-const odooApi = new odoo(ODOO_CONFIG);
+// Client pour les requêtes communes (authentification)
+const configCommon = {
+    ...baseConfig,
+    path: '/xmlrpc/2/common',
+};
+
+// Client pour les requêtes d'objets (lecture/écriture de données)
+const configObject = {
+    ...baseConfig,
+    path: '/xmlrpc/2/object',
+};
+
+// Initialisation des clients
+const clientCommon = odooXmlrpc.createClient(configCommon);
+const clientObject = odooXmlrpc.createClient(configObject);
+
+// -----------------------------------------------------------------------------
+// Fonctions d'Interface
+// -----------------------------------------------------------------------------
 
 /**
- * Fonction utilitaire pour initialiser une connexion et effectuer une requête.
- * @param {string} service - Service Odoo (common, object, report, etc.)
- * @param {string} method - Méthode Odoo
- * @param {Array} args - Arguments de la méthode
- * @returns {Promise<any>} Le résultat de la requête Odoo
+ * Gère l'authentification de l'utilisateur sur Odoo.
+ * (Service 'common', Méthode 'authenticate')
  */
-function callOdoo(service, method, args) {
+exports.odooAuthenticate = (email, password) => {
     return new Promise((resolve, reject) => {
-        odooApi.connect(function (err) {
-            if (err) {
-                console.error('[Odoo Connect Error]', err.message);
+        
+        clientCommon.methodCall('authenticate', [
+            ODOO_DB, 
+            email, 
+            password, 
+            {} // kwargs est nécessaire pour la compatibilité avec certaines versions
+        ], (error, value) => {
+            if (error) {
+                // Erreur réseau pure (connexion refusée, timeout, etc.)
+                console.error('Erreur authentification Odoo:', error.message || error);
                 return reject(new Error('Erreur de connexion au serveur Odoo. Vérifiez ODOO_URL et ODOO_DB.'));
             }
 
-            this.execute(service, method, args, function (err, result) {
-                if (err) {
-                    // Les erreurs Odoo (404, permissions, etc.) sont souvent renvoyées ici
-                    console.error(`[Odoo Execute Error - ${method}]`, err);
-                    return reject(new Error(`Erreur Odoo : ${err.faultString || 'Opération échouée.'}`));
-                }
-                resolve(result);
-            });
-        });
-    });
-}
-
-// =============================================================================
-// EXPORTATIONS DES FONCTIONS UTILISÉES PAR AUTHCONTROLLER.JS
-// =============================================================================
-
-/**
- * Authentifie un utilisateur contre Odoo (utilisé par loginUser)
- * @param {string} email
- * @param {string} password
- * @returns {Promise<{uid: number, db: string, profile: string, name: string, company_ids: number[]}>}
- */
-exports.odooAuthenticate = async (email, password) => {
-    // Utiliser l'utilisateur technique pour la connexion temporaire, 
-    // puis appeler 'authenticate' pour l'utilisateur final.
-    
-    const db = ODOO_CONFIG.db;
-
-    // 1. Appel de la méthode 'authenticate' qui retourne l'UID de l'utilisateur Odoo
-    const authResult = await callOdoo('common', 'authenticate', [db, email, password, {}]);
-
-    if (!authResult || typeof authResult !== 'number' || authResult === false) {
-        throw new Error("Authentification échouée. Identifiant ou mot de passe Odoo incorrect.");
-    }
-    const uid = authResult;
-
-    // 2. Récupérer les informations supplémentaires de l'utilisateur (nom, rôle, entreprises)
-    const userFields = await exports.odooExecuteKw({
-        uid,
-        db, // Passer la DB si nécessaire
-        model: 'res.users',
-        method: 'read',
-        args: [[uid], ['name', 'email', 'company_ids']], // On récupère les IDs d'entreprise
-    });
-
-    if (!userFields || userFields.length === 0) {
-        throw new Error("Profil utilisateur Odoo introuvable.");
-    }
-
-    const user = userFields[0];
-    
-    // NOTE: Simuler le champ 'profile' (rôle Doukè) qui n'existe pas dans Odoo par défaut.
-    // Dans une application professionnelle, ceci est mappé à un groupe de sécurité Odoo.
-    // Ici, nous faisons une supposition simple basée sur le nom (pour la démo)
-    let profile = 'USER';
-    if (user.email === 'admin@douke.com' || user.email.includes('admin')) {
-        profile = 'ADMIN';
-    } else if (user.name.includes('Collab')) {
-        profile = 'COLLABORATEUR';
-    } else if (user.name.includes('Caisse')) {
-        profile = 'CAISSIER';
-    }
-    
-    // Le controller attend: uid, db, profile, name, company_ids
-    return {
-        uid,
-        db,
-        profile, 
-        name: user.name,
-        company_ids: user.company_ids || [], // Liste des IDs d'entreprises liées
-    };
-};
-
-/**
- * Exécute une méthode de modèle Odoo (utilisé pour les requêtes de données)
- * @param {object} params
- * @param {number} params.uid - L'ID de l'utilisateur Odoo (récupéré du JWT ou de l'authentification)
- * @param {string} params.model - Le modèle Odoo à interroger (e.g., 'account.move')
- * @param {string} params.method - La méthode du modèle (e.g., 'search_read', 'create')
- * @param {Array} params.args - Les arguments positionnels (e.g., filtres [[id, '=', 1]])
- * @param {object} params.kwargs - Les arguments par mot-clé (e.g., {fields: ['name']})
- * @returns {Promise<any>}
- */
-exports.odooExecuteKw = async (params) => {
-    const { uid, model, method, args = [], kwargs = {} } = params;
-    const db = ODOO_CONFIG.db;
-    const password = ODOO_CONFIG.password; // Mot de passe technique
-
-    if (!uid) {
-        throw new Error('UID Odoo manquant pour l\'exécution de la requête.');
-    }
-
-    // Arguments passés à l'API Odoo: [db, uid, password, model, method, args, kwargs]
-    const executeArgs = [db, uid, password, model, method, args, kwargs];
-
-    return new Promise((resolve, reject) => {
-        // Exécuter le service 'object' avec la méthode 'execute_kw'
-        odooApi.execute('object', 'execute_kw', executeArgs, function (err, result) {
-            if (err) {
-                console.error(`[Odoo ExecuteKw Error - ${model}.${method}]`, err);
-                 // Tenter de rendre l'erreur plus lisible si elle vient d'Odoo
-                let errorMessage = err.faultString || 'Échec de la requête de données Odoo.';
-                if (err.faultString && err.faultString.includes('AccessError')) {
-                    errorMessage = "Accès refusé. Vérifiez les droits de l'utilisateur Odoo.";
-                }
-                return reject(new Error(errorMessage));
+            // Vérification de l'UID (0 = échec d'authentification)
+            if (!value || typeof value.uid !== 'number' || value.uid === 0) {
+                 return reject(new Error('Identifiants Odoo invalides.'));
             }
-            resolve(result);
+
+            // Le 'value' contient l'UID et d'autres infos de session Odoo
+            resolve(value); 
         });
     });
 };
+
+
+/**
+ * Exécute une méthode de modèle Odoo (search_read, create, write, etc.)
+ * (Service 'object', Méthode 'execute_kw')
+ */
+exports.odooExecuteKw = (options) => {
+    const { uid, model, method, args = [], kwargs = {} } = options;
+    
+    return new Promise((resolve, reject) => {
+        // Le mot de passe (ou token de session) est passé ici, mais après l'authentification
+        // le mot de passe n'est pas utilisé, l'UID et la DB suffisent souvent.
+        // Odoo-xmlrpc attend ce slot (rempli par un 'password' ou un token de session si besoin)
+        const dummyPassword = 'SESSION_TOKEN_IGNORED'; 
+        
+        clientObject.methodCall('execute_kw', [
+            ODOO_DB, 
+            uid, 
+            dummyPassword, 
+            model, 
+            method, 
+            args, 
+            kwargs
+        ], (error, value) => {
+            if (error) {
+                 // Gérer les erreurs de permission ou de modèle
+                 console.error(`Erreur Odoo execute_kw (${model}.${method}):`, error.message || error);
+                 let errorMessage = error.faultString || 'Requête Odoo échouée.';
+                 
+                 return reject(new Error(`Erreur API Odoo: ${errorMessage}`));
+            }
+            resolve(value);
+        });
+    });
+};
+
+// =============================================================================
