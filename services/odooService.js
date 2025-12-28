@@ -1,123 +1,45 @@
 // =============================================================================
-// FICHIER : services/odooService.js (Version Définitive)
+// FICHIER : services/odooService.js (Solution d'initialisation Correcte)
 // =============================================================================
 
-// ✅ 1. IMPORTATION DU MODULE URL
-const url = require('url'); 
-// ✅ 2. IMPORTATION DU MODULE ODOO
-const odooXmlrpc = require('odoo-xmlrpc'); 
-
+const odoo = require('odoo-xmlrpc'); // Note: 'odoo' est ici le constructeur
 
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
+// ... (Récupérez les autres variables d'environnement si elles sont utilisées)
 
-// --- Vérification de Base ---
+// --- DÉTECTION DU PROTOCOLE ET DU HOST (Réutilisation du code précédent) ---
+const isSecure = ODOO_URL && ODOO_URL.startsWith('https');
+
+let hostName = ODOO_URL ? ODOO_URL.replace(/(^\w+:|^)\/\//, '') : 'localhost:8069';
+hostName = hostName.split(':')[0]; 
+const portNumber = isSecure ? 443 : 80;
+
+
+// Configuration Odoo pour le constructeur 'new odoo(config)'
+const ODOO_CONFIG = {
+    url: ODOO_URL,
+    host: hostName, 
+    port: portNumber, 
+    db: ODOO_DB, 
+    secure: isSecure, // Activation du SSL pour HTTPS
+    allowUnsafeSSL: true, 
+    // Assurez-vous d'avoir ces deux variables si elles sont critiques pour votre code:
+    username: process.env.ODOO_USERNAME_API || 'api_user@douke.com', 
+    password: process.env.ODOO_PASSWORD_API || 'Douke@2024Api', 
+};
+
+// Vérification de base
 if (!ODOO_URL || !ODOO_DB) {
     console.error("FATAL: Les variables ODOO_URL ou ODOO_DB sont manquantes.");
     throw new Error("Configuration Odoo Manquante.");
 }
 
-// -----------------------------------------------------------------------------
-// Configuration des Clients XML-RPC
-// -----------------------------------------------------------------------------
-
-// CRITIQUE : Utiliser url.parse() pour garantir la compatibilité
-const urlParts = url.parse(ODOO_URL); 
-
-// Configuration de base pour la connexion Odoo
-const baseConfig = {
-    host: urlParts.hostname,
-    // Détermine le port : utilise le port spécifié, sinon 443 pour HTTPS ou 80 pour HTTP
-    port: urlParts.port || (urlParts.protocol === 'https:' ? 443 : 80),
-    // CRITIQUE: Active le SSL/TLS si le protocole est HTTPS
-    secure: urlParts.protocol === 'https:', 
-    allowUnsafeSSL: true, 
-};
-
-// Client pour les requêtes communes (authentification)
-const configCommon = {
-    ...baseConfig,
-    path: '/xmlrpc/2/common',
-};
-
-// Client pour les requêtes d'objets (lecture/écriture de données)
-const configObject = {
-    ...baseConfig,
-    path: '/xmlrpc/2/object',
-};
-
-// Initialisation des clients
-const clientCommon = odooXmlrpc.createClient(configCommon);
-const clientObject = odooXmlrpc.createClient(configObject);
+// ✅ INITIALISATION CORRECTE : Utilisation du constructeur de classe
+const odooApi = new odoo(ODOO_CONFIG); 
 
 // -----------------------------------------------------------------------------
-// Fonctions d'Interface
-// -----------------------------------------------------------------------------
-
-/**
- * Gère l'authentification de l'utilisateur sur Odoo.
- * (Service 'common', Méthode 'authenticate')
- */
-exports.odooAuthenticate = (email, password) => {
-    return new Promise((resolve, reject) => {
-        
-        clientCommon.methodCall('authenticate', [
-            ODOO_DB, 
-            email, 
-            password, 
-            {} // kwargs est nécessaire pour la compatibilité avec certaines versions
-        ], (error, value) => {
-            if (error) {
-                // Erreur réseau pure (connexion refusée, timeout, etc.)
-                console.error('Erreur authentification Odoo:', error.message || error);
-                return reject(new Error('Erreur de connexion au serveur Odoo. Vérifiez ODOO_URL et ODOO_DB.'));
-            }
-
-            // Vérification de l'UID (0 = échec d'authentification)
-            if (!value || typeof value.uid !== 'number' || value.uid === 0) {
-                 return reject(new Error('Identifiants Odoo invalides.'));
-            }
-
-            // Le 'value' contient l'UID et d'autres infos de session Odoo
-            resolve(value); 
-        });
-    });
-};
-
-
-/**
- * Exécute une méthode de modèle Odoo (search_read, create, write, etc.)
- * (Service 'object', Méthode 'execute_kw')
- */
-exports.odooExecuteKw = (options) => {
-    const { uid, model, method, args = [], kwargs = {} } = options;
-    
-    return new Promise((resolve, reject) => {
-        // Le mot de passe (ou token de session) est passé ici, mais après l'authentification
-        // le mot de passe n'est pas utilisé, l'UID et la DB suffisent souvent.
-        // Odoo-xmlrpc attend ce slot (rempli par un 'password' ou un token de session si besoin)
-        const dummyPassword = 'SESSION_TOKEN_IGNORED'; 
-        
-        clientObject.methodCall('execute_kw', [
-            ODOO_DB, 
-            uid, 
-            dummyPassword, 
-            model, 
-            method, 
-            args, 
-            kwargs
-        ], (error, value) => {
-            if (error) {
-                 // Gérer les erreurs de permission ou de modèle
-                 console.error(`Erreur Odoo execute_kw (${model}.${method}):`, error.message || error);
-                 let errorMessage = error.faultString || 'Requête Odoo échouée.';
-                 
-                 return reject(new Error(`Erreur API Odoo: ${errorMessage}`));
-            }
-            resolve(value);
-        });
-    });
-};
-
-// =============================================================================
+// Les fonctions `callOdoo`, `odooAuthenticate`, `odooExecuteKw` doivent maintenant
+// revenir à utiliser `odooApi.connect` et `odooApi.execute` comme dans votre Version 2.
+// -------------
