@@ -3,7 +3,8 @@
 // Objectif : Gérer l'interface XML-RPC avec Odoo en HTTPS
 // =============================================================================
 
-const { URL } = require('url'); // Nécessaire pour parser l'URL de manière fiable
+// NOUVEAU CODE (Le plus compatible) :
+const URL = require('url').URL; 
 const odooXmlrpc = require('odoo-xmlrpc');
 
 // Variables d'environnement critiques
