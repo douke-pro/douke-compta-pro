@@ -14,6 +14,6 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2", 
     "nodemailer": "^7.0.11",
-    "odoo-xmlrpc": "^2.0.0" 
+    "odoo-xmlrpc": "^1.0.0" 
   }
 }
