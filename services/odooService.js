@@ -1,12 +1,3 @@
-// =============================================================================
-// FICHIER : services/odooService.js (Version Robuste)
-// Objectif : Gérer l'interface XML-RPC avec Odoo en HTTPS
-// =============================================================================
-
-// NOUVEAU CODE (Le plus compatible) :
-const URL = require('url').URL; 
-const odooXmlrpc = require('odoo-xmlrpc');
-
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
@@ -14,15 +5,15 @@ const ODOO_DB = process.env.ODOO_DB;
 // --- Vérification de Base ---
 if (!ODOO_URL || !ODOO_DB) {
     console.error("FATAL: Les variables ODOO_URL ou ODOO_DB sont manquantes.");
-    // Empêcher le serveur de démarrer si la configuration est incomplète
-    throw new Error("Configuration Odoo Manquante. Vérifiez .env et Render Environment.");
+    throw new Error("Configuration Odoo Manquante.");
 }
 
 // -----------------------------------------------------------------------------
 // Configuration des Clients XML-RPC
 // -----------------------------------------------------------------------------
 
-const urlParts = new URL(ODOO_URL);
+// CRITIQUE : Utiliser url.parse() pour garantir la compatibilité
+const urlParts = url.parse(ODOO_URL);
 
 // Configuration de base pour la connexion Odoo
 const baseConfig = {
