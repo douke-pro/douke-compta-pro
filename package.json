@@ -14,8 +14,6 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2", 
     "nodemailer": "^7.0.11",
-    
-    // CORRECTION CRITIQUE : Remplacement de "xmlrpc" par "odoo-xmlrpc"
     "odoo-xmlrpc": "^2.1.2" 
   }
 }
