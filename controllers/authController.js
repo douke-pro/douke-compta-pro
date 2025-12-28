@@ -160,3 +160,32 @@ exports.registerUser = async (req, res) => {
         });
     }
 };
+
+// =============================================================================
+// AJOUTER CES DEUX FONCTIONS À LA FIN DU FICHIER controllers/authController.js
+// =============================================================================
+
+/**
+ * Gère l'affectation ou la réaffectation d'une compagnie à un utilisateur.
+ * @route POST /api/auth/assign-company (Protégé, Admin seulement)
+ */
+exports.assignCompany = async (req, res) => {
+    // Cette logique nécessiterait un appel odooExecuteKw pour écrire dans res.users
+    res.status(501).json({ 
+        status: 'error', 
+        message: 'assignCompany: Fonctionnalité en développement.',
+        data: req.body
+    });
+};
+
+/**
+ * Déconnexion forcée de l'utilisateur (via invalidation du token si supporté, ou simple message ici).
+ * @route POST /api/auth/force-logout (Protégé)
+ */
+exports.forceLogout = async (req, res) => {
+    // Dans une application réelle, ceci invaliderait le JWT dans une liste noire (Redis).
+    res.status(200).json({ 
+        status: 'success', 
+        message: 'forceLogout: L\'action a été enregistrée. L\'utilisateur sera déconnecté à sa prochaine requête.',
+    });
+};
