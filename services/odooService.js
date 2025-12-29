@@ -16,14 +16,10 @@ const isSecure = ODOO_URL && ODOO_URL.startsWith('https');
 const portNumber = 443; 
 
 // Tente d'extraire le hostname (ex: doukepro.odoo.com)
-// Cette méthode est plus simple et suffisante sans le module 'url'
-let hostName = ODOO_URL ? ODOO_URL.replace(/(^\w+:|^)\/\//, '') : 'localhost:8069';
-hostName = hostName.split(':')[0]; // Isole le host
-
+let hostName = ODOO_URL ? ODOO_URL.replace(/(^\w+:|^)\/\//, '').split('/')[0].split(':')[0] : 'localhost';
+ 
 // Configuration Odoo pour le constructeur 'new odoo(config)'
 const ODOO_CONFIG = {
-    // L'URL complète est conservée, mais le client utilisera Host/Port/Secure
-    url: ODOO_URL,
     host: hostName, 
     port: portNumber, 
     db: ODOO_DB, 
@@ -62,11 +58,11 @@ function callOdoo(service, method, args) {
                 return reject(new Error('Erreur de connexion au serveur Odoo. Vérifiez ODOO_URL et ODOO_DB.'));
             }
 
-            // Exécute la méthode
-            this.execute(service, method, args, function (err, result) {
-                if (err) {
-                    console.error(`[Odoo Execute Error - ${method}]`, err);
-                    return reject(new Error(`Erreur Odoo : ${err.faultString || 'Opération échouée.'}`));
+            // Exécute la méthode (corrigé: utiliser odooApi au lieu de this)
+            odooApi.execute(service, method, args, function (execErr, result) {
+                if (execErr) {
+                    console.error(`[Odoo Execute Error - ${method}]`, execErr);
+                    return reject(new Error(`Erreur Odoo : ${execErr.faultString || 'Opération échouée.'}`));
                 }
                 resolve(result);
             });
@@ -94,7 +90,6 @@ exports.odooAuthenticate = async (email, password) => {
     const uid = authResult;
 
     // 2. Récupérer les informations supplémentaires de l'utilisateur
-    // Ceci utilise odooExecuteKw, qui utilise la CLÉ API pour l'accès aux données.
     const userFields = await exports.odooExecuteKw({
         uid,
         db, 
