@@ -1,10 +1,12 @@
 // =============================================================================
-// FICHIER : services/odooService.js (VERSION FINALE JSON-RPC STABLE)
+// FICHIER : services/odooService.js (VERSION FINALE 100% CORRIGÉE - IMPORT FETCH)
 // Objectif : Gérer l'interface Odoo via JSON-RPC, avec toutes les corrections appliquées.
 // Dépendance : Nécessite 'node-fetch' (ajouté à package.json)
 // =============================================================================
 
-const fetch = require('node-fetch'); 
+// CORRECTION CRITIQUE DE L'IMPORTATION FETCH
+const nodeFetch = require('node-fetch');
+const fetch = nodeFetch.default || nodeFetch; 
 
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
