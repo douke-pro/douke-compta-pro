@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : services/odooService.js (ULTIME VERSION STABLE & ODOO ONLINE PRÊTE)
+// FICHIER : services/odooService.js (VERSION DÉFINITIVE, STABLE & ODOO ONLINE PRÊTE)
 // Objectif : Gérer l'interface XML-RPC avec Odoo en utilisant le constructeur de classe
 // =============================================================================
 
@@ -8,6 +8,12 @@ const odoo = require('odoo-xmlrpc');
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
+
+// Vérification de base
+if (!ODOO_URL || !ODOO_DB) {
+    console.error("FATAL: Les variables ODOO_URL ou ODOO_DB sont manquantes.");
+    throw new Error("Configuration Odoo Manquante.");
+}
 
 // --- DÉTECTION DU PROTOCOLE ET DU HOST (Optimisé pour Odoo Online HTTPS) ---
 const isSecure = ODOO_URL && ODOO_URL.startsWith('https');
@@ -26,19 +32,15 @@ const ODOO_CONFIG = {
     db: ODOO_DB, 
     secure: isSecure, // CRITIQUE: Activation du SSL pour HTTPS
     allowUnsafeSSL: true, // Gardé au cas où
-    // IMPORTANT : Utilisera l'email (username) et la CLÉ API (password)
-    username: process.env.ODOO_USERNAME_API || 'api_user@douke.com', 
-    password: process.env.ODOO_PASSWORD_API || 'Douke@2024Api', // DOIT CONTENIR LA CLÉ API
+    
+    // CORRECTION APPLIQUÉE: Utilise ODOO_API_KEY, conforme à la configuration Render
+    username: process.env.ODOO_USERNAME || 'doukeproa@gmail.com', // Utilisateur technique
+    password: process.env.ODOO_API_KEY || 'Douke@2024Api', // Clé API (Doit être la clé générée sur Odoo)
     
     // Ajout du délai d'expiration (timeout) pour détecter les blocages réseau silencieux
     timeout: 15000, // 15 secondes
 };
 
-// Vérification de base
-if (!ODOO_URL || !ODOO_DB) {
-    console.error("FATAL: Les variables ODOO_URL ou ODOO_DB sont manquantes.");
-    throw new Error("Configuration Odoo Manquante.");
-}
 
 // ✅ Initialisation Correcte
 const odooApi = new odoo(ODOO_CONFIG);
@@ -59,7 +61,7 @@ function callOdoo(service, method, args) {
                 return reject(new Error('Erreur de connexion au serveur Odoo. Vérifiez ODOO_URL et ODOO_DB.'));
             }
 
-            // Exécute la méthode (corrigé: utiliser odooApi au lieu de this)
+            // Exécute la méthode
             odooApi.execute(service, method, args, function (execErr, result) {
                 if (execErr) {
                     console.error(`[Odoo Execute Error - ${method}]`, execErr);
@@ -82,7 +84,8 @@ exports.odooAuthenticate = async (email, password) => {
     
     const db = ODOO_CONFIG.db;
     
-    // 1. Appel de la méthode 'authenticate' - Utilise l'email et le mot de passe utilisateur
+    // 1. Appel de la méthode 'authenticate'
+    // Ici, 'email' et 'password' sont les identifiants saisis par l'utilisateur
     const authResult = await callOdoo('common', 'authenticate', [db, email, password, {}]);
 
     if (!authResult || typeof authResult !== 'number' || authResult === false) {
@@ -91,6 +94,7 @@ exports.odooAuthenticate = async (email, password) => {
     const uid = authResult;
 
     // 2. Récupérer les informations supplémentaires de l'utilisateur
+    // Ceci utilise odooExecuteKw, qui utilise la CLÉ API pour l'accès aux données.
     const userFields = await exports.odooExecuteKw({
         uid,
         db, 
@@ -152,4 +156,3 @@ exports.odooExecuteKw = async (params) => {
         });
     });
 };
-
