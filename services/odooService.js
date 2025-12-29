@@ -1,38 +1,14 @@
 // =============================================================================
-// FICHIER : services/odooService.js (VERSION INTÉGRALE, STABLE & ODOO ONLINE PRÊTE)
-// Objectif : Gérer l'interface XML-RPC avec Odoo en utilisant le constructeur de classe
+// FICHIER : services/odooService.js (ULTIME VERSION STABLE & ODOO ONLINE)
+// Objectif : Tenter une connexion robuste avec une gestion d'URL native
 // =============================================================================
 
+const { URL } = require('url'); // NOUVEAU: Importation pour le parsing d'URL robuste
 const odoo = require('odoo-xmlrpc');
 
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
-
-// --- DÉTECTION DU PROTOCOLE ET DU HOST (Optimisé pour Odoo Online HTTPS) ---
-const isSecure = ODOO_URL && ODOO_URL.startsWith('https');
-
-// Odoo Online utilise toujours HTTPS (port 443).
-// La détection de port complexe n'est plus nécessaire.
-const portNumber = 443; 
-
-// Tente d'extraire le hostname (ex: doukepro.odoo.com)
-let hostName = ODOO_URL ? ODOO_URL.replace(/(^\w+:|^)\/\//, '') : 'localhost:8069';
-hostName = hostName.split(':')[0]; // Isole le host
-
-// Configuration Odoo pour le constructeur 'new odoo(config)'
-const ODOO_CONFIG = {
-    // L'URL complète est conservée, mais le client utilisera Host/Port/Secure
-    url: ODOO_URL,
-    host: hostName, 
-    port: portNumber, 
-    db: ODOO_DB, 
-    secure: isSecure, // CRITIQUE: Activation du SSL pour HTTPS
-    allowUnsafeSSL: true, // Gardé en cas de problème de certificat (mais moins probable avec Odoo Online)
-    // IMPORTANT : Utilisera l'email (username) et la CLÉ API (password)
-    username: process.env.ODOO_USERNAME_API || 'api_user@douke.com', 
-    password: process.env.ODOO_PASSWORD_API || 'Douke@2024Api', 
-};
 
 // Vérification de base
 if (!ODOO_URL || !ODOO_DB) {
@@ -40,21 +16,47 @@ if (!ODOO_URL || !ODOO_DB) {
     throw new Error("Configuration Odoo Manquante.");
 }
 
+// --- DÉTECTION DU PROTOCOLE ET DU HOST (Optimisé avec l'API URL) ---
+let parsedUrl;
+try {
+    parsedUrl = new URL(ODOO_URL);
+} catch (e) {
+    console.error(`Erreur de parsing ODOO_URL: ${ODOO_URL}`, e);
+    throw new Error("Format ODOO_URL Invalide. Veuillez utiliser un format complet (ex: https://domaine.odoo.com).");
+}
+
+const isSecure = parsedUrl.protocol === 'https:';
+const hostName = parsedUrl.hostname;
+const portNumber = isSecure ? 443 : 80; 
+
+// Configuration Odoo pour le constructeur 'new odoo(config)'
+const ODOO_CONFIG = {
+    url: ODOO_URL,
+    host: hostName, 
+    port: portNumber, 
+    db: ODOO_DB, 
+    secure: isSecure, // CRITIQUE: Activation du SSL pour HTTPS
+    allowUnsafeSSL: true, // Gardé au cas où
+    username: process.env.ODOO_USERNAME_API || 'api_user@douke.com', 
+    password: process.env.ODOO_PASSWORD_API || 'Douke@2024Api', // DOIT CONTENIR LA CLÉ API
+    
+    // NOUVEAU: Délai d'expiration (timeout) pour détecter les blocages réseau silencieux
+    timeout: 15000, // 15 secondes
+};
+
 // ✅ Initialisation Correcte
 const odooApi = new odoo(ODOO_CONFIG);
 
 /**
  * Fonction utilitaire pour initialiser une connexion et effectuer une requête.
- * @param {string} service - Service Odoo (common, object, report, etc.)
- * @param {string} method - Méthode Odoo
- * @param {Array} args - Arguments de la méthode
- * @returns {Promise<any>} Le résultat de la requête Odoo
+ * [Fonction non modifiée - utilise la connexion configurée ci-dessus]
  */
 function callOdoo(service, method, args) {
     return new Promise((resolve, reject) => {
         // Tente la connexion
         odooApi.connect(function (err) { 
             if (err) {
+                // Si le timeout est la cause, l'erreur le mentionnera
                 console.error('[Odoo Connect Error]', err.message);
                 return reject(new Error('Erreur de connexion au serveur Odoo. Vérifiez ODOO_URL et ODOO_DB.'));
             }
@@ -82,8 +84,7 @@ exports.odooAuthenticate = async (email, password) => {
     
     const db = ODOO_CONFIG.db;
     
-    // 1. Appel de la méthode 'authenticate' - Utilise l'email et le mot de passe utilisateur
-    // NOTE : Le mot de passe ici est le mot de passe utilisateur saisi dans le formulaire.
+    // 1. Appel de la méthode 'authenticate'
     const authResult = await callOdoo('common', 'authenticate', [db, email, password, {}]);
 
     if (!authResult || typeof authResult !== 'number' || authResult === false) {
@@ -92,7 +93,6 @@ exports.odooAuthenticate = async (email, password) => {
     const uid = authResult;
 
     // 2. Récupérer les informations supplémentaires de l'utilisateur
-    // Ceci utilise odooExecuteKw, qui utilise la CLÉ API pour l'accès aux données.
     const userFields = await exports.odooExecuteKw({
         uid,
         db, 
