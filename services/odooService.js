@@ -1,11 +1,10 @@
 // =============================================================================
-// FICHIER : services/odooService.js (SOLUTION JSON-RPC ROBUSTE)
-// Objectif : Gérer l'interface Odoo via JSON-RPC (méthode moderne et stable)
-// Dépendance : Utilise 'fetch' (natif Node.js 18+ ou via 'node-fetch')
+// FICHIER : services/odooService.js (VERSION FINALE JSON-RPC STABLE)
+// Objectif : Gérer l'interface Odoo via JSON-RPC, avec toutes les corrections appliquées.
+// Dépendance : Nécessite 'node-fetch' (ajouté à package.json)
 // =============================================================================
 
-// Si vous utilisez Node.js < 18 ou si 'fetch' n'est pas global:
-// const fetch = require('node-fetch'); 
+const fetch = require('node-fetch'); 
 
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
@@ -15,7 +14,7 @@ const ODOO_DB = process.env.ODOO_DB;
 const ODOO_CONFIG = {
     db: ODOO_DB, 
     // Utilisateur technique pour les requêtes de données (ExecuteKw)
-    username: process.env.ODOO_USERNAME || 'doukeproa@gmail.com', 
+    username: process.env.ODOO_USERNAME || 'doukepro@gmail.com', // Corrigé pour correspondre à l'Admin
     // CLÉ API (Critique pour ExecuteKw)
     password: process.env.ODOO_API_KEY, 
 };
@@ -27,14 +26,11 @@ if (!ODOO_URL || !ODOO_DB) {
 }
 if (!ODOO_CONFIG.password) {
     console.error("FATAL: ODOO_API_KEY est manquant dans les variables d'environnement.");
-    // NOTE: Nous continuons pour l'authentification utilisateur, mais ExecuteKw échouera
+    // Continue pour l'authentification utilisateur, mais ExecuteKw échouera sans Clé API.
 }
 
 /**
  * Fonction de base pour effectuer une requête JSON-RPC à Odoo.
- * @param {string} endpoint - /jsonrpc (par défaut) ou /web/session/authenticate
- * @param {object} payload - Le corps de la requête JSON-RPC
- * @returns {Promise<any>} La réponse 'result' de l'API Odoo
  */
 async function executeJsonRpc(endpoint, payload) {
     const url = `${ODOO_URL}${endpoint}`;
@@ -46,8 +42,6 @@ async function executeJsonRpc(endpoint, payload) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload),
-            // Ajout du timeout au niveau de fetch (Node 17.5+ ou via AbortController)
-            // Pour simplicité, on se repose sur le timeout du serveur Render (60s) ou du réseau.
         });
 
         // 1. Gérer les erreurs HTTP (404, 500, etc.)
@@ -87,7 +81,6 @@ async function executeJsonRpc(endpoint, payload) {
 
 /**
  * Authentifie un utilisateur contre Odoo via JSON-RPC.
- * Utilise la méthode /web/session/authenticate
  */
 exports.odooAuthenticate = async (email, password) => {
     
@@ -105,7 +98,6 @@ exports.odooAuthenticate = async (email, password) => {
         id: new Date().getTime(),
     };
 
-    // L'endpoint est spécifique pour l'authentification
     const authResult = await executeJsonRpc('/web/session/authenticate', payload);
 
     if (!authResult || typeof authResult.uid !== 'number' || authResult.uid === false) {
@@ -114,13 +106,13 @@ exports.odooAuthenticate = async (email, password) => {
     const uid = authResult.uid;
     
     // 2. Récupérer les informations supplémentaires de l'utilisateur
-    // Ceci utilise odooExecuteKw (qui utilise la CLÉ API)
+    // CORRECTION FINALE: Retrait de 'company_ids' pour résoudre l'erreur 'Invalid field systeme on res.company'
     const userFields = await exports.odooExecuteKw({
         uid,
         db, 
         model: 'res.users',
         method: 'read',
-        args: [[uid], ['name', 'email', 'company_ids']], 
+        args: [[uid], ['name', 'email']], // Lecture simplifiée
     });
 
     if (!userFields || userFields.length === 0) {
@@ -144,8 +136,8 @@ exports.odooAuthenticate = async (email, password) => {
         db,
         profile, 
         name: user.name,
-        company_ids: user.company_ids || [], 
-        session_id: authResult.session_id, // Peut être utile si besoin de maintenir la session
+        email: user.email,
+        // company_ids ne sont plus disponibles directement avec la lecture simplifiée
     };
 };
 
@@ -169,12 +161,11 @@ exports.odooExecuteKw = async (params) => {
         jsonrpc: "2.0",
         method: "call",
         params: {
-            // CORRECTION CRITIQUE: Ajout du service 'object' et de la méthode 'execute_kw' 
-            // ainsi que la structure des arguments attendue par l'API standard Odoo.
+            // Structure JSON-RPC pour execute_kw
             service: "object", 
             method: "execute_kw",
             args: executeKwArgs, 
-            kwargs: {} // Laisser kwargs vide ou non défini si non utilisé
+            kwargs: {} 
         },
         id: new Date().getTime(),
     };
