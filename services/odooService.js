@@ -17,9 +17,10 @@ const portNumber = 443;
 
 // Tente d'extraire le hostname (ex: doukepro.odoo.com)
 let hostName = ODOO_URL ? ODOO_URL.replace(/(^\w+:|^)\/\//, '').split('/')[0].split(':')[0] : 'localhost';
- 
+
 // Configuration Odoo pour le constructeur 'new odoo(config)'
 const ODOO_CONFIG = {
+    url: ODOO_URL, // obligatoire pour odoo-xmlrpc
     host: hostName, 
     port: portNumber, 
     db: ODOO_DB, 
@@ -151,3 +152,4 @@ exports.odooExecuteKw = async (params) => {
         });
     });
 };
+
