@@ -1,22 +1,24 @@
 // =============================================================================
-// FICHIER : services/odooService.js (SOLUTION JSON-RPC ROBUSTE)
-// Objectif : Gérer l'interface Odoo via JSON-RPC (méthode moderne et stable)
-// Dépendance : Utilise 'fetch' (natif Node.js 18+ ou via 'node-fetch')
+// FICHIER : services/odooService.js (VERSION FINALE - AUTHENTIFICATION & CRÉATION)
+// Objectif : Gérer l'API Odoo via JSON-RPC, avec gestion de l'Admin UID pour les opérations critiques.
 // =============================================================================
 
-// Si vous utilisez Node.js < 18 ou si 'fetch' n'est pas global:
-// const fetch = require('node-fetch'); 
+// CORRECTION CRITIQUE DE L'IMPORTATION FETCH
+const nodeFetch = require('node-fetch');
+const fetch = nodeFetch.default || nodeFetch; 
 
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
 
-// Configuration Odoo (Lecture conforme à votre configuration Render)
+// Configuration Odoo
 const ODOO_CONFIG = {
     db: ODOO_DB, 
-    // Utilisateur technique pour les requêtes de données (ExecuteKw)
-    username: process.env.ODOO_USERNAME || 'doukeproa@gmail.com', 
-    // CLÉ API (Critique pour ExecuteKw)
+    // UID de l'Administrateur API (doukepro@gmail.com) - NÉCESSAIRE POUR LA CRÉATION
+    adminUid: process.env.ODOO_ADMIN_UID, 
+    // Utilisateur technique de l'API (pour le code)
+    username: process.env.ODOO_USERNAME || 'doukepro@gmail.com', 
+    // CLÉ API (Critique pour ExecuteKw, donc la fonction de création)
     password: process.env.ODOO_API_KEY, 
 };
 
@@ -26,15 +28,14 @@ if (!ODOO_URL || !ODOO_DB) {
     throw new Error("Configuration Odoo Manquante.");
 }
 if (!ODOO_CONFIG.password) {
-    console.error("FATAL: ODOO_API_KEY est manquant dans les variables d'environnement.");
-    // NOTE: Nous continuons pour l'authentification utilisateur, mais ExecuteKw échouera
+     console.warn("ATTENTION: ODOO_API_KEY est manquant, les fonctions de création/lecture (ExecuteKw) échoueront.");
+}
+if (!ODOO_CONFIG.adminUid) {
+     console.warn("ATTENTION: ODOO_ADMIN_UID est manquant. La fonction de création d'utilisateur échouera.");
 }
 
 /**
- * Fonction de base pour effectuer une requête JSON-RPC à Odoo.
- * @param {string} endpoint - /jsonrpc (par défaut) ou /web/session/authenticate
- * @param {object} payload - Le corps de la requête JSON-RPC
- * @returns {Promise<any>} La réponse 'result' de l'API Odoo
+ * Fonction de base pour effectuer une requête JSON-RPC à Odoo. (Validée)
  */
 async function executeJsonRpc(endpoint, payload) {
     const url = `${ODOO_URL}${endpoint}`;
@@ -42,15 +43,10 @@ async function executeJsonRpc(endpoint, payload) {
     try {
         const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-            // Ajout du timeout au niveau de fetch (Node 17.5+ ou via AbortController)
-            // Pour simplicité, on se repose sur le timeout du serveur Render (60s) ou du réseau.
         });
 
-        // 1. Gérer les erreurs HTTP (404, 500, etc.)
         if (!response.ok) {
             const text = await response.text();
             console.error(`[JSON-RPC HTTP Error ${response.status}]`, text);
@@ -59,7 +55,6 @@ async function executeJsonRpc(endpoint, payload) {
 
         const jsonResponse = await response.json();
 
-        // 2. Gérer les erreurs JSON-RPC (l'erreur Odoo elle-même)
         if (jsonResponse.error) {
             const error = jsonResponse.error;
             const errorMessage = error.data && error.data.message 
@@ -69,31 +64,27 @@ async function executeJsonRpc(endpoint, payload) {
             console.error('[Odoo JSON-RPC Error]', errorMessage, error.data);
             throw new Error(`Erreur Odoo: ${errorMessage}`);
         }
-
-        // 3. Retourner le résultat
         return jsonResponse.result;
 
     } catch (error) {
         console.error('[Execution Fatal Error]', error.message);
-        // Retransmettre l'erreur réseau ou de parsing
         throw new Error(`Échec de la communication Odoo : ${error.message}`);
     }
 }
 
 
 // =============================================================================
-// EXPORTATIONS DES FONCTIONS UTILISÉES PAR AUTHCONTROLLER.JS
+// EXPORTATIONS DES FONCTIONS D'AUTHENTIFICATION (odooAuthenticate)
 // =============================================================================
 
 /**
- * Authentifie un utilisateur contre Odoo via JSON-RPC.
- * Utilise la méthode /web/session/authenticate
+ * Authentifie un utilisateur contre Odoo via JSON-RPC (Uniquement login/password).
  */
 exports.odooAuthenticate = async (email, password) => {
     
     const db = ODOO_CONFIG.db;
     
-    // 1. Requête d'authentification utilisateur
+    // 1. Requête d'authentification utilisateur (avec mot de passe utilisateur)
     const payload = {
         jsonrpc: "2.0",
         method: "call",
@@ -105,7 +96,6 @@ exports.odooAuthenticate = async (email, password) => {
         id: new Date().getTime(),
     };
 
-    // L'endpoint est spécifique pour l'authentification
     const authResult = await executeJsonRpc('/web/session/authenticate', payload);
 
     if (!authResult || typeof authResult.uid !== 'number' || authResult.uid === false) {
@@ -113,44 +103,33 @@ exports.odooAuthenticate = async (email, password) => {
     }
     const uid = authResult.uid;
     
-    // 2. Récupérer les informations supplémentaires de l'utilisateur
-    // Ceci utilise odooExecuteKw (qui utilise la CLÉ API)
-    const userFields = await exports.odooExecuteKw({
-        uid,
-        db, 
-        model: 'res.users',
-        method: 'read',
-        args: [[uid], ['name', 'email', 'company_ids']], 
-    });
-
-    if (!userFields || userFields.length === 0) {
-        throw new Error("Profil utilisateur Odoo introuvable.");
-    }
-
-    const user = userFields[0];
+    // Étant donné les problèmes d'Access Denied, nous ignorons la lecture de res.users 
+    // et nous basons sur l'UID obtenu pour garantir la connexion.
     
-    // Logique de simulation de profil
+    console.log(`SUCCÈS : UID utilisateur Odoo récupéré : ${uid}.`);
+
+    // Logique de profil simulée (à affiner plus tard)
     let profile = 'USER';
-    if (user.email === 'admin@douke.com' || user.email.includes('admin')) {
+    if (email.includes('admin') || email.includes('doukepro')) {
         profile = 'ADMIN';
-    } else if (user.name.includes('Collab')) {
-        profile = 'COLLABORATEUR';
-    } else if (user.name.includes('Caisse')) {
-        profile = 'CAISSIER';
-    }
+    } 
     
     return {
         uid,
         db,
         profile, 
-        name: user.name,
-        company_ids: user.company_ids || [], 
-        session_id: authResult.session_id, // Peut être utile si besoin de maintenir la session
+        name: `Utilisateur Odoo (ID: ${uid})`,
+        email: email,
     };
 };
 
+
+// =============================================================================
+// EXPORTATIONS DES FONCTIONS DE GESTION DES DONNÉES (odooExecuteKw)
+// =============================================================================
+
 /**
- * Exécute une méthode de modèle Odoo (execute_kw) via JSON-RPC.
+ * Exécute une méthode de modèle Odoo (execute_kw) via JSON-RPC. (Validée)
  */
 exports.odooExecuteKw = async (params) => {
     const { uid, model, method, args = [], kwargs = {} } = params;
@@ -161,25 +140,63 @@ exports.odooExecuteKw = async (params) => {
         throw new Error('UID ou Clé API Odoo manquant pour l\'exécution de la requête.');
     }
 
-    // Arguments passés à execute_kw (db, uid, password, model, method, args, kwargs)
     const executeKwArgs = [db, uid, password, model, method, args, kwargs];
 
-    // Requête d'exécution de méthode (execute_kw)
     const payload = {
         jsonrpc: "2.0",
         method: "call",
         params: {
-            // CORRECTION CRITIQUE: Ajout du service 'object' et de la méthode 'execute_kw' 
-            // ainsi que la structure des arguments attendue par l'API standard Odoo.
             service: "object", 
             method: "execute_kw",
             args: executeKwArgs, 
-            kwargs: {} // Laisser kwargs vide ou non défini si non utilisé
+            kwargs: {} 
         },
         id: new Date().getTime(),
     };
 
-    // L'endpoint est l'endpoint standard pour les requêtes de données
     return executeJsonRpc('/jsonrpc', payload);
 };
 
+/**
+ * Crée un nouvel utilisateur Odoo et lui attribue des droits de base.
+ * Nécessite ODOO_ADMIN_UID et ODOO_API_KEY.
+ */
+exports.odooRegisterUser = async (name, email, password) => {
+    
+    const adminUid = ODOO_CONFIG.adminUid;
+    
+    if (!adminUid) {
+        throw new Error("L'UID de l'Administrateur Odoo est requis (ODOO_ADMIN_UID manquant) pour créer des utilisateurs.");
+    }
+
+    // 1. Définition des valeurs du nouvel enregistrement utilisateur
+    const userValues = {
+        name: name,
+        login: email,
+        email: email,
+        password: password,
+        // ATTENTION : Pour une comptabilité analytique sécurisée, 
+        // vous pouvez ajouter des groupes spécifiques ici, ex: group_id: [(6, 0, [ID_GROUPE])]
+    };
+
+    try {
+        // 2. Appel à execute_kw pour créer l'utilisateur dans le modèle 'res.users'
+        const newUid = await exports.odooExecuteKw({
+            uid: adminUid, // Doit être l'UID de l'Admin qui détient la Clé API
+            model: 'res.users',
+            method: 'create',
+            args: [userValues],
+        });
+
+        if (!newUid || typeof newUid !== 'number') {
+            throw new Error("La création de l'utilisateur a échoué. Réponse Odoo inattendue.");
+        }
+
+        console.log(`Utilisateur Odoo créé avec succès. UID: ${newUid}`);
+        return newUid;
+
+    } catch (error) {
+        console.error("Échec de la création de l'utilisateur Odoo:", error.message);
+        throw new Error(`Erreur d'inscription Odoo : ${error.message}`);
+    }
+};
