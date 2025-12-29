@@ -158,23 +158,23 @@ exports.odooExecuteKw = async (params) => {
     const password = ODOO_CONFIG.password; // Mot de passe technique (CLÉ API)
 
     if (!uid || !password) {
-        // Devrait être géré par la vérification initiale, mais double vérification
         throw new Error('UID ou Clé API Odoo manquant pour l\'exécution de la requête.');
     }
+
+    // Arguments passés à execute_kw (db, uid, password, model, method, args, kwargs)
+    const executeKwArgs = [db, uid, password, model, method, args, kwargs];
 
     // Requête d'exécution de méthode (execute_kw)
     const payload = {
         jsonrpc: "2.0",
         method: "call",
         params: {
-            model: model,
-            method: method,
-            args: args,
-            kwargs: kwargs,
-            // Ces trois paramètres remplacent l'ancienne signature XML-RPC
-            db: db,
-            uid: uid,
-            password: password, 
+            // CORRECTION CRITIQUE: Ajout du service 'object' et de la méthode 'execute_kw' 
+            // ainsi que la structure des arguments attendue par l'API standard Odoo.
+            service: "object", 
+            method: "execute_kw",
+            args: executeKwArgs, 
+            kwargs: {} // Laisser kwargs vide ou non défini si non utilisé
         },
         id: new Date().getTime(),
     };
