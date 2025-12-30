@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : services/odooService.js (VERSION FINALE - AUTHENTIFICATION & CRÉATION)
+// FICHIER : services/odooService.js (VERSION DÉFINITIVE - AUTHENTIFICATION & CRÉATION)
 // Objectif : Gérer l'API Odoo via JSON-RPC, avec gestion de l'Admin UID pour les opérations critiques.
 // =============================================================================
 
@@ -78,8 +78,8 @@ async function executeJsonRpc(endpoint, payload) {
 // =============================================================================
 
 /**
- * Authentifie un utilisateur contre Odoo en utilisant l'endpoint 'common/login' (méthode de connexion basique).
- * Ceci contourne les restrictions strictes de /web/session/authenticate.
+ * Authentifie un utilisateur contre Odoo en utilisant l'endpoint générique /jsonrpc.
+ * Ceci contourne les problèmes spécifiques de /web/session/authenticate et /jsonrpc/common.
  */
 exports.odooAuthenticate = async (email, password) => {
     
@@ -89,6 +89,7 @@ exports.odooAuthenticate = async (email, password) => {
     const payload = {
         jsonrpc: "2.0",
         method: "call",
+        // L'appel à la méthode 'login' est implicite ici pour Odoo lors de la connexion via /jsonrpc
         params: {
             db: db,
             login: email,
@@ -97,11 +98,10 @@ exports.odooAuthenticate = async (email, password) => {
         id: new Date().getTime(),
     };
 
-    // Changement critique : Utilisation de l'endpoint /jsonrpc/common
-    // Si /web/session/authenticate renvoie Access Denied alors que l'utilisateur est valide
-    const uid = await executeJsonRpc('/jsonrpc/common', payload);
+    // Point de correction critique : Utilisation de l'endpoint générique /jsonrpc 
+    const uid = await executeJsonRpc('/jsonrpc', payload);
 
-    // L'endpoint common renvoie directement l'UID (un nombre) ou false
+    // L'endpoint commun renvoie l'UID (un nombre) ou false
     if (!uid || typeof uid !== 'number' || uid === false) {
         throw new Error("Authentification échouée. Identifiant ou mot de passe Odoo incorrect ou base de données non trouvée.");
     }
@@ -175,8 +175,8 @@ exports.odooRegisterUser = async (name, email, password) => {
         login: email,
         email: email,
         password: password,
-        // ATTENTION : Pour une comptabilité analytique sécurisée, 
-        // vous pouvez ajouter des groupes spécifiques ici, ex: groups_id: [(6, 0, [ID_GROUPE])]
+        // ATTENTION : Si vous avez identifié les groupes d'accès nécessaires, 
+        // ajoutez-les ici : groups_id: [(6, 0, [ID_GROUPE])]
     };
 
     try {
