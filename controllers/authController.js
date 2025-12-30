@@ -53,7 +53,7 @@ exports.loginUser = async (req, res) => {
             uid,
             model: 'res.company',
             method: 'search_read',
-            args: profile === 'ADMIN' ? [[], ['name', 'systeme', 'currency_id']] : [[['id', 'in', authResult.company_ids]], ['name', 'systeme', 'currency_id']],
+            args: profile === 'ADMIN' ? [[], ['name', 'currency_id']] : [[['id', 'in', authResult.company_ids]], ['name', 'currency_id']],
             kwargs: { limit: 100 },
         });
 
