@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : public/assets/script.js (VERSION CORRIGÉE CIBLÉE)
+// FICHIER : public/assets/script.js (VERSION FINALE ET ROBUSTE V2)
 // Description : Logique Front-End (Vue et Interactions DOM)
 // =============================================================================
 
@@ -108,7 +108,9 @@ async function apiFetch(endpoint, options = {}) {
                 // Déconnexion automatique après une erreur d'authentification
                 handleLogout(true);
             }
-            throw new Error(data.error || `Erreur HTTP ${response.status}`);
+            // Afficher le message d'erreur spécifique de la route API
+            const errorMessage = data.error || `Erreur HTTP ${response.status} - Route API non trouvée. Veuillez vérifier les endpoints montés (auth, companies, accounting, user).`;
+            throw new Error(errorMessage);
         }
 
         return data;
@@ -222,7 +224,7 @@ async function checkAuthAndRender() {
     appState.token = token;
     
     try {
-        // CORRECTION DE ROUTE : Utilisation de la route de session validée
+        // Rétablissement de la route /user/session-data, qui est la plus robuste pour la validation JWT
         const response = await apiFetch('/user/session-data', { method: 'GET' }); 
         
         // CORRECTION DE STRUCTURE : Le serveur renvoie les données sous 'response.session' ou 'response.data'
@@ -405,26 +407,24 @@ async function loadContentArea(contentId, title) {
         let endpoint = '';
         let content = '';
 
-        // Ici, nous utilisons l'ID de la compagnie actuelle pour filtrer les données
-        // L'ancien fichier utilisait `?companyId=`, nous passons maintenant l'ID dans la route
-        const companyId = appState.currentCompanyId; 
+        // Rétablissement des Query Parameters pour la compatibilité maximale
+        const companyFilter = `?companyId=${appState.currentCompanyId}`; 
 
         switch (contentId) {
             case 'dashboard':
-                // CORRECTION 1a : Utilisation de la route correcte du serveur
-                endpoint = `/accounting/dashboard/${companyId}`;
+                // CORRECTION CRITIQUE: Utilisation du préfixe /accounting/ au lieu de /data/
+                endpoint = `/accounting/dashboard${companyFilter}`; 
                 content = await fetchDashboardData(endpoint);
                 break;
             case 'journal':
-                // CORRECTION 1b : Utilisation de la route correcte du serveur
-                endpoint = `/accounting/journal/${companyId}`;
+                // CORRECTION CRITIQUE: Utilisation du préfixe /accounting/ au lieu de /data/
+                endpoint = `/accounting/journal${companyFilter}`;
                 content = await fetchJournalData(endpoint);
                 break;
             case 'reports':
-                // CORRECTION 1c : Utilisation de la route correcte du serveur
-                const reportResponse = await apiFetch(`/accounting/report/bilan/${companyId}`, { method: 'GET' });
+                // CORRECTION CRITIQUE: Utilisation du préfixe /accounting/ au lieu de /data/
+                const reportResponse = await apiFetch(`/accounting/reports/bilan${companyFilter}`, { method: 'GET' });
                 ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportResponse.data));
-                // Afficher le message de bienvenue derrière la modale
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.role || appState.user.profile);
                 break;
             default:
@@ -444,7 +444,6 @@ async function loadContentArea(contentId, title) {
 // --- Fonctions de simulation de données (À REMPLACER) ---
 
 async function fetchDashboardData(endpoint) {
-    // CORRECTION 2 : La réponse peut ne pas avoir l'encapsuleur 'data' car l'appel est direct
     const data = await apiFetch(endpoint, { method: 'GET' });
     // Construction de l'interface du tableau de bord basée sur data
     return generateDashboardHTML(data.data || data); // Utiliser data.data ou data
