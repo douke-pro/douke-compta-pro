@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : public/assets/script.js (CORRIGÉ INTÉGRAL V6 - DASHBOARD FINALISÉ)
+// FICHIER : public/assets/script.js (CORRIGÉ INTÉGRAL V7 - DASHBOARD RESTAURÉ)
 // Description : Logique Front-End (Vue et Interactions DOM)
 // =============================================================================
 
@@ -11,7 +11,8 @@ const IS_PROD = window.location.hostname !== 'localhost' && window.location.host
 let appState = {
     isAuthenticated: false,
     token: null,
-    user: null, // Contient: { name, email, role, odooUid, selectedCompanyId, companiesList, ... }
+    // Structure d'utilisateur de la V4: { name, email, profile, odooUid, companiesList, selectedCompanyId, ... }
+    user: null, 
     currentCompanyId: null,
     currentCompanyName: null,
 };
@@ -107,7 +108,7 @@ async function apiFetch(endpoint, options = {}) {
                 // Déconnexion automatique après une erreur d'authentification
                 handleLogout(true);
             }
-            // 404 sera attrapé ici (data.error = 'Route API non trouvée')
+            // Gère le cas où la route n'est pas trouvée, affichant le message
             throw new Error(data.error || `Erreur HTTP ${response.status}`);
         }
 
@@ -124,30 +125,8 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 /**
- * Fonction interne pour récupérer les données de session et mettre à jour l'état.
- * Utilisée après le login et lors du check d'authentification.
- */
-async function fetchAndSetSessionData() {
-    // ⬅️ CORRECTION CLÉ : Appel de la route serveur correcte !
-    const response = await apiFetch('/user/session-data', { method: 'GET' });
-    
-    // ⬅️ CORRECTION DE STRUCTURE : Utilisation de response.session (voir userController.js)
-    const sessionData = response.session; 
-    
-    // Mettre à jour l'état de l'application
-    appState.user = sessionData; 
-    appState.currentCompanyId = sessionData.selectedCompanyId;
-    
-    // Assurer l'existence de la liste des compagnies pour les menus
-    const companyList = sessionData.companiesList || []; 
-    
-    // Déterminer le nom de la compagnie active
-    appState.currentCompanyName = companyList.find(c => c.id === sessionData.selectedCompanyId)?.name 
-                                 || 'Dossier Inconnu';
-}
-
-/**
  * Gère la soumission du formulaire de connexion.
+ * Utilise la structure de réponse de la V4.
  */
 async function handleLogin(event) {
     event.preventDefault(); // GARANTIE : Empêcher le rafraîchissement
@@ -162,27 +141,32 @@ async function handleLogin(event) {
     btn.innerHTML = `<div class="loading-spinner mx-auto border-white border-top-white/20"></div>`;
 
     try {
-        // 1. Appel d'authentification
         const response = await apiFetch('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password })
         });
         
-        // 2. Mise à jour de l'état global avec le token
+        // 1. Mise à jour de l'état global (Structure V4)
         appState.token = response.data.token;
+        appState.user = response.data; // Contient profile, name, companiesList, defaultCompany
         appState.isAuthenticated = true;
+
+        // 2. Définir la compagnie par défaut
+        appState.currentCompanyId = response.data.defaultCompany.id;
+        appState.currentCompanyName = response.data.defaultCompany.name;
         
+        // Assurez-vous que selectedCompanyId existe sur l'objet user pour handleCompanyChange
+        appState.user.selectedCompanyId = response.data.defaultCompany.id;
+
+        // 3. Sauvegarde du token
         localStorage.setItem('douke_auth_token', appState.token);
         
-        // 3. Appel de validation pour obtenir les données utilisateur complètes après login
-        await fetchAndSetSessionData();
-
         NotificationManager.show(`Connexion Réussie. Bienvenue, ${appState.user.name}.`);
         renderAppView(); // Charger le tableau de bord
         
     } catch (error) {
         // Le NotifManager s'occupe déjà de l'affichage de l'erreur
-        document.getElementById('password').value = '';
+        document.getElementById('password').value = ''; 
     } finally {
         // Rétablir le bouton
         btn.disabled = false;
@@ -195,7 +179,6 @@ async function handleLogin(event) {
  */
 async function handleRegister(event) {
     event.preventDefault();
-    // Logique similaire à handleLogin, non implémentée ici pour la concision
     NotificationManager.show('Fonction d\'inscription en cours de finalisation.', 'info');
 }
 
@@ -224,6 +207,7 @@ function handleLogout(isAutoLogout = false) {
 
 /**
  * Vérifie l'authentification au chargement de la page (token localStorage).
+ * Utilise la route /auth/me et la structure de réponse de la V4.
  */
 async function checkAuthAndRender() {
     const token = localStorage.getItem('douke_auth_token');
@@ -236,14 +220,22 @@ async function checkAuthAndRender() {
     appState.token = token;
     
     try {
-        // Tenter de valider le token et de récupérer les données utilisateur via le token
-        await fetchAndSetSessionData();
-
+        // Tenter de valider le token et de récupérer les données utilisateur
+        const response = await apiFetch('/auth/me', { method: 'GET' }); 
+        
+        // Si la validation réussit, restaurer l'état (structure V4)
+        appState.user = response.data;
         appState.isAuthenticated = true;
 
+        // Récupérer l'ID de la compagnie actuellement sélectionnée
+        const selectedId = response.data.selectedCompanyId || (response.data.companiesList[0]?.id || null);
+        
+        appState.currentCompanyId = selectedId;
+        appState.currentCompanyName = response.data.companiesList.find(c => c.id === selectedId)?.name || 'Dossier Inconnu';
+        
     } catch (error) {
-        // En cas d'échec de validation (token expiré ou invalide, ou route KO)
-        console.warn('Token invalide, expiré ou route de session introuvable. Reconnexion requise.');
+        // En cas d'échec de validation (token expiré ou invalide)
+        console.warn('Token invalide ou expiré. Reconnexion requise.');
         handleLogout(true);
         return;
     }
@@ -278,7 +270,7 @@ function loadDashboard() {
 
     // Mise à jour de l'en-tête utilisateur
     document.getElementById('welcome-message').textContent = appState.user.name;
-    document.getElementById('current-role').textContent = appState.user.role; // Utilisation de 'role'
+    document.getElementById('current-role').textContent = appState.user.profile; // Utilisation de 'profile'
     document.getElementById('user-avatar-text').textContent = appState.user.name.charAt(0).toUpperCase();
 
     // Mise à jour du contexte de travail
@@ -298,7 +290,7 @@ function loadDashboard() {
     }
     
     // 2. Menus de Navigation (Basés sur le Rôle)
-    const baseMenus = getRoleBaseMenus(appState.user.role); // Utilisation de 'role'
+    const baseMenus = getRoleBaseMenus(appState.user.profile);
     baseMenus.forEach(menu => {
         const isActive = menu.id === 'dashboard' ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
         const menuItem = document.createElement('a');
@@ -341,18 +333,19 @@ function createCompanySelectMenu(companies) {
  * Gère le changement de compagnie active par l'utilisateur.
  * RENDU DISPONIBLE DANS LA PORTÉE GLOBALE DU DOM.
  */
-window.handleCompanyChange = async function (newCompanyId) { // Rendre asynchrone pour future API
+window.handleCompanyChange = async function (newCompanyId) { // Rendu asynchrone pour la cohérence
     const newId = parseInt(newCompanyId);
+    // Recherche dans la liste stockée dans l'état utilisateur (V4)
     const newCompany = appState.user.companiesList.find(c => c.id === newId);
 
     if (newCompany) {
         appState.currentCompanyId = newId;
         appState.currentCompanyName = newCompany.name;
         
-        // Mise à jour de l'état utilisateur (IMPORTANT : met à jour l'ID de la compagnie dans appState.user)
-        appState.user.selectedCompanyId = newId;
+        // Mise à jour de l'état utilisateur (IMPORTANT pour les prochains checkAuth)
+        appState.user.selectedCompanyId = newId; 
 
-        // Si l'on avait une API pour mettre à jour la compagnie dans le JWT, elle irait ici
+        // 💡 OPTIONNEL : Si vous avez une route API pour mettre à jour la compagnie dans le JWT, elle irait ici.
         // Ex: await apiFetch('/user/set-company', { method: 'POST', body: JSON.stringify({ companyId: newId }) });
 
         // Mise à jour de l'UI
@@ -377,53 +370,51 @@ function getRoleBaseMenus(role) {
         { id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' },
     ];
     
-    // Le nom des rôles est maintenant cohérent avec la valeur du JWT
+    // Utilisation du 'profile' (V4)
     if (role === 'ADMIN') {
         menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
     }
-    
-    // Rôles additionnels (COLLABORATEUR, CAISSIER) gérés par défaut s'ils n'ont pas de menus spécifiques
     
     return menus;
 }
 
 /**
  * Charge le contenu HTML/Données dans la zone principale.
+ * Utilise la structure de route V4 (`/data/module?companyId=...`).
  */
 async function loadContentArea(contentId, title) {
     const contentArea = document.getElementById('dashboard-content-area');
     contentArea.innerHTML = `<div class="p-8 text-center"><div class="loading-spinner mx-auto"></div><p class="mt-4 text-gray-500 font-bold">Chargement du module ${title}...</p></div>`;
 
-    // -----------------------------------------------------------------
-    // LOGIQUE CLÉ: APPEL API AVEC L'ID DE LA COMPAGNIE ACTUELLE
-    // -----------------------------------------------------------------
     try {
         let endpoint = '';
         let content = '';
 
-        // ID de la compagnie
-        const companyId = appState.currentCompanyId; 
+        // Ici, nous utilisons l'ID de la compagnie actuelle pour filtrer les données (Format V4)
+        const companyFilter = `?companyId=${appState.currentCompanyId}`; 
 
         switch (contentId) {
             case 'dashboard':
-                // 🚀 APPEL REAL: /api/accounting/dashboard/:id
-                endpoint = `/accounting/dashboard/${companyId}`;
+                // Appel : /api/data/dashboard?companyId=X
+                endpoint = `/data/dashboard${companyFilter}`;
                 content = await fetchDashboardData(endpoint);
                 break;
-            case 'reports':
-                // 🚀 APPEL REAL: /api/accounting/report/bilan/:id
-                const reportResponse = await apiFetch(`/accounting/report/bilan/${companyId}`, { method: 'GET' });
-                ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportResponse)); 
-                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.role);
-                break;
             case 'journal':
+                 // Endpoint simulé : /api/data/journal?companyId=X
+                 endpoint = `/data/journal${companyFilter}`;
+                 content = await fetchJournalData(endpoint); // Laisser cette fonction en simulation
+                 break;
+            case 'reports':
+                // Appel : /api/data/reports/bilan?companyId=X
+                const reportContent = await apiFetch(`/data/reports/bilan${companyFilter}`, { method: 'GET' });
+                // Assurez-vous que l'API renvoie bien 'data' comme clé pour le contenu
+                ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportContent.data));
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+                break;
             case 'ledger':
             case 'admin-users':
-                // Endpoints non implémentés, on affiche un message de bienvenue
-                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.role);
-                break;
             default:
-                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.role);
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
         }
         
         // Mettre à jour la zone de contenu (sauf si une modale a été ouverte)
@@ -436,20 +427,28 @@ async function loadContentArea(contentId, title) {
     }
 }
 
-// --- Fonctions de récupération et de rendu (FINALISÉES) ---
+// --- Fonctions de récupération et de rendu ---
 
 /**
- * Récupère les données du tableau de bord via l'API.
+ * Récupère les données du tableau de bord.
  */
 async function fetchDashboardData(endpoint) {
     const response = await apiFetch(endpoint, { method: 'GET' });
-    // Supposons que le backend Express/Odoo renvoie les données directement sous 'data' ou à la racine de la réponse
-    const dashboardData = response.data || response; 
-    
-    // Construction de l'interface du tableau de bord basée sur data
-    return generateDashboardHTML(dashboardData);
+    // Supposons que l'API renvoie { data: { cash, profit, debts } }
+    return generateDashboardHTML(response.data);
 }
 
+// ⚠️ À implémenter (Laisser en simulation pour l'instant)
+async function fetchJournalData(endpoint) {
+    // Simule la latence réseau
+    await new Promise(resolve => setTimeout(resolve, 500)); 
+    const simulatedData = [
+        { id: 1, date: '2025-01-15', libelle: 'Achat de fournitures', debit: 50000, credit: 0 },
+        { id: 2, date: '2025-01-15', libelle: 'Vente de biens', debit: 0, credit: 150000 },
+    ];
+    
+    return generateJournalHTML(simulatedData);
+}
 
 // Fonction de génération HTML basique
 function generateDashboardHTML(data) {
@@ -472,45 +471,51 @@ function generateDashboardHTML(data) {
             `;
 }
 
-function generateReportHTML(reportResponse) {
-    // ReportResponse est l'objet complet renvoyé par l'API (ex: { referentiel, fluxMensuels })
+function generateJournalHTML(journalEntries) {
+    if (!journalEntries || journalEntries.length === 0) {
+        return generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+    }
     
-    // Si c'est un rapport mensuel de trésorerie SYSCOHADA SMT
-    if (reportResponse.referentiel && reportResponse.referentiel.includes('Trésorerie')) {
-        const rows = reportResponse.fluxMensuels.map(flux => 
-            `<tr>
-                <td>${flux.mois}</td>
-                <td class="text-right text-success font-bold">${flux.entrees.toLocaleString('fr-FR')}</td>
-                <td class="text-right text-danger font-bold">${flux.sorties.toLocaleString('fr-FR')}</td>
-                <td class="text-right font-black ${flux.solde >= 0 ? 'text-primary' : 'text-danger'}">${flux.solde.toLocaleString('fr-FR')} ${reportResponse.unite}</td>
-            </tr>`
-        ).join('');
+    const rows = journalEntries.map(entry => `
+        <tr>
+            <td>${entry.id}</td>
+            <td>${entry.date}</td>
+            <td>${entry.libelle}</td>
+            <td class="text-right">${entry.debit.toLocaleString('fr-FR')}</td>
+            <td class="text-right">${entry.credit.toLocaleString('fr-FR')}</td>
+        </tr>
+    `).join('');
 
-        return `<div class="prose dark:prose-invert max-w-none">
-            <h4 class="text-2xl font-black mb-4">${reportResponse.referentiel}</h4>
-            <p class="text-gray-500 mb-6">Période : 12 derniers mois. Unité : ${reportResponse.unite}.</p>
-            <table class="report-table w-full">
-                <thead><tr><th>Mois</th><th class="text-right">Entrées</th><th class="text-right">Sorties</th><th class="text-right">Solde Net</th></tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-        </div>`;
-    }
-    
-    // Rendu par défaut si ce n'est pas un flux de trésorerie (ou si la donnée est pour le bilan)
-    const reportTitle = reportResponse.title || "Rapport Comptable";
-    const reportContent = reportResponse.content || "Données indisponibles ou format non reconnu.";
-    
-    // Rendu du Bilan si le titre est présent (similaire à la V5, mais plus robuste)
-    if (reportResponse.bilanData) {
-        // Logique de rendu pour les données de Bilan si elles sont structurées sous reportResponse.bilanData
-        // Pour l'instant, on laisse le rendu par défaut si la logique de flux n'est pas remplie.
-    }
-    
-    // Rendu par défaut
+    return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Journaux et Écritures</h3>
+            <p class="text-sm text-gray-500 mb-4">Affichage des écritures pour la compagnie: **${appState.currentCompanyName}**.</p>
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">ID</th>
+                        <th scope="col" class="px-6 py-3">Date</th>
+                        <th scope="col" class="px-6 py-3">Libellé</th>
+                        <th scope="col" class="px-6 py-3 text-right">Débit</th>
+                        <th scope="col" class="px-6 py-3 text-right">Crédit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>`;
+}
+
+function generateReportHTML(reportData) {
+    // Rendu basé sur le format de données V4 (simulation)
     return `<div class="prose dark:prose-invert max-w-none">
-        <h4 class="text-xl font-bold mb-4">${reportTitle}</h4>
-        <p>${reportContent}</p>
-        <p class="mt-4 text-sm text-gray-500">Le format de données reçu n'est pas un rapport de trésorerie. Vérifiez la structure JSON renvoyée par le serveur.</p>
+        <h4 class="text-xl font-bold mb-4">Détails du Bilan au ${new Date().toLocaleDateString('fr-FR')}</h4>
+        <p>Simulation de données pour la compagnie ${appState.currentCompanyName}. L'appel API a utilisé le filtre: <code>company_id = ${appState.currentCompanyId}</code>.</p>
+        <table class="report-table w-full">
+            <thead><tr><th>Compte</th><th>Libellé</th><th>Montant</th></tr></thead>
+            <tbody>
+                <tr><td>211</td><td>Terrains</td><td>${(reportData.terrains || 15000000).toLocaleString('fr-FR')}</td></tr>
+                <tr><td>411</td><td>Clients</td><td>${(reportData.clients || 800000).toLocaleString('fr-FR')}</td></tr>
+            </tbody>
+        </table>
     </div>`;
 }
 
@@ -536,20 +541,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Attachement des formulaires
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
-        // L'interception est ici + l'attribut onsubmit dans index.html
         loginForm.addEventListener('submit', handleLogin);
     }
     const registerForm = document.getElementById('register-form');
     if (registerForm) {
-        // L'interception doit aussi être ajoutée au formulaire d'inscription
-        registerForm.addEventListener('submit', handleRegister);
+        registerForm.addEventListener('submit', handleRegister); 
     }
 
     // 2. Attachement des boutons de navigation AUTH/REGISTER
     const loginContainer = document.getElementById('login-form-container');
     const registerView = document.getElementById('register-view');
-    const showRegisterBtn = document.getElementById('show-register-btn');
-    const showLoginBtn = document.getElementById('show-login-btn');
+    const showRegisterBtn = document.getElementById('show-register-btn'); 
+    const showLoginBtn = document.getElementById('show-login-btn');      
     const modalCloseBtn = document.getElementById('modal-close-btn');
 
     // Bascule vers l'inscription
@@ -586,8 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
             emailInput.value = 'admin@douke.com';
             passwordInput.value = 'password';
             const mockEvent = { preventDefault: () => {} };
-            // Connexion après un court délai pour que l'utilisateur puisse voir les champs se remplir
-            setTimeout(() => handleLogin(mockEvent), 500);
+            setTimeout(() => handleLogin(mockEvent), 500); 
         }
     }
 });
