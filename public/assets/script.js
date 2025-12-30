@@ -262,8 +262,13 @@ function renderAppView() {
     }
 }
 
+// =================================================================
+// BLOC MODIFIÉ : function loadDashboard()
+// =================================================================
+
 /**
  * Charge les informations et les menus du tableau de bord.
+ * AJUSTÉ pour gérer l'état sans compagnie sélectionnée (currentCompanyId: null).
  */
 function loadDashboard() {
     if (!appState.user) return;
@@ -273,9 +278,16 @@ function loadDashboard() {
     document.getElementById('current-role').textContent = appState.user.profile; // Utilisation de 'profile'
     document.getElementById('user-avatar-text').textContent = appState.user.name.charAt(0).toUpperCase();
 
-    // Mise à jour du contexte de travail
-    document.getElementById('current-company-name').textContent = appState.currentCompanyName;
-    document.getElementById('context-message').textContent = `Comptabilité Analytique : ${appState.currentCompanyName}`;
+    // Mise à jour du contexte de travail (Correction pour afficher le message de sélection)
+    document.getElementById('current-company-name').textContent = appState.currentCompanyName || 'Aucun Dossier Actif';
+    
+    // Modification 1: Conditionner le message de contexte
+    const contextMessage = appState.currentCompanyId 
+        ? `Comptabilité Analytique : ${appState.currentCompanyName}`
+        : 'SÉLECTION REQUISE : Veuillez choisir un dossier client.';
+        
+    document.getElementById('context-message').textContent = contextMessage;
+
 
     // -------------------------------------------------------------
     // LOGIQUE CRITIQUE: CONSTRUCTION DU MENU MULTI-COMPAGNIES
@@ -283,8 +295,10 @@ function loadDashboard() {
     const menuContainer = document.getElementById('role-navigation-menu');
     menuContainer.innerHTML = '';
     
-    // 1. Menu de Sélection de Compagnie (Toujours présent si plus d'une compagnie)
-    if (appState.user.companiesList && appState.user.companiesList.length > 1) {
+    // 1. Menu de Sélection de Compagnie (Rendu si plus de 0 compagnies)
+    if (appState.user.companiesList && appState.user.companiesList.length > 0) {
+        // NOTE: Dans la V1.7, ce sélecteur est déplacé dans l'en-tête (renderHeaderSelectors). 
+        // Je le garde ici pour ne pas modifier la structure DOM que vous utilisez.
         const companySelectHTML = createCompanySelectMenu(appState.user.companiesList);
         menuContainer.insertAdjacentHTML('beforeend', companySelectHTML);
     }
@@ -304,8 +318,35 @@ function loadDashboard() {
         menuContainer.appendChild(menuItem);
     });
     
-    // Charger le contenu par défaut
-    loadContentArea('dashboard', 'Tableau de Bord');
+    // 3. Charger le contenu par défaut (Modification 2: Vérification Conditionnelle)
+    const contentArea = document.getElementById('dashboard-content-area');
+    
+    if (appState.currentCompanyId) {
+        // Charger le dashboard uniquement si une compagnie est sélectionnée
+        loadContentArea('dashboard', 'Tableau de Bord');
+    } else {
+        // Sinon, afficher un message d'invitation à sélectionner une compagnie.
+        if (contentArea) {
+             contentArea.innerHTML = generateCompanySelectionPromptHTML();
+        }
+    }
+}
+
+
+// =================================================================
+// NOUVELLE FONCTION REQUISE : generateCompanySelectionPromptHTML()
+// =================================================================
+/**
+ * Génère le HTML pour l'écran demandant à l'utilisateur de sélectionner une compagnie.
+ */
+function generateCompanySelectionPromptHTML() {
+    return `<div class="h-full flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
+        <i class="fas fa-sitemap fa-5x text-warning/70 mb-6"></i>
+        <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2">Sélectionnez votre Dossier Actif</h3>
+        <p class="text-lg text-gray-600 dark:text-gray-400 max-w-xl">
+            Afin d'accéder aux données comptables, veuillez choisir un dossier client dans le menu de gauche.
+        </p>
+    </div>`;
 }
 
 
