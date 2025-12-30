@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : public/assets/script.js
+// FICHIER : public/assets/script.js (CORRIGÉ INTÉGRAL V5)
 // Description : Logique Front-End (Vue et Interactions DOM)
 // =============================================================================
 
@@ -11,7 +11,7 @@ const IS_PROD = window.location.hostname !== 'localhost' && window.location.host
 let appState = {
     isAuthenticated: false,
     token: null,
-    user: null, // Contient: { name, email, role, odooUid, allowedCompanyIds, selectedCompanyId }
+    user: null, // Contient: { name, email, role, odooUid, selectedCompanyId, companiesList, ... }
     currentCompanyId: null,
     currentCompanyName: null,
 };
@@ -107,6 +107,7 @@ async function apiFetch(endpoint, options = {}) {
                 // Déconnexion automatique après une erreur d'authentification
                 handleLogout(true);
             }
+            // 404 sera attrapé ici (data.error = 'Route API non trouvée')
             throw new Error(data.error || `Erreur HTTP ${response.status}`);
         }
 
@@ -120,6 +121,29 @@ async function apiFetch(endpoint, options = {}) {
         }
         throw error;
     }
+}
+
+/**
+ * Fonction interne pour récupérer les données de session et mettre à jour l'état.
+ * Utilisée après le login et lors du check d'authentification.
+ */
+async function fetchAndSetSessionData() {
+    // ⬅️ CORRECTION CLÉ : Appel de la route serveur correcte !
+    const response = await apiFetch('/user/session-data', { method: 'GET' });
+    
+    // ⬅️ CORRECTION DE STRUCTURE : Utilisation de response.session (voir userController.js)
+    const sessionData = response.session; 
+    
+    // Mettre à jour l'état de l'application
+    appState.user = sessionData; 
+    appState.currentCompanyId = sessionData.selectedCompanyId;
+    
+    // Assurer l'existence de la liste des compagnies pour les menus
+    const companyList = sessionData.companiesList || []; 
+    
+    // Déterminer le nom de la compagnie active
+    appState.currentCompanyName = companyList.find(c => c.id === sessionData.selectedCompanyId)?.name 
+                                  || 'Dossier Inconnu';
 }
 
 /**
@@ -138,30 +162,27 @@ async function handleLogin(event) {
     btn.innerHTML = `<div class="loading-spinner mx-auto border-white border-top-white/20"></div>`;
 
     try {
+        // 1. Appel d'authentification
         const response = await apiFetch('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password })
         });
         
-        // Mise à jour de l'état global
+        // 2. Mise à jour de l'état global avec le token
         appState.token = response.data.token;
-        appState.user = response.data; // Contient profile, name, companiesList, defaultCompany
         appState.isAuthenticated = true;
-
-        // Définir la compagnie par défaut
-        appState.currentCompanyId = response.data.defaultCompany.id;
-        appState.currentCompanyName = response.data.defaultCompany.name;
-
-        // Sauvegarde du token (pour le 'remember me' si besoin, ici pour la session)
+        
         localStorage.setItem('douke_auth_token', appState.token);
         
+        // 3. Appel de validation pour obtenir les données utilisateur complètes après login
+        await fetchAndSetSessionData();
+
         NotificationManager.show(`Connexion Réussie. Bienvenue, ${appState.user.name}.`);
         renderAppView(); // Charger le tableau de bord
         
     } catch (error) {
         // Le NotifManager s'occupe déjà de l'affichage de l'erreur
-        // Réinitialiser les champs pour une nouvelle tentative
-        document.getElementById('password').value = ''; 
+        document.getElementById('password').value = '';
     } finally {
         // Rétablir le bouton
         btn.disabled = false;
@@ -175,7 +196,6 @@ async function handleLogin(event) {
 async function handleRegister(event) {
     event.preventDefault();
     // Logique similaire à handleLogin, non implémentée ici pour la concision
-    // (Utilise apiFetch('/auth/register', ...) et met à jour appState)
     NotificationManager.show('Fonction d\'inscription en cours de finalisation.', 'info');
 }
 
@@ -183,10 +203,8 @@ async function handleRegister(event) {
  * Gère la déconnexion.
  */
 function handleLogout(isAutoLogout = false) {
-    // Effacer le token
+    // Effacer le token et réinitialiser l'état
     localStorage.removeItem('douke_auth_token');
-    
-    // Réinitialiser l'état
     appState = {
         isAuthenticated: false,
         token: null,
@@ -215,22 +233,17 @@ async function checkAuthAndRender() {
         return renderAppView();
     }
     
-    // Si un token existe, tenter de le valider et récupérer les données utilisateur
     appState.token = token;
     
     try {
-        // Tenter d'utiliser une route de validation JWT (ex: /auth/me) ou un appel de base
-        const response = await apiFetch('/auth/me', { method: 'GET' }); 
-        
-        // Si la validation réussit, restaurer l'état
-        appState.user = response.data;
+        // Tenter de valider le token et de récupérer les données utilisateur via le token
+        await fetchAndSetSessionData();
+
         appState.isAuthenticated = true;
-        appState.currentCompanyId = response.data.selectedCompanyId;
-        appState.currentCompanyName = response.data.companiesList.find(c => c.id === response.data.selectedCompanyId)?.name || 'Dossier Inconnu';
-        
+
     } catch (error) {
-        // En cas d'échec de validation (token expiré ou invalide)
-        console.warn('Token invalide ou expiré. Reconnexion requise.');
+        // En cas d'échec de validation (token expiré ou invalide, ou route KO)
+        console.warn('Token invalide, expiré ou route de session introuvable. Reconnexion requise.');
         handleLogout(true);
         return;
     }
@@ -265,7 +278,7 @@ function loadDashboard() {
 
     // Mise à jour de l'en-tête utilisateur
     document.getElementById('welcome-message').textContent = appState.user.name;
-    document.getElementById('current-role').textContent = appState.user.profile;
+    document.getElementById('current-role').textContent = appState.user.role; // Utilisation de 'role'
     document.getElementById('user-avatar-text').textContent = appState.user.name.charAt(0).toUpperCase();
 
     // Mise à jour du contexte de travail
@@ -285,9 +298,9 @@ function loadDashboard() {
     }
     
     // 2. Menus de Navigation (Basés sur le Rôle)
-    const baseMenus = getRoleBaseMenus(appState.user.profile);
+    const baseMenus = getRoleBaseMenus(appState.user.role); // Utilisation de 'role'
     baseMenus.forEach(menu => {
-        const isActive = menu.name === 'Tableau de Bord' ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
+        const isActive = menu.id === 'dashboard' ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
         const menuItem = document.createElement('a');
         menuItem.className = `flex items-center p-4 rounded-xl font-bold transition-colors ${isActive}`;
         menuItem.href = '#';
@@ -328,7 +341,7 @@ function createCompanySelectMenu(companies) {
  * Gère le changement de compagnie active par l'utilisateur.
  * RENDU DISPONIBLE DANS LA PORTÉE GLOBALE DU DOM.
  */
-window.handleCompanyChange = function (newCompanyId) {
+window.handleCompanyChange = async function (newCompanyId) { // Rendre asynchrone pour future API
     const newId = parseInt(newCompanyId);
     const newCompany = appState.user.companiesList.find(c => c.id === newId);
 
@@ -336,8 +349,11 @@ window.handleCompanyChange = function (newCompanyId) {
         appState.currentCompanyId = newId;
         appState.currentCompanyName = newCompany.name;
         
-        // Mise à jour de l'état utilisateur (pour les prochains appels /auth/me)
+        // Mise à jour de l'état utilisateur (IMPORTANT : met à jour l'ID de la compagnie dans appState.user)
         appState.user.selectedCompanyId = newId;
+
+        // Si l'on avait une API pour mettre à jour la compagnie dans le JWT, elle irait ici
+        // Ex: await apiFetch('/user/set-company', { method: 'POST', body: JSON.stringify({ companyId: newId }) });
 
         // Mise à jour de l'UI
         document.getElementById('current-company-name').textContent = appState.currentCompanyName;
@@ -361,11 +377,9 @@ function getRoleBaseMenus(role) {
         { id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' },
     ];
     
+    // Le nom des rôles est maintenant cohérent avec la valeur du JWT
     if (role === 'ADMIN') {
         menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
-    }
-    if (role === 'COLLABORATEUR' || role === 'CAISSIER') {
-        // Ajouter des options spécifiques si nécessaire
     }
     
     return menus;
@@ -379,32 +393,36 @@ async function loadContentArea(contentId, title) {
     contentArea.innerHTML = `<div class="p-8 text-center"><div class="loading-spinner mx-auto"></div><p class="mt-4 text-gray-500 font-bold">Chargement du module ${title}...</p></div>`;
 
     // -----------------------------------------------------------------
-    // LOGIQUE CLÉ : APPEL API AVEC L'ID DE LA COMPAGNIE ACTUELLE
+    // LOGIQUE CLÉ: APPEL API AVEC L'ID DE LA COMPAGNIE ACTUELLE
     // -----------------------------------------------------------------
     try {
         let endpoint = '';
         let content = '';
 
         // Ici, nous utilisons l'ID de la compagnie actuelle pour filtrer les données
-        const companyFilter = `?companyId=${appState.currentCompanyId}`; 
+        const companyId = appState.currentCompanyId; 
 
         switch (contentId) {
             case 'dashboard':
-                endpoint = `/data/dashboard${companyFilter}`;
-                content = await fetchDashboardData(endpoint);
-                break;
-            case 'journal':
-                endpoint = `/data/journal${companyFilter}`;
-                content = await fetchJournalData(endpoint);
+                // Ceci devrait appeler votre API pour les données de synthèse (ex: /api/accounting/dashboard/:id)
+                // endpoint = `/accounting/dashboard/${companyId}`;
+                // content = await fetchDashboardData(endpoint);
+                content = await fetchDashboardData();
                 break;
             case 'reports':
-                // Utiliser la modale pour un rapport complet
-                const reportContent = await apiFetch(`/data/reports/bilan${companyFilter}`, { method: 'GET' });
-                ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportContent.data));
-                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+                // Exemple d'appel pour le Bilan (nécessite l'ID de la compagnie)
+                const reportContent = await apiFetch(`/accounting/report/bilan/${companyId}`, { method: 'GET' });
+                ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportContent)); // Utilisation directe de reportContent
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.role);
+                break;
+            case 'journal':
+            case 'ledger':
+            case 'admin-users':
+                // Endpoints non implémentés, on affiche un message de bienvenue
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.role);
                 break;
             default:
-                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.role);
         }
         
         // Mettre à jour la zone de contenu (sauf si une modale a été ouverte)
@@ -418,10 +436,16 @@ async function loadContentArea(contentId, title) {
 }
 
 // --- Fonctions de simulation de données (À REMPLACER) ---
-async function fetchDashboardData(endpoint) {
-    const data = await apiFetch(endpoint, { method: 'GET' });
+// Utilisation d'une simulation d'appel pour le dashboard en attendant l'endpoint réel
+async function fetchDashboardData() {
+    // Simule la latence réseau
+    await new Promise(resolve => setTimeout(resolve, 500)); 
+    
+    // Données simulées (ou remplacer par un appel à /accounting/dashboard/:id)
+    const simulatedData = { cash: 2500000, profit: 450000, debts: 1200000 };
+    
     // Construction de l'interface du tableau de bord basée sur data
-    return generateDashboardHTML(data.data);
+    return generateDashboardHTML(simulatedData);
 }
 
 // Fonction de génération HTML basique
@@ -430,33 +454,49 @@ function generateDashboardHTML(data) {
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
                     <p class="text-xs font-bold uppercase text-gray-500">Trésorerie Actuelle</p>
-                    <p class="text-4xl font-black text-success mt-2">${(data.cash || 2500000).toLocaleString('fr-FR')} XOF</p>
+                    <p class="text-4xl font-black text-success mt-2">${(data.cash || 0).toLocaleString('fr-FR')} XOF</p>
                 </div>
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
                     <p class="text-xs font-bold uppercase text-gray-500">Bénéfice Net (YTD)</p>
-                    <p class="text-4xl font-black text-info mt-2">${(data.profit || 450000).toLocaleString('fr-FR')} XOF</p>
+                    <p class="text-4xl font-black text-info mt-2">${(data.profit || 0).toLocaleString('fr-FR')} XOF</p>
                 </div>
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
                     <p class="text-xs font-bold uppercase text-gray-500">Dettes Fournisseurs</p>
-                    <p class="text-4xl font-black text-warning mt-2">${(data.debts || 1200000).toLocaleString('fr-FR')} XOF</p>
+                    <p class="text-4xl font-black text-warning mt-2">${(data.debts || 0).toLocaleString('fr-FR')} XOF</p>
                 </div>
             </div>
             <p class="mt-8 text-sm text-gray-500">Données filtrées pour le dossier client: **${appState.currentCompanyName}**.</p>
             `;
 }
 
-function generateReportHTML(reportData) {
-    // Ceci serait le rendu complexe d'un Bilan/Compte de Résultat
+function generateReportHTML(reportResponse) {
+    // ReportResponse est l'objet complet renvoyé par l'API (ex: { referentiel, fluxMensuels })
+    
+    // Si c'est un rapport mensuel de trésorerie SYSCOHADA SMT
+    if (reportResponse.referentiel && reportResponse.referentiel.includes('Trésorerie')) {
+        const rows = reportResponse.fluxMensuels.map(flux => 
+            `<tr>
+                <td>${flux.mois}</td>
+                <td class="text-right text-success font-bold">${flux.entrees.toLocaleString('fr-FR')}</td>
+                <td class="text-right text-danger font-bold">${flux.sorties.toLocaleString('fr-FR')}</td>
+                <td class="text-right font-black ${flux.solde >= 0 ? 'text-primary' : 'text-danger'}">${flux.solde.toLocaleString('fr-FR')} ${reportResponse.unite}</td>
+            </tr>`
+        ).join('');
+
+        return `<div class="prose dark:prose-invert max-w-none">
+            <h4 class="text-2xl font-black mb-4">${reportResponse.referentiel}</h4>
+            <p class="text-gray-500 mb-6">Période : 12 derniers mois. Unité : ${reportResponse.unite}.</p>
+            <table class="report-table w-full">
+                <thead><tr><th>Mois</th><th class="text-right">Entrées</th><th class="text-right">Sorties</th><th class="text-right">Solde Net</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
+    }
+    
+    // Rendu par défaut si ce n'est pas un flux de trésorerie
     return `<div class="prose dark:prose-invert max-w-none">
-        <h4 class="text-xl font-bold mb-4">Détails du Bilan au ${new Date().toLocaleDateString('fr-FR')}</h4>
-        <p>Simulation de données pour la compagnie ${appState.currentCompanyName}. L'appel API a utilisé le filtre: <code>company_id = ${appState.currentCompanyId}</code>.</p>
-        <table class="report-table w-full">
-            <thead><tr><th>Compte</th><th>Libellé</th><th>Montant</th></tr></thead>
-            <tbody>
-                <tr><td>211</td><td>Terrains</td><td>${(reportData.terrains || 15000000).toLocaleString('fr-FR')}</td></tr>
-                <tr><td>411</td><td>Clients</td><td>${(reportData.clients || 800000).toLocaleString('fr-FR')}</td></tr>
-            </tbody>
-        </table>
+        <h4 class="text-xl font-bold mb-4">Rapport Inconnu</h4>
+        <p>Les données pour ce rapport n'ont pas un format de flux de trésorerie reconnu. </p>
     </div>`;
 }
 
@@ -487,15 +527,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const registerForm = document.getElementById('register-form');
     if (registerForm) {
-         // L'interception doit aussi être ajoutée au formulaire d'inscription
-        registerForm.addEventListener('submit', handleRegister); 
+        // L'interception doit aussi être ajoutée au formulaire d'inscription
+        registerForm.addEventListener('submit', handleRegister);
     }
 
     // 2. Attachement des boutons de navigation AUTH/REGISTER
     const loginContainer = document.getElementById('login-form-container');
     const registerView = document.getElementById('register-view');
-    const showRegisterBtn = document.getElementById('show-register-btn'); 
-    const showLoginBtn = document.getElementById('show-login-btn');      
+    const showRegisterBtn = document.getElementById('show-register-btn');
+    const showLoginBtn = document.getElementById('show-login-btn');
     const modalCloseBtn = document.getElementById('modal-close-btn');
 
     // Bascule vers l'inscription
@@ -533,7 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
             passwordInput.value = 'password';
             const mockEvent = { preventDefault: () => {} };
             // Connexion après un court délai pour que l'utilisateur puisse voir les champs se remplir
-            setTimeout(() => handleLogin(mockEvent), 500); 
+            setTimeout(() => handleLogin(mockEvent), 500);
         }
     }
 });
