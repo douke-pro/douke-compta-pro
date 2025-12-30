@@ -1,11 +1,11 @@
 // =============================================================================
-// FICHIER : services/odooService.js (VERSION CORRIGÉE - AUTHENTIFICATION EXPLICITE)
-// Objectif : Corriger l'erreur de "missing arguments" en spécifiant la méthode de login.
+// FICHIER : services/odooService.js (VERSION FINALE - OPTION 2 - AUTHENTIFICATION MIXTE)
+// Objectif : Gérer l'authentification Admin (Clé API) et Utilisateur Standard (Mot de Passe Odoo).
 // =============================================================================
 
 // CORRECTION CRITIQUE DE L'IMPORTATION FETCH
 const nodeFetch = require('node-fetch');
-const fetch = nodeFetch.default || nodeFetch; 
+const fetch = nodeFetch.default || nodeFetch;
 
 // Variables d'environnement critiques
 const ODOO_URL = process.env.ODOO_URL;
@@ -13,13 +13,13 @@ const ODOO_DB = process.env.ODOO_DB;
 
 // Configuration Odoo
 const ODOO_CONFIG = {
-    db: ODOO_DB, 
+    db: ODOO_DB,
     // UID de l'Administrateur API (doukepro@gmail.com) - NÉCESSAIRE POUR LA CRÉATION
-    adminUid: process.env.ODOO_ADMIN_UID, 
+    adminUid: process.env.ODOO_ADMIN_UID,
     // Utilisateur technique de l'API (pour le code)
-    username: process.env.ODOO_USERNAME || 'doukepro@gmail.com', 
-    // CLÉ API (Critique pour ExecuteKw ET pour ce contournement de login)
-    password: process.env.ODOO_API_KEY, 
+    username: process.env.ODOO_USERNAME || 'doukepro@gmail.com',
+    // CLÉ API (Critique pour ExecuteKw ET pour le login Admin)
+    password: process.env.ODOO_API_KEY,
 };
 
 // Vérification de base
@@ -28,7 +28,7 @@ if (!ODOO_URL || !ODOO_DB) {
     throw new Error("Configuration Odoo Manquante.");
 }
 if (!ODOO_CONFIG.password) {
-     console.warn("ATTENTION: ODOO_API_KEY est manquant, toutes les fonctions échoueront.");
+     console.warn("ATTENTION: ODOO_API_KEY est manquant, toutes les fonctions d'Admin et ExecuteKw échoueront.");
 }
 if (!ODOO_CONFIG.adminUid) {
      console.warn("ATTENTION: ODOO_ADMIN_UID est manquant. La fonction de création d'utilisateur échouera.");
@@ -39,7 +39,7 @@ if (!ODOO_CONFIG.adminUid) {
  */
 async function executeJsonRpc(endpoint, payload) {
     const url = `${ODOO_URL}${endpoint}`;
-    
+
     try {
         const response = await fetch(url, {
             method: 'POST',
@@ -57,8 +57,8 @@ async function executeJsonRpc(endpoint, payload) {
 
         if (jsonResponse.error) {
             const error = jsonResponse.error;
-            const errorMessage = error.data && error.data.message 
-                                ? error.data.message 
+            const errorMessage = error.data && error.data.message
+                                ? error.data.message
                                 : error.message || 'Erreur JSON-RPC Odoo inconnue.';
 
             console.error('[Odoo JSON-RPC Error]', errorMessage, error.data);
@@ -78,53 +78,62 @@ async function executeJsonRpc(endpoint, payload) {
 // =============================================================================
 
 /**
- * Authentifie un utilisateur contre Odoo en utilisant la Clé API Administrateur 
- * pour forcer l'acceptation de la session (Contournement du Access Denied persistant).
- * CORRECTION : Ajout explicite de service: common et method: login.
+ * Authentifie un utilisateur contre Odoo.
+ * - Utilise le mot de passe réel pour les utilisateurs standards.
+ * - Utilise la Clé API pour l'Admin (contournement si besoin).
  */
-exports.odooAuthenticate = async (email, password) => { // NOTE: Le paramètre 'password' ici n'est pas utilisé
+exports.odooAuthenticate = async (email, password) => {
     
     const db = ODOO_CONFIG.db;
-    const adminPassword = ODOO_CONFIG.password; // C'est la CLÉ API
+    const adminPassword = ODOO_CONFIG.password; // Clé API de l'Admin
+    
+    if (!adminPassword) {
+        throw new Error("Clé API Administrateur (ODOO_API_KEY) est manquante, les fonctions Admin échoueront.");
+    }
     
-    if (!adminPassword) {
-        throw new Error("Clé API Administrateur (ODOO_API_KEY) est manquante, impossible de contourner le Access Denied.");
-    }
+    // --- NOUVELLE LOGIQUE CRITIQUE ---
+    // Si l'utilisateur qui se connecte est l'Admin défini, on utilise la Clé API.
+    // Sinon (Utilisateur standard), on utilise le mot de passe fourni.
+    const passwordToUse = (email === ODOO_CONFIG.username) ? adminPassword : password;
+    // ---------------------------------
+    
+    if (!passwordToUse) {
+        throw new Error("Mot de passe ou Clé API manquant.");
+    }
 
-    // 1. Requête d'authentification utilisateur (avec le login de l'utilisateur, mais la CLÉ API en mot de passe)
+    // 1. Requête d'authentification utilisateur
     const payload = {
         jsonrpc: "2.0",
         method: "call",
         params: {
-            // CORRECTION CRITIQUE (arguments manquants)
-            service: "common", 
-            method: "login",
-            args: [db, email, adminPassword], // Args: DB, Login, Clé API/Password
+            service: "common",
+            method: "login",
+            args: [db, email, passwordToUse], // Args: DB, Login, Mot de passe ou Clé API
         },
         id: new Date().getTime(),
     };
 
-    // Point critique : Utilisation de l'endpoint générique /jsonrpc (méthode la plus tolérante)
-    // Nous ne devons pas passer l'UID dans les arguments ici car c'est une méthode "commune"
+    // Point critique : Utilisation de l'endpoint générique /jsonrpc (méthode la plus tolérante)
     const uid = await executeJsonRpc('/jsonrpc', payload);
 
-    // L'endpoint renvoie l'UID (un nombre) ou false
+    // L'endpoint renvoie l'UID (un nombre) ou false
     if (!uid || typeof uid !== 'number' || uid === false) {
-        throw new Error("Authentification échouée. Veuillez vérifier ODOO_DB et ODOO_API_KEY. L'utilisateur Odoo n'est pas valide.");
+        // Message d'erreur uniforme pour masquer l'architecture interne
+        throw new Error("Échec de l'authentification. Identifiants Odoo invalides.");
     }
     
     console.log(`SUCCÈS : UID utilisateur Odoo récupéré : ${uid}.`);
 
-    // Logique de profil simulée
+    // Logique de profil simulée (à améliorer avec les groupes Odoo pour les 4 profils)
     let profile = 'USER';
-    if (email.includes('admin') || email.includes('doukepro')) {
+    if (email === ODOO_CONFIG.username) {
         profile = 'ADMIN';
-    } 
+    }
     
     return {
         uid,
         db,
-        profile, 
+        profile,
         name: `Utilisateur Odoo (ID: ${uid})`,
         email: email,
     };
@@ -141,7 +150,8 @@ exports.odooAuthenticate = async (email, password) => { // NOTE: Le paramètre '
 exports.odooExecuteKw = async (params) => {
     const { uid, model, method, args = [], kwargs = {} } = params;
     const db = ODOO_CONFIG.db;
-    const password = ODOO_CONFIG.password; // Mot de passe technique (CLÉ API)
+    // Le mot de passe technique (Clé API) est TOUJOURS utilisé ici pour execute_kw
+    const password = ODOO_CONFIG.password; 
 
     if (!uid || !password) {
         throw new Error('UID ou Clé API Odoo manquant pour l\'exécution de la requête.');
@@ -153,10 +163,10 @@ exports.odooExecuteKw = async (params) => {
         jsonrpc: "2.0",
         method: "call",
         params: {
-            service: "object", 
+            service: "object",
             method: "execute_kw",
-            args: executeKwArgs, 
-            kwargs: {} 
+            args: executeKwArgs,
+            kwargs: {}
         },
         id: new Date().getTime(),
     };
@@ -182,8 +192,8 @@ exports.odooRegisterUser = async (name, email, password) => {
         login: email,
         email: email,
         password: password,
-        // ATTENTION : Si vous avez identifié les groupes d'accès nécessaires, 
-        // ajoutez-les ici : groups_id: [(6, 0, [ID_GROUPE])]
+        // ATTENTION : Si vous avez identifié les groupes d'accès nécessaires,
+        // ajoutez-les ici : groups_id: [(6, 0, [ID_GROUPE])]
     };
 
     try {
