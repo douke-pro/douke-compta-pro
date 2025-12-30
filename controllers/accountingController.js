@@ -1,16 +1,16 @@
 // =============================================================================
-// FICHIER : controllers/accountingController.js (VERSION FINALE - SANS XMLRPC)
+// FICHIER : controllers/accountingController.js (À VÉRIFIER)
+// Assurez-vous que ce fichier n'a aucune référence à 'xmlrpc' ou 'odooClient'.
 // =============================================================================
 
-// ❌ SUPPRIMER TOUTE LIGNE FAISANT RÉFÉRENCE À 'xmlrpc' ici
-const { odooExecuteKw } = require('../services/odooService'); 
-const ADMIN_UID = process.env.ODOO_ADMIN_UID; 
+const { odooExecuteKw } = require('../services/odooService'); // ⬅️ Doit être présent et pointer vers le bon fichier
+const ADMIN_UID = process.env.ODOO_ADMIN_UID; // ⬅️ UID Admin doit être disponible dans .env
 
 exports.getFinancialReport = async (req, res) => {
     try {
         const { analyticId } = req.params; 
         const { systemType } = req.query; 
-        // Utilisation sécurisée de req.user
+        // Utilisateur connecté provient du JWT
         const { odooUid } = req.user;
         
         if (!ADMIN_UID) throw new Error("Erreur de configuration: ODOO_ADMIN_UID manquant.");
@@ -20,7 +20,7 @@ exports.getFinancialReport = async (req, res) => {
 
         // 2. Requête Odoo via odooExecuteKw (JSON-RPC)
         const moveLines = await odooExecuteKw({
-            uid: ADMIN_UID, // ⬅️ Droits Admin
+            uid: ADMIN_UID, // ⬅️ Utilisation des droits Admin pour contourner l'accès refusé
             model: 'account.move.line',
             method: 'search_read',
             args: [
@@ -33,8 +33,6 @@ exports.getFinancialReport = async (req, res) => {
         });
 
         // 3. Traitement selon le référentiel SYSCOHADA (Logique inchangée)
-        // ... (Reste de la logique de calcul) ...
-        
         let report = { chiffreAffaires: 0, chargesExploitation: 0, tresorerie: 0, resultat: 0 };
         moveLines.forEach(line => {
             const accountCode = line.account_id ? line.account_id[1] : ''; 
