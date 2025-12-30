@@ -1,6 +1,6 @@
 // =============================================================================
-// FICHIER : services/odooService.js (VERSION DÉFINITIVE - AUTHENTIFICATION & CRÉATION)
-// Objectif : Gérer l'API Odoo via JSON-RPC, avec gestion de l'Admin UID pour les opérations critiques.
+// FICHIER : services/odooService.js (VERSION FINALE - AUTHENTIFICATION STANDARD)
+// Objectif : Retour à l'endpoint standard /web/session/authenticate.
 // =============================================================================
 
 // CORRECTION CRITIQUE DE L'IMPORTATION FETCH
@@ -78,8 +78,7 @@ async function executeJsonRpc(endpoint, payload) {
 // =============================================================================
 
 /**
- * Authentifie un utilisateur contre Odoo en utilisant l'endpoint générique /jsonrpc.
- * Ceci contourne les problèmes spécifiques de /web/session/authenticate et /jsonrpc/common.
+ * Authentifie un utilisateur contre Odoo en utilisant l'endpoint STANDARD /web/session/authenticate.
  */
 exports.odooAuthenticate = async (email, password) => {
     
@@ -89,7 +88,6 @@ exports.odooAuthenticate = async (email, password) => {
     const payload = {
         jsonrpc: "2.0",
         method: "call",
-        // L'appel à la méthode 'login' est implicite ici pour Odoo lors de la connexion via /jsonrpc
         params: {
             db: db,
             login: email,
@@ -98,13 +96,14 @@ exports.odooAuthenticate = async (email, password) => {
         id: new Date().getTime(),
     };
 
-    // Point de correction critique : Utilisation de l'endpoint générique /jsonrpc 
-    const uid = await executeJsonRpc('/jsonrpc', payload);
+    // Point de correction : Retour à l'endpoint officiel.
+    const authResult = await executeJsonRpc('/web/session/authenticate', payload);
 
-    // L'endpoint commun renvoie l'UID (un nombre) ou false
-    if (!uid || typeof uid !== 'number' || uid === false) {
+    // L'endpoint officiel renvoie un objet avec la clé 'uid'
+    if (!authResult || typeof authResult.uid !== 'number' || authResult.uid === false) {
         throw new Error("Authentification échouée. Identifiant ou mot de passe Odoo incorrect ou base de données non trouvée.");
     }
+    const uid = authResult.uid;
     
     console.log(`SUCCÈS : UID utilisateur Odoo récupéré : ${uid}.`);
 
