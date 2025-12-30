@@ -1,7 +1,6 @@
 // =============================================================================
-// FICHIER : services/odooService.js (VERSION CONTOURNEMENT CLÉ API)
-// Objectif : Utiliser la CLÉ API Admin pour forcer l'authentification des utilisateurs
-//           et débloquer l'erreur Access Denied persistante.
+// FICHIER : services/odooService.js (VERSION CORRIGÉE - AUTHENTIFICATION EXPLICITE)
+// Objectif : Corriger l'erreur de "missing arguments" en spécifiant la méthode de login.
 // =============================================================================
 
 // CORRECTION CRITIQUE DE L'IMPORTATION FETCH
@@ -81,6 +80,7 @@ async function executeJsonRpc(endpoint, payload) {
 /**
  * Authentifie un utilisateur contre Odoo en utilisant la Clé API Administrateur 
  * pour forcer l'acceptation de la session (Contournement du Access Denied persistant).
+ * CORRECTION : Ajout explicite de service: common et method: login.
  */
 exports.odooAuthenticate = async (email, password) => { // NOTE: Le paramètre 'password' ici n'est pas utilisé
     
@@ -96,20 +96,21 @@ exports.odooAuthenticate = async (email, password) => { // NOTE: Le paramètre '
         jsonrpc: "2.0",
         method: "call",
         params: {
-            db: db,
-            login: email, // L'email de l'utilisateur à authentifier
-            password: adminPassword, // <--- UTILISATION CRITIQUE DE LA CLÉ API
+            // CORRECTION CRITIQUE (arguments manquants)
+            service: "common", 
+            method: "login",
+            args: [db, email, adminPassword], // Args: DB, Login, Clé API/Password
         },
         id: new Date().getTime(),
     };
 
     // Point critique : Utilisation de l'endpoint générique /jsonrpc (méthode la plus tolérante)
+    // Nous ne devons pas passer l'UID dans les arguments ici car c'est une méthode "commune"
     const uid = await executeJsonRpc('/jsonrpc', payload);
 
     // L'endpoint renvoie l'UID (un nombre) ou false
     if (!uid || typeof uid !== 'number' || uid === false) {
-        // Si cela échoue ici, la Clé API est soit mauvaise, soit ODOO_DB est INCORRECT.
-        throw new Error("Authentification échouée. Veuillez vérifier ODOO_DB et ODOO_API_KEY.");
+        throw new Error("Authentification échouée. Veuillez vérifier ODOO_DB et ODOO_API_KEY. L'utilisateur Odoo n'est pas valide.");
     }
     
     console.log(`SUCCÈS : UID utilisateur Odoo récupéré : ${uid}.`);
