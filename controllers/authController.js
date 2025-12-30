@@ -1,7 +1,7 @@
 // =============================================================================
-// FICHIER : controllers/authController.js (VERSION CORRIGÉE FINALE)
+// FICHIER : controllers/authController.js (VERSION CORRIGÉE FINALE - COMPANY_IDS)
 // Description : Gestion de l'authentification et des utilisateurs
-// CORRECTION : Utilisation de l'UID Admin pour les requêtes de lecture (ExecuteKw)
+// CORRECTION : Ajout de la lecture explicite de res.users pour obtenir company_ids
 // =============================================================================
 
 const jwt = require('jsonwebtoken');
@@ -11,7 +11,7 @@ const { odooAuthenticate, odooExecuteKw } = require('../services/odooService'); 
 // Configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'douke_secret_key_2024';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-const ADMIN_UID = process.env.ODOO_ADMIN_UID; // NOUVEAU : UID Admin pour les requêtes privilégiées ExecuteKw
+const ADMIN_UID = process.env.ODOO_ADMIN_UID; // UID Admin pour les requêtes privilégiées ExecuteKw
 
 /**
  * Génère un jeton JWT
@@ -40,10 +40,9 @@ exports.loginUser = async (req, res) => {
     }
 
     try {
-        // 1. Authentification Odoo
-        // Cette fonction retourne l'ID de l'utilisateur Odoo (uid) ou lève une erreur.
-        const authResult = await odooAuthenticate(email, password);
-        const { uid, db, profile, name } = authResult; // 'profile' est le rôle Doukè
+        // 1. Authentification Odoo : Récupère l'UID et le profil
+        let authResult = await odooAuthenticate(email, password); // Utilisation de 'let'
+        const { uid, db, profile, name } = authResult; 
 
         if (!uid) {
             return res.status(401).json({ error: 'Identifiants Odoo invalides.' });
@@ -54,14 +53,32 @@ exports.loginUser = async (req, res) => {
             console.error("ERREUR CRITIQUE: ODOO_ADMIN_UID est manquant. Les requêtes ExecuteKw pourraient échouer.");
         }
 
+        // NOUVELLE ÉTAPE CRITIQUE : Lire les company_ids de l'utilisateur spécifique (res.users)
+        // car common.login ne les renvoie pas de manière fiable pour les non-admins.
+        const userData = await odooExecuteKw({
+            uid: ADMIN_UID, // Utilise les droits Admin pour cette lecture
+            model: 'res.users',
+            method: 'read',
+            args: [[uid], ['company_ids']], // On ne lit que le champ company_ids pour l'UID connecté
+            kwargs: {}
+        });
+
+        // 🚨 Vérification de sécurité et d'existence du lien Compagnie
+        if (!userData || userData.length === 0 || !userData[0].company_ids || userData[0].company_ids.length === 0) {
+             throw new Error('L\'utilisateur n\'est pas lié à une compagnie Odoo active.');
+        }
+
+        // On enrichit l'authResult avec les vrais company_ids (liste des IDs numériques)
+        authResult.company_ids = userData[0].company_ids;
+
+
         // 2. Récupération des entreprises (Companies) de l'utilisateur Odoo
-        // UTILISATION DE L'UID ADMIN (ADMIN_UID) POUR CONTOURNER LES ACL DE LECTURE (Access Denied)
-        const companyField = profile === 'ADMIN' ? 'id' : 'company_ids';
+        // UTILISATION DE L'UID ADMIN (ADMIN_UID) POUR CONTOURNER LES ACL DE LECTURE
         const companies = await odooExecuteKw({
-            uid: ADMIN_UID, // CORRECTION CRITIQUE : Utilise l'UID de l'Admin pour la requête de lecture (droits maximum)
+            uid: ADMIN_UID, // Utilise l'UID de l'Admin pour la requête de lecture (droits maximum)
             model: 'res.company',
             method: 'search_read',
-            // Le filtre (args) garantit qu'on ne récupère que les compagnies de l'utilisateur concerné
+            // Le filtre (args) utilise désormais les company_ids fraîchement récupérés
             args: profile === 'ADMIN' ? [[], ['name', 'currency_id']] : [[['id', 'in', authResult.company_ids]], ['name', 'currency_id']],
             kwargs: { limit: 100 },
         });
@@ -78,12 +95,11 @@ exports.loginUser = async (req, res) => {
         const defaultCompany = companiesList.length > 0 ? companiesList[0] : null;
 
         if (!defaultCompany) {
-            // Un utilisateur doit au moins être lié à une entreprise
+            // CETTE ERREUR NE DEVRAIT PLUS SE PRODUIRE SI LE POINT PRÉCÉDENT A RÉUSSI
             return res.status(401).json({ error: 'Aucun dossier comptable actif trouvé pour cet utilisateur.' });
         }
 
-        // 4. CORRECTION CRITIQUE: Création du JWT (Synchronisation des clés)
-        // Les clés 'odooUid' et 'role' doivent correspondre à ce qu'attend 'middleware/auth.js'.
+        // 4. Création du JWT (Synchronisation des clés)
         const token = signToken({
             odooUid: uid, // Clé renommée : de 'uid' à 'odooUid'
             email,
@@ -108,6 +124,7 @@ exports.loginUser = async (req, res) => {
 
     } catch (error) {
         console.error('Erreur de connexion:', error.message);
+        // Utilisation du message d'erreur d'Odoo pour le retour
         res.status(401).json({
             error: error.message || 'Échec de l\'authentification. Identifiants invalides ou service Odoo non disponible.',
         });
@@ -127,12 +144,9 @@ exports.registerUser = async (req, res) => {
     }
 
     try {
-        // NOTE: Dans une implémentation réelle, cette fonction appellerait
-        // une route Odoo pour créer :
-        // 1. Un nouvel utilisateur Odoo (user.partner)
-        // 2. Une nouvelle entreprise (res.company)
-        // 3. Lier l'utilisateur à cette entreprise, en lui donnant un rôle 'ADMIN'
-
+        // NOTE: ... (Logique de création stub inchangée)
+        // ...
+        
         // *************** STUB DE LOGIQUE ***************
         // Simuler la création et le retour d'un token pour l'utilisateur
         const newOdooUid = 9999;
