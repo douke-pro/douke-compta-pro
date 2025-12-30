@@ -57,13 +57,13 @@ exports.loginUser = async (req, res) => {
             kwargs: { limit: 100 },
         });
 
-        // Simuler le champ 'systeme' qui n'est pas standard Odoo
-        const companiesList = companies.map(c => ({
-            id: c.id,
-            name: c.name,
-            systeme: c.systeme || 'NORMAL', // Assumer 'NORMAL' par défaut
-            currency: c.currency_id ? c.currency_id[1] : 'XOF'
-        }));
+        // Simulation du champ 'systeme' (car non standard Odoo), assignation de la valeur par défaut.
+        const companiesList = companies.map(c => ({
+            id: c.id,
+            name: c.name,
+            systeme: 'NORMAL', // <-- CORRECTION : ASSIGNATION DIRECTE
+            currency: c.currency_id ? c.currency_id[1] : 'XOF'
+        }));
 
         // 3. Définir l'entreprise par défaut
         const defaultCompany = companiesList.length > 0 ? companiesList[0] : null;
