@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : controllers/userController.js
+// FICHIER : controllers/user.js
 // Description : Récupération des données de session après l'authentification
 // =============================================================================
 
