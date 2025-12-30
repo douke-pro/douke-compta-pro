@@ -212,3 +212,84 @@ exports.forceLogout = async (req, res) => {
         message: 'forceLogout: L\'action a été enregistrée. L\'utilisateur sera déconnecté à sa prochaine requête.',
     });
 };
+
+/**
+ * Récupère les données utilisateur et de session via le JWT (Middleware 'protect' l'a déjà décodé).
+ * @route GET /api/auth/me
+ * @requires middleware/auth.js (protect)
+ */
+exports.getMe = async (req, res) => {
+    // req.user est peuplé par le middleware 'protect' et contient les données du JWT
+    if (!req.user) {
+        return res.status(401).json({ error: 'Jeton JWT invalide ou manquant.' });
+    }
+
+    try {
+        // Dans une application robuste, on pourrait relire la DB Odoo ici.
+        // Pour la rapidité, nous renvoyons les données déjà stockées dans le token
+        // et transmises par le middleware 'protect'.
+        
+        // Les champs profile, name, email sont souvent stockés dans le JWT pour /me.
+        // Puisque loginUser envoie companiesList, nous devons le simuler ici ou le stocker
+        // dans le JWT (ce qui rend le JWT lourd).
+        
+        // Pour être complet, nous allons refaire l'appel de récupération des compagnies
+        // qui est la meilleure pratique pour s'assurer que les données sont à jour.
+        
+        const { odooUid, email, role, selectedCompanyId } = req.user;
+        
+        // 1. Lire les company_ids de l'utilisateur spécifique (res.users)
+        const userData = await odooExecuteKw({
+            uid: ADMIN_UID, 
+            model: 'res.users',
+            method: 'read',
+            args: [[odooUid], ['name', 'company_ids']], // On lit le nom et la liste des IDs
+            kwargs: {}
+        });
+
+        if (!userData || userData.length === 0 || !userData[0].company_ids || userData[0].company_ids.length === 0) {
+             throw new Error('L\'utilisateur n\'est plus lié à une compagnie active.');
+        }
+
+        const company_ids = userData[0].company_ids;
+        const name = userData[0].name;
+
+        // 2. Récupération des entreprises (Companies) de l'utilisateur Odoo
+        const companies = await odooExecuteKw({
+            uid: ADMIN_UID, 
+            model: 'res.company',
+            method: 'search_read',
+            args: role === 'ADMIN' ? [[], ['name', 'currency_id']] : [[['id', 'in', company_ids]], ['name', 'currency_id']],
+            kwargs: { limit: 100 },
+        });
+
+        const companiesList = companies.map(c => ({
+            id: c.id,
+            name: c.name,
+            systeme: 'NORMAL', // Assigner la valeur par défaut
+            currency: c.currency_id ? c.currency_id[1] : 'XOF'
+        }));
+        
+        const currentCompanyName = companiesList.find(c => c.id === selectedCompanyId)?.name || 'GLOBAL';
+
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                profile: role,         // Le rôle (Role)
+                name,                  // Le nom complet
+                email,                 // L'email
+                odooUid,
+                companiesList,         // La liste des compagnies
+                selectedCompanyId,     // L'ID de compagnie stocké dans le JWT
+                currentCompanyName,    // Le nom de la compagnie courante
+            },
+        });
+
+    } catch (error) {
+        console.error('Erreur getMe:', error.message);
+        res.status(401).json({
+            error: error.message || 'Échec de la récupération des données utilisateur. Jeton invalide ou données Odoo introuvables.',
+        });
+    }
+};
