@@ -10,7 +10,6 @@ const { odooAuthenticate, odooExecuteKw } = require('../services/odooService'); 
 // Configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'douke_secret_key_2024';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-const ADMIN_UID = process.env.ODOO_ADMIN_UID; // NOUVEAU : Récupération de l'UID Admin pour les requêtes privilégiées
 
 /**
  * Génère un jeton JWT
@@ -47,18 +46,11 @@ exports.loginUser = async (req, res) => {
         if (!uid) {
             return res.status(401).json({ error: 'Identifiants Odoo invalides.' });
         }
-        
-        // VÉRIFICATION CRITIQUE: Assurer que l'ADMIN_UID est disponible pour les requêtes privilégiées
-        if (!ADMIN_UID) {
-            console.error("ERREUR CRITIQUE: ODOO_ADMIN_UID est manquant. Les requêtes ExecuteKw ne fonctionneront pas.");
-            // Le code continue, mais l'erreur Access Denied sera plus probable
-        }
-
 
         // 2. Récupération des entreprises (Companies) de l'utilisateur Odoo
         const companyField = profile === 'ADMIN' ? 'id' : 'company_ids';
         const companies = await odooExecuteKw({
-            uid: ADMIN_UID, // CORRECTION CRITIQUE : Utiliser l'UID Admin pour la requête de lecture afin de contourner 'Access Denied'
+            uid,
             model: 'res.company',
             method: 'search_read',
             args: profile === 'ADMIN' ? [[], ['name', 'currency_id']] : [[['id', 'in', authResult.company_ids]], ['name', 'currency_id']],
