@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : public/assets/script.js (VERSION FINALE ET ROBUSTE)
+// FICHIER : public/assets/script.js (VERSION CORRIGÉE CIBLÉE)
 // Description : Logique Front-End (Vue et Interactions DOM)
 // =============================================================================
 
@@ -139,8 +139,6 @@ async function handleLogin(event) {
     btn.innerHTML = `<div class="loading-spinner mx-auto border-white border-top-white/20"></div>`;
 
     try {
-        // CORRECTION 1: Tenter d'appeler /user/session-data directement après l'auth si /auth/login ne donne que le token
-        // Si /auth/login renvoie toutes les données (comme dans votre ancien code) :
         const response = await apiFetch('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password })
@@ -154,7 +152,6 @@ async function handleLogin(event) {
         appState.isAuthenticated = true;
 
         // Définir la compagnie par défaut
-        // Nous allons supposer que le serveur renvoie l'ID de la compagnie par défaut à la racine de data ou dans defaultCompany.
         const defaultCompanyId = response.data.defaultCompany?.id || response.data.selectedCompanyId;
         const defaultCompanyName = response.data.companiesList?.find(c => c.id === defaultCompanyId)?.name || 'Dossier Inconnu';
         
@@ -225,11 +222,10 @@ async function checkAuthAndRender() {
     appState.token = token;
     
     try {
-        // CORRECTION 2 : Utiliser la nouvelle route de validation JWT du serveur
+        // CORRECTION DE ROUTE : Utilisation de la route de session validée
         const response = await apiFetch('/user/session-data', { method: 'GET' }); 
         
-        // CORRECTION 3 : Le serveur renvoie les données sous 'response.session' ou 'response' (dépend du contrôleur).
-        // Si le serveur a été modifié pour utiliser response.session (comme nous l'avions déduit) :
+        // CORRECTION DE STRUCTURE : Le serveur renvoie les données sous 'response.session' ou 'response.data'
         const userData = response.session || response.data;
 
         // Si la validation réussit, restaurer l'état
@@ -284,7 +280,7 @@ function loadDashboard() {
     // Mise à jour de l'en-tête utilisateur
     document.getElementById('welcome-message').textContent = appState.user.name;
     
-    // CORRECTION 4: S'assurer d'utiliser la clé 'role' ou 'profile' pour l'affichage (nous utilisons 'role' dans l'état, mais l'ancien HTML utilisait 'profile' sur l'objet)
+    // S'assurer d'utiliser la clé 'role' ou 'profile' pour l'affichage
     const displayRole = appState.user.role || appState.user.profile || 'Utilisateur';
     document.getElementById('current-role').textContent = displayRole;
     
@@ -308,7 +304,7 @@ function loadDashboard() {
     }
     
     // 2. Menus de Navigation (Basés sur le Rôle)
-    const baseMenus = getRoleBaseMenus(displayRole); // Utilisation du rôle affiché
+    const baseMenus = getRoleBaseMenus(displayRole); 
     baseMenus.forEach(menu => {
         const isActive = menu.id === 'dashboard' ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
         const menuItem = document.createElement('a');
@@ -351,7 +347,7 @@ function createCompanySelectMenu(companies) {
  * Gère le changement de compagnie active par l'utilisateur.
  * RENDU DISPONIBLE DANS LA PORTÉE GLOBALE DU DOM.
  */
-window.handleCompanyChange = async function (newCompanyId) { // Rendu asynchrone pour future API (voir commentaire ci-dessous)
+window.handleCompanyChange = async function (newCompanyId) { 
     const newId = parseInt(newCompanyId);
     const newCompany = appState.user.companiesList.find(c => c.id === newId);
 
@@ -361,9 +357,6 @@ window.handleCompanyChange = async function (newCompanyId) { // Rendu asynchrone
         
         // Mise à jour de l'état utilisateur (pour les prochains appels /session-data)
         appState.user.selectedCompanyId = newId;
-
-        // NOTE: Si le changement de compagnie doit être permanent (mis à jour dans le JWT),
-        // il faudrait un appel API ici : await apiFetch('/user/set-company', { method: 'POST', body: JSON.stringify({ companyId: newId }) });
 
         // Mise à jour de l'UI
         document.getElementById('current-company-name').textContent = appState.currentCompanyName;
@@ -413,23 +406,23 @@ async function loadContentArea(contentId, title) {
         let content = '';
 
         // Ici, nous utilisons l'ID de la compagnie actuelle pour filtrer les données
-        const companyFilter = `?companyId=${appState.currentCompanyId}`; 
+        // L'ancien fichier utilisait `?companyId=`, nous passons maintenant l'ID dans la route
+        const companyId = appState.currentCompanyId; 
 
         switch (contentId) {
             case 'dashboard':
-                // Utilise le chemin d'API que vous aviez dans l'ancien fichier
-                endpoint = `/data/dashboard${companyFilter}`;
+                // CORRECTION 1a : Utilisation de la route correcte du serveur
+                endpoint = `/accounting/dashboard/${companyId}`;
                 content = await fetchDashboardData(endpoint);
                 break;
             case 'journal':
-                 // Utilise le chemin d'API que vous aviez dans l'ancien fichier
-                endpoint = `/data/journal${companyFilter}`;
+                // CORRECTION 1b : Utilisation de la route correcte du serveur
+                endpoint = `/accounting/journal/${companyId}`;
                 content = await fetchJournalData(endpoint);
                 break;
             case 'reports':
-                // Utiliser la modale pour un rapport complet
-                const reportResponse = await apiFetch(`/data/reports/bilan${companyFilter}`, { method: 'GET' });
-                // Note : L'ancien fichier utilisait reportContent.data
+                // CORRECTION 1c : Utilisation de la route correcte du serveur
+                const reportResponse = await apiFetch(`/accounting/report/bilan/${companyId}`, { method: 'GET' });
                 ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportResponse.data));
                 // Afficher le message de bienvenue derrière la modale
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.role || appState.user.profile);
@@ -451,11 +444,12 @@ async function loadContentArea(contentId, title) {
 // --- Fonctions de simulation de données (À REMPLACER) ---
 
 async function fetchDashboardData(endpoint) {
+    // CORRECTION 2 : La réponse peut ne pas avoir l'encapsuleur 'data' car l'appel est direct
     const data = await apiFetch(endpoint, { method: 'GET' });
     // Construction de l'interface du tableau de bord basée sur data
-    return generateDashboardHTML(data.data);
+    return generateDashboardHTML(data.data || data); // Utiliser data.data ou data
 }
-// Ajout de fetchJournalData pour éviter l'erreur dans loadContentArea
+
 async function fetchJournalData(endpoint) {
     const data = await apiFetch(endpoint, { method: 'GET' });
     // Simuler un rendu de journal
