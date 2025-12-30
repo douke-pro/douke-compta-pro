@@ -421,7 +421,7 @@ function getRoleBaseMenus(role) {
 
 /**
  * Charge le contenu HTML/Données dans la zone principale.
- * Utilise la structure de route V4 (`/data/module?companyId=...`).
+ * Utilise la structure de route V4 (`/accounting/module?companyId=...`).
  */
 async function loadContentArea(contentId, title) {
     const contentArea = document.getElementById('dashboard-content-area');
@@ -436,18 +436,18 @@ async function loadContentArea(contentId, title) {
 
         switch (contentId) {
             case 'dashboard':
-                // Appel : /api/data/dashboard?companyId=X
-                endpoint = `/data/dashboard${companyFilter}`;
+                // CORRECTION : Appel à /api/accounting/dashboard?companyId=X
+                endpoint = `/accounting/dashboard${companyFilter}`; // Était: /data/dashboard
                 content = await fetchDashboardData(endpoint);
                 break;
             case 'journal':
-                 // Endpoint simulé : /api/data/journal?companyId=X
-                 endpoint = `/data/journal${companyFilter}`;
-                 content = await fetchJournalData(endpoint); // Laisser cette fonction en simulation
-                 break;
+                // CORRECTION : Endpoint simulé : /api/accounting/journal?companyId=X
+                endpoint = `/accounting/journal${companyFilter}`; // Était: /data/journal
+                content = await fetchJournalData(endpoint); // Laisser cette fonction en simulation
+                break;
             case 'reports':
-                // Appel : /api/data/reports/bilan?companyId=X
-                const reportContent = await apiFetch(`/data/reports/bilan${companyFilter}`, { method: 'GET' });
+                // CORRECTION : Appel : /api/accounting/reports/bilan?companyId=X
+                const reportContent = await apiFetch(`/accounting/reports/bilan${companyFilter}`, { method: 'GET' }); // Était: /data/reports/bilan
                 // Assurez-vous que l'API renvoie bien 'data' comme clé pour le contenu
                 ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportContent.data));
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
