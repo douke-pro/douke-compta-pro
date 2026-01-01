@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : public/assets/script.js (CORRIGÉ INTÉGRAL V7 - DASHBOARD RESTAURÉ)
+// FICHIER : public/assets/script.js (CORRIGÉ INTÉGRAL V8 - PLAN COMPTABLE R/W & RÔLES FINALISÉS)
 // Description : Logique Front-End (Vue et Interactions DOM)
 // =============================================================================
 
@@ -263,7 +263,7 @@ function renderAppView() {
 }
 
 // =================================================================
-// BLOC MODIFIÉ : function loadDashboard()
+// function loadDashboard()
 // =================================================================
 
 /**
@@ -334,7 +334,7 @@ function loadDashboard() {
 
 
 // =================================================================
-// NOUVELLE FONCTION REQUISE : generateCompanySelectionPromptHTML()
+// function generateCompanySelectionPromptHTML()
 // =================================================================
 /**
  * Génère le HTML pour l'écran demandant à l'utilisateur de sélectionner une compagnie.
@@ -400,19 +400,42 @@ window.handleCompanyChange = async function (newCompanyId) { // Rendu asynchrone
 };
 
 
+// =================================================================
+// CORRECTION CRITIQUE : getRoleBaseMenus (NOUVELLE LOGIQUE RÔLES)
+// =================================================================
 /**
- * Définit les options de menu basées sur le profil utilisateur.
+ * Définit les options de menu basées sur le profil utilisateur et ses permissions.
+ * Les permissions d'accès aux données (lecture/écriture) doivent être VÉRIFIÉES EN ARRIÈRE-PLAN (Back-End).
  */
 function getRoleBaseMenus(role) {
     const menus = [
         { id: 'dashboard', name: 'Tableau de Bord', icon: 'fas fa-chart-line' },
-        { id: 'journal', name: 'Journaux et Écritures', icon: 'fas fa-book' },
-        { id: 'ledger', name: 'Grand Livre / Balance', icon: 'fas fa-balance-scale' },
-        { id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' },
     ];
     
-    // Utilisation du 'profile' (V4)
+    // --- 4. CAISSIER (Accès très limité) ---
+    if (role === 'CAISSIER') {
+        // Le Caissier n'a accès qu'à son interface de saisie simplifiée.
+        menus.push({ id: 'caisse-operation', name: 'Opérations de Caisse', icon: 'fas fa-cash-register' });
+        // Les Rapports SYSCOHADA (version très simplifiée/filtrée) peuvent rester visibles
+        menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
+        return menus;
+    }
+
+    // --- 3. USER, 2. COLLABORATEUR & 1. ADMIN ---
+    // Ces trois rôles ont un accès complet aux outils comptables. La différence est l'ISOLATION.
+    
+    // Modules d'Analyse
+    menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
+    menus.push({ id: 'journal', name: 'Journaux et Écritures', icon: 'fas fa-book' });
+    menus.push({ id: 'ledger', name: 'Grand Livre / Balance', icon: 'fas fa-balance-scale' });
+    
+    // Modules d'Écriture/Configuration (Nécessitent un droit R/W côté BE)
+    menus.push({ id: 'chart-of-accounts', name: 'Plan Comptable', icon: 'fas fa-list-alt' }); 
+    menus.push({ id: 'manual-entry', name: 'Passer une Écriture', icon: 'fas fa-plus-square' }); 
+    
+    // --- 1. ADMIN (Administration de la Plateforme) ---
     if (role === 'ADMIN') {
+        // Module exclusif pour l'ADMIN (Gestion des Utilisateurs/Permissions)
         menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
     }
     
@@ -440,6 +463,18 @@ async function loadContentArea(contentId, title) {
                 endpoint = `/accounting/dashboard${companyFilter}`; // Était: /data/dashboard
                 content = await fetchDashboardData(endpoint);
                 break;
+            
+            // === AJOUT : PLAN COMPTABLE (R/W) ===
+            case 'chart-of-accounts': 
+                endpoint = `/accounting/chart-of-accounts${companyFilter}`;
+                content = await fetchChartOfAccountsData(endpoint);
+                break;
+            
+            // === AJOUT : OPÉRATIONS DE CAISSE (CAISSIER) ===
+            case 'caisse-operation': 
+                content = generateCaisseOperationHTML();
+                break;
+                
             case 'journal':
                 // CORRECTION : Endpoint simulé : /api/accounting/journal?companyId=X
                 endpoint = `/accounting/journal${companyFilter}`; // Était: /data/journal
@@ -453,6 +488,7 @@ async function loadContentArea(contentId, title) {
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
                 break;
             case 'ledger':
+            case 'manual-entry': // Nouvelle case par la fonction getRoleBaseMenus
             case 'admin-users':
             default:
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
@@ -484,12 +520,261 @@ async function fetchJournalData(endpoint) {
     // Simule la latence réseau
     await new Promise(resolve => setTimeout(resolve, 500)); 
     const simulatedData = [
-        { id: 1, date: '2025-01-15', libelle: 'Achat de fournitures', debit: 50000, credit: 0 },
-        { id: 2, date: '2025-01-15', libelle: 'Vente de biens', debit: 0, credit: 150000 },
+        { id: 1, date: '2025-01-15', libelle: 'Achat de fournitures', debit: 50000, credit: 0, status: 'Validé' },
+        { id: 2, date: '2025-01-15', libelle: 'Vente de biens', debit: 0, credit: 150000, status: 'Brouillon' },
     ];
     
     return generateJournalHTML(simulatedData);
 }
+
+// =================================================================
+// AJOUT : Fonctions du Plan Comptable (R/W)
+// =================================================================
+
+/**
+ * Récupère les données du Plan Comptable (GET /accounting/chart-of-accounts).
+ */
+async function fetchChartOfAccountsData(endpoint) {
+    const response = await apiFetch(endpoint, { method: 'GET' });
+    // Supposons que l'API renvoie { data: [{ code, name, type, balance, id }] }
+    return generateChartOfAccountsHTML(response.data);
+}
+
+/**
+ * Génère le HTML pour l'affichage du Plan Comptable.
+ */
+function generateChartOfAccountsHTML(accounts) {
+    if (!accounts || accounts.length === 0) {
+        return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
+            <div class="p-8 text-center text-info"><i class="fas fa-info-circle fa-2x mb-3"></i><p class="font-bold">Aucun compte trouvé pour ce dossier client.</p></div>
+            <button onclick="showCreateAccountModal()" class="bg-success text-white py-2 px-4 rounded-xl font-bold hover:bg-success-dark transition-colors mt-4">
+                <i class="fas fa-plus-circle mr-2"></i> Ajouter Compte
+            </button>`;
+    }
+
+    const rows = accounts.map(account => `
+        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-3 font-bold">${account.code}</td>
+            <td class="px-6 py-3">${account.name}</td>
+            <td class="px-6 py-3">${account.type}</td>
+            <td class="px-6 py-3 text-right font-black">${(account.balance || 0).toLocaleString('fr-FR')}</td>
+            <td class="px-6 py-3">
+                <button onclick="showCreateAccountModal(${account.id}, {code: '${account.code}', name: '${account.name}', type: '${account.type}'})" 
+                        class="text-primary hover:text-primary-dark font-bold">Modifier</button>
+            </td>
+        </tr>
+    `).join('');
+
+    return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
+        <div class="flex justify-between items-center mb-4">
+            <p class="text-sm text-gray-500">Affiche les comptes de la compagnie: **${appState.currentCompanyName}**.</p>
+            <button onclick="showCreateAccountModal()" class="bg-success text-white py-2 px-4 rounded-xl font-bold hover:bg-success-dark transition-colors">
+                <i class="fas fa-plus-circle mr-2"></i> Ajouter Compte
+            </button>
+        </div>
+        <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Code</th>
+                        <th scope="col" class="px-6 py-3">Libellé du Compte</th>
+                        <th scope="col" class="px-6 py-3">Type</th>
+                        <th scope="col" class="px-6 py-3 text-right">Solde Actuel (XOF)</th>
+                        <th scope="col" class="px-6 py-3">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+/**
+ * Ouvre la modale pour la création ou la modification d'un compte.
+ */
+window.showCreateAccountModal = function(accountId = null, currentData = {}) {
+    const title = accountId ? "Modifier le Compte" : "Créer un Nouveau Compte";
+    
+    const htmlContent = `
+        <form id="create-account-form" onsubmit="handleCreateAccountSubmit(event)">
+            <input type="hidden" id="account-id" value="${accountId || ''}">
+            <div class="mb-4">
+                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Code du Compte (ex: 601000)</label>
+                <input type="text" id="account-code" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" 
+                       pattern="[0-9]{6,}" title="Code numérique de 6 chiffres minimum" value="${currentData.code || ''}">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Libellé</label>
+                <input type="text" id="account-name" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" value="${currentData.name || ''}">
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Type de Compte</label>
+                <select id="account-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    <option value="asset_other">Actif (Classe 2/3)</option>
+                    <option value="liability_other">Passif (Classe 4)</option>
+                    <option value="income">Produit (Classe 7)</option>
+                    <option value="expense">Charge (Classe 6)</option>
+                    <option value="equity">Capitaux Propres (Classe 1)</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full bg-primary text-white font-bold p-3 rounded-xl hover:bg-primary-dark transition-colors">
+                ${accountId ? 'Modifier le Compte' : 'Créer le Compte'}
+            </button>
+        </form>
+    `;
+    ModalManager.open(title, htmlContent);
+    // Sélectionner le type correct si en mode édition
+    if (currentData.type) {
+        document.getElementById('account-type').value = currentData.type;
+    }
+};
+
+/**
+ * Gère la soumission du formulaire de création/modification de compte (R/W).
+ */
+window.handleCreateAccountSubmit = async function(event) {
+    event.preventDefault();
+    const accountId = document.getElementById('account-id').value;
+    const isEdit = accountId !== '';
+    
+    const data = {
+        id: accountId ? parseInt(accountId) : undefined,
+        code: document.getElementById('account-code').value,
+        name: document.getElementById('account-name').value,
+        type: document.getElementById('account-type').value,
+        companyId: appState.currentCompanyId // CRITIQUE pour la vérification BE (checkWritePermission)
+    };
+
+    try {
+        const method = isEdit ? 'PUT' : 'POST';
+        const msg = isEdit ? 'Modification du compte en cours...' : 'Création du compte en cours...';
+        NotificationManager.show(msg, 'info');
+
+        await apiFetch('/accounting/chart-of-accounts', { 
+            method: method, 
+            body: JSON.stringify(data) 
+        });
+
+        NotificationManager.show(`Compte ${data.code} enregistré avec succès !`, 'success');
+        ModalManager.close();
+        // Recharger le plan comptable
+        loadContentArea('chart-of-accounts', 'Plan Comptable'); 
+    } catch (error) {
+        NotificationManager.show(`Échec de l'opération : ${error.message}`, 'error', 10000);
+    }
+};
+
+// =================================================================
+// AJOUT : Fonctions Opérations de Caisse (CAISSIER)
+// =================================================================
+
+let currentFluxType = null; 
+
+/**
+ * Génère le HTML pour l'interface simplifiée d'Opérations de Caisse.
+ */
+function generateCaisseOperationHTML() {
+    // Réinitialisation de l'état local du flux à chaque chargement
+    currentFluxType = null;
+    return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Opérations de Trésorerie Rapides (Caisse)</h3>
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 max-w-2xl mx-auto fade-in">
+            <p class="text-lg text-gray-700 dark:text-gray-300 mb-6">
+                Sélectionnez le type de flux (Recette ou Dépense) pour enregistrer une transaction simplifiée.
+            </p>
+            <form id="caisse-entry-form" onsubmit="handleCaisseEntrySubmit(event)">
+                
+                <div class="flex space-x-4 mb-6">
+                    <button type="button" onclick="selectFluxType('RECETTE')" id="btn-recette" class="flex-1 p-4 rounded-xl border-2 border-success text-success font-black hover:bg-success/10 transition-colors">
+                        <i class="fas fa-arrow-alt-circle-up"></i> Recette
+                    </button>
+                    <button type="button" onclick="selectFluxType('DEPENSE')" id="btn-depense" class="flex-1 p-4 rounded-xl border-2 border-danger text-danger font-black hover:bg-danger/10 transition-colors">
+                        <i class="fas fa-arrow-alt-circle-down"></i> Dépense
+                    </button>
+                </div>
+
+                <div id="flux-details" class="hidden">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Compte de Contrepartie (ex: Ventes / Fournitures)</label>
+                        <select id="contra-account" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                            <option value="">Chargement des comptes...</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Libellé</label>
+                        <input type="text" id="caisse-label" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Montant (XOF)</label>
+                        <input type="number" step="0.01" min="1" id="caisse-amount" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <button type="submit" class="w-full bg-primary text-white font-bold p-3 rounded-xl hover:bg-primary-dark transition-colors">Enregistrer l'Opération</button>
+                </div>
+            </form>
+        </div>`;
+}
+
+/**
+ * Change le type de flux (Recette/Dépense) et met à jour l'UI.
+ */
+window.selectFluxType = function(type) {
+    currentFluxType = type;
+    document.getElementById('flux-details').classList.remove('hidden');
+    
+    // Logique de style
+    const r = document.getElementById('btn-recette');
+    const d = document.getElementById('btn-depense');
+    
+    // Réinitialiser les classes de base (pour la robustesse des clics multiples)
+    r.className = 'flex-1 p-4 rounded-xl border-2 border-success text-success font-black hover:bg-success/10 transition-colors';
+    d.className = 'flex-1 p-4 rounded-xl border-2 border-danger text-danger font-black hover:bg-danger/10 transition-colors';
+
+    if(type === 'RECETTE') {
+        r.classList.add('bg-success', 'text-white', 'shadow-md', 'shadow-success/30');
+    } else {
+        d.classList.add('bg-danger', 'text-white', 'shadow-md', 'shadow-danger/30');
+    }
+}
+
+/**
+ * Gère la soumission du formulaire d'opération de caisse.
+ */
+window.handleCaisseEntrySubmit = async function(event) {
+    event.preventDefault();
+    if (!currentFluxType) {
+        NotificationManager.show('Veuillez sélectionner Recette ou Dépense.', 'warning');
+        return;
+    }
+
+    const data = {
+        type: currentFluxType,
+        contraAccount: document.getElementById('contra-account').value,
+        label: document.getElementById('caisse-label').value,
+        amount: parseFloat(document.getElementById('caisse-amount').value),
+        companyId: appState.currentCompanyId // CRITIQUE pour l'isolation mono-entreprise du CAISSIER
+    };
+
+    try {
+        NotificationManager.show(`Soumission de l'opération ${currentFluxType} en cours...`, 'info');
+
+        // 💡 APPEL API (Nouvelle route à créer: POST /accounting/caisse-entry)
+        await apiFetch('/accounting/caisse-entry', { 
+            method: 'POST', 
+            body: JSON.stringify(data) 
+        });
+        
+        NotificationManager.show(`Opération ${currentFluxType} enregistrée avec succès. En attente de validation.`, 'success');
+        document.getElementById('caisse-entry-form').reset();
+        document.getElementById('flux-details').classList.add('hidden');
+        currentFluxType = null;
+    } catch (error) {
+        NotificationManager.show(`Échec de l'enregistrement de l'opération : ${error.message}`, 'error', 10000);
+    }
+};
+
+// =================================================================
+// FIN des Fonctions spécifiques
+// =================================================================
 
 // Fonction de génération HTML basique
 function generateDashboardHTML(data) {
@@ -518,17 +803,23 @@ function generateJournalHTML(journalEntries) {
     }
     
     const rows = journalEntries.map(entry => `
-        <tr>
-            <td>${entry.id}</td>
-            <td>${entry.date}</td>
-            <td>${entry.libelle}</td>
-            <td class="text-right">${entry.debit.toLocaleString('fr-FR')}</td>
-            <td class="text-right">${entry.credit.toLocaleString('fr-FR')}</td>
+        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-3">${entry.id}</td>
+            <td class="px-6 py-3">${entry.date}</td>
+            <td class="px-6 py-3">${entry.libelle}</td>
+            <td class="px-6 py-3 text-right">${entry.debit.toLocaleString('fr-FR')}</td>
+            <td class="px-6 py-3 text-right">${entry.credit.toLocaleString('fr-FR')}</td>
+            <td class="px-6 py-3">
+                <span class="p-1 text-xs rounded ${entry.status === 'Validé' ? 'bg-success/20 text-success font-bold' : 'bg-warning/20 text-warning font-bold'}">
+                    ${entry.status}
+                </span>
+            </td>
         </tr>
     `).join('');
 
     return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Journaux et Écritures</h3>
             <p class="text-sm text-gray-500 mb-4">Affichage des écritures pour la compagnie: **${appState.currentCompanyName}**.</p>
+            <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
             <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
@@ -537,12 +828,14 @@ function generateJournalHTML(journalEntries) {
                         <th scope="col" class="px-6 py-3">Libellé</th>
                         <th scope="col" class="px-6 py-3 text-right">Débit</th>
                         <th scope="col" class="px-6 py-3 text-right">Crédit</th>
+                        <th scope="col" class="px-6 py-3">Statut</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${rows}
                 </tbody>
-            </table>`;
+            </table>
+            </div>`;
 }
 
 function generateReportHTML(reportData) {
@@ -593,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginContainer = document.getElementById('login-form-container');
     const registerView = document.getElementById('register-view');
     const showRegisterBtn = document.getElementById('show-register-btn'); 
-    const showLoginBtn = document.getElementById('show-login-btn');      
+    const showLoginBtn = document.getElementById('show-login-btn');    
     const modalCloseBtn = document.getElementById('modal-close-btn');
 
     // Bascule vers l'inscription
