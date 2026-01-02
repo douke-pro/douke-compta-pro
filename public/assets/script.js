@@ -1,956 +1,929 @@
-// =================================================================================
-// FICHIER : public/assets/script.js
-// Description : Logique complète et unifiée de l'application Doukè Compta Pro
-// VERSION : PROFESSIONNELLE V1.8 - INTÉGRATION DASHBOARD V2 & PLAN COMPTABLE
-// =================================================================================
-// =================================================================================
-// 0. CONFIGURATION GLOBALE ET GESTIONNAIRES UNIFIÉS
-// =================================================================================
-// Définition de l'URL de base de l'API Odoo (Render Backend)
-const IS_PROD = window.location.hostname !== 'localhost';
-const API_BASE_URL = IS_PROD
-    ? 'https://douke-compta-pro.onrender.com' // TODO: Remplacer par l'URL finale de votre backend
-    : 'http://localhost:3000';
+// =============================================================================
+// FICHIER : public/assets/script.js (CORRIGÉ INTÉGRAL V8 - PLAN COMPTABLE R/W & RÔLES FINALISÉS)
+// Description : Logique Front-End (Vue et Interactions DOM)
+// =============================================================================
 
-// État global de l'application
-window.app = {
-    // CORRECTION ICI: Initialisation avec la structure des données réelles
-    userContext: {
-        token: null,     // Le JWT récupéré après login
-        profile: null,
-        name: null,
-        email: null,
-    },
-    currentProfile: null,
+// --- 1. CONFIGURATION GLOBALE ---
+const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api'; // Adapter si le backend n'est pas sur localhost:3000
+const IS_PROD = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+// État central de l'application (ESSENTIEL POUR L'ISOLATION)
+let appState = {
+    isAuthenticated: false,
+    token: null,
+    // Structure d'utilisateur de la V4: { name, email, profile, odooUid, companiesList, selectedCompanyId, ... }
+    user: null, 
     currentCompanyId: null,
     currentCompanyName: null,
-    currentSysteme: 'NORMAL', // 'NORMAL' ou 'MINIMAL'
-    filteredData: {
-        entries: [],
-        accounts: [], // Données du Plan Comptable
-        financialReport: null, // Données du rapport SYSCOHADA (pour graphiques/SMT) // 💡 NOUVEAU
-    },
-    companiesList: [], // Liste complète des entreprises accessibles
-    UI_LOADED: false,
-
-    // =========================================================================
-    // 💡 NOUVEAU : STRUCTURE POUR LES INDICATEURS CLÉS DU DASHBOARD (KPIs)
-    // =========================================================================
-    dashboardKPIs: {
-        cash: 0,
-        profit: 0,
-        debts: 0,
-        grossMargin: 0, // Marge Brute
-        liquidityRatio: 0, // Ratio de liquidité (Actif Courant / Passif Courant)
-        pendingEntries: 0, // Écritures à valider
-    },
-    
-    // Mock pour les données utilisateur (à des fins de démonstration ou de tests non-API)
-    MOCK_USERS: [
-        { email: 'admin@douke.com', profile: 'ADMIN', name: 'Admin DOUKÈ' },
-        { email: 'collab@douke.com', profile: 'COLLABORATEUR', name: 'Collab Senior' },
-        { email: 'user@douke.com', profile: 'USER', name: 'User Standard', total_caisses: 3, active_caisses: 2 },
-        { email: 'caisse@douke.com', profile: 'CAISSIER', name: 'Patrice Caisse', total_caisses: 1, active_caisses: 1 },
-    ]
 };
-// ------------------- GESTIONNAIRES D'INTERFACE UTILISATEUR (Adaptés à votre HTML) -------------------
+
+// --- 2. GESTIONNAIRES D'INTERFACE (UI Managers) ---
+
 const NotificationManager = {
-// ... (Logique NotificationManager conservée) ...
-    show: (type, title, message, duration = 5000) => {
-        const zone = document.getElementById('notification-zone');
-        if (!zone) {
-            console.warn(`[NOTIF] ${title} (${type}): ${message}`);
-            return;
-        }
-        const typeClasses = {
-            success: 'border-success text-success',
-            danger: 'border-danger text-danger',
-            warning: 'border-warning text-warning',
-            info: 'border-info text-info'
+    zone: document.getElementById('notification-zone'),
+    show: function (message, type = 'success', duration = 5000) {
+        if (!this.zone) return;
+
+        const iconMap = {
+            success: '<i class="fas fa-check-circle"></i>',
+            error: '<i class="fas fa-exclamation-triangle"></i>',
+            info: '<i class="fas fa-info-circle"></i>',
+            warning: '<i class="fas fa-exclamation-circle"></i>',
+        };
+        const colorMap = {
+            success: 'bg-success border-success/50',
+            error: 'bg-danger border-danger/50',
+            info: 'bg-info border-info/50',
+            warning: 'bg-warning border-warning/50',
         };
 
-        const iconClasses = {
-            success: 'fas fa-check-circle', danger: 'fas fa-times-circle',
-            warning: 'fas fa-exclamation-triangle', info: 'fas fa-info-circle'
-        };
-        const html = `
-            <div class="notification p-4 bg-white dark:bg-gray-700 rounded-lg shadow-xl border-l-4 ${typeClasses[type]} transition-all duration-300 transform translate-x-0 opacity-100">
-                <div class="flex items-center">
-                    <i class="${iconClasses[type]} mr-3"></i>
-                    <div>
-                        <p class="font-bold text-gray-900 dark:text-white">${title}</p>
-                        <p class="text-sm text-gray-600 dark:text-gray-300">${message}</p>
-                    </div>
-                </div>
-            </div>`;
+        const notification = document.createElement('div');
+        notification.className = `p-4 max-w-sm rounded-xl text-white shadow-lg fade-in border-l-4 ${colorMap[type]}`;
+        notification.innerHTML = `<div class="flex items-center space-x-3">${iconMap[type]}<span class="font-bold">${message}</span></div>`;
 
-        const el = document.createElement('div');
-        el.innerHTML = html.trim();
-        const notificationElement = el.firstChild;
-        zone.prepend(notificationElement);
+        this.zone.prepend(notification); // Ajouter en haut
+
+        // Disparaître après la durée spécifiée
         setTimeout(() => {
-            // Démarrer l'animation de disparition
-            notificationElement.classList.remove('opacity-100');
-            notificationElement.classList.add('opacity-0', 'scale-95');
-            setTimeout(() => notificationElement.remove(), 300); // Supprimer après la fin de la transition
+            notification.classList.remove('fade-in');
+            notification.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+            setTimeout(() => notification.remove(), 500);
         }, duration);
     }
 };
-window.unifiedManager = { notificationManager: NotificationManager };
+
 const ModalManager = {
-// ... (Logique ModalManager conservée) ...
-    open: (title, subtitle, contentHTML) => {
-        // Ces IDs sont confirmés par le fichier index.html
-        document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-subtitle').textContent = subtitle;
-        document.getElementById('modal-body').innerHTML = contentHTML;
+    modalBackdrop: document.getElementById('professional-modal'),
+    modalTitle: document.getElementById('modal-title'),
+    modalBody: document.getElementById('modal-body'),
+    open: function (title, contentHTML) {
+        if (!this.modalBackdrop) return;
+        this.modalTitle.textContent = title;
+        this.modalBody.innerHTML = contentHTML;
         document.body.classList.add('modal-open');
+        this.modalBackdrop.style.display = 'flex';
     },
-    close: () => {
+    close: function () {
+        if (!this.modalBackdrop) return;
         document.body.classList.remove('modal-open');
-        // Nettoyer le contenu pour la prochaine ouverture
-        document.getElementById('modal-body').innerHTML = `<div class="p-8 text-center text-gray-500">Contenu chargé dynamiquement...</div>`;
+        this.modalBackdrop.style.display = 'none';
+        this.modalBody.innerHTML = ''; // Nettoyer le contenu
     }
 };
-document.getElementById('modal-close-btn')?.addEventListener('click', ModalManager.close);
-const CacheManager = {
-// ... (Logique CacheManager conservée) ...
-    get: (key) => { return null; },
-    set: (key, data, ttl) => { /* console.log(`[CACHE] Mise en cache de ${key}`); */ },
-    clearCache: () => { /* console.log('[CACHE] Cache nettoyé.'); */ }
-};
-// =================================================================================
-// 1. SERVICES D'API & AUTHENTIFICATION
-// =================================================================================
+
+
+// --- 3. LOGIQUE D'AUTHENTIFICATION ET API ---
+
 /**
- * Fonction centrale pour toutes les communications sécurisées avec le backend Express.
+ * Fonction centrale pour toutes les requêtes API vers le backend Node.js.
+ * Ajoute automatiquement le jeton JWT si disponible.
  */
 async function apiFetch(endpoint, options = {}) {
-// ... (Logique apiFetch conservée) ...
-    // Construction de l'URL (ex: http://localhost:3000 + /api/auth/login)
     const url = `${API_BASE_URL}${endpoint}`;
-    const token = window.app.userContext?.token;
-
-    // 1. Définir les en-têtes (Headers)
     const headers = {
         'Content-Type': 'application/json',
-        ...options.headers // Permet d'ajouter des headers spécifiques
+        ...options.headers
     };
-    // 2. Injecter le token Bearer si l'utilisateur est connecté et si ce n'est pas l'appel de login
-    // Le header 'Authorization': null est la convention pour désactiver l'injection (pour /auth/login)
-    if (token && headers['Authorization'] !== null) {
-        headers['Authorization'] = `Bearer ${token}`;
+
+    if (appState.token) {
+        headers['Authorization'] = `Bearer ${appState.token}`;
     }
-    // 3. Exécuter la requête
+
     try {
         const response = await fetch(url, {
-            method: options.method || 'GET',
-            headers: headers,
-            body: options.body,
+            ...options,
+            headers: headers
         });
-        // 4. Gérer les erreurs HTTP (4xx ou 5xx)
+
+        const data = await response.json();
+
         if (!response.ok) {
-            let errorData;
-            try {
-                // Tenter de lire le corps JSON pour un message d'erreur détaillé du backend
-                errorData = await response.json();
-            } catch (e) {
-                errorData = { error: `Erreur HTTP ${response.status}: ${response.statusText}` };
+            // Gérer les erreurs 401/403 (jeton expiré/non autorisé)
+            if (response.status === 401 || response.status === 403) {
+                if (data.error && data.error.includes('expirée')) {
+                    NotificationManager.show('Session expirée. Reconnexion requise.', 'warning', 8000);
+                } else {
+                    NotificationManager.show(`Accès refusé: ${data.error || 'Erreur serveur.'}`, 'error');
+                }
+                // Déconnexion automatique après une erreur d'authentification
+                handleLogout(true);
             }
-
-            // Si c'est une 401 (Non autorisé/Session expirée), notifier l'utilisateur
-            if (response.status === 401) {
-                NotificationManager.show('danger', 'Session Expirée', errorData.error || 'Veuillez vous reconnecter.', 8000);
-            }
-            throw new Error(errorData.error || errorData.message || 'Erreur inconnue du serveur.');
-        }
-        // 5. Retourner le JSON
-        return await response.json();
-    } catch (error) {
-        console.error(`[API FETCH ERROR] Endpoint: ${endpoint}`, error.message);
-        throw new Error(`Problème de connexion au serveur : ${error.message}`);
-    }
-}
-/**
- * Récupère la liste des entreprises (analytic IDs) liées à l'utilisateur connecté
- * via la route réelle /api/company/list.
- */
-async function fetchUserCompanies() {
-// ... (Logique fetchUserCompanies conservée) ...
-    try {
-        // Route du Company Controller (Fichier 8)
-        const response = await apiFetch('/api/company/list');
-
-        if (!response.companies || response.companies.length === 0) {
-            window.app.companiesList = [];
-            NotificationManager.show('warning', 'Aucun Dossier', 'Aucune entreprise n\'est affectée à votre compte.', 5000);
-            return;
+            // Gère le cas où la route n'est pas trouvée, affichant le message
+            throw new Error(data.error || `Erreur HTTP ${response.status}`);
         }
 
-        // Le backend doit renvoyer un tableau de { id: analyticId, name: nomEntreprise, systeme: 'NORMAL'|'SMT' }
-        window.app.companiesList = response.companies;
-
-        // Initialiser l'entreprise par défaut
-        if (window.app.companiesList.length > 0) {
-            const defaultCompany = window.app.companiesList[0];
-            window.app.currentCompanyId = defaultCompany.id; // L'analyticId
-            window.app.currentCompanyName = defaultCompany.name;
-            window.app.currentSysteme = defaultCompany.systeme || 'NORMAL';
-        }
-
-        // Mettre à jour l'interface avec les nouvelles entreprises
-        renderHeaderSelectors();
+        return data;
 
     } catch (error) {
-        console.error("Erreur lors du chargement des entreprises:", error);
-        NotificationManager.show('danger', 'Erreur de Données', 'Impossible de charger la liste des entreprises.', 8000);
-        window.app.companiesList = [];
-        window.app.currentCompanyId = null;
-    }
-}
-/**
- * Gère le processus de connexion en appelant l'API backend Express (/api/auth/login).
- */
-async function handleLogin(e) {
-// ... (Logique handleLogin conservée) ...
-    e.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const loginButton = e.target.querySelector('button[type="submit"]');
-    const originalText = loginButton.innerHTML;
-    const messageEl = document.getElementById('login-message');
-    // Désactiver le bouton
-    loginButton.innerHTML = `<div class="loading-spinner w-5 h-5 border-white"></div><span class="ml-3">Connexion...</span>`;
-    loginButton.disabled = true;
-    messageEl.classList.add('hidden'); // Cacher l'ancien message d'erreur
-    try {
-        // 1. Appel à la route /api/auth/login (Fichier 7)
-        const response = await apiFetch('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': null // IMPORTANT: Pas de token pour l'appel de login
-            }
-        });
-        if (response.error || !response.token) {
-            throw new Error(response.error || 'Identifiants invalides ou serveur indisponible.');
-        }
-        // --- AUTHENTIFICATION RÉUSSIE ---
-
-        // 2. Stocker le token et les infos utilisateur
-        window.app.userContext = {
-            token: response.token,
-            email: response.email,
-            name: response.name || email,
-            profile: response.role || 'USER'
-        };
-
-        // 3. Mettre à jour l'état et charger les entreprises
-        window.app.currentProfile = window.app.userContext.profile;
-        await fetchUserCompanies();
-        // 4. Passer à l'affichage principal
-        NotificationManager.show('success', 'Connexion Réussie', `Bienvenue, ${window.app.userContext.name}.`, 3000);
-
-        document.getElementById('auth-view').classList.add('hidden');
-        document.getElementById('dashboard-view').classList.remove('hidden');
-        renderDashboardView();
-
-    } catch (error) {
-        // Afficher l'erreur de connexion dans le conteneur du formulaire
-        messageEl.textContent = error.message.includes('Identifiants') || error.message.includes('token')
-            ? error.message
-            : "Erreur de connexion au service. Vérifiez le statut du backend.";
-        messageEl.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/10 text-danger border border-danger';
-        messageEl.classList.remove('hidden');
-
-    } finally {
-        // Rétablir le bouton
-        loginButton.innerHTML = originalText;
-        loginButton.disabled = false;
-    }
-}
-/**
- * Gère la déconnexion en réinitialisant l'état global et en revenant à la vue de connexion.
- */
-function handleLogout() {
-// ... (Logique handleLogout conservée) ...
-    window.app.userContext = { token: null, profile: null, name: null, email: null };
-    window.app.currentProfile = null;
-    window.app.currentCompanyId = null;
-    window.app.currentCompanyName = null;
-    window.app.filteredData.entries = [];
-    window.app.companiesList = [];
-    CacheManager.clearCache();
-    document.getElementById('auth-view').classList.remove('hidden');
-    document.getElementById('dashboard-view').classList.add('hidden');
-    document.getElementById('login-message').classList.add('hidden');
-
-    NotificationManager.show('info', 'Déconnexion', 'Vous avez été déconnecté avec succès.', 3000);
-}
-// =================================================================================
-// 2. LOGIQUE DE RENDU DU DASHBOARD ET NAVIGATION
-// =================================================================================
-function updateSecureUserInfo() {
-// ... (Logique updateSecureUserInfo conservée) ...
-    const user = window.app.userContext;
-    const companyName = window.app.currentCompanyName || "-- Global / Non sélectionné --";
-    // Mise à jour des infos utilisateur dans la sidebar
-    document.getElementById('current-role').textContent = user?.profile || 'N/A';
-    document.getElementById('welcome-message').textContent = user ? `Hello, ${user.name.split(' ')[0]}!` : 'Chargement...';
-    document.getElementById('current-company-name').textContent = companyName;
-
-    // Mise à jour du header de contenu
-    const contextMessageEl = document.getElementById('context-message');
-    if (contextMessageEl) {
-        // Affichage du système comptable à côté du nom de l'entreprise si sélectionné
-        const systemeInfo = window.app.currentCompanyId ? ` (${window.app.currentSysteme})` : '';
-        contextMessageEl.innerHTML = `Dossier Actif : <span class="text-primary font-bold">${companyName}</span>${systemeInfo}`;
-    }
-
-    // Mise à jour de l'avatar (première lettre du nom)
-    const avatarEl = document.getElementById('user-avatar-text');
-    if (avatarEl) {
-        avatarEl.textContent = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
-    }
-    renderHeaderSelectors(); // Mise à jour du sélecteur
-}
-function createNavItem(text, icon, action, active = false) {
-// ... (Logique createNavItem conservée) ...
-    const baseClasses = "flex items-center p-4 rounded-xl transition-all font-bold group";
-    const activeClasses = "bg-primary text-white shadow-lg shadow-primary/30";
-    const inactiveClasses = "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700";
-    const iconBase = "fas mr-4 w-5 text-center";
-    return `
-        <button onclick="loadModule('${action}')" class="${baseClasses} ${active ? activeClasses : inactiveClasses}" data-module="${action}" data-active="${active}">
-            <i class="${iconBase} ${icon}"></i>
-            <span>${text}</span>
-        </button>
-    `;
-}
-/**
- * Configure le menu de navigation selon le profil utilisateur (Intégration complète).
- * 💡 MISE À JOUR : Ajout du module Plan Comptable
- */
-function renderRoleNavigation() {
-    const menu = document.getElementById('role-navigation-menu');
-    if (!menu) return; // Sécurité
-    menu.innerHTML = '';
-    const profile = window.app.currentProfile;
-    const navItems = {
-        'ADMIN': [
-            ['Vue Globale (KPI)', 'fa-layer-group', 'global_dashboard'],
-            ['Gestion Utilisateurs', 'fa-users-cog', 'user_management'],
-            ['Saisie et Validation', 'fa-keyboard', 'quick_entry'],
-            ['Plan Comptable', 'fa-folder-open', 'chart_of_accounts'], // 💡 NOUVEAU
-            ['États Financiers SYSCOHADA', 'fa-balance-scale', 'financial_statements'],
-            ['Journal & Grand Livre', 'fa-book-open', 'grand_livre'],
-            ['Audit & Sécurité', 'fa-shield-alt', 'audit_logs'],
-        ],
-        'USER': [ // Pilotage Stratégique / Manager
-            ['Pilotage & Synthèse', 'fa-tachometer-alt', 'user_dashboard'],
-            ['Saisie et Validation', 'fa-keyboard', 'quick_entry'],
-            ['Plan Comptable', 'fa-folder-open', 'chart_of_accounts'], // 💡 NOUVEAU
-            ['États Financiers SYSCOHADA', 'fa-balance-scale', 'financial_statements'],
-            ['Trésorerie & Cash Flow', 'fa-wallet', 'cash_flow'],
-        ],
-        'CAISSIER': [ // Saisie Rapide / Trésorerie
-            ['Synthèse Caisse', 'fa-chart-line', 'cashier_dashboard'],
-            ['Saisie Mouvements', 'fa-keyboard', 'quick_entry'],
-            ['Rapports de Caisse', 'fa-file-invoice', 'cash_reports'],
-        ],
-        'COLLABORATEUR': [ // Portefeuille Client et Validation
-            ['Portefeuille & Suivi', 'fa-briefcase', 'collab_dashboard'],
-            ['Saisie et Validation', 'fa-keyboard', 'quick_entry'], // <-- AJOUTÉ
-            ['Validation d\'Écritures', 'fa-check-circle', 'entries_validation'],
-            ['Balance & Pré-Rapports', 'fa-calculator', 'reports_syscohada'],
-        ]
-    };
-    const items = navItems[profile] || navItems['USER'];
-    items.forEach(([text, icon, action]) => {
-        menu.innerHTML += createNavItem(text, icon, action);
-    });
-}
-/**
- * Ajout du sélecteur d'entreprise dans l'en-tête (MAJ pour multi-entreprises).
- */
-function renderHeaderSelectors() {
-// ... (Logique renderHeaderSelectors conservée) ...
-    const quickActions = document.getElementById('quick-actions');
-    const user = window.app.userContext;
-    // Supprimer l'ancien sélecteur s'il existe
-    document.getElementById('company-selector-container')?.remove();
-    // Afficher le sélecteur seulement s'il y a plus d'une entreprise accessible
-    if (user && window.app.companiesList.length > 1) {
-        const selectHTML = `
-            <div id="company-selector-container" class="relative">
-                <select id="company-selector" onchange="switchCompany(this.value)"
-                    class="p-2 border border-primary dark:border-primary-light bg-primary text-white dark:bg-primary-dark rounded-xl text-sm font-bold shadow-lg shadow-primary/30 outline-none appearance-none pr-8 cursor-pointer">
-                    ${window.app.companiesList.map(c => `
-                        <option value="${c.id}" ${c.id == window.app.currentCompanyId ? 'selected' : ''}>
-                            ${c.name} (${c.systeme.substring(0, 3)})
-                        </option>
-                    `).join('')}
-                </select>
-                <i class="fas fa-building absolute right-3 top-1/2 transform -translate-y-1/2 text-white/70 pointer-events-none"></i>
-            </div>
-        `;
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = selectHTML.trim();
-        // Insérer le sélecteur avant le bouton de mode sombre
-        const darkModeButton = quickActions?.querySelector('.fa-moon')?.closest('button');
-        if (quickActions && darkModeButton) {
-            quickActions.insertBefore(tempDiv.firstChild, darkModeButton);
-        }
-    }
-}
-function renderDashboardView() {
-// ... (Logique renderDashboardView conservée) ...
-    updateSecureUserInfo();
-    renderRoleNavigation();
-
-    // Déterminer le module par défaut à charger au login
-    const defaultModule = {
-        'ADMIN': 'global_dashboard',
-        'USER': 'user_dashboard',
-        'CAISSIER': 'cashier_dashboard',
-        'COLLABORATEUR': 'collab_dashboard',
-    }[window.app.currentProfile] || 'user_dashboard';
-    // Si aucune entreprise n'est sélectionnée (cas rare, sauf nouvel admin)
-    if (!window.app.currentCompanyId && window.app.companiesList.length > 0) {
-        switchCompany(window.app.companiesList[0].id, true);
-    } else if (!window.app.currentCompanyId && window.app.companiesList.length === 0) {
-        // Vue par défaut si aucun dossier disponible
-        const contentArea = document.getElementById('dashboard-content-area');
-        if (contentArea) contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><i class="fas fa-handshake fa-4x text-info mb-4"></i><p class="text-xl font-bold">Bienvenue chez DOUKÈ PRO !</p><p>Votre espace est en cours de configuration.
-Contactez le support pour affecter votre première entreprise.</p></div>`;
-    } else {
-        // 💡 NOUVEL APPEL : Charger les KPIs de synthèse pour le tableau de bord
-        fetchDashboardKPIs(); 
-        loadModule(defaultModule, true);
-    }
-}
-async function switchCompany(companyId, isInitialLoad = false) {
-// ... (Logique switchCompany conservée) ...
-    const company = window.app.companiesList.find(c => c.id == companyId);
-    if (!company) {
-        NotificationManager.show('danger', 'Erreur de Contexte', 'Entreprise non trouvée dans votre liste d\'accès.', 3000);
-        return;
-    }
-    if (company.id == window.app.currentCompanyId && !isInitialLoad) {
-        return;
-    }
-    window.app.currentCompanyId = company.id;
-    window.app.currentCompanyName = company.name;
-    window.app.currentSysteme = company.systeme;
-    updateSecureUserInfo();
-    if (!isInitialLoad) {
-        NotificationManager.show('info', 'Contexte mis à jour', `Dossier actif: ${company.name} (SYSCOHADA ${company.systeme})`, 3000);
-    }
-    // Recharger le module actif pour rafraîchir les données
-    const activeModuleButton = document.querySelector('#role-navigation-menu button[data-active="true"]');
-    const activeModule = activeModuleButton ? activeModuleButton.dataset.module :
-        ({ 'ADMIN': 'global_dashboard', 'USER': 'user_dashboard', 'CAISSIER': 'cashier_dashboard', 'COLLABORATEUR': 'collab_dashboard' }[window.app.currentProfile] || 'user_dashboard');
-    
-    // 💡 NOUVEL APPEL : Assurez-vous que les KPIs sont mis à jour après le switch
-    fetchDashboardKPIs(); 
-    
-    await loadModule(activeModule, true);
-}
-// =================================================================================
-// 3. LOGIQUE DE CHARGEMENT DES DONNÉES ET DES MODULES SPÉCIFIQUES
-// =================================================================================
-
-/**
- * 💡 NOUVELLE FONCTION : Récupère les données de synthèse pour le dashboard.
- * Met à jour window.app.dashboardKPIs.
- */
-async function fetchDashboardKPIs() {
-    if (!window.app.currentCompanyId) {
-        console.warn("Tentative de chargement des KPIs sans Company ID.");
-        return;
-    }
-
-    try {
-        // 1. Appel à la route de Dashboard (Retourne { cash, profit, debts, ... })
-        const response = await apiFetch(`/api/accounting/dashboard?companyId=${window.app.currentCompanyId}`, { method: 'GET' });
-
-        // 2. MOCK d'enrichissement : Calculs Front-end pour les NOUVEAUX KPIs
-        // (En attendant que le backend les fournisse. Nous utilisons la structure de données attendue)
-        const data = response.data || { cash: 0, profit: 0, debts: 0 };
-        const profit = data.profit || 0;
-        
-        // Simulation d'enrichissement pour la Marge Brute et le Ratio de Liquidité (meilleur de moi)
-        const revenue = 15000000; // Mock de CA pour calcul
-        const costOfSales = 5000000; // Mock de Charges pour calcul
-        const grossMargin = revenue - costOfSales; 
-        
-        const currentAssets = (data.cash || 0) + 10000000; // Ex: Trésorerie + Créances Clients MOCK
-        const currentLiabilities = (data.debts || 0) + 5000000; // Ex: Dettes Fournisseurs + autres Dettes CT MOCK
-        const liquidityRatio = currentLiabilities > 0 ? (currentAssets / currentLiabilities).toFixed(2) : 99.99;
-
-        // Mise à jour de l'état global
-        window.app.dashboardKPIs = {
-            cash: data.cash || 0,
-            profit: profit,
-            debts: data.debts || 0,
-            grossMargin: grossMargin,
-            liquidityRatio: parseFloat(liquidityRatio), 
-            pendingEntries: 3, // Mock en attendant le champ du backend
-        };
-
-    } catch (error) {
-        // En cas d'échec du chargement des KPIs, afficher le message mais ne pas bloquer
-        // NotificationManager.show('danger', 'Erreur KPI', `Impossible de charger les KPIs : ${error.message}`, 5000);
-        window.app.dashboardKPIs = { cash: 0, profit: 0, debts: 0, grossMargin: 0, liquidityRatio: 0, pendingEntries: 0 };
-    }
-}
-
-
-/**
- * 💡 MISE À JOUR : Récupère les données comptables brutes (Rapport et Plan Comptable).
- * Utilisée par les modules 'financial_statements', 'chart_of_accounts', etc.
- */
-async function fetchAccountingData() {
-    if (!window.app.currentCompanyId) {
-        console.warn("Tentative de chargement des données sans Company ID sélectionné.");
-        return { report: null, accounts: [], entries: [] };
-    }
-
-    // Indiquer le chargement dans l'interface (Logique conservée)
-    const dashboardContent = document.getElementById('dashboard-content-area');
-    if(dashboardContent) {
-        dashboardContent.innerHTML = `<div class="text-center p-20"><div class="loading-spinner w-10 h-10 border-primary"></div><p class="mt-4 text-primary font-bold">Chargement des données comptables...</p></div>`;
-    }
-
-    try {
-        const companyId = window.app.currentCompanyId;
-        const systemType = window.app.currentSysteme === 'NORMAL' ? 'NORMAL' : 'SMT';
-
-        // 1. Appel à la route de Rapport Financier
-        const reportEndpoint = `/api/accounting/report/${companyId}?systemType=${systemType}`;
-        const reportData = await apiFetch(reportEndpoint, { method: 'GET' });
-
-        // 2. 🚀 APPEL RÉEL au Plan Comptable (Route désormais disponible dans le backend)
-        const accountsEndpoint = `/api/accounting/chart-of-accounts?companyId=${companyId}`;
-        const accountsResponse = await apiFetch(accountsEndpoint, { method: 'GET' });
-        
-        // 3. MOCK d'enrichissement du solde pour le Plan Comptable (Normalement fait côté backend)
-        // Ajout d'une propriété 'balance' pour l'affichage du solde (Crucial pour la nouvelle table)
-        const enrichedAccounts = (accountsResponse.data || []).map(acc => ({
-            ...acc,
-            balance: Math.random() * 10000000 * (acc.code.toString().startsWith('7') ? 1 : -1) // Solde MOCK
-        }));
-
-        // 4. Mise à jour de l'état global
-        window.app.filteredData = {
-            report: reportData, 
-            accounts: enrichedAccounts, // Les comptes réels enrichis d'Odoo
-            entries: [], // La route /report ne renvoie pas le détail des écritures
-        };
-        return window.app.filteredData;
-
-    } catch (error) {
-        NotificationManager.show('danger', 'Erreur de Chargement', `Impossible de charger les données : ${error.message}`, 8000);
-        // Réinitialiser les données en cas d'échec
-        window.app.filteredData = { report: null, accounts: [], entries: [] };
-        // Afficher un message d'erreur clair dans le dashboard
-        if(dashboardContent) {
-             dashboardContent.innerHTML = `<div class="text-center p-20 text-danger"><i class="fas fa-exclamation-triangle fa-3x mb-4"></i><p class="text-xl font-bold">Échec de la connexion aux données comptables.</p><p>Vérifiez l'état de votre backend Express et si le service Odoo est accessible.</p></div>`;
+        console.error('Erreur API Fetch:', error);
+        // Ne pas notifier deux fois si c'est déjà fait par le 401/403
+        if (!error.message.includes('Accès refusé')) {
+            NotificationManager.show(error.message, 'error');
         }
         throw error;
     }
 }
 
-// ------------------- RENDU SPÉCIFIQUE 1 : DASHBOARDS (Tous les profils) -------------------
+/**
+ * Gère la soumission du formulaire de connexion.
+ * Utilise la structure de réponse de la V4.
+ */
+async function handleLogin(event) {
+    event.preventDefault(); // GARANTIE : Empêcher le rafraîchissement
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('login-submit-btn');
+    
+    // Afficher le spinner/état de chargement
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<div class="loading-spinner mx-auto border-white border-top-white/20"></div>`;
+
+    try {
+        const response = await apiFetch('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+        });
+        
+        // 1. Mise à jour de l'état global (Structure V4)
+        appState.token = response.data.token;
+        appState.user = response.data; // Contient profile, name, companiesList, defaultCompany
+        appState.isAuthenticated = true;
+
+        // 2. Définir la compagnie par défaut
+        appState.currentCompanyId = response.data.defaultCompany.id;
+        appState.currentCompanyName = response.data.defaultCompany.name;
+        
+        // Assurez-vous que selectedCompanyId existe sur l'objet user pour handleCompanyChange
+        appState.user.selectedCompanyId = response.data.defaultCompany.id;
+
+        // 3. Sauvegarde du token
+        localStorage.setItem('douke_auth_token', appState.token);
+        
+        NotificationManager.show(`Connexion Réussie. Bienvenue, ${appState.user.name}.`);
+        renderAppView(); // Charger le tableau de bord
+        
+    } catch (error) {
+        // Le NotifManager s'occupe déjà de l'affichage de l'erreur
+        document.getElementById('password').value = ''; 
+    } finally {
+        // Rétablir le bouton
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
 
 /**
- * 💡 MISE À JOUR : Rendu du Dashboard utilisant les KPIs (plus précis et enrichis).
+ * Gère la soumission du formulaire d'inscription.
  */
-function renderDashboard(contentArea, profile) {
-    const data = window.app.dashboardKPIs;
-    const isNormalSystem = window.app.currentSysteme === 'NORMAL';
+async function handleRegister(event) {
+    event.preventDefault();
+    NotificationManager.show('Fonction d\'inscription en cours de finalisation.', 'info');
+}
 
-    // Formattage de la devise
-    const formatCurrency = (amount) => amount.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 });
+/**
+ * Gère la déconnexion.
+ */
+function handleLogout(isAutoLogout = false) {
+    // Effacer le token et réinitialiser l'état
+    localStorage.removeItem('douke_auth_token');
+    appState = {
+        isAuthenticated: false,
+        token: null,
+        user: null,
+        currentCompanyId: null,
+        currentCompanyName: null,
+    };
     
-    // Variables pour l'affichage
-    const cash = data.cash || 0;
-    const profit = data.profit || 0;
-    const debts = data.debts || 0;
-    const grossMargin = data.grossMargin || 0; // NOUVEAU
-    const liquidityRatio = data.liquidityRatio || 0; // NOUVEAU
-    const pendingEntries = data.pendingEntries || 0;
-
-    // --- Calculs Spécifiques ---
-    let specificKPIs = '';
-    
-    if (profile === 'ADMIN') {
-        // Mocks pour les stats ADMIN (basé sur le mock de user_management)
-        const totalCollaborators = 3;
-        const totalCompanies = window.app.companiesList.length;
-        const avgCompanyPerCollab = (totalCompanies / totalCollaborators).toFixed(1);
-
-        specificKPIs = `
-            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-info">
-                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-users mr-2"></i> Collaborateurs Actifs</p>
-                <h3 class="text-2xl font-black text-info mt-2">${totalCollaborators}</h3>
-            </div>
-            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-secondary">
-                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-briefcase mr-2"></i> Dossiers / Collab (Moyenne)</p>
-                <h3 class="text-2xl font-black text-secondary mt-2">${avgCompanyPerCollab}</h3>
-            </div>
-            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-warning">
-                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-percent mr-2"></i> Marge Brute</p>
-                <h3 class="text-2xl font-black ${grossMargin > 0 ? 'text-success' : 'text-danger'} mt-2">${formatCurrency(grossMargin)}</h3>
-            </div>
-        `;
-    } else if (profile === 'USER' || profile === 'CAISSIER') {
-        const userMocks = window.app.MOCK_USERS.find(u => u.profile === profile);
-        const totalCaisses = userMocks?.total_caisses || 0;
-        const activeCaisses = userMocks?.active_caisses || 0;
-
-        specificKPIs = `
-            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-info">
-                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-cash-register mr-2"></i> Caisses (Comptes 571) Crées</p>
-                <h3 class="text-2xl font-black text-info mt-2">${totalCaisses}</h3>
-            </div>
-            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-secondary">
-                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-check-circle mr-2"></i> Caisses Actives / Actuelles</p>
-                <h3 class="text-2xl font-black ${activeCaisses > 0 ? 'text-success' : 'text-danger'} mt-2">${activeCaisses}</h3>
-            </div>
-            <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 ${liquidityRatio >= 1.5 ? 'border-success' : 'border-danger'}">
-                <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-balance-scale-left mr-2"></i> Ratio de Liquidité G. (Ideal > 1.5)</p>
-                <h3 class="text-2xl font-black text-warning mt-2">${liquidityRatio}</h3>
-            </div>
-        `;
+    if (!isAutoLogout) {
+        NotificationManager.show('Vous êtes déconnecté.', 'info');
     }
+    
+    // Retourner à la vue d'authentification
+    renderAppView();
+    window.location.hash = ''; // Nettoyer l'URL
+}
 
-    // --- Rendu Final ---
-    contentArea.innerHTML = `
-        <div class="space-y-8 fade-in">
-            <h2 class="text-3xl font-black text-gray-900 dark:text-white">Tableau de Bord ${profile === 'ADMIN' ?
-                'Global' : (profile === 'USER' ? 'Stratégique' : 'Opérationnel')}</h2>
-            <p class="text-lg text-gray-700 dark:text-gray-300">Synthèse du dossier <strong class="text-primary">${window.app.currentCompanyName}</strong></p>
+/**
+ * Vérifie l'authentification au chargement de la page (token localStorage).
+ * Utilise la route /auth/me et la structure de réponse de la V4.
+ */
+async function checkAuthAndRender() {
+    const token = localStorage.getItem('douke_auth_token');
+    
+    if (!token) {
+        appState.isAuthenticated = false;
+        return renderAppView();
+    }
+    
+    appState.token = token;
+    
+    try {
+        // Tenter de valider le token et de récupérer les données utilisateur
+        const response = await apiFetch('/auth/me', { method: 'GET' }); 
+        
+        // Si la validation réussit, restaurer l'état (structure V4)
+        appState.user = response.data;
+        appState.isAuthenticated = true;
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+        // Récupérer l'ID de la compagnie actuellement sélectionnée
+        const selectedId = response.data.selectedCompanyId || (response.data.companiesList[0]?.id || null);
+        
+        appState.currentCompanyId = selectedId;
+        appState.currentCompanyName = response.data.companiesList.find(c => c.id === selectedId)?.name || 'Dossier Inconnu';
+        
+    } catch (error) {
+        // En cas d'échec de validation (token expiré ou invalide)
+        console.warn('Token invalide ou expiré. Reconnexion requise.');
+        handleLogout(true);
+        return;
+    }
+    
+    renderAppView();
+}
 
-                <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-primary">
-                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-coins mr-2"></i> Trésorerie Actuelle (512/571)</p>
-                    <h3 class="text-2xl font-black text-primary mt-2">${formatCurrency(cash)}</h3>
-                </div>
+// --- 4. GESTION DE LA VUE ET DU DASHBOARD ---
 
-                <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-success">
-                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-chart-line mr-2"></i> Résultat Net YTD</p>
-                    <h3 class="text-2xl font-black ${profit >= 0 ? 'text-success' : 'text-danger'} mt-2">${formatCurrency(profit)}</h3>
-                </div>
+/**
+ * Bascule entre la vue d'authentification et le tableau de bord.
+ */
+function renderAppView() {
+    const authView = document.getElementById('auth-view');
+    const dashboardView = document.getElementById('dashboard-view');
+    
+    if (appState.isAuthenticated) {
+        authView.classList.add('hidden');
+        dashboardView.classList.remove('hidden');
+        loadDashboard();
+    } else {
+        dashboardView.classList.add('hidden');
+        authView.classList.remove('hidden');
+    }
+}
 
-                <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-danger">
-                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-money-bill-wave mr-2"></i> Dettes Fournisseurs (40x)</p>
-                    <h3 class="text-2xl font-black text-danger mt-2">${formatCurrency(debts)}</h3>
-                </div>
+// =================================================================
+// function loadDashboard()
+// =================================================================
 
-                <div class="kpi-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 border-l-4 border-warning">
-                    <p class="text-gray-400 text-xs font-black uppercase"><i class="fas fa-check-circle mr-2"></i> Écritures à Valider</p>
-                    <h3 class="text-2xl font-black ${pendingEntries > 0 ? 'text-danger' : 'text-success'} mt-2">${pendingEntries}</h3>
-                </div>
+/**
+ * Charge les informations et les menus du tableau de bord.
+ * AJUSTÉ pour gérer l'état sans compagnie sélectionnée (currentCompanyId: null).
+ */
+function loadDashboard() {
+    if (!appState.user) return;
 
-                ${specificKPIs}
-            </div>
+    // Mise à jour de l'en-tête utilisateur
+    document.getElementById('welcome-message').textContent = appState.user.name;
+    document.getElementById('current-role').textContent = appState.user.profile; // Utilisation de 'profile'
+    document.getElementById('user-avatar-text').textContent = appState.user.name.charAt(0).toUpperCase();
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="mt-4 lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
-                    <h3 class="font-black text-lg mb-4">Évolution Mensuelle des Flux (Revenus vs Dépenses)</h3>
-                    <canvas id="mainChart" height="100"></canvas>
-                </div>
-                <div class="mt-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
-                    <h3 class="font-black text-lg mb-4 text-warning"><i class="fas fa-bell mr-2"></i> Alertes et Tâches Prioritaires</h3>
-                    <ul class="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                        ${profile !== 'ADMIN' && liquidityRatio < 1.5 ?
-                            `<li><i class="fas fa-exclamation-triangle text-danger mr-2"></i> Ratio de liquidité (${liquidityRatio}) trop faible (cible 1.5).</li>` : ''}
+    // Mise à jour du contexte de travail (Correction pour afficher le message de sélection)
+    document.getElementById('current-company-name').textContent = appState.currentCompanyName || 'Aucun Dossier Actif';
+    
+    // Modification 1: Conditionner le message de contexte
+    const contextMessage = appState.currentCompanyId 
+        ? `Comptabilité Analytique : ${appState.currentCompanyName}`
+        : 'SÉLECTION REQUISE : Veuillez choisir un dossier client.';
+        
+    document.getElementById('context-message').textContent = contextMessage;
 
-                        <li><i class="fas fa-arrow-up text-success mr-2"></i> Forte croissance du CA (+12% ce mois)</li>
-                        ${pendingEntries > 0 ?
-                            `<li><i class="fas fa-exclamation-circle text-danger mr-2"></i> ${pendingEntries} écritures nécessitent une validation.</li>` : `<li><i class="fas fa-check text-success mr-2"></i> Aucune écriture en attente.</li>`}
-                        <li><i class="fas fa-calendar-alt text-info mr-2"></i> Date limite de clôture mensuelle (J+5).</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    `;
-// ... (Logique Chart.js conservée) ...
-    // Dessin du graphique (Déchargé pour la performance)
-    setTimeout(() => { 
-        if (typeof Chart !== 'undefined' && document.getElementById('mainChart')) { 
-            const ctx = document.getElementById('mainChart').getContext('2d'); 
-            new Chart(ctx, { 
-                type: 'bar', 
-                data: { 
-                    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'], 
-                    datasets: [{ 
-                        label: 'Revenus', 
-                        data: [5000000, 7500000, 15000000, 12500000, 10000000, 20000000], // Données mock basées sur le CA
-                        backgroundColor: 'rgba(93, 92, 222, 0.7)', 
-                        borderColor: '#5D5CDE', 
-                        borderWidth: 1, 
-                    }, { 
-                        label: 'Dépenses', 
-                        data: [2500000, 3000000, 5000000, 6250000, 8250000, 12500000], // Données mock basées sur les charges
-                        backgroundColor: 'rgba(239, 68, 68, 0.7)', 
-                        borderColor: '#EF4444', 
-                        borderWidth: 1, 
-                    }] 
-                }, 
-                options: { 
-                    responsive: true, 
-                    scales: { y: { beginAtZero: true } } 
-                } 
-            }); 
-        } 
-    }, 100);
-} 
-function renderCollaboratorDashboard(contentArea) { 
-// ... (Logique renderCollaboratorDashboard conservée) ...
-    const data = window.app.filteredData.entries; 
-    const pendingValidation = data.filter(e => e.status === 'En attente').length;
-    const clientsCount = window.app.companiesList.length; // Nombre d'entreprises accessibles par le collaborateur 
-    const totalFees = 8000000;
-    // Mock pour l'exemple 
-    contentArea.innerHTML = ` 
-        <div class="space-y-8 fade-in"> 
-            <h2 class="text-3xl font-black text-gray-900 dark:text-white">Portefeuille et Suivi Collaborateur</h2> 
-            <p class="text-lg text-gray-700 dark:text-gray-300">Gestion de l'intégrité et de la validation des écritures pour votre portefeuille.</p> 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6"> 
-            </div>
+
+    // -------------------------------------------------------------
+    // LOGIQUE CRITIQUE: CONSTRUCTION DU MENU MULTI-COMPAGNIES
+    // -------------------------------------------------------------
+    const menuContainer = document.getElementById('role-navigation-menu');
+    menuContainer.innerHTML = '';
+    
+    // 1. Menu de Sélection de Compagnie (Rendu si plus de 0 compagnies)
+    if (appState.user.companiesList && appState.user.companiesList.length > 0) {
+        // NOTE: Dans la V1.7, ce sélecteur est déplacé dans l'en-tête (renderHeaderSelectors). 
+        // Je le garde ici pour ne pas modifier la structure DOM que vous utilisez.
+        const companySelectHTML = createCompanySelectMenu(appState.user.companiesList);
+        menuContainer.insertAdjacentHTML('beforeend', companySelectHTML);
+    }
+    
+    // 2. Menus de Navigation (Basés sur le Rôle)
+    const baseMenus = getRoleBaseMenus(appState.user.profile);
+    baseMenus.forEach(menu => {
+        const isActive = menu.id === 'dashboard' ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
+        const menuItem = document.createElement('a');
+        menuItem.className = `flex items-center p-4 rounded-xl font-bold transition-colors ${isActive}`;
+        menuItem.href = '#';
+        menuItem.innerHTML = `<i class="${menu.icon} w-6 text-center mr-3"></i><span>${menu.name}</span>`;
+        menuItem.onclick = (e) => {
+            e.preventDefault();
+            loadContentArea(menu.id, menu.name);
+        };
+        menuContainer.appendChild(menuItem);
+    });
+    
+    // 3. Charger le contenu par défaut (Modification 2: Vérification Conditionnelle)
+    const contentArea = document.getElementById('dashboard-content-area');
+    
+    if (appState.currentCompanyId) {
+        // Charger le dashboard uniquement si une compagnie est sélectionnée
+        loadContentArea('dashboard', 'Tableau de Bord');
+    } else {
+        // Sinon, afficher un message d'invitation à sélectionner une compagnie.
+        if (contentArea) {
+             contentArea.innerHTML = generateCompanySelectionPromptHTML();
+        }
+    }
+}
+
+
+// =================================================================
+// function generateCompanySelectionPromptHTML()
+// =================================================================
+/**
+ * Génère le HTML pour l'écran demandant à l'utilisateur de sélectionner une compagnie.
+ */
+function generateCompanySelectionPromptHTML() {
+    return `<div class="h-full flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
+        <i class="fas fa-sitemap fa-5x text-warning/70 mb-6"></i>
+        <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2">Sélectionnez votre Dossier Actif</h3>
+        <p class="text-lg text-gray-600 dark:text-gray-400 max-w-xl">
+            Afin d'accéder aux données comptables, veuillez choisir un dossier client dans le menu de gauche.
+        </p>
+    </div>`;
+}
+
+
+/**
+ * Génère le HTML pour le sélecteur de compagnie.
+ */
+function createCompanySelectMenu(companies) {
+    let optionsHTML = companies.map(c => 
+        `<option value="${c.id}" ${c.id === appState.currentCompanyId ? 'selected' : ''}>${c.name}</option>`
+    ).join('');
+
+    // NOTE: Utiliser onchange="handleCompanyChange(this.value)"
+    return `
+        <div class="mb-5 p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+            <label class="text-xs font-black uppercase text-gray-500 dark:text-gray-400 mb-2 block">Dossier Client Actif</label>
+            <select id="company-select-menu" onchange="handleCompanyChange(this.value)"
+                class="w-full bg-transparent border-none p-0 text-sm font-bold text-secondary dark:text-primary-light focus:outline-none">
+                ${optionsHTML}
+            </select>
         </div>
     `;
 }
 
-// ------------------- RENDU SPÉCIFIQUE 2 : PLAN COMPTABLE (COA) -------------------
+/**
+ * Gère le changement de compagnie active par l'utilisateur.
+ * RENDU DISPONIBLE DANS LA PORTÉE GLOBALE DU DOM.
+ */
+window.handleCompanyChange = async function (newCompanyId) { // Rendu asynchrone pour la cohérence
+    const newId = parseInt(newCompanyId);
+    // Recherche dans la liste stockée dans l'état utilisateur (V4)
+    const newCompany = appState.user.companiesList.find(c => c.id === newId);
+
+    if (newCompany) {
+        appState.currentCompanyId = newId;
+        appState.currentCompanyName = newCompany.name;
+        
+        // Mise à jour de l'état utilisateur (IMPORTANT pour les prochains checkAuth)
+        appState.user.selectedCompanyId = newId; 
+
+        // 💡 OPTIONNEL : Si vous avez une route API pour mettre à jour la compagnie dans le JWT, elle irait ici.
+        // Ex: await apiFetch('/user/set-company', { method: 'POST', body: JSON.stringify({ companyId: newId }) });
+
+        // Mise à jour de l'UI
+        document.getElementById('current-company-name').textContent = appState.currentCompanyName;
+        document.getElementById('context-message').textContent = `Comptabilité Analytique : ${appState.currentCompanyName}`;
+        NotificationManager.show(`Dossier actif changé : ${appState.currentCompanyName}`, 'info');
+
+        // Recharger le contenu principal avec le nouveau contexte
+        loadContentArea('dashboard', 'Tableau de Bord');
+    }
+};
+
+
+// =================================================================
+// CORRECTION CRITIQUE : getRoleBaseMenus (NOUVELLE LOGIQUE RÔLES)
+// =================================================================
+/**
+ * Définit les options de menu basées sur le profil utilisateur et ses permissions.
+ * Les permissions d'accès aux données (lecture/écriture) doivent être VÉRIFIÉES EN ARRIÈRE-PLAN (Back-End).
+ */
+function getRoleBaseMenus(role) {
+    const menus = [
+        { id: 'dashboard', name: 'Tableau de Bord', icon: 'fas fa-chart-line' },
+    ];
+    
+    // --- 4. CAISSIER (Accès très limité) ---
+    if (role === 'CAISSIER') {
+        // Le Caissier n'a accès qu'à son interface de saisie simplifiée.
+        menus.push({ id: 'caisse-operation', name: 'Opérations de Caisse', icon: 'fas fa-cash-register' });
+        // Les Rapports SYSCOHADA (version très simplifiée/filtrée) peuvent rester visibles
+        menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
+        return menus;
+    }
+
+    // --- 3. USER, 2. COLLABORATEUR & 1. ADMIN ---
+    // Ces trois rôles ont un accès complet aux outils comptables. La différence est l'ISOLATION.
+    
+    // Modules d'Analyse
+    menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
+    menus.push({ id: 'journal', name: 'Journaux et Écritures', icon: 'fas fa-book' });
+    menus.push({ id: 'ledger', name: 'Grand Livre / Balance', icon: 'fas fa-balance-scale' });
+    
+    // Modules d'Écriture/Configuration (Nécessitent un droit R/W côté BE)
+    menus.push({ id: 'chart-of-accounts', name: 'Plan Comptable', icon: 'fas fa-list-alt' }); 
+    menus.push({ id: 'manual-entry', name: 'Passer une Écriture', icon: 'fas fa-plus-square' }); 
+    
+    // --- 1. ADMIN (Administration de la Plateforme) ---
+    if (role === 'ADMIN') {
+        // Module exclusif pour l'ADMIN (Gestion des Utilisateurs/Permissions)
+        menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
+    }
+    
+    return menus;
+}
 
 /**
- * 💡 NOUVEAU : Rendu de la vue Plan Comptable (Amélioration 3).
- * Inclut le solde et les boutons d'action (CRUD).
+ * Charge le contenu HTML/Données dans la zone principale.
+ * Utilise la structure de route V4 (`/accounting/module?companyId=...`).
  */
-function renderChartOfAccounts(contentArea, accounts) {
-    // Création de la table
-    const tableRows = accounts.map(acc => `
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-            <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">${acc.code}</td>
-            <td class="px-4 py-3">${acc.name}</td>
-            <td class="px-4 py-3 text-sm">${acc.account_type || '-'}</td>
-            <td class="px-4 py-3 text-right font-bold ${acc.balance > 0 ? 'text-success' : (acc.balance < 0 ? 'text-danger' : 'text-gray-500')}">
-                 ${acc.balance ? acc.balance.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }) : '0 XOF'}
+async function loadContentArea(contentId, title) {
+    const contentArea = document.getElementById('dashboard-content-area');
+    contentArea.innerHTML = `<div class="p-8 text-center"><div class="loading-spinner mx-auto"></div><p class="mt-4 text-gray-500 font-bold">Chargement du module ${title}...</p></div>`;
+
+    try {
+        let endpoint = '';
+        let content = '';
+
+        // Ici, nous utilisons l'ID de la compagnie actuelle pour filtrer les données (Format V4)
+        const companyFilter = `?companyId=${appState.currentCompanyId}`; 
+
+        switch (contentId) {
+            case 'dashboard':
+                // CORRECTION : Appel à /api/accounting/dashboard?companyId=X
+                endpoint = `/accounting/dashboard${companyFilter}`; // Était: /data/dashboard
+                content = await fetchDashboardData(endpoint);
+                break;
+            
+            // === AJOUT : PLAN COMPTABLE (R/W) ===
+            case 'chart-of-accounts': 
+                endpoint = `/accounting/chart-of-accounts${companyFilter}`;
+                content = await fetchChartOfAccountsData(endpoint);
+                break;
+            
+            // === AJOUT : OPÉRATIONS DE CAISSE (CAISSIER) ===
+            case 'caisse-operation': 
+                content = generateCaisseOperationHTML();
+                break;
+                
+            case 'journal':
+                // CORRECTION : Endpoint simulé : /api/accounting/journal?companyId=X
+                endpoint = `/accounting/journal${companyFilter}`; // Était: /data/journal
+                content = await fetchJournalData(endpoint); // Laisser cette fonction en simulation
+                break;
+            case 'reports':
+                // CORRECTION : Appel : /api/accounting/reports/bilan?companyId=X
+                const reportContent = await apiFetch(`/accounting/reports/bilan${companyFilter}`, { method: 'GET' }); // Était: /data/reports/bilan
+                // Assurez-vous que l'API renvoie bien 'data' comme clé pour le contenu
+                ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportContent.data));
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+                break;
+            case 'ledger':
+            case 'manual-entry': // Nouvelle case par la fonction getRoleBaseMenus
+            case 'admin-users':
+            default:
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+        }
+        
+        // Mettre à jour la zone de contenu (sauf si une modale a été ouverte)
+        if (content) {
+            contentArea.innerHTML = content;
+        }
+
+    } catch (error) {
+        contentArea.innerHTML = `<div class="p-8 text-center text-danger"><i class="fas fa-exclamation-triangle fa-2x mb-3"></i><p class="font-bold">Erreur de chargement des données pour ${title}.</p><p class="text-sm">${error.message}</p></div>`;
+    }
+}
+
+// --- Fonctions de récupération et de rendu ---
+
+/**
+ * Récupère les données du tableau de bord.
+ */
+async function fetchDashboardData(endpoint) {
+    const response = await apiFetch(endpoint, { method: 'GET' });
+    // Supposons que l'API renvoie { data: { cash, profit, debts } }
+    return generateDashboardHTML(response.data);
+}
+
+// ⚠️ À implémenter (Laisser en simulation pour l'instant)
+async function fetchJournalData(endpoint) {
+    // Simule la latence réseau
+    await new Promise(resolve => setTimeout(resolve, 500)); 
+    const simulatedData = [
+        { id: 1, date: '2025-01-15', libelle: 'Achat de fournitures', debit: 50000, credit: 0, status: 'Validé' },
+        { id: 2, date: '2025-01-15', libelle: 'Vente de biens', debit: 0, credit: 150000, status: 'Brouillon' },
+    ];
+    
+    return generateJournalHTML(simulatedData);
+}
+
+// =================================================================
+// AJOUT : Fonctions du Plan Comptable (R/W)
+// =================================================================
+
+/**
+ * Récupère les données du Plan Comptable (GET /accounting/chart-of-accounts).
+ */
+async function fetchChartOfAccountsData(endpoint) {
+    const response = await apiFetch(endpoint, { method: 'GET' });
+    // Supposons que l'API renvoie { data: [{ code, name, type, balance, id }] }
+    return generateChartOfAccountsHTML(response.data);
+}
+
+/**
+ * Génère le HTML pour l'affichage du Plan Comptable.
+ */
+function generateChartOfAccountsHTML(accounts) {
+    if (!accounts || accounts.length === 0) {
+        return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
+            <div class="p-8 text-center text-info"><i class="fas fa-info-circle fa-2x mb-3"></i><p class="font-bold">Aucun compte trouvé pour ce dossier client.</p></div>
+            <button onclick="showCreateAccountModal()" class="bg-success text-white py-2 px-4 rounded-xl font-bold hover:bg-success-dark transition-colors mt-4">
+                <i class="fas fa-plus-circle mr-2"></i> Ajouter Compte
+            </button>`;
+    }
+
+    const rows = accounts.map(account => `
+        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-3 font-bold">${account.code}</td>
+            <td class="px-6 py-3">${account.name}</td>
+            <td class="px-6 py-3">${account.type}</td>
+            <td class="px-6 py-3 text-right font-black">${(account.balance || 0).toLocaleString('fr-FR')}</td>
+            <td class="px-6 py-3">
+                <button onclick="showCreateAccountModal(${account.id}, {code: '${account.code}', name: '${account.name}', type: '${account.type}'})" 
+                        class="text-primary hover:text-primary-dark font-bold">Modifier</button>
             </td>
-            ${window.app.currentProfile === 'ADMIN' ? `
-            <td class="px-4 py-3 text-center">
-                <button onclick="showEditAccountModal(${acc.id})" class="text-info hover:text-primary-dark transition-colors mr-2" title="Modifier">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button onclick="deleteAccount(${acc.id})" class="text-danger hover:text-danger-dark transition-colors" title="Supprimer (Non implémenté)">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </td>
-            ` : `<td class="px-4 py-3"></td>`}
         </tr>
     `).join('');
-    
-    // Le contenu final
-    contentArea.innerHTML = `
-        <div class="space-y-6 fade-in">
-            <h2 class="text-3xl font-black text-gray-900 dark:text-white">Plan Comptable (Dossier ${window.app.currentCompanyName})</h2>
-            <div class="flex justify-between items-center mb-4">
-                <p class="text-lg text-gray-700 dark:text-gray-300">${accounts.length} comptes actifs chargés. (Solde MOCKé)</p>
-                ${window.app.currentProfile === 'ADMIN' ? `
-                <button onclick="showCreateAccountModal()" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-xl shadow-md transition-shadow">
-                    <i class="fas fa-plus mr-2"></i> Ajouter un Compte
-                </button>
-                ` : ''}
-            </div>
 
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead class="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/12">Code</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-4/12">Nom du Compte</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-2/12">Type</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-2/12">Solde Actuel</th>
-                            ${window.app.currentProfile === 'ADMIN' ? `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/12">Actions</th>` : `<th></th>`}
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                        ${tableRows}
-                    </tbody>
-                </table>
-            </div>
+    return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
+        <div class="flex justify-between items-center mb-4">
+            <p class="text-sm text-gray-500">Affiche les comptes de la compagnie: **${appState.currentCompanyName}**.</p>
+            <button onclick="showCreateAccountModal()" class="bg-success text-white py-2 px-4 rounded-xl font-bold hover:bg-success-dark transition-colors">
+                <i class="fas fa-plus-circle mr-2"></i> Ajouter Compte
+            </button>
         </div>
-    `;
+        <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Code</th>
+                        <th scope="col" class="px-6 py-3">Libellé du Compte</th>
+                        <th scope="col" class="px-6 py-3">Type</th>
+                        <th scope="col" class="px-6 py-3 text-right">Solde Actuel (XOF)</th>
+                        <th scope="col" class="px-6 py-3">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        </div>`;
 }
 
 /**
- * 💡 NOUVEAU : Logique de l'UI pour la création de compte (CRUD)
+ * Ouvre la modale pour la création ou la modification d'un compte.
  */
-function showCreateAccountModal() {
-     ModalManager.open(
-        'Créer un Nouveau Compte',
-        'Définissez les propriétés de ce nouveau compte Odoo.',
-        `
-        <form onsubmit="handleCreateAccount(event)">
-            <div class="space-y-4">
-                <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Code Comptable (Ex: 411000)</label>
-                     <input type="number" id="new-acc-code" required class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"></div>
-                <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom du Compte</label>
-                     <input type="text" id="new-acc-name" required class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"></div>
-                <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Type de Compte</label>
-                     <select id="new-acc-type" required class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
-                        <option value="receivable">Client</option>
-                        <option value="payable">Fournisseur</option>
-                        <option value="asset_cash">Trésorerie</option>
-                        <option value="expense">Charge</option>
-                        <option value="income">Produit</option>
-                     </select></div>
-            </div>
-            <div class="mt-6 flex justify-end">
-                <button type="button" onclick="ModalManager.close()" class="btn-secondary mr-3">Annuler</button>
-                <button type="submit" class="btn-primary">Créer le Compte</button>
-            </div>
-        </form>
-        `
-    );
-}
-
-/**
- * 💡 NOUVEAU : Gestion de l'appel API pour la création de compte.
- */
-async function handleCreateAccount(e) {
-    e.preventDefault();
-    const code = document.getElementById('new-acc-code').value;
-    const name = document.getElementById('new-acc-name').value;
-    const type = document.getElementById('new-acc-type').value;
-
-    try {
-        await apiFetch('/api/accounting/chart-of-accounts', {
-            method: 'POST',
-            body: JSON.stringify({ code, name, type, companyId: window.app.currentCompanyId }),
-        });
-        ModalManager.close();
-        NotificationManager.show('success', 'Création réussie', `Compte ${code} créé dans Odoo.`, 4000);
-        // Recharge le module Plan Comptable pour afficher le nouveau compte
-        loadModule('chart_of_accounts', true);
-    } catch (error) {
-        NotificationManager.show('danger', 'Erreur de création', error.message, 8000);
-    }
-}
-
-// Fonction MOCK à implémenter pour la modification
-function showEditAccountModal(accountId) {
-    NotificationManager.show('info', 'Fonctionnalité', `Ouverture de la modal d'édition du compte #${accountId}.`, 3000);
-}
-
-// Fonction MOCK à implémenter pour la suppression
-function deleteAccount(accountId) {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer le compte #${accountId}?`)) {
-        NotificationManager.show('warning', 'Non implémenté', `La suppression du compte est désactivée pour l'instant.`, 5000);
-    }
-}
-// -----------------------------------------------------------------------------------------
-// 💡 IMPORTANT : MISE À JOUR DE loadModule
-// La fonction loadModule doit être mise à jour pour inclure les nouveaux modules.
-// Étant donné que sa définition n'est pas complète dans le snippet, j'ajoute
-// le corps de la fonction ici, en incluant le support pour chart_of_accounts.
-// VEUILLEZ VÉRIFIER QUE VOUS AVEZ UNE DÉFINITION GLOBALE DE loadModule.
-// -----------------------------------------------------------------------------------------
-async function loadModule(moduleName, forceReload = false) {
-    const contentArea = document.getElementById('dashboard-content-area');
-    const navButtons = document.querySelectorAll('#role-navigation-menu button');
+window.showCreateAccountModal = function(accountId = null, currentData = {}) {
+    const title = accountId ? "Modifier le Compte" : "Créer un Nouveau Compte";
     
-    // 1. Gestion du bouton actif
-    navButtons.forEach(btn => {
-        const isActive = btn.dataset.module === moduleName;
-        btn.dataset.active = isActive;
-        btn.className = createNavItem(btn.querySelector('span').textContent, btn.querySelector('i').className.replace('fas mr-4 w-5 text-center ', ''), moduleName, isActive).match(/class="([^"]*)"/)[1];
-    });
+    const htmlContent = `
+        <form id="create-account-form" onsubmit="handleCreateAccountSubmit(event)">
+            <input type="hidden" id="account-id" value="${accountId || ''}">
+            <div class="mb-4">
+                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Code du Compte (ex: 601000)</label>
+                <input type="text" id="account-code" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" 
+                       pattern="[0-9]{6,}" title="Code numérique de 6 chiffres minimum" value="${currentData.code || ''}">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Libellé</label>
+                <input type="text" id="account-name" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" value="${currentData.name || ''}">
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Type de Compte</label>
+                <select id="account-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    <option value="asset_other">Actif (Classe 2/3)</option>
+                    <option value="liability_other">Passif (Classe 4)</option>
+                    <option value="income">Produit (Classe 7)</option>
+                    <option value="expense">Charge (Classe 6)</option>
+                    <option value="equity">Capitaux Propres (Classe 1)</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full bg-primary text-white font-bold p-3 rounded-xl hover:bg-primary-dark transition-colors">
+                ${accountId ? 'Modifier le Compte' : 'Créer le Compte'}
+            </button>
+        </form>
+    `;
+    ModalManager.open(title, htmlContent);
+    // Sélectionner le type correct si en mode édition
+    if (currentData.type) {
+        document.getElementById('account-type').value = currentData.type;
+    }
+};
 
-    // 2. Chargement du contenu
-    contentArea.innerHTML = `<div class="text-center p-20"><div class="loading-spinner w-10 h-10 border-primary"></div><p class="mt-4 text-primary font-bold">Chargement du module ${moduleName}...</p></div>`;
+/**
+ * Gère la soumission du formulaire de création/modification de compte (R/W).
+ */
+window.handleCreateAccountSubmit = async function(event) {
+    event.preventDefault();
+    const accountId = document.getElementById('account-id').value;
+    const isEdit = accountId !== '';
+    
+    const data = {
+        id: accountId ? parseInt(accountId) : undefined,
+        code: document.getElementById('account-code').value,
+        name: document.getElementById('account-name').value,
+        type: document.getElementById('account-type').value,
+        companyId: appState.currentCompanyId // CRITIQUE pour la vérification BE (checkWritePermission)
+    };
 
     try {
-        if (moduleName.includes('_dashboard')) {
-            await fetchDashboardKPIs(); // Charger les KPIs avant le rendu
-            // Nous n'appelons fetchAccountingData ici que si les données brutes sont nécessaires pour le graph (sinon elles sont chargées par le rapport)
-            renderDashboard(contentArea, window.app.currentProfile);
+        const method = isEdit ? 'PUT' : 'POST';
+        const msg = isEdit ? 'Modification du compte en cours...' : 'Création du compte en cours...';
+        NotificationManager.show(msg, 'info');
 
-        } else if (moduleName === 'financial_statements' || moduleName === 'reports_syscohada') {
-            const data = await fetchAccountingData();
-            // Assurez-vous d'avoir une fonction renderFinancialStatements définie
-            // renderFinancialStatements(contentArea, data.report);
-            contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><p class="text-xl font-bold">Module Rapports SYSCOHADA</p><p>Le rapport est chargé dans window.app.filteredData.financialReport.</p></div>`;
+        await apiFetch('/accounting/chart-of-accounts', { 
+            method: method, 
+            body: JSON.stringify(data) 
+        });
 
-
-        } else if (moduleName === 'chart_of_accounts') { // 💡 NOUVEAU MODULE
-            const data = await fetchAccountingData();
-            if (data.accounts.length > 0) {
-                renderChartOfAccounts(contentArea, data.accounts);
-            } else {
-                 contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><p class="text-xl font-bold text-danger">Plan Comptable vide. Ajoutez un compte en haut à droite.</p></div>`;
-            }
-        // ... Ajouter d'autres modules ici
-        } else {
-            contentArea.innerHTML = `<div class="text-center p-20 opacity-50"><p class="text-xl font-bold">Module ${moduleName} en Construction</p></div>`;
-        }
+        NotificationManager.show(`Compte ${data.code} enregistré avec succès !`, 'success');
+        ModalManager.close();
+        // Recharger le plan comptable
+        loadContentArea('chart-of-accounts', 'Plan Comptable'); 
     } catch (error) {
-        // Le message d'erreur est géré par fetchAccountingData et fetchDashboardKPIs
-        console.error("Erreur lors du chargement du module:", error);
+        NotificationManager.show(`Échec de l'opération : ${error.message}`, 'error', 10000);
+    }
+};
+
+// =================================================================
+// AJOUT : Fonctions Opérations de Caisse (CAISSIER)
+// =================================================================
+
+let currentFluxType = null; 
+
+/**
+ * Génère le HTML pour l'interface simplifiée d'Opérations de Caisse.
+ */
+function generateCaisseOperationHTML() {
+    // Réinitialisation de l'état local du flux à chaque chargement
+    currentFluxType = null;
+    return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Opérations de Trésorerie Rapides (Caisse)</h3>
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 max-w-2xl mx-auto fade-in">
+            <p class="text-lg text-gray-700 dark:text-gray-300 mb-6">
+                Sélectionnez le type de flux (Recette ou Dépense) pour enregistrer une transaction simplifiée.
+            </p>
+            <form id="caisse-entry-form" onsubmit="handleCaisseEntrySubmit(event)">
+                
+                <div class="flex space-x-4 mb-6">
+                    <button type="button" onclick="selectFluxType('RECETTE')" id="btn-recette" class="flex-1 p-4 rounded-xl border-2 border-success text-success font-black hover:bg-success/10 transition-colors">
+                        <i class="fas fa-arrow-alt-circle-up"></i> Recette
+                    </button>
+                    <button type="button" onclick="selectFluxType('DEPENSE')" id="btn-depense" class="flex-1 p-4 rounded-xl border-2 border-danger text-danger font-black hover:bg-danger/10 transition-colors">
+                        <i class="fas fa-arrow-alt-circle-down"></i> Dépense
+                    </button>
+                </div>
+
+                <div id="flux-details" class="hidden">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Compte de Contrepartie (ex: Ventes / Fournitures)</label>
+                        <select id="contra-account" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                            <option value="">Chargement des comptes...</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Libellé</label>
+                        <input type="text" id="caisse-label" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Montant (XOF)</label>
+                        <input type="number" step="0.01" min="1" id="caisse-amount" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <button type="submit" class="w-full bg-primary text-white font-bold p-3 rounded-xl hover:bg-primary-dark transition-colors">Enregistrer l'Opération</button>
+                </div>
+            </form>
+        </div>`;
+}
+
+/**
+ * Change le type de flux (Recette/Dépense) et met à jour l'UI.
+ */
+window.selectFluxType = function(type) {
+    currentFluxType = type;
+    document.getElementById('flux-details').classList.remove('hidden');
+    
+    // Logique de style
+    const r = document.getElementById('btn-recette');
+    const d = document.getElementById('btn-depense');
+    
+    // Réinitialiser les classes de base (pour la robustesse des clics multiples)
+    r.className = 'flex-1 p-4 rounded-xl border-2 border-success text-success font-black hover:bg-success/10 transition-colors';
+    d.className = 'flex-1 p-4 rounded-xl border-2 border-danger text-danger font-black hover:bg-danger/10 transition-colors';
+
+    if(type === 'RECETTE') {
+        r.classList.add('bg-success', 'text-white', 'shadow-md', 'shadow-success/30');
+    } else {
+        d.classList.add('bg-danger', 'text-white', 'shadow-md', 'shadow-danger/30');
     }
 }
-// -----------------------------------------------------------------------------------------
 
-// =================================================================================
-// 4. INITIALISATION (Logique conservée)
-// =================================================================================
+/**
+ * Gère la soumission du formulaire d'opération de caisse.
+ */
+window.handleCaisseEntrySubmit = async function(event) {
+    event.preventDefault();
+    if (!currentFluxType) {
+        NotificationManager.show('Veuillez sélectionner Recette ou Dépense.', 'warning');
+        return;
+    }
+
+    const data = {
+        type: currentFluxType,
+        contraAccount: document.getElementById('contra-account').value,
+        label: document.getElementById('caisse-label').value,
+        amount: parseFloat(document.getElementById('caisse-amount').value),
+        companyId: appState.currentCompanyId // CRITIQUE pour l'isolation mono-entreprise du CAISSIER
+    };
+
+    try {
+        NotificationManager.show(`Soumission de l'opération ${currentFluxType} en cours...`, 'info');
+
+        // 💡 APPEL API (Nouvelle route à créer: POST /accounting/caisse-entry)
+        await apiFetch('/accounting/caisse-entry', { 
+            method: 'POST', 
+            body: JSON.stringify(data) 
+        });
+        
+        NotificationManager.show(`Opération ${currentFluxType} enregistrée avec succès. En attente de validation.`, 'success');
+        document.getElementById('caisse-entry-form').reset();
+        document.getElementById('flux-details').classList.add('hidden');
+        currentFluxType = null;
+    } catch (error) {
+        NotificationManager.show(`Échec de l'enregistrement de l'opération : ${error.message}`, 'error', 10000);
+    }
+};
+
+// =================================================================
+// FIN des Fonctions spécifiques
+// =================================================================
+
+// Fonction de génération HTML basique
+function generateDashboardHTML(data) {
+    return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Synthèse Financière</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
+                    <p class="text-xs font-bold uppercase text-gray-500">Trésorerie Actuelle</p>
+                    <p class="text-4xl font-black text-success mt-2">${(data.cash || 0).toLocaleString('fr-FR')} XOF</p>
+                </div>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
+                    <p class="text-xs font-bold uppercase text-gray-500">Bénéfice Net (YTD)</p>
+                    <p class="text-4xl font-black text-info mt-2">${(data.profit || 0).toLocaleString('fr-FR')} XOF</p>
+                </div>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
+                    <p class="text-xs font-bold uppercase text-gray-500">Dettes Fournisseurs</p>
+                    <p class="text-4xl font-black text-warning mt-2">${(data.debts || 0).toLocaleString('fr-FR')} XOF</p>
+                </div>
+            </div>
+            <p class="mt-8 text-sm text-gray-500">Données filtrées pour le dossier client: **${appState.currentCompanyName}**.</p>
+            `;
+}
+
+function generateJournalHTML(journalEntries) {
+    if (!journalEntries || journalEntries.length === 0) {
+        return generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+    }
+    
+    const rows = journalEntries.map(entry => `
+        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-3">${entry.id}</td>
+            <td class="px-6 py-3">${entry.date}</td>
+            <td class="px-6 py-3">${entry.libelle}</td>
+            <td class="px-6 py-3 text-right">${entry.debit.toLocaleString('fr-FR')}</td>
+            <td class="px-6 py-3 text-right">${entry.credit.toLocaleString('fr-FR')}</td>
+            <td class="px-6 py-3">
+                <span class="p-1 text-xs rounded ${entry.status === 'Validé' ? 'bg-success/20 text-success font-bold' : 'bg-warning/20 text-warning font-bold'}">
+                    ${entry.status}
+                </span>
+            </td>
+        </tr>
+    `).join('');
+
+    return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Journaux et Écritures</h3>
+            <p class="text-sm text-gray-500 mb-4">Affichage des écritures pour la compagnie: **${appState.currentCompanyName}**.</p>
+            <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">ID</th>
+                        <th scope="col" class="px-6 py-3">Date</th>
+                        <th scope="col" class="px-6 py-3">Libellé</th>
+                        <th scope="col" class="px-6 py-3 text-right">Débit</th>
+                        <th scope="col" class="px-6 py-3 text-right">Crédit</th>
+                        <th scope="col" class="px-6 py-3">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+            </div>`;
+}
+
+function generateReportHTML(reportData) {
+    // Rendu basé sur le format de données V4 (simulation)
+    return `<div class="prose dark:prose-invert max-w-none">
+        <h4 class="text-xl font-bold mb-4">Détails du Bilan au ${new Date().toLocaleDateString('fr-FR')}</h4>
+        <p>Simulation de données pour la compagnie ${appState.currentCompanyName}. L'appel API a utilisé le filtre: <code>company_id = ${appState.currentCompanyId}</code>.</p>
+        <table class="report-table w-full">
+            <thead><tr><th>Compte</th><th>Libellé</th><th>Montant</th></tr></thead>
+            <tbody>
+                <tr><td>211</td><td>Terrains</td><td>${(reportData.terrains || 15000000).toLocaleString('fr-FR')}</td></tr>
+                <tr><td>411</td><td>Clients</td><td>${(reportData.clients || 800000).toLocaleString('fr-FR')}</td></tr>
+            </tbody>
+        </table>
+    </div>`;
+}
+
+function generateDashboardWelcomeHTML(companyName, role) {
+    return `<div class="h-full flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
+        <i class="fas fa-hand-wave fa-5x text-primary/70 mb-6"></i>
+        <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2">Bienvenue dans votre espace DOUKÈ PRO !</h3>
+        <p class="text-lg text-gray-600 dark:text-gray-400 max-w-xl">
+            Vous opérez en tant que <span class="font-black text-primary">${role}</span> sur le dossier client isolé :
+            <span class="font-black text-secondary dark:text-primary-light">${companyName}</span>.
+        </p>
+        <p class="mt-4 text-sm text-gray-500">Veuillez sélectionner un module dans le menu de gauche.</p>
+    </div>`;
+}
+
+
+// --- 5. INITIALISATION DU DOM (CRITIQUE POUR LA ROBUSTESSE) ---
+
 document.addEventListener('DOMContentLoaded', () => {
-// ... (Logique DOMContentLoaded conservée) ...
-    if (document.getElementById('login-form')) {
-        document.getElementById('login-form').addEventListener('submit', handleLogin);
-    }
-    document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+    // Tentative d'authentification et rendu initial
+    checkAuthAndRender();
 
-    // Initialisation du Dark/Light Mode
-    const darkModeButton = document.querySelector('#quick-actions button');
-    if (darkModeButton) {
-        darkModeButton.onclick = function() {
-            document.documentElement.classList.toggle('dark');
-            const icon = this.querySelector('.fas');
-            if (document.documentElement.classList.contains('dark')) {
-                icon.classList.remove('fa-moon');
-                icon.classList.add('fa-sun');
-            } else {
-                icon.classList.remove('fa-sun');
-                icon.classList.add('fa-moon');
-            }
-        };
+    // 1. Attachement des formulaires
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
     }
-    // Auto-login de démonstration pour un test rapide (Optionnel)
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) {
+        registerForm.addEventListener('submit', handleRegister); 
+    }
+
+    // 2. Attachement des boutons de navigation AUTH/REGISTER
+    const loginContainer = document.getElementById('login-form-container');
+    const registerView = document.getElementById('register-view');
+    const showRegisterBtn = document.getElementById('show-register-btn'); 
+    const showLoginBtn = document.getElementById('show-login-btn');    
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+
+    // Bascule vers l'inscription
+    if (showRegisterBtn && loginContainer && registerView) {
+        showRegisterBtn.addEventListener('click', () => {
+            loginContainer.classList.add('hidden');
+            registerView.classList.remove('hidden');
+        });
+    }
+
+    // Bascule vers la connexion
+    if (showLoginBtn && loginContainer && registerView) {
+        showLoginBtn.addEventListener('click', () => {
+            registerView.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+        });
+    }
+    
+    // 3. Attachement des boutons de déconnexion et de Modale
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+    if(modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', ModalManager.close);
+    }
+
+    // 4. Outil de Dev (Mode rapide pour tests)
     if (!IS_PROD && window.location.hash === '#dev') {
-        document.getElementById('email').value = 'admin@douke.com';
-        document.getElementById('password').value = 'password';
-        const mockEvent = { preventDefault: () => {} };
-        setTimeout(() => handleLogin(mockEvent), 500);
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+
+        if (emailInput && passwordInput) {
+            emailInput.value = 'admin@douke.com';
+            passwordInput.value = 'password';
+            const mockEvent = { preventDefault: () => {} };
+            setTimeout(() => handleLogin(mockEvent), 500); 
+        }
     }
 });
-// Rendre les fonctions d'action spécifiques disponibles globalement pour l'onclick
-window.loadModule = loadModule;
-window.switchCompany = switchCompany;
-window.showAssignmentModal = showAssignmentModal;
-window.showCreateUserModal = showCreateUserModal;
-window.showEditUserModal = showEditUserModal;
-window.generateFinancialStatements = generateFinancialStatements;
-window.showDetailedReport = showDetailedReport;
-window.validateEntry = validateEntry;
-window.rejectEntry = rejectEntry;
-window.validateAllPending = validateAllPending;
-window.showCreateAccountModal = showCreateAccountModal; // 💡 NOUVEAU
-window.showEditAccountModal = showEditAccountModal;     // 💡 NOUVEAU
-window.deleteAccount = deleteAccount;                   // 💡 NOUVEAU
-window.handleCreateAccount = handleCreateAccount;       // 💡 NOUVEAU
