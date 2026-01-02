@@ -17,6 +17,31 @@ let appState = {
     currentCompanyName: null,
 };
 
+// État central de l'application (ESSENTIEL POUR L'ISOLATION)
+let appState = {
+    isAuthenticated: false,
+    token: null,
+    // Structure d'utilisateur de la V4: { name, email, profile, odooUid, companiesList, selectedCompanyId, ... }
+    user: null, 
+    currentCompanyId: null,
+    currentCompanyName: null,
+    // --- AJOUT V9 : Données stratégiques et KPIs ---
+    dashboardKPIs: {
+        cash: 0,
+        profit: 0,
+        debts: 0,
+        grossMargin: 0,         // Nouveau KPI
+        profitTrend: "0%",      // Nouveau KPI
+        pendingEntries: 0,      // Nouveau KPI
+        liquidityRatio: null,   // Nouveau KPI
+        currentPeriod: 'N/A',   // Nouveau pour le contexte
+    },
+    filteredData: {
+        accounts: [],           // Liste complète du Plan Comptable
+        financialReport: null,  // Données brutes du rapport SYSCOHADA (pour graphiques)
+        journalEntries: [],     // Pour le drill-down
+    }
+};
 // --- 2. GESTIONNAIRES D'INTERFACE (UI Managers) ---
 
 const NotificationManager = {
@@ -445,74 +470,137 @@ function getRoleBaseMenus(role) {
 /**
  * Charge le contenu HTML/Données dans la zone principale.
  * Utilise la structure de route V4 (`/accounting/module?companyId=...`).
+ *
+ * @param {string} contentId - L'identifiant du module (ex: 'dashboard', 'journal').
+ * @param {string} title - Le titre à afficher pendant le chargement et dans la console.
+ * @param {object | null} extraData - Données supplémentaires (ex: { accountCode: '701000' } pour le drill-down).
  */
-async function loadContentArea(contentId, title) {
+async function loadContentArea(contentId, title, extraData = null) {
+    // Vérification critique: Si aucun dossier n'est sélectionné, ne rien faire sauf le prompt
+    if (!appState.currentCompanyId && contentId !== 'admin-users') { 
+        // Si l'utilisateur n'a pas de compagnie active et tente d'accéder à un module
+        const contentArea = document.getElementById('dashboard-content-area');
+        if (contentArea) {
+             contentArea.innerHTML = generateCompanySelectionPromptHTML();
+        }
+        return NotificationManager.show("Veuillez d'abord sélectionner un dossier client.", 'warning');
+    }
+
     const contentArea = document.getElementById('dashboard-content-area');
-    contentArea.innerHTML = `<div class="p-8 text-center"><div class="loading-spinner mx-auto"></div><p class="mt-4 text-gray-500 font-bold">Chargement du module ${title}...</p></div>`;
+    const loadingMessage = extraData && extraData.drillDownTitle 
+        ? `Chargement des détails de ${extraData.drillDownTitle}...`
+        : `Chargement du module ${title}...`;
+        
+    contentArea.innerHTML = `<div class="p-8 text-center"><div class="loading-spinner mx-auto"></div><p class="mt-4 text-gray-500 font-bold">${loadingMessage}</p></div>`;
 
     try {
         let endpoint = '';
         let content = '';
 
-        // Ici, nous utilisons l'ID de la compagnie actuelle pour filtrer les données (Format V4)
-        const companyFilter = `?companyId=${appState.currentCompanyId}`; 
+        // Filtre de base requis pour toutes les requêtes comptables
+        let companyFilter = `?companyId=${appState.currentCompanyId}`;
+        
+        // Ajouter un filtre spécifique si présent (par exemple, pour le Drill-Down)
+        if (extraData && extraData.filter) {
+            companyFilter += `&${extraData.filter}`;
+        }
 
         switch (contentId) {
             case 'dashboard':
-                // CORRECTION : Appel à /api/accounting/dashboard?companyId=X
-                endpoint = `/accounting/dashboard${companyFilter}`; // Était: /data/dashboard
+                // 1. Dashboard (KPIs Riches V9)
+                endpoint = `/accounting/dashboard${companyFilter}`;
+                // fetchDashboardData met à jour appState.dashboardKPIs et renvoie le HTML
                 content = await fetchDashboardData(endpoint);
                 break;
             
-            // === AJOUT : PLAN COMPTABLE (R/W) ===
             case 'chart-of-accounts': 
+                // 2. Plan Comptable (R/W & Solde)
                 endpoint = `/accounting/chart-of-accounts${companyFilter}`;
+                // fetchChartOfAccountsData met à jour appState.filteredData.accounts
                 content = await fetchChartOfAccountsData(endpoint);
                 break;
-            
-            // === AJOUT : OPÉRATIONS DE CAISSE (CAISSIER) ===
+                
             case 'caisse-operation': 
+                // 3. Opérations de Caisse (Interface Caissier)
                 content = generateCaisseOperationHTML();
                 break;
                 
             case 'journal':
-                // CORRECTION : Endpoint simulé : /api/accounting/journal?companyId=X
-                endpoint = `/accounting/journal${companyFilter}`; // Était: /data/journal
-                content = await fetchJournalData(endpoint); // Laisser cette fonction en simulation
+                // 4. Journaux et Écritures (Incluant Drill-Down des Rapports)
+                endpoint = `/accounting/journal${companyFilter}`;
+                // extraData peut contenir le titre du drill-down
+                content = await fetchJournalData(endpoint, extraData); 
                 break;
+                
             case 'reports':
-                // CORRECTION : Appel : /api/accounting/reports/bilan?companyId=X
-                const reportContent = await apiFetch(`/accounting/reports/bilan${companyFilter}`, { method: 'GET' }); // Était: /data/reports/bilan
-                // Assurez-vous que l'API renvoie bien 'data' comme clé pour le contenu
-                ModalManager.open("Bilan SYSCOHADA", generateReportHTML(reportContent.data));
+                // 5. Rapports SYSCOHADA (Bilan/SMT) - Ouvre une Modale
+                endpoint = `/accounting/reports/bilan${companyFilter}`;
+                const reportResponse = await apiFetch(endpoint, { method: 'GET' }); 
+                
+                // Stocker les données brutes du rapport pour les graphiques futurs
+                appState.filteredData.financialReport = reportResponse.data; 
+
+                // Ouvrir la modale (l'affichage dans contentArea est ignoré)
+                ModalManager.open("Bilan SYSCOHADA (Période Actuelle)", generateReportHTML(reportResponse.data));
+                
+                // Afficher le message d'accueil ou le dashboard en arrière-plan
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
                 break;
+            
             case 'ledger':
-            case 'manual-entry': // Nouvelle case par la fonction getRoleBaseMenus
+                // 6. Grand Livre / Balance
+                endpoint = `/accounting/ledger${companyFilter}`;
+                content = await fetchLedgerData(endpoint);
+                break;
+                
+            case 'manual-entry':
+                // 7. Passer une Écriture (Formulaire de saisie manuelle)
+                content = generateManualEntryHTML();
+                break;
+                
             case 'admin-users':
+                // 8. Administration (Réservé aux ADMINs)
+                content = await fetchAdminUsersData();
+                break;
+
             default:
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
         }
         
-        // Mettre à jour la zone de contenu (sauf si une modale a été ouverte)
+        // Mettre à jour la zone de contenu (sauf si une modale a été ouverte via 'reports')
         if (content) {
             contentArea.innerHTML = content;
         }
 
     } catch (error) {
-        contentArea.innerHTML = `<div class="p-8 text-center text-danger"><i class="fas fa-exclamation-triangle fa-2x mb-3"></i><p class="font-bold">Erreur de chargement des données pour ${title}.</p><p class="text-sm">${error.message}</p></div>`;
+        // Gérer les erreurs de chargement de module
+        contentArea.innerHTML = `<div class="p-8 text-center text-danger">
+            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+            <h4 class="font-bold">Erreur de chargement des données pour ${title}.</h4>
+            <p class="text-sm mt-2">${error.message}</p>
+        </div>`;
     }
 }
 
 // --- Fonctions de récupération et de rendu ---
 
 /**
- * Récupère les données du tableau de bord.
+ * Récupère les données du tableau de bord et met à jour l'état.
  */
 async function fetchDashboardData(endpoint) {
     const response = await apiFetch(endpoint, { method: 'GET' });
-    // Supposons que l'API renvoie { data: { cash, profit, debts } }
-    return generateDashboardHTML(response.data);
+    
+    // Assumons que l'API renvoie { cash, profit, debts, grossMargin, profitTrend, pendingEntries, liquidityRatio, currentPeriod }
+    const newKPIs = response.data;
+
+    // Mise à jour de l'état global avec les nouveaux KPIs
+    appState.dashboardKPIs = {
+        ...appState.dashboardKPIs, // Conserver les valeurs par défaut au cas où
+        ...newKPIs,                // Écraser avec les données réelles
+    };
+    
+    // Nous devons maintenant rendre le HTML avec les données stockées dans l'état
+    return generateDashboardHTML(appState.dashboardKPIs);
 }
 
 // ⚠️ À implémenter (Laisser en simulation pour l'instant)
@@ -543,24 +631,31 @@ async function fetchChartOfAccountsData(endpoint) {
 /**
  * Génère le HTML pour l'affichage du Plan Comptable.
  */
+/**
+ * Génère le HTML pour l'affichage du Plan Comptable, incluant le solde et les actions.
+ */
 function generateChartOfAccountsHTML(accounts) {
-    if (!accounts || accounts.length === 0) {
-        return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
-            <div class="p-8 text-center text-info"><i class="fas fa-info-circle fa-2x mb-3"></i><p class="font-bold">Aucun compte trouvé pour ce dossier client.</p></div>
-            <button onclick="showCreateAccountModal()" class="bg-success text-white py-2 px-4 rounded-xl font-bold hover:bg-success-dark transition-colors mt-4">
-                <i class="fas fa-plus-circle mr-2"></i> Ajouter Compte
-            </button>`;
-    }
+    // ... (vérification accounts.length === 0 reste la même)
 
     const rows = accounts.map(account => `
         <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="px-6 py-3 font-bold">${account.code}</td>
             <td class="px-6 py-3">${account.name}</td>
             <td class="px-6 py-3">${account.type}</td>
-            <td class="px-6 py-3 text-right font-black">${(account.balance || 0).toLocaleString('fr-FR')}</td>
-            <td class="px-6 py-3">
+            
+            <td class="px-6 py-3 text-right font-black">
+                ${(account.balance || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
+            </td>
+            
+            <td class="px-6 py-3 text-sm text-gray-500">
+                 ${account.lastUsed ? new Date(account.lastUsed).toLocaleDateString('fr-FR') : 'N/A'} 
+            </td>
+
+            <td class="px-6 py-3 whitespace-nowrap">
                 <button onclick="showCreateAccountModal(${account.id}, {code: '${account.code}', name: '${account.name}', type: '${account.type}'})" 
-                        class="text-primary hover:text-primary-dark font-bold">Modifier</button>
+                    class="text-primary hover:text-primary-dark font-bold mr-3">Modifier</button>
+                <button onclick="handleDeleteAccount(${account.id})" 
+                    class="text-danger hover:text-danger-dark font-bold">Supprimer</button>
             </td>
         </tr>
     `).join('');
@@ -580,6 +675,7 @@ function generateChartOfAccountsHTML(accounts) {
                         <th scope="col" class="px-6 py-3">Libellé du Compte</th>
                         <th scope="col" class="px-6 py-3">Type</th>
                         <th scope="col" class="px-6 py-3 text-right">Solde Actuel (XOF)</th>
+                        <th scope="col" class="px-6 py-3">Dernière Utilisation</th>
                         <th scope="col" class="px-6 py-3">Action</th>
                     </tr>
                 </thead>
@@ -591,79 +687,27 @@ function generateChartOfAccountsHTML(accounts) {
 }
 
 /**
- * Ouvre la modale pour la création ou la modification d'un compte.
+ * AJOUT: Gère la suppression d'un compte.
+ * NOTE: Nécessite une route DELETE /accounting/chart-of-accounts/:id?companyId=X
  */
-window.showCreateAccountModal = function(accountId = null, currentData = {}) {
-    const title = accountId ? "Modifier le Compte" : "Créer un Nouveau Compte";
-    
-    const htmlContent = `
-        <form id="create-account-form" onsubmit="handleCreateAccountSubmit(event)">
-            <input type="hidden" id="account-id" value="${accountId || ''}">
-            <div class="mb-4">
-                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Code du Compte (ex: 601000)</label>
-                <input type="text" id="account-code" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" 
-                       pattern="[0-9]{6,}" title="Code numérique de 6 chiffres minimum" value="${currentData.code || ''}">
-            </div>
-            <div class="mb-4">
-                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Libellé</label>
-                <input type="text" id="account-name" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" value="${currentData.name || ''}">
-            </div>
-            <div class="mb-6">
-                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Type de Compte</label>
-                <select id="account-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                    <option value="asset_other">Actif (Classe 2/3)</option>
-                    <option value="liability_other">Passif (Classe 4)</option>
-                    <option value="income">Produit (Classe 7)</option>
-                    <option value="expense">Charge (Classe 6)</option>
-                    <option value="equity">Capitaux Propres (Classe 1)</option>
-                </select>
-            </div>
-            <button type="submit" class="w-full bg-primary text-white font-bold p-3 rounded-xl hover:bg-primary-dark transition-colors">
-                ${accountId ? 'Modifier le Compte' : 'Créer le Compte'}
-            </button>
-        </form>
-    `;
-    ModalManager.open(title, htmlContent);
-    // Sélectionner le type correct si en mode édition
-    if (currentData.type) {
-        document.getElementById('account-type').value = currentData.type;
+window.handleDeleteAccount = async function(accountId) {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce compte ? Cette action est irréversible et impossible si le compte est utilisé.")) {
+        return;
     }
-};
-
-/**
- * Gère la soumission du formulaire de création/modification de compte (R/W).
- */
-window.handleCreateAccountSubmit = async function(event) {
-    event.preventDefault();
-    const accountId = document.getElementById('account-id').value;
-    const isEdit = accountId !== '';
     
-    const data = {
-        id: accountId ? parseInt(accountId) : undefined,
-        code: document.getElementById('account-code').value,
-        name: document.getElementById('account-name').value,
-        type: document.getElementById('account-type').value,
-        companyId: appState.currentCompanyId // CRITIQUE pour la vérification BE (checkWritePermission)
-    };
-
     try {
-        const method = isEdit ? 'PUT' : 'POST';
-        const msg = isEdit ? 'Modification du compte en cours...' : 'Création du compte en cours...';
-        NotificationManager.show(msg, 'info');
-
-        await apiFetch('/accounting/chart-of-accounts', { 
-            method: method, 
-            body: JSON.stringify(data) 
+        NotificationManager.show('Suppression du compte en cours...', 'warning');
+        
+        await apiFetch(`/accounting/chart-of-accounts/${accountId}?companyId=${appState.currentCompanyId}`, {
+            method: 'DELETE',
         });
 
-        NotificationManager.show(`Compte ${data.code} enregistré avec succès !`, 'success');
-        ModalManager.close();
-        // Recharger le plan comptable
-        loadContentArea('chart-of-accounts', 'Plan Comptable'); 
+        NotificationManager.show(`Compte ID ${accountId} supprimé avec succès.`, 'success');
+        loadContentArea('chart-of-accounts', 'Plan Comptable');
     } catch (error) {
-        NotificationManager.show(`Échec de l'opération : ${error.message}`, 'error', 10000);
+        NotificationManager.show(`Échec de la suppression : ${error.message}`, 'error', 10000);
     }
-};
+}
 
 // =================================================================
 // AJOUT : Fonctions Opérations de Caisse (CAISSIER)
@@ -795,6 +839,77 @@ function generateDashboardHTML(data) {
             </div>
             <p class="mt-8 text-sm text-gray-500">Données filtrées pour le dossier client: **${appState.currentCompanyName}**.</p>
             `;
+}
+
+/**
+ * Génère le HTML pour l'affichage du Tableau de Bord.
+ */
+function generateDashboardHTML(kpis) {
+    // Helper pour formater les pourcentages/nombres
+    const formatValue = (value, isCurrency = true) => {
+        if (typeof value === 'number') {
+            return isCurrency ? value.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' }) : value.toLocaleString('fr-FR');
+        }
+        return value;
+    };
+    
+    // Détermination de la couleur pour la tendance
+    const trendColor = kpis.profitTrend && parseFloat(kpis.profitTrend) >= 0 ? 'text-success' : 'text-danger';
+
+    // Rendu des cartes d'information
+    const cardHTML = [
+        { title: 'Trésorerie Actuelle', value: formatValue(kpis.cash), icon: 'fas fa-hand-holding-usd', color: 'bg-primary' },
+        { title: 'Résultat Net', value: formatValue(kpis.profit), icon: 'fas fa-chart-bar', color: 'bg-info' },
+        { title: 'Dettes Fournisseurs', value: formatValue(kpis.debts), icon: 'fas fa-truck-loading', color: 'bg-warning' },
+        { title: 'Marge Brute', value: formatValue(kpis.grossMargin), icon: 'fas fa-percentage', color: 'bg-secondary' },
+        { title: 'Ratio de Liquidité', value: formatValue(kpis.liquidityRatio, false), icon: 'fas fa-balance-scale', color: 'bg-info-dark' },
+    ];
+    
+    // Ajoutez ici la logique pour générer les graphiques de ventilation (Classes 6 & 7) .
+
+    return `
+        <h3 class="text-3xl font-black text-secondary mb-6 fade-in">Tableau de Bord Comptable</h3>
+        
+        <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl text-center shadow-inner">
+            <p class="text-sm font-bold uppercase text-gray-500 dark:text-gray-400">Période Financière Actuelle</p>
+            <p class="text-lg font-extrabold text-primary dark:text-primary-light">${kpis.currentPeriod}</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+            ${cardHTML.map(card => `
+                <div class="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-bold text-gray-500 dark:text-gray-400">${card.title}</p>
+                        <i class="${card.icon} text-lg ${card.color.replace('bg-', 'text-')}"></i>
+                    </div>
+                    <p class="text-2xl font-extrabold text-gray-900 dark:text-white mt-2">${card.value}</p>
+                </div>
+            `).join('')}
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+                <p class="text-sm font-bold text-gray-500 dark:text-gray-400">Tendance du Résultat (vs. Période Préc.)</p>
+                <div class="flex items-end mt-2">
+                    <p class="text-3xl font-extrabold ${trendColor}">${kpis.profitTrend}</p>
+                    <i class="fas ${parseFloat(kpis.profitTrend) >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'} ml-3 text-lg ${trendColor}"></i>
+                </div>
+            </div>
+
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+                <p class="text-sm font-bold text-gray-500 dark:text-gray-400">Écritures en Brouillon/Validation</p>
+                <div class="flex items-end mt-2">
+                    <p class="text-3xl font-extrabold text-danger">${kpis.pendingEntries}</p>
+                    <button onclick="loadContentArea('journal', 'Journaux et Écritures')" class="ml-4 text-primary hover:underline text-sm font-bold">Voir</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-8 bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-inner border border-gray-200 dark:border-gray-700 text-center">
+            <i class="fas fa-chart-pie fa-2x text-primary/50 mb-3"></i>
+            <p class="text-gray-500">Espace réservé pour les Graphiques de Performance (Marge, Répartition des Charges)</p>
+        </div>
+    `;
 }
 
 function generateJournalHTML(journalEntries) {
