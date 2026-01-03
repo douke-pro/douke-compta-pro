@@ -194,9 +194,7 @@ exports.getChartOfAccounts = async (req, res) => {
             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
-        // ⚠️ Logique la plus robuste pour Odoo Multi-Compagnie :
-        // 1. Domaine de filtre vide (pour contourner l'erreur 'Invalid Field').
-        const filter = []; 
+        const filter = []; // Nous maintenons le filtre vide pour éviter l'erreur 'company_id'
         
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID,
@@ -204,8 +202,8 @@ exports.getChartOfAccounts = async (req, res) => {
             method: 'search_read',
             args: [filter], 
             kwargs: { 
-                fields: ['id', 'code', 'name', 'account_type', 'deprecated', 'company_id'],
-                // 2. FORCER le contexte Odoo à la compagnie désirée pour garantir le cloisonnement.
+                // ⚠️ CORRECTION CRITIQUE : Suppression du champ 'deprecated'
+                fields: ['id', 'code', 'name', 'account_type', 'company_id'], // 'deprecated' est retiré
                 context: { company_id: companyId } 
             }
         });
@@ -217,7 +215,7 @@ exports.getChartOfAccounts = async (req, res) => {
         });
 
     } catch (error) {
-        // Si l'erreur persiste, c'est l'ADMIN_UID ou la connexion elle-même.
+        // Le message d'erreur sera désormais plus clair si une autre erreur survient.
         console.error('[COA Read Error]', error.message); 
         res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
     }
