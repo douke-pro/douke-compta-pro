@@ -345,3 +345,17 @@ exports.handleCaisseEntry = async (req, res) => {
 
 // N'oubliez pas de mettre à jour votre 'module.exports' si vous n'utilisez pas l'export direct 'exports.'
 // Si vous utilisez 'exports.functionName', vous n'avez rien à changer d'autre.
+
+// DANS controllers/accountingController.js, à la suite des autres placeholders (handleCaisseEntry, getEntryDetails...)
+
+exports.getGeneralLedger = async (req, res) => {
+    return res.status(501).json({ error: "Le Grand Livre n'est pas encore implémenté (501)." });
+};
+
+exports.getBalanceSheet = async (req, res) => {
+    return res.status(501).json({ error: "La Balance Générale n'est pas encore implémentée (501)." });
+};
+
+exports.getJournals = async (req, res) => {
+    return res.status(501).json({ error: "La liste des Journaux n'est pas encore implémentée (501)." });
+};
