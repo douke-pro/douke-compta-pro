@@ -803,7 +803,7 @@ function generateReportCard(title, icon, reportId, description) {
 window.handleOpenReportModal = async function(reportId, reportTitle) {
     try {
         const companyFilter = `?companyId=${appState.currentCompanyId}`;
-        const endpoint = `accounting/reports/${reportId}${companyFilter}`;
+        const endpoint = `accounting/report/${reportId}${companyFilter}`;
         
         NotificationManager.show(`Génération du rapport '${reportTitle}' en cours...`, 'info', 10000);
         
