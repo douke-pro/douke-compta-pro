@@ -173,6 +173,7 @@ exports.getDashboardData = async (req, res, next) => {
 
 /**
  * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
+ * (companyId doit être l'ID Odoo de la Société Légale)
  * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
  */
 exports.getChartOfAccounts = async (req, res) => {
@@ -193,9 +194,8 @@ exports.getChartOfAccounts = async (req, res) => {
             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
-        // ⚠️ CORRECTION CRITIQUE : Suppression du filtre [['company_id', '=', companyId]] 
-        // car Odoo renvoie 'Invalid field' dans votre configuration. 
-        // L'ADMIN_UID lira tous les comptes (ou les comptes par défaut) sans filtre de domaine explicite.
+        // ⚠️ Logique la plus robuste pour Odoo Multi-Compagnie :
+        // 1. Domaine de filtre vide (pour contourner l'erreur 'Invalid Field').
         const filter = []; 
         
         const accounts = await odooExecuteKw({
@@ -203,8 +203,11 @@ exports.getChartOfAccounts = async (req, res) => {
             model: 'account.account',
             method: 'search_read',
             args: [filter], 
-            // On demande toujours 'company_id' car il est visible dans l'interface Odoo.
-            kwargs: { fields: ['id', 'code', 'name', 'account_type', 'deprecated', 'company_id'] } 
+            kwargs: { 
+                fields: ['id', 'code', 'name', 'account_type', 'deprecated', 'company_id'],
+                // 2. FORCER le contexte Odoo à la compagnie désirée pour garantir le cloisonnement.
+                context: { company_id: companyId } 
+            }
         });
 
         res.status(200).json({
@@ -214,10 +217,12 @@ exports.getChartOfAccounts = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[COA Read Error]', error.message);
+        // Si l'erreur persiste, c'est l'ADMIN_UID ou la connexion elle-même.
+        console.error('[COA Read Error]', error.message); 
         res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
     }
 };
+
 
 /**
  * Crée un nouveau compte comptable dans Odoo.
@@ -226,12 +231,13 @@ exports.getChartOfAccounts = async (req, res) => {
 exports.createAccount = async (req, res) => {
     try {
         const { code, name, type, companyId } = req.body; 
-        
+        const companyIdInt = parseInt(companyId);
+
         const accountData = [{
             'code': code,
             'name': name,
             'account_type': type, 
-            'company_id': parseInt(companyId), // Essentiel pour la donnée
+            'company_id': companyIdInt, 
         }];
         
         const newAccountId = await odooExecuteKw({
@@ -239,8 +245,8 @@ exports.createAccount = async (req, res) => {
             model: 'account.account',
             method: 'create',
             args: [accountData],
-            // 🔒 SÉCURITÉ : Forcer le contexte Odoo pour garantir que le compte est créé pour la bonne compagnie.
-            kwargs: { context: { company_id: parseInt(companyId) } } 
+            // 🔒 Forcer le contexte d'écriture de la compagnie.
+            kwargs: { context: { company_id: companyIdInt } } 
         });
 
         res.status(201).json({
@@ -264,8 +270,9 @@ exports.createAccount = async (req, res) => {
  */
 exports.updateAccount = async (req, res) => {
     try {
-        const { id, code, name, type, companyId } = req.body; // companyId est ici utilisé pour le contexte Odoo
-        
+        const { id, code, name, type, companyId } = req.body;
+        const companyIdInt = parseInt(companyId);
+
         if (!id) {
             return res.status(400).json({ error: "L'ID Odoo du compte est manquant pour la modification." });
         }
@@ -284,8 +291,8 @@ exports.updateAccount = async (req, res) => {
                 [id],
                 updateData
             ],
-            // 🔒 SÉCURITÉ : Forcer le contexte Odoo pour garantir que la modification est permise.
-            kwargs: { context: { company_id: parseInt(companyId) } } 
+            // 🔒 Forcer le contexte de la compagnie pour la modification.
+            kwargs: { context: { company_id: companyIdInt } } 
         });
 
         res.status(200).json({
