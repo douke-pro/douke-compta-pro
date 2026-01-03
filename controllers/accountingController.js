@@ -291,3 +291,57 @@ exports.updateAccount = async (req, res) => {
         });
     }
 };
+
+// =============================================================================
+// NOUVELLES FONCTIONS D'INTERACTION (Drill-Down et Saisie)
+// =============================================================================
+
+/**
+ * Récupère les détails d'une écriture comptable spécifique (Drill-Down).
+ * Endpoint: GET /api/accounting/details/:entryId
+ */
+exports.getEntryDetails = async (req, res) => {
+    // Cette fonction est actuellement un placeholder.
+    try {
+        const { entryId } = req.params;
+        
+        // Logique Odoo pour récupérer account.move.line par son ID...
+        // ... (À implémenter plus tard)
+        
+        return res.status(501).json({
+            status: 'error',
+            error: `La récupération des détails de l'écriture #${entryId} n'est pas encore implémentée (501).`
+        });
+        
+    } catch (error) {
+        console.error('[Entry Details Error]', error.message);
+        res.status(500).json({ error: 'Échec de la récupération des détails.' });
+    }
+};
+
+
+/**
+ * Enregistre une nouvelle écriture comptable simplifiée (Opération de Caisse).
+ * Endpoint: POST /api/accounting/caisse-entry
+ */
+exports.handleCaisseEntry = async (req, res) => {
+    // Cette fonction est actuellement un placeholder.
+    try {
+        const { companyId, date, amount, accountId, description } = req.body;
+        
+        // Logique Odoo pour créer un account.move ou un compte journal spécifique...
+        // ... (À implémenter plus tard)
+        
+        return res.status(501).json({
+            status: 'error',
+            error: `L'enregistrement de l'opération de caisse pour la compagnie ${companyId} n'est pas encore implémenté (501).`
+        });
+        
+    } catch (error) {
+        console.error('[Caisse Entry Error]', error.message);
+        res.status(500).json({ error: 'Échec de l\'enregistrement de l\'écriture de caisse.' });
+    }
+};
+
+// N'oubliez pas de mettre à jour votre 'module.exports' si vous n'utilisez pas l'export direct 'exports.'
+// Si vous utilisez 'exports.functionName', vous n'avez rien à changer d'autre.
