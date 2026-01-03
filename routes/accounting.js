@@ -23,6 +23,17 @@ router.get('/details/:entryId', protect, accountingController.getEntryDetails);
 // GET /api/accounting/chart-of-accounts?companyId=X
 router.get('/chart-of-accounts', protect, accountingController.getChartOfAccounts); 
 
+// NOUVELLE ROUTE : Lecture du Grand Livre (Ledger)
+// GET /api/accounting/ledger?companyId=X
+router.get('/ledger', protect, accountingController.getGeneralLedger);
+
+// NOUVELLE ROUTE : Lecture de la Balance Générale
+// GET /api/accounting/balance?companyId=X
+router.get('/balance', protect, accountingController.getBalanceSheet);
+
+// NOUVELLE ROUTE : Lecture des Journaux
+// GET /api/accounting/journals?companyId=X
+router.get('/journals', protect, accountingController.getJournals);
 
 // -------------------------------------------------------------
 // ROUTES DE MODIFICATION (Nécessite 'protect' ET 'checkWritePermission')
