@@ -175,25 +175,39 @@ exports.getDashboardData = async (req, res, next) => {
  * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
  * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
  */
+/**
+ * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
+ * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
+ */
 exports.getChartOfAccounts = async (req, res) => {
     try {
-        const companyId = req.query.companyId; // L'ID analytique/compagnie
+        const companyIdRaw = req.query.companyId; // Valeur brute reçue par l'URL (ex: "1", "undefined")
 
-        if (!companyId) {
-             return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
+        if (!companyIdRaw) {
+            return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
         }
+        
+        // 🚨 POINT DE CONTRÔLE CRITIQUE AJOUTÉ 🚨
+        const companyId = parseInt(companyIdRaw, 10);
+
+        if (isNaN(companyId)) {
+             // Intercepte les cas où companyId était 'null', 'undefined', ou du texte.
+             return res.status(400).json({ error: "L'ID de compagnie est invalide. Il doit être numérique." });
+        }
+        
         if (!ADMIN_UID) {
             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
         // Dans Odoo, les comptes sont filtrés par leur 'company_id' Odoo
-        const filter = [['company_id', '=', parseInt(companyId)]]; 
+        // C'EST MAINTENANT SÛR : companyId est un entier valide
+        const filter = [['company_id', '=', companyId]]; 
         
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID,
             model: 'account.account',
             method: 'search_read',
-            args: [filter], 
+            args: [filter], 
             kwargs: { fields: ['id', 'code', 'name', 'account_type', 'deprecated', 'company_id'] }
         });
 
@@ -204,6 +218,7 @@ exports.getChartOfAccounts = async (req, res) => {
         });
 
     } catch (error) {
+        // Cette erreur est maintenant plus probablement due à un problème Odoo (connexion, droits)
         console.error('[COA Read Error]', error.message);
         res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
     }
