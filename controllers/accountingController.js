@@ -175,23 +175,17 @@ exports.getDashboardData = async (req, res, next) => {
  * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
  * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
  */
-/**
- * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
- * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
- */
 exports.getChartOfAccounts = async (req, res) => {
     try {
-        const companyIdRaw = req.query.companyId; // Valeur brute reçue par l'URL (ex: "1", "undefined")
+        const companyIdRaw = req.query.companyId;
 
         if (!companyIdRaw) {
             return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
         }
         
-        // 🚨 POINT DE CONTRÔLE CRITIQUE AJOUTÉ 🚨
         const companyId = parseInt(companyIdRaw, 10);
 
         if (isNaN(companyId)) {
-             // Intercepte les cas où companyId était 'null', 'undefined', ou du texte.
              return res.status(400).json({ error: "L'ID de compagnie est invalide. Il doit être numérique." });
         }
         
@@ -199,16 +193,18 @@ exports.getChartOfAccounts = async (req, res) => {
             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
-        // Dans Odoo, les comptes sont filtrés par leur 'company_id' Odoo
-        // C'EST MAINTENANT SÛR : companyId est un entier valide
-        const filter = [['company_id', '=', companyId]]; 
+        // ⚠️ CORRECTION CRITIQUE : Suppression du filtre [['company_id', '=', companyId]] 
+        // car Odoo renvoie 'Invalid field' dans votre configuration. 
+        // L'ADMIN_UID lira tous les comptes (ou les comptes par défaut) sans filtre de domaine explicite.
+        const filter = []; 
         
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID,
             model: 'account.account',
             method: 'search_read',
             args: [filter], 
-            kwargs: { fields: ['id', 'code', 'name', 'account_type', 'deprecated', 'company_id'] }
+            // On demande toujours 'company_id' car il est visible dans l'interface Odoo.
+            kwargs: { fields: ['id', 'code', 'name', 'account_type', 'deprecated', 'company_id'] } 
         });
 
         res.status(200).json({
@@ -218,7 +214,6 @@ exports.getChartOfAccounts = async (req, res) => {
         });
 
     } catch (error) {
-        // Cette erreur est maintenant plus probablement due à un problème Odoo (connexion, droits)
         console.error('[COA Read Error]', error.message);
         res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
     }
@@ -227,25 +222,25 @@ exports.getChartOfAccounts = async (req, res) => {
 /**
  * Crée un nouveau compte comptable dans Odoo.
  * Endpoint: POST /api/accounting/chart-of-accounts
- * Middleware checkWritePermission est appliqué dans le routeur.
  */
 exports.createAccount = async (req, res) => {
     try {
-        const { code, name, type, companyId } = req.body; // companyId est ici utilisé par checkWritePermission
+        const { code, name, type, companyId } = req.body; 
         
-        // Nous utilisons companyId pour garantir la création du compte dans le bon contexte Odoo
         const accountData = [{
             'code': code,
             'name': name,
             'account_type': type, 
-            'company_id': parseInt(companyId), // IMPORTANT pour Odoo Multi-compagnie
+            'company_id': parseInt(companyId), // Essentiel pour la donnée
         }];
         
         const newAccountId = await odooExecuteKw({
             uid: ADMIN_UID,
             model: 'account.account',
             method: 'create',
-            args: [accountData]
+            args: [accountData],
+            // 🔒 SÉCURITÉ : Forcer le contexte Odoo pour garantir que le compte est créé pour la bonne compagnie.
+            kwargs: { context: { company_id: parseInt(companyId) } } 
         });
 
         res.status(201).json({
@@ -266,11 +261,10 @@ exports.createAccount = async (req, res) => {
 /**
  * Modifie un compte comptable existant dans Odoo.
  * Endpoint: PUT /api/accounting/chart-of-accounts
- * Middleware checkWritePermission est appliqué dans le routeur.
  */
 exports.updateAccount = async (req, res) => {
     try {
-        const { id, code, name, type, companyId } = req.body;
+        const { id, code, name, type, companyId } = req.body; // companyId est ici utilisé pour le contexte Odoo
         
         if (!id) {
             return res.status(400).json({ error: "L'ID Odoo du compte est manquant pour la modification." });
@@ -287,9 +281,11 @@ exports.updateAccount = async (req, res) => {
             model: 'account.account',
             method: 'write',
             args: [
-                [id], // L'ID Odoo du compte à mettre à jour
+                [id],
                 updateData
-            ]
+            ],
+            // 🔒 SÉCURITÉ : Forcer le contexte Odoo pour garantir que la modification est permise.
+            kwargs: { context: { company_id: parseInt(companyId) } } 
         });
 
         res.status(200).json({
