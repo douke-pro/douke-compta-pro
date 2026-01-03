@@ -194,7 +194,7 @@ exports.getChartOfAccounts = async (req, res) => {
             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
-        const filter = []; // Nous maintenons le filtre vide pour éviter l'erreur 'company_id'
+        const filter = []; // AUCUN FILTRE DE DOMAINE
         
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID,
@@ -202,8 +202,10 @@ exports.getChartOfAccounts = async (req, res) => {
             method: 'search_read',
             args: [filter], 
             kwargs: { 
-                // ⚠️ CORRECTION CRITIQUE : Suppression du champ 'deprecated'
-                fields: ['id', 'code', 'name', 'account_type', 'company_id'], // 'deprecated' est retiré
+                // 🚀 CORRECTION FINALE : Seuls les champs de base sont conservés.
+                // 'deprecated' ET 'company_id' sont retirés car Odoo les rejette.
+                fields: ['id', 'code', 'name', 'account_type'], 
+                // 🔒 Nous CONSERVONS le contexte pour le cloisonnement Odoo.
                 context: { company_id: companyId } 
             }
         });
@@ -215,12 +217,10 @@ exports.getChartOfAccounts = async (req, res) => {
         });
 
     } catch (error) {
-        // Le message d'erreur sera désormais plus clair si une autre erreur survient.
         console.error('[COA Read Error]', error.message); 
         res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
     }
 };
-
 
 /**
  * Crée un nouveau compte comptable dans Odoo.
