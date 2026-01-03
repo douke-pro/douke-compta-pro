@@ -231,11 +231,13 @@ exports.createAccount = async (req, res) => {
         const { code, name, type, companyId } = req.body; 
         const companyIdInt = parseInt(companyId);
 
+        // ⚠️ CORRECTION CRITIQUE : Suppression de 'company_id' des données d'enregistrement.
+        // Odoo exige que le cloisonnement soit géré par le contexte (kwargs) uniquement.
         const accountData = [{
             'code': code,
             'name': name,
             'account_type': type, 
-            'company_id': companyIdInt, 
+            // 'company_id' est retiré ici !
         }];
         
         const newAccountId = await odooExecuteKw({
@@ -243,7 +245,7 @@ exports.createAccount = async (req, res) => {
             model: 'account.account',
             method: 'create',
             args: [accountData],
-            // 🔒 Forcer le contexte d'écriture de la compagnie.
+            // 🔒 Le contexte est la seule source d'information pour la compagnie cible.
             kwargs: { context: { company_id: companyIdInt } } 
         });
 
@@ -275,6 +277,7 @@ exports.updateAccount = async (req, res) => {
             return res.status(400).json({ error: "L'ID Odoo du compte est manquant pour la modification." });
         }
 
+        // Les données à mettre à jour ne contiennent pas 'company_id', ce qui est CRITIQUE.
         const updateData = {
             'code': code,
             'name': name,
@@ -286,11 +289,11 @@ exports.updateAccount = async (req, res) => {
             model: 'account.account',
             method: 'write',
             args: [
-                [id],
+                [id], // ID Odoo du compte à mettre à jour
                 updateData
             ],
-            // 🔒 Forcer le contexte de la compagnie pour la modification.
-            kwargs: { context: { company_id: companyIdInt } } 
+            // 🔒 Cloisonnement : La compagnie cible est transmise via le contexte Odoo.
+            kwargs: { context: { company_id: companyIdInt } } 
         });
 
         res.status(200).json({
@@ -300,6 +303,7 @@ exports.updateAccount = async (req, res) => {
         });
 
     } catch (err) {
+        // En cas d'échec, le message d'erreur sera remonté ici.
         console.error('Erreur lors de la mise à jour du compte Odoo:', err.message);
         res.status(500).json({
             status: 'error',
