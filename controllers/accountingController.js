@@ -173,39 +173,34 @@ exports.getDashboardData = async (req, res, next) => {
 
 /**
  * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
- * (companyId doit être l'ID Odoo de la Société Légale)
+ * CLOISONNEMENT : Utilise l'UID de l'utilisateur connecté (req.user.odooUid).
  * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
  */
 exports.getChartOfAccounts = async (req, res) => {
     try {
         const companyIdRaw = req.query.companyId;
+        const odooUid = req.user.odooUid; // ⬅️ UID de l'utilisateur pour le cloisonnement
 
         if (!companyIdRaw) {
             return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
         }
+        if (!odooUid) {
+             return res.status(401).json({ error: "UID utilisateur Odoo manquant pour l'exécution de la requête." });
+        }
         
         const companyId = parseInt(companyIdRaw, 10);
-
-        if (isNaN(companyId)) {
-             return res.status(400).json({ error: "L'ID de compagnie est invalide. Il doit être numérique." });
-        }
-        
-        if (!ADMIN_UID) {
-            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
-        }
-
-        const filter = []; // AUCUN FILTRE DE DOMAINE
+        const filter = []; 
         
         const accounts = await odooExecuteKw({
-            uid: ADMIN_UID,
+            // ⚠️ UID MODIFIÉ : Utilise l'UID de l'utilisateur connecté
+            uid: odooUid, 
             model: 'account.account',
             method: 'search_read',
             args: [filter], 
             kwargs: { 
-                // 🚀 CORRECTION FINALE : Seuls les champs de base sont conservés.
-                // 'deprecated' ET 'company_id' sont retirés car Odoo les rejette.
+                // CORRIGÉ : Suppression de 'deprecated' ET 'company_id' des champs demandés
                 fields: ['id', 'code', 'name', 'account_type'], 
-                // 🔒 Nous CONSERVONS le contexte pour le cloisonnement Odoo.
+                // Conservation du contexte pour forcer la compagnie Odoo
                 context: { company_id: companyId } 
             }
         });
@@ -218,34 +213,39 @@ exports.getChartOfAccounts = async (req, res) => {
 
     } catch (error) {
         console.error('[COA Read Error]', error.message); 
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Vérifiez les droits de l\'UID utilisateur).' });
     }
 };
 
 /**
  * Crée un nouveau compte comptable dans Odoo.
+ * CLOISONNEMENT : Utilise l'UID de l'utilisateur connecté (req.user.odooUid).
  * Endpoint: POST /api/accounting/chart-of-accounts
  */
 exports.createAccount = async (req, res) => {
     try {
-        const { code, name, type, companyId } = req.body; 
+        const { code, name, type, companyId } = req.body; 
         const companyIdInt = parseInt(companyId);
+        const odooUid = req.user.odooUid; // ⬅️ UID de l'utilisateur pour le cloisonnement
 
-        // ⚠️ CORRECTION CRITIQUE : Suppression de 'company_id' des données d'enregistrement.
-        // Odoo exige que le cloisonnement soit géré par le contexte (kwargs) uniquement.
+        if (!odooUid) {
+             return res.status(401).json({ error: "UID utilisateur Odoo manquant." });
+        }
+
         const accountData = [{
             'code': code,
             'name': name,
             'account_type': type, 
-            // 'company_id' est retiré ici !
+            // CORRIGÉ : 'company_id' est retiré des données (géré par le contexte)
         }];
         
         const newAccountId = await odooExecuteKw({
-            uid: ADMIN_UID,
+            // ⚠️ UID MODIFIÉ : Utilise l'UID de l'utilisateur connecté
+            uid: odooUid,
             model: 'account.account',
             method: 'create',
             args: [accountData],
-            // 🔒 Le contexte est la seule source d'information pour la compagnie cible.
+            // Le contexte est la seule source d'information pour la compagnie cible
             kwargs: { context: { company_id: companyIdInt } } 
         });
 
@@ -266,33 +266,36 @@ exports.createAccount = async (req, res) => {
 
 /**
  * Modifie un compte comptable existant dans Odoo.
+ * CLOISONNEMENT : Utilise l'UID de l'utilisateur connecté (req.user.odooUid).
  * Endpoint: PUT /api/accounting/chart-of-accounts
  */
 exports.updateAccount = async (req, res) => {
     try {
         const { id, code, name, type, companyId } = req.body;
         const companyIdInt = parseInt(companyId);
+        const odooUid = req.user.odooUid; // ⬅️ UID de l'utilisateur pour le cloisonnement
 
-        if (!id) {
-            return res.status(400).json({ error: "L'ID Odoo du compte est manquant pour la modification." });
+        if (!id || !odooUid) {
+             return res.status(401).json({ error: "UID utilisateur Odoo ou ID de compte manquant." });
         }
 
-        // Les données à mettre à jour ne contiennent pas 'company_id', ce qui est CRITIQUE.
         const updateData = {
             'code': code,
             'name': name,
             'account_type': type,
+            // CORRECT : 'company_id' est absent des données
         };
         
         await odooExecuteKw({
-            uid: ADMIN_UID,
+            // ⚠️ UID MODIFIÉ : Utilise l'UID de l'utilisateur connecté
+            uid: odooUid,
             model: 'account.account',
             method: 'write',
             args: [
-                [id], // ID Odoo du compte à mettre à jour
+                [id],
                 updateData
             ],
-            // 🔒 Cloisonnement : La compagnie cible est transmise via le contexte Odoo.
+            // Conservation du contexte pour le cloisonnement
             kwargs: { context: { company_id: companyIdInt } } 
         });
 
@@ -303,7 +306,6 @@ exports.updateAccount = async (req, res) => {
         });
 
     } catch (err) {
-        // En cas d'échec, le message d'erreur sera remonté ici.
         console.error('Erreur lors de la mise à jour du compte Odoo:', err.message);
         res.status(500).json({
             status: 'error',
