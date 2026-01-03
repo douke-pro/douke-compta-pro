@@ -368,8 +368,117 @@ exports.handleCaisseEntry = async (req, res) => {
 
 // DANS controllers/accountingController.js, à la suite des autres placeholders (handleCaisseEntry, getEntryDetails...)
 
+/**
+ * Récupère le Grand Livre (General Ledger) pour un Client/Projet spécifique (Compte Analytique).
+ * Endpoint: GET /api/accounting/ledger?analyticId=X&dateStart=Y&dateEnd=Z
+ * * Note: L'ID passé ici est l'ID du Compte Analytique, pas l'ID de la Société Légale.
+ */
 exports.getGeneralLedger = async (req, res) => {
-    return res.status(501).json({ error: "Le Grand Livre n'est pas encore implémenté (501)." });
+    try {
+        const { analyticId, dateStart, dateEnd } = req.query;
+
+        if (!analyticId) {
+            return res.status(400).json({ error: "L'ID Analytique (Client/Projet) est requis pour le Grand Livre." });
+        }
+        
+        // Assurez-vous que ADMIN_UID est accessible ici (il doit être défini en haut du fichier)
+        if (!ADMIN_UID) {
+            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
+        }
+
+        // 1. Définition des filtres de domaine Odoo
+        let filters = [
+            // Filtre Analytique : Cloisonnement au Client/Projet
+            // Utilisation de analytic_distribution pour les écritures (Modèle account.move.line)
+            ['analytic_distribution', 'in', [analyticId.toString()]],
+            // Uniquement les écritures validées
+            ['parent_state', '=', 'posted'] 
+        ];
+
+        // Ajout des filtres de date optionnels
+        if (dateStart) {
+            filters.push(['date', '>=', dateStart]);
+        }
+        if (dateEnd) {
+            filters.push(['date', '<=', dateEnd]);
+        }
+        
+        // 2. Récupération des lignes de mouvement (account.move.line)
+        const moveLines = await odooExecuteKw({ 
+            uid: ADMIN_UID,
+            model: 'account.move.line',
+            method: 'search_read',
+            args: [filters],
+            kwargs: { 
+                fields: [
+                    'account_id', // Compte général (ex: 701000)
+                    'date',
+                    'name', // Libellé de la ligne
+                    'ref', // Référence de l'écriture (si disponible)
+                    'debit',
+                    'credit',
+                    'balance',
+                    'move_name' // Numéro de l'écriture comptable (Journal + Séquence)
+                ],
+                order: 'date asc, id asc' // Tri chronologique et par ID
+            }
+        });
+
+        // 3. Traitement des données : Regrouper par Compte Général
+        let ledger = {};
+        
+        moveLines.forEach(line => {
+            // account_id est au format [ID, Code, Nom] ou [ID, Code] dans certaines versions
+            // Nous utilisons le code comme clé et le nom pour l'affichage
+            const accountCode = line.account_id ? line.account_id[1] : 'N/A';
+            const accountName = line.account_id ? (line.account_id.length > 2 ? line.account_id[2] : line.account_id[1]) : 'Compte Inconnu';
+            
+            // Si le code est 'N/A' (compte non trouvé), nous sautons la ligne
+            if (accountCode === 'N/A') return;
+
+            // Initialisation du compte dans le Grand Livre
+            if (!ledger[accountCode]) {
+                ledger[accountCode] = {
+                    code: accountCode,
+                    name: accountName,
+                    lines: [],
+                    totalDebit: 0,
+                    totalCredit: 0,
+                    finalBalance: 0
+                };
+            }
+            
+            // Ajout de la ligne et mise à jour des totaux
+            ledger[accountCode].lines.push({
+                date: line.date,
+                journalEntry: line.move_name,
+                description: line.name || line.ref,
+                debit: line.debit,
+                credit: line.credit,
+                balance: line.balance
+            });
+
+            ledger[accountCode].totalDebit += line.debit;
+            ledger[accountCode].totalCredit += line.credit;
+            ledger[accountCode].finalBalance += line.balance;
+        });
+        
+        // 4. Conversion en tableau et tri par code de compte pour le Front-end
+        const finalLedger = Object.values(ledger).sort((a, b) => a.code.localeCompare(b.code));
+
+        res.status(200).json({
+            status: 'success',
+            results: moveLines.length,
+            data: finalLedger
+        });
+
+    } catch (error) {
+        console.error('[General Ledger Error]', error.message);
+        res.status(500).json({ 
+            status: 'error', 
+            error: `Échec de la récupération du Grand Livre : ${error.message}` 
+        });
+    }
 };
 
 exports.getBalanceSheet = async (req, res) => {
