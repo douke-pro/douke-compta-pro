@@ -18,7 +18,7 @@ const ADMIN_UID = process.env.ODOO_ADMIN_UID; 
 exports.getFinancialReport = async (req, res) => {
     try {
         const { analyticId } = req.params; // L'identifiant de l'entreprise isolée (Projet Analytique)
-        const { systemType } = req.query; // 'NORMAL' ou 'SMT'
+        const { systemType } = req.query; // 'NORMAL' ou 'SMT' ou 'SYCEBNL'
         const { odooUid } = req.user;
         
         if (!ADMIN_UID) {
@@ -51,7 +51,7 @@ exports.getFinancialReport = async (req, res) => {
         };
 
         moveLines.forEach(line => {
-            const accountCode = line.account_id[1]; // Ex: "701000 Ventes"
+            const accountCode = line.account_id[2]; // Ex: "701000 Ventes"
 
             // Logique de classification OHADA
             if (accountCode.startsWith('7')) {
