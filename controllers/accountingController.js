@@ -7,14 +7,11 @@
 // =============================================================================
 
 
-
 // ⬅️ Remplace l'intégralité du bloc XML-RPC par cet import stable :
 
 const { odooExecuteKw } = require('../services/odooService'); 
 
 const ADMIN_UID = process.env.ODOO_ADMIN_UID; 
-
-
 
 // =============================================================================
 
@@ -50,8 +47,6 @@ exports.getFinancialReport = async (req, res) => {
 
         }
 
-
-
         // 1. Définition du filtre de cloisonnement (Filtre Analytique Robuste)
 
         const analyticFilter = [['analytic_distribution', 'in', [analyticId.toString()]]];
@@ -83,7 +78,6 @@ exports.getFinancialReport = async (req, res) => {
             kwargs: { fields: ['account_id', 'debit', 'credit', 'date', 'name'] }
 
         });
-
 
 
         // 3. Traitement selon le référentiel SYSCOHADA
@@ -291,9 +285,7 @@ exports.getDashboardData = async (req, res, next) => {
             }
 
         });
-
         
-
         // 3. Fallback/Simulation si Odoo ne renvoie rien (Logique de simulation conservée)
 
         if (moveLines.length === 0) {
@@ -342,236 +334,146 @@ exports.getDashboardData = async (req, res, next) => {
 
 // =============================================================================
 
-
-
-// Définition de l'ID de compagnie cible
-
-const companyId = parseInt(companyIdRaw, 10);
-
-// ⚠️ CHANGEMENT : Nous forçons le filtre de domaine sur company_id
-
-const filter = [['company_id', '=', companyId]]; 
-
-        
-
-const accounts = await odooExecuteKw({
-
-    uid: odooUid, 
-
-    model: 'account.account',
-
-    method: 'search_read',
-
-    // ⚠️ CHANGEMENT : Le filtre est passé ici
-
-    args: [filter], 
-
-    kwargs: { 
-
-        // Nous gardons la liste des champs courte pour éviter les erreurs de champ
-
-        fields: ['id', 'code', 'name', 'account_type'], 
-
-        // Nous gardons le contexte par sécurité
-
-        context: { company_id: companyId } 
-
-    }
-
-});
-
-
-
 /**
-
- * Crée un nouveau compte comptable dans Odoo.
-
- * CLOISONNEMENT : Utilise l'UID de l'utilisateur connecté (req.user.odooUid).
-
- * Endpoint: POST /api/accounting/chart-of-accounts
-
+ * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
+ * (companyId doit être l'ID Odoo de la Société Légale)
+ * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
  */
-
-exports.createAccount = async (req, res) => {
-
+exports.getChartOfAccounts = async (req, res) => {
     try {
+        const companyIdRaw = req.query.companyId;
 
-        const { code, name, type, companyId } = req.body; 
+        if (!companyIdRaw) {
+            return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
+        }
+        
+        const companyId = parseInt(companyIdRaw, 10);
 
-        const companyIdInt = parseInt(companyId);
-
-        const odooUid = req.user.odooUid; // ⬅️ UID de l'utilisateur pour le cloisonnement
-
-
-
-        if (!odooUid) {
-
-             return res.status(401).json({ error: "UID utilisateur Odoo manquant." });
-
+        if (isNaN(companyId)) {
+             return res.status(400).json({ error: "L'ID de compagnie est invalide. Il doit être numérique." });
+        }
+        
+        if (!ADMIN_UID) {
+            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
-
-
-        const accountData = [{
-
-            'code': code,
-
-            'name': name,
-
-            'account_type': type, 
-
-            // CORRIGÉ : 'company_id' est retiré des données (géré par le contexte)
-
-        }];
-
+        const filter = []; // AUCUN FILTRE DE DOMAINE
         
-
-        const newAccountId = await odooExecuteKw({
-
-            // ⚠️ UID MODIFIÉ : Utilise l'UID de l'utilisateur connecté
-
-            uid: odooUid,
-
+        const accounts = await odooExecuteKw({
+            uid: ADMIN_UID,
             model: 'account.account',
-
-            method: 'create',
-
-            args: [accountData],
-
-            // Le contexte est la seule source d'information pour la compagnie cible
-
-            kwargs: { context: { company_id: companyIdInt } } 
-
+            method: 'search_read',
+            args: [filter], 
+            kwargs: { 
+                // 🚀 CORRECTION FINALE : Seuls les champs de base sont conservés.
+                // 'deprecated' ET 'company_id' sont retirés car Odoo les rejette.
+                fields: ['id', 'code', 'name', 'account_type'], 
+                // 🔒 Nous CONSERVONS le contexte pour le cloisonnement Odoo.
+                context: { company_id: companyId } 
+            }
         });
 
+        res.status(200).json({
+            status: 'success',
+            results: accounts.length,
+            data: accounts
+        });
 
+    } catch (error) {
+        console.error('[COA Read Error]', error.message); 
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
+    }
+};
+
+/**
+ * Crée un nouveau compte comptable dans Odoo.
+ * Endpoint: POST /api/accounting/chart-of-accounts
+ */
+exports.createAccount = async (req, res) => {
+    try {
+        const { code, name, type, companyId } = req.body; 
+        const companyIdInt = parseInt(companyId);
+
+        // ⚠️ CORRECTION CRITIQUE : Suppression de 'company_id' des données d'enregistrement.
+        // Odoo exige que le cloisonnement soit géré par le contexte (kwargs) uniquement.
+        const accountData = [{
+            'code': code,
+            'name': name,
+            'account_type': type, 
+            // 'company_id' est retiré ici !
+        }];
+        
+        const newAccountId = await odooExecuteKw({
+            uid: ADMIN_UID,
+            model: 'account.account',
+            method: 'create',
+            args: [accountData],
+            // 🔒 Le contexte est la seule source d'information pour la compagnie cible.
+            kwargs: { context: { company_id: companyIdInt } } 
+        });
 
         res.status(201).json({
-
             status: 'success',
-
             message: `Compte ${code} créé avec succès (#${newAccountId}).`,
-
             data: { id: newAccountId }
-
         });
-
-
 
     } catch (err) {
-
         console.error('Erreur lors de la création du compte Odoo:', err.message);
-
         res.status(500).json({
-
             status: 'error',
-
             error: `Échec de la création du compte : ${err.message}`
-
         });
-
     }
-
 };
 
 
-
 /**
-
  * Modifie un compte comptable existant dans Odoo.
-
- * CLOISONNEMENT : Utilise l'UID de l'utilisateur connecté (req.user.odooUid).
-
  * Endpoint: PUT /api/accounting/chart-of-accounts
-
  */
-
 exports.updateAccount = async (req, res) => {
-
     try {
-
         const { id, code, name, type, companyId } = req.body;
-
         const companyIdInt = parseInt(companyId);
 
-        const odooUid = req.user.odooUid; // ⬅️ UID de l'utilisateur pour le cloisonnement
-
-
-
-        if (!id || !odooUid) {
-
-             return res.status(401).json({ error: "UID utilisateur Odoo ou ID de compte manquant." });
-
+        if (!id) {
+            return res.status(400).json({ error: "L'ID Odoo du compte est manquant pour la modification." });
         }
 
-
-
+        // Les données à mettre à jour ne contiennent pas 'company_id', ce qui est CRITIQUE.
         const updateData = {
-
             'code': code,
-
             'name': name,
-
             'account_type': type,
-
-            // CORRECT : 'company_id' est absent des données
-
         };
-
         
-
         await odooExecuteKw({
-
-            // ⚠️ UID MODIFIÉ : Utilise l'UID de l'utilisateur connecté
-
-            uid: odooUid,
-
+            uid: ADMIN_UID,
             model: 'account.account',
-
             method: 'write',
-
             args: [
-
-                [id],
-
+                [id], // ID Odoo du compte à mettre à jour
                 updateData
-
             ],
-
-            // Conservation du contexte pour le cloisonnement
-
-            kwargs: { context: { company_id: companyIdInt } } 
-
+            // 🔒 Cloisonnement : La compagnie cible est transmise via le contexte Odoo.
+            kwargs: { context: { company_id: companyIdInt } } 
         });
-
-
 
         res.status(200).json({
-
             status: 'success',
-
             message: `Compte ${code} mis à jour avec succès.`,
-
             data: { id: id }
-
         });
-
-
 
     } catch (err) {
-
+        // En cas d'échec, le message d'erreur sera remonté ici.
         console.error('Erreur lors de la mise à jour du compte Odoo:', err.message);
-
         res.status(500).json({
-
             status: 'error',
-
             error: `Échec de la mise à jour du compte : ${err.message}`
-
         });
-
     }
-
 };
 
 // =============================================================================
