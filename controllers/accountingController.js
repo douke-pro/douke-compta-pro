@@ -171,51 +171,24 @@ exports.getDashboardData = async (req, res, next) => {
 // LOGIQUE DU PLAN COMPTABLE (Nouvelles fonctions CRUD)
 // =============================================================================
 
-/**
- * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
- * CLOISONNEMENT : Utilise l'UID de l'utilisateur connecté (req.user.odooUid).
- * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
- */
-exports.getChartOfAccounts = async (req, res) => {
-    try {
-        const companyIdRaw = req.query.companyId;
-        const odooUid = req.user.odooUid; // ⬅️ UID de l'utilisateur pour le cloisonnement
-
-        if (!companyIdRaw) {
-            return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
-        }
-        if (!odooUid) {
-             return res.status(401).json({ error: "UID utilisateur Odoo manquant pour l'exécution de la requête." });
-        }
+// Définition de l'ID de compagnie cible
+const companyId = parseInt(companyIdRaw, 10);
+// ⚠️ CHANGEMENT : Nous forçons le filtre de domaine sur company_id
+const filter = [['company_id', '=', companyId]]; 
         
-        const companyId = parseInt(companyIdRaw, 10);
-        const filter = []; 
-        
-        const accounts = await odooExecuteKw({
-            // ⚠️ UID MODIFIÉ : Utilise l'UID de l'utilisateur connecté
-            uid: odooUid, 
-            model: 'account.account',
-            method: 'search_read',
-            args: [filter], 
-            kwargs: { 
-                // CORRIGÉ : Suppression de 'deprecated' ET 'company_id' des champs demandés
-                fields: ['id', 'code', 'name', 'account_type'], 
-                // Conservation du contexte pour forcer la compagnie Odoo
-                context: { company_id: companyId } 
-            }
-        });
-
-        res.status(200).json({
-            status: 'success',
-            results: accounts.length,
-            data: accounts
-        });
-
-    } catch (error) {
-        console.error('[COA Read Error]', error.message); 
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Vérifiez les droits de l\'UID utilisateur).' });
+const accounts = await odooExecuteKw({
+    uid: odooUid, 
+    model: 'account.account',
+    method: 'search_read',
+    // ⚠️ CHANGEMENT : Le filtre est passé ici
+    args: [filter], 
+    kwargs: { 
+        // Nous gardons la liste des champs courte pour éviter les erreurs de champ
+        fields: ['id', 'code', 'name', 'account_type'], 
+        // Nous gardons le contexte par sécurité
+        context: { company_id: companyId } 
     }
-};
+});
 
 /**
  * Crée un nouveau compte comptable dans Odoo.
