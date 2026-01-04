@@ -3,34 +3,34 @@
 // Contient la lecture SYSCOHADA et les CRUD du Plan Comptable.
 // =============================================================================
 
-// ⬅️ Remplace l'intégralité du bloc XML-RPC par cet import stable :
 const { odooExecuteKw } = require('../services/odooService'); 
 const ADMIN_UID = process.env.ODOO_ADMIN_UID; 
 
 // =============================================================================
 // LOGIQUE COMPTABLE SYSCOHADA AVEC FILTRE ANALYTIQUE (Fonctions de lecture)
+// * Utilisent ADMIN_UID car elles sont des requêtes de Reporting Aggrégé *
 // =============================================================================
 
 /**
  * Récupère le Rapport SYSCOHADA (Bilan/Compte de Résultat) de l'entreprise isolée.
- * Usage: /api/accounting/report/123?systemType=NORMAL
+ * Endpoint: GET /api/accounting/report/123?systemType=NORMAL
  */
 exports.getFinancialReport = async (req, res) => {
     try {
         const { analyticId } = req.params; // L'identifiant de l'entreprise isolée (Projet Analytique)
         const { systemType } = req.query; // 'NORMAL' ou 'SMT' ou 'SYCEBNL'
-        const { odooUid } = req.user;
+        // const { odooUid } = req.user; // Non utilisé, ADMIN_UID est requis pour l'accès complet
         
         if (!ADMIN_UID) {
-             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
+            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
         // 1. Définition du filtre de cloisonnement (Filtre Analytique Robuste)
         const analyticFilter = [['analytic_distribution', 'in', [analyticId.toString()]]];
 
         // 2. Récupération des écritures comptables (account.move.line)
-        const moveLines = await odooExecuteKw({ 
-            uid: ADMIN_UID, 
+        const moveLines = await odooExecuteKw({ 
+            uid: ADMIN_UID, 
             model: 'account.move.line',
             method: 'search_read',
             args: [
@@ -51,7 +51,8 @@ exports.getFinancialReport = async (req, res) => {
         };
 
         moveLines.forEach(line => {
-            const accountCode = line.account_id[2]; // Ex: "701000 Ventes"
+            // Utilisation du deuxième élément du tableau pour le code comptable
+            const accountCode = line.account_id ? line.account_id[1] : ''; 
 
             // Logique de classification OHADA
             if (accountCode.startsWith('7')) {
@@ -59,7 +60,6 @@ exports.getFinancialReport = async (req, res) => {
             } else if (accountCode.startsWith('6')) {
                 report.chargesExploitation += (line.debit - line.credit);
             } else if (accountCode.startsWith('5')) {
-                // ✅ CORRECTION APPLIQUÉE ICI : Utilisation de line.credit
                 report.tresorerie += (line.debit - line.credit);
             }
         });
@@ -68,7 +68,7 @@ exports.getFinancialReport = async (req, res) => {
 
         // 4. Adaptation spécifique au Système Minimal de Trésorerie (SMT)
         if (systemType === 'SMT') {
-             return res.json({
+            return res.json({
                 systeme: "Minimal de Trésorerie (SMT)",
                 flux: {
                     encaissements: report.chiffreAffaires,
@@ -100,16 +100,16 @@ exports.getDashboardData = async (req, res, next) => {
         const companyId = req.query.companyId;
 
         if (!companyId) {
-             return res.status(400).json({ 
-                 status: 'fail', 
-                 error: 'Le paramètre companyId est requis.' 
-             });
+            return res.status(400).json({ 
+                status: 'fail', 
+                error: 'Le paramètre companyId est requis.' 
+            });
         }
         if (!ADMIN_UID) {
             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
-        // 1. Définition du filtre analytique (Identique à l'implémentation précédente)
+        // 1. Définition du filtre analytique (ID Analytique = companyId dans ce cas)
         const analyticFilter = [['analytic_distribution', 'in', [companyId.toString()]]];
 
         // 2. Récupération des écritures comptables
@@ -130,31 +130,32 @@ exports.getDashboardData = async (req, res, next) => {
         let data = { cash: 0, profit: 0, debts: 0 };
 
         moveLines.forEach(line => {
-            const accountCode = line.account_id ? line.account_id[1] : ''; 
+            const accountCode = line.account_id ? line.account_id[1] : ''; 
             const balance = line.balance || 0; // Balance = Débit - Crédit
 
-            // Agrégation simplifiée pour le Dashboard (Basée sur le premier chiffre du compte)
+            // Agrégation simplifiée pour le Dashboard
             if (accountCode.startsWith('7') || accountCode.startsWith('6')) {
                 data.profit += balance; 
             } else if (accountCode.startsWith('5')) { 
                 data.cash += balance;
             } else if (accountCode.startsWith('40')) { 
-                // Dettes Fournisseurs (Passif) - On veut le montant positif de la dette
+                // Dettes Fournisseurs (Passif)
                 if (balance < 0) {
                     data.debts += Math.abs(balance);
                 }
             }
         });
         
-        // 3. Fallback/Simulation si Odoo ne renvoie rien (Logique de simulation conservée)
+        // 3. Fallback/Simulation
         if (moveLines.length === 0) {
+            // Gardons cette simulation simple pour les tests
             data = { cash: 25000000, profit: 12500000, debts: 3500000 };
         }
 
         res.status(200).json({
             status: 'success',
             message: 'Données du tableau de bord récupérées.',
-            data: data // Le front-end attend cette clé
+            data: data
         });
 
     } catch (err) {
@@ -168,27 +169,57 @@ exports.getDashboardData = async (req, res, next) => {
 
 
 // =============================================================================
-// LOGIQUE DU PLAN COMPTABLE (Nouvelles fonctions CRUD)
+// LOGIQUE DU PLAN COMPTABLE (Fonctions CRUD)
+// * Utilise req.user.odooUid pour le cloisonnement de la Société Légale *
 // =============================================================================
 
-// Définition de l'ID de compagnie cible
-const companyId = parseInt(companyIdRaw, 10);
-// ⚠️ CHANGEMENT : Nous forçons le filtre de domaine sur company_id
-const filter = [['company_id', '=', companyId]]; 
+/**
+ * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
+ * CLOISONNEMENT : Utilise l'UID de l'utilisateur connecté (req.user.odooUid).
+ * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
+ */
+exports.getChartOfAccounts = async (req, res) => {
+    try {
+        // 1. Extraction des données dans la fonction (CORRECTION TOP-LEVEL AWAIT)
+        const companyIdRaw = req.query.companyId;
+        const odooUid = req.user.odooUid; // ⬅️ UID de l'utilisateur pour le cloisonnement
+
+        if (!companyIdRaw) {
+            return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
+        }
+        if (!odooUid) {
+             return res.status(401).json({ error: "UID utilisateur Odoo manquant pour l'exécution de la requête." });
+        }
         
-const accounts = await odooExecuteKw({
-    uid: odooUid, 
-    model: 'account.account',
-    method: 'search_read',
-    // ⚠️ CHANGEMENT : Le filtre est passé ici
-    args: [filter], 
-    kwargs: { 
-        // Nous gardons la liste des champs courte pour éviter les erreurs de champ
-        fields: ['id', 'code', 'name', 'account_type'], 
-        // Nous gardons le contexte par sécurité
-        context: { company_id: companyId } 
+        // 2. Exécution de la requête Odoo
+        const companyId = parseInt(companyIdRaw, 10);
+        // ⚠️ Solution Agressive : Nous forçons le filtre de domaine sur company_id (si le contexte ne suffit pas)
+        const filter = [['company_id', '=', companyId]]; 
+        
+        const accounts = await odooExecuteKw({
+            uid: odooUid, // ⬅️ Utilisation de l'UID de l'utilisateur (Cloisonnement)
+            model: 'account.account',
+            method: 'search_read',
+            args: [filter], 
+            kwargs: { 
+                // CORRIGÉ : Suppression de 'deprecated' ET 'company_id' des champs demandés
+                fields: ['id', 'code', 'name', 'account_type'], 
+                // Conservation du contexte pour forcer la compagnie Odoo
+                context: { company_id: companyId } 
+            }
+        });
+
+        res.status(200).json({
+            status: 'success',
+            results: accounts.length,
+            data: accounts
+        });
+
+    } catch (error) {
+        console.error('[COA Read Error]', error.message); 
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Vérifiez les droits de l\'UID utilisateur).' });
     }
-});
+};
 
 /**
  * Crée un nouveau compte comptable dans Odoo.
@@ -213,12 +244,10 @@ exports.createAccount = async (req, res) => {
         }];
         
         const newAccountId = await odooExecuteKw({
-            // ⚠️ UID MODIFIÉ : Utilise l'UID de l'utilisateur connecté
-            uid: odooUid,
+            uid: odooUid, // ⬅️ Utilisation de l'UID de l'utilisateur (Cloisonnement)
             model: 'account.account',
             method: 'create',
             args: [accountData],
-            // Le contexte est la seule source d'information pour la compagnie cible
             kwargs: { context: { company_id: companyIdInt } } 
         });
 
@@ -260,15 +289,13 @@ exports.updateAccount = async (req, res) => {
         };
         
         await odooExecuteKw({
-            // ⚠️ UID MODIFIÉ : Utilise l'UID de l'utilisateur connecté
-            uid: odooUid,
+            uid: odooUid, // ⬅️ Utilisation de l'UID de l'utilisateur (Cloisonnement)
             model: 'account.account',
             method: 'write',
             args: [
                 [id],
                 updateData
             ],
-            // Conservation du contexte pour le cloisonnement
             kwargs: { context: { company_id: companyIdInt } } 
         });
 
