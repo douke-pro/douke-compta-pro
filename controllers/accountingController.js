@@ -1,334 +1,160 @@
 // =============================================================================
-
-// FICHIER : controllers/accountingController.js (VERSION FINALE ET VÉRIFIÉE)
-
-// Contient la lecture SYSCOHADA et les CRUD du Plan Comptable.
-
+// FICHIER : controllers/accountingController.js (VERSION CORRIGÉE ET ROBUSTE)
+// Cloisonnement du Plan Comptable basé sur req.user.odooUid
 // =============================================================================
 
-
-// ⬅️ Remplace l'intégralité du bloc XML-RPC par cet import stable :
-
-const { odooExecuteKw } = require('../services/odooService'); 
-
-const ADMIN_UID = process.env.ODOO_ADMIN_UID; 
+const { odooExecuteKw } = require('../services/odooService'); 
+const ADMIN_UID = process.env.ODOO_ADMIN_UID; 
+const ADMIN_UID_INT = parseInt(ADMIN_UID); // Ajout pour validation
 
 // =============================================================================
-
-// LOGIQUE COMPTABLE SYSCOHADA AVEC FILTRE ANALYTIQUE (Fonctions de lecture)
-
+// LOGIQUE COMPTABLE SYSCOHADA AVEC FILTRE ANALYTIQUE (Reporting Agrégé)
+// * Utilise ADMIN_UID pour garantir la lecture complète des account.move.line *
 // =============================================================================
-
-
 
 /**
-
  * Récupère le Rapport SYSCOHADA (Bilan/Compte de Résultat) de l'entreprise isolée.
-
- * Usage: /api/accounting/report/123?systemType=NORMAL
-
+ * Endpoint: GET /api/accounting/report/123?systemType=NORMAL
  */
-
 exports.getFinancialReport = async (req, res) => {
-
     try {
-
-        const { analyticId } = req.params; // L'identifiant de l'entreprise isolée (Projet Analytique)
-
-        const { systemType } = req.query; // 'NORMAL' ou 'SMT' ou 'SYCEBNL'
-
-        const { odooUid } = req.user;
-
-        
+        const { analyticId } = req.params; 
+        const { systemType } = req.query; 
 
         if (!ADMIN_UID) {
-
-             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
-
+            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
-
+        
         // 1. Définition du filtre de cloisonnement (Filtre Analytique Robuste)
-
         const analyticFilter = [['analytic_distribution', 'in', [analyticId.toString()]]];
 
-
-
         // 2. Récupération des écritures comptables (account.move.line)
-
-        const moveLines = await odooExecuteKw({ 
-
-            uid: ADMIN_UID, 
-
+        const moveLines = await odooExecuteKw({ 
+            uid: ADMIN_UID, // 🔑 OK : L'Admin est utilisé pour le reporting global sur account.move.line
             model: 'account.move.line',
-
             method: 'search_read',
-
             args: [
-
                 [
-
                     ...analyticFilter,
-
                     ['parent_state', '=', 'posted'] // Uniquement les écritures validées
-
                 ]
-
             ],
-
             kwargs: { fields: ['account_id', 'debit', 'credit', 'date', 'name'] }
-
         });
-
 
         // 3. Traitement selon le référentiel SYSCOHADA
-
         let report = {
-
-            chiffreAffaires: 0, // Classe 7
-
-            chargesExploitation: 0, // Classe 6
-
-            tresorerie: 0, // Classe 5
-
+            chiffreAffaires: 0, 
+            chargesExploitation: 0, 
+            tresorerie: 0, 
             resultat: 0
-
         };
 
-
-
         moveLines.forEach(line => {
-
-            const accountCode = line.account_id[2]; // Ex: "701000 Ventes"
-
-
-
-            // Logique de classification OHADA
+            // Utilisation du deuxième élément du tableau pour le code comptable
+            const accountCode = line.account_id ? line.account_id[1] : ''; 
 
             if (accountCode.startsWith('7')) {
-
                 report.chiffreAffaires += (line.credit - line.debit);
-
             } else if (accountCode.startsWith('6')) {
-
                 report.chargesExploitation += (line.debit - line.credit);
-
             } else if (accountCode.startsWith('5')) {
-
-                // ✅ CORRECTION APPLIQUÉE ICI : Utilisation de line.credit
-
                 report.tresorerie += (line.debit - line.credit);
-
             }
-
         });
-
-
 
         report.resultat = report.chiffreAffaires - report.chargesExploitation;
 
-
-
         // 4. Adaptation spécifique au Système Minimal de Trésorerie (SMT)
-
         if (systemType === 'SMT') {
-
-             return res.json({
-
+            return res.json({
                 systeme: "Minimal de Trésorerie (SMT)",
-
                 flux: {
-
                     encaissements: report.chiffreAffaires,
-
                     decaissements: report.chargesExploitation,
-
                     soldeNet: report.tresorerie
-
                 }
-
             });
-
         }
-
         
-
-        // Sinon, retour Système Normal
-
         res.json({
-
             systeme: "Normal (Comptabilité d'engagement)",
-
             donnees: report
-
         });
 
-
-
     } catch (error) {
-
         console.error('[Accounting Report Error]', error.message);
-
         res.status(500).json({ error: error.message });
-
     }
-
 };
 
 
 /**
-
  * Récupère les données de synthèse pour le tableau de bord de la compagnie spécifiée.
-
  * Endpoint: GET /api/accounting/dashboard?companyId=X
-
  */
-
 exports.getDashboardData = async (req, res, next) => {
-
     try {
-
         const companyId = req.query.companyId;
 
-
-
         if (!companyId) {
-
-             return res.status(400).json({ 
-
-                 status: 'fail', 
-
-                 error: 'Le paramètre companyId est requis.' 
-
-             });
-
+            return res.status(400).json({ status: 'fail', error: 'Le paramètre companyId est requis.' });
         }
-
         if (!ADMIN_UID) {
-
             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
-
         }
 
-
-
-        // 1. Définition du filtre analytique (Identique à l'implémentation précédente)
-
+        // 1. Définition du filtre analytique
         const analyticFilter = [['analytic_distribution', 'in', [companyId.toString()]]];
 
-
-
         // 2. Récupération des écritures comptables
-
-        const moveLines = await odooExecuteKw({ 
-
-            uid: ADMIN_UID,
-
+        const moveLines = await odooExecuteKw({ 
+            uid: ADMIN_UID, // 🔑 OK : L'Admin est utilisé pour le reporting
             model: 'account.move.line',
-
             method: 'search_read',
-
-            args: [
-
-                [
-
-                    ...analyticFilter,
-
-                    ['parent_state', '=', 'posted'] 
-
-                ]
-
-            ],
-
-            // On récupère le compte et la balance (Débit - Crédit)
-
-            kwargs: { fields: ['account_id', 'balance'] } 
-
+            args: [[...analyticFilter, ['parent_state', '=', 'posted']]],
+            kwargs: { fields: ['account_id', 'balance'] } 
         });
-
-
 
         let data = { cash: 0, profit: 0, debts: 0 };
 
-
-
         moveLines.forEach(line => {
-
-            const accountCode = line.account_id ? line.account_id[1] : ''; 
-
-            const balance = line.balance || 0; // Balance = Débit - Crédit
-
-
-
-            // Agrégation simplifiée pour le Dashboard (Basée sur le premier chiffre du compte)
+            const accountCode = line.account_id ? line.account_id[1] : ''; 
+            const balance = line.balance || 0; 
 
             if (accountCode.startsWith('7') || accountCode.startsWith('6')) {
-
-                data.profit += balance; 
-
-            } else if (accountCode.startsWith('5')) { 
-
+                data.profit += balance; 
+            } else if (accountCode.startsWith('5')) { 
                 data.cash += balance;
-
-            } else if (accountCode.startsWith('40')) { 
-
-                // Dettes Fournisseurs (Passif) - On veut le montant positif de la dette
-
-                if (balance < 0) {
-
-                    data.debts += Math.abs(balance);
-
-                }
-
+            } else if (accountCode.startsWith('40') && balance < 0) { 
+                data.debts += Math.abs(balance);
             }
-
         });
         
-        // 3. Fallback/Simulation si Odoo ne renvoie rien (Logique de simulation conservée)
-
+        // 3. Fallback/Simulation
         if (moveLines.length === 0) {
-
             data = { cash: 25000000, profit: 12500000, debts: 3500000 };
-
         }
 
-
-
         res.status(200).json({
-
             status: 'success',
-
             message: 'Données du tableau de bord récupérées.',
-
-            data: data // Le front-end attend cette clé
-
+            data: data
         });
-
-
 
     } catch (err) {
-
         console.error('Erreur lors de la récupération du dashboard:', err);
-
         res.status(500).json({
-
             status: 'error',
-
             error: 'Erreur serveur lors de la récupération des données de synthèse.'
-
         });
-
     }
-
 };
 
 
-
-
-
 // =============================================================================
-
-// LOGIQUE DU PLAN COMPTABLE (Nouvelles fonctions CRUD)
-
+// LOGIQUE DU PLAN COMPTABLE (CRUD Cloisonné)
+// * Utilise req.user.odooUid pour forcer le cloisonnement Odoo par utilisateur *
 // =============================================================================
 
 /**
@@ -339,34 +165,26 @@ exports.getDashboardData = async (req, res, next) => {
 exports.getChartOfAccounts = async (req, res) => {
     try {
         const companyIdRaw = req.query.companyId;
+        const odooUid = req.user.odooUid; // 🔑 NOUVEAU/CORRIGÉ : UID de l'utilisateur connecté
 
         if (!companyIdRaw) {
             return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
         }
+        if (!odooUid) {
+             return res.status(401).json({ error: "UID utilisateur Odoo manquant pour l'exécution de la requête." });
+        }
         
         const companyId = parseInt(companyIdRaw, 10);
-
-        if (isNaN(companyId)) {
-             return res.status(400).json({ error: "L'ID de compagnie est invalide. Il doit être numérique." });
-        }
-        
-        if (!ADMIN_UID) {
-            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
-        }
-
-        const filter = []; // AUCUN FILTRE DE DOMAINE
+        const filter = []; // Nous comptons sur l'UID et le contexte pour le cloisonnement
         
         const accounts = await odooExecuteKw({
-            uid: ADMIN_UID,
+            uid: odooUid, // 🔑 CRITIQUE CORRIGÉ : Utiliser l'UID de l'utilisateur pour activer le cloisonnement Odoo
             model: 'account.account',
             method: 'search_read',
             args: [filter], 
-            kwargs: { 
-                // 🚀 CORRECTION FINALE : Seuls les champs de base sont conservés.
-                // 'deprecated' ET 'company_id' sont retirés car Odoo les rejette.
-                fields: ['id', 'code', 'name', 'account_type'], 
-                // 🔒 Nous CONSERVONS le contexte pour le cloisonnement Odoo.
-                context: { company_id: companyId } 
+            kwargs: { 
+                fields: ['id', 'code', 'name', 'account_type'], 
+                context: { company_id: companyId } 
             }
         });
 
@@ -377,8 +195,8 @@ exports.getChartOfAccounts = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[COA Read Error]', error.message); 
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
+        console.error('[COA Read Error]', error.message); 
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Vérifiez les droits de l\'UID utilisateur et l\'initialisation du Plan Comptable de la compagnie).' });
     }
 };
 
@@ -388,25 +206,27 @@ exports.getChartOfAccounts = async (req, res) => {
  */
 exports.createAccount = async (req, res) => {
     try {
-        const { code, name, type, companyId } = req.body; 
+        const { code, name, type, companyId } = req.body; 
         const companyIdInt = parseInt(companyId);
+        const odooUid = req.user.odooUid; // 🔑 NOUVEAU/CORRIGÉ : UID de l'utilisateur connecté
 
-        // ⚠️ CORRECTION CRITIQUE : Suppression de 'company_id' des données d'enregistrement.
-        // Odoo exige que le cloisonnement soit géré par le contexte (kwargs) uniquement.
+        if (!odooUid) {
+             return res.status(401).json({ error: "UID utilisateur Odoo manquant." });
+        }
+
         const accountData = [{
             'code': code,
             'name': name,
             'account_type': type, 
-            // 'company_id' est retiré ici !
         }];
         
         const newAccountId = await odooExecuteKw({
-            uid: ADMIN_UID,
+            uid: odooUid, // 🔑 CRITIQUE CORRIGÉ : Utiliser l'UID de l'utilisateur
             model: 'account.account',
             method: 'create',
             args: [accountData],
             // 🔒 Le contexte est la seule source d'information pour la compagnie cible.
-            kwargs: { context: { company_id: companyIdInt } } 
+            kwargs: { context: { company_id: companyIdInt } } 
         });
 
         res.status(201).json({
@@ -433,12 +253,16 @@ exports.updateAccount = async (req, res) => {
     try {
         const { id, code, name, type, companyId } = req.body;
         const companyIdInt = parseInt(companyId);
+        const odooUid = req.user.odooUid; // 🔑 NOUVEAU/CORRIGÉ : UID de l'utilisateur connecté
 
         if (!id) {
             return res.status(400).json({ error: "L'ID Odoo du compte est manquant pour la modification." });
         }
+        if (!odooUid) {
+             return res.status(401).json({ error: "UID utilisateur Odoo manquant." });
+        }
 
-        // Les données à mettre à jour ne contiennent pas 'company_id', ce qui est CRITIQUE.
+        // Les données à mettre à jour
         const updateData = {
             'code': code,
             'name': name,
@@ -446,7 +270,7 @@ exports.updateAccount = async (req, res) => {
         };
         
         await odooExecuteKw({
-            uid: ADMIN_UID,
+            uid: odooUid, // 🔑 CRITIQUE CORRIGÉ : Utiliser l'UID de l'utilisateur
             model: 'account.account',
             method: 'write',
             args: [
@@ -464,7 +288,6 @@ exports.updateAccount = async (req, res) => {
         });
 
     } catch (err) {
-        // En cas d'échec, le message d'erreur sera remonté ici.
         console.error('Erreur lors de la mise à jour du compte Odoo:', err.message);
         res.status(500).json({
             status: 'error',
@@ -474,65 +297,12 @@ exports.updateAccount = async (req, res) => {
 };
 
 // =============================================================================
-// NOUVELLES FONCTIONS D'INTERACTION (Drill-Down et Saisie)
+// FONCTIONS DE REPORTING SECONDAIRES (Utilisation ADMIN_UID)
 // =============================================================================
-
-/**
- * Récupère les détails d'une écriture comptable spécifique (Drill-Down).
- * Endpoint: GET /api/accounting/details/:entryId
- */
-exports.getEntryDetails = async (req, res) => {
-    // Cette fonction est actuellement un placeholder.
-    try {
-        const { entryId } = req.params;
-        
-        // Logique Odoo pour récupérer account.move.line par son ID...
-        // ... (À implémenter plus tard)
-        
-        return res.status(501).json({
-            status: 'error',
-            error: `La récupération des détails de l'écriture #${entryId} n'est pas encore implémentée (501).`
-        });
-        
-    } catch (error) {
-        console.error('[Entry Details Error]', error.message);
-        res.status(500).json({ error: 'Échec de la récupération des détails.' });
-    }
-};
-
-
-/**
- * Enregistre une nouvelle écriture comptable simplifiée (Opération de Caisse).
- * Endpoint: POST /api/accounting/caisse-entry
- */
-exports.handleCaisseEntry = async (req, res) => {
-    // Cette fonction est actuellement un placeholder.
-    try {
-        const { companyId, date, amount, accountId, description } = req.body;
-        
-        // Logique Odoo pour créer un account.move ou un compte journal spécifique...
-        // ... (À implémenter plus tard)
-        
-        return res.status(501).json({
-            status: 'error',
-            error: `L'enregistrement de l'opération de caisse pour la compagnie ${companyId} n'est pas encore implémenté (501).`
-        });
-        
-    } catch (error) {
-        console.error('[Caisse Entry Error]', error.message);
-        res.status(500).json({ error: 'Échec de l\'enregistrement de l\'écriture de caisse.' });
-    }
-};
-
-// N'oubliez pas de mettre à jour votre 'module.exports' si vous n'utilisez pas l'export direct 'exports.'
-// Si vous utilisez 'exports.functionName', vous n'avez rien à changer d'autre.
-
-// DANS controllers/accountingController.js, à la suite des autres placeholders (handleCaisseEntry, getEntryDetails...)
 
 /**
  * Récupère le Grand Livre (General Ledger) pour un Client/Projet spécifique (Compte Analytique).
  * Endpoint: GET /api/accounting/ledger?analyticId=X&dateStart=Y&dateEnd=Z
- * * Note: L'ID passé ici est l'ID du Compte Analytique, pas l'ID de la Société Légale.
  */
 exports.getGeneralLedger = async (req, res) => {
     try {
@@ -541,22 +311,16 @@ exports.getGeneralLedger = async (req, res) => {
         if (!analyticId) {
             return res.status(400).json({ error: "L'ID Analytique (Client/Projet) est requis pour le Grand Livre." });
         }
-        
-        // Assurez-vous que ADMIN_UID est accessible ici (il doit être défini en haut du fichier)
         if (!ADMIN_UID) {
             return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID manquant." });
         }
 
         // 1. Définition des filtres de domaine Odoo
         let filters = [
-            // Filtre Analytique : Cloisonnement au Client/Projet
-            // Utilisation de analytic_distribution pour les écritures (Modèle account.move.line)
             ['analytic_distribution', 'in', [analyticId.toString()]],
-            // Uniquement les écritures validées
-            ['parent_state', '=', 'posted'] 
+            ['parent_state', '=', 'posted'] 
         ];
 
-        // Ajout des filtres de date optionnels
         if (dateStart) {
             filters.push(['date', '>=', dateStart]);
         }
@@ -570,18 +334,18 @@ exports.getGeneralLedger = async (req, res) => {
             model: 'account.move.line',
             method: 'search_read',
             args: [filters],
-            kwargs: { 
+            kwargs: { 
                 fields: [
-                    'account_id', // Compte général (ex: 701000)
+                    'account_id', 
                     'date',
-                    'name', // Libellé de la ligne
-                    'ref', // Référence de l'écriture (si disponible)
+                    'name', 
+                    'ref', 
                     'debit',
                     'credit',
                     'balance',
-                    'move_name' // Numéro de l'écriture comptable (Journal + Séquence)
+                    'move_name' 
                 ],
-                order: 'date asc, id asc' // Tri chronologique et par ID
+                order: 'date asc, id asc' 
             }
         });
 
@@ -589,15 +353,11 @@ exports.getGeneralLedger = async (req, res) => {
         let ledger = {};
         
         moveLines.forEach(line => {
-            // account_id est au format [ID, Code, Nom] ou [ID, Code] dans certaines versions
-            // Nous utilisons le code comme clé et le nom pour l'affichage
             const accountCode = line.account_id ? line.account_id[1] : 'N/A';
             const accountName = line.account_id ? (line.account_id.length > 2 ? line.account_id[2] : line.account_id[1]) : 'Compte Inconnu';
             
-            // Si le code est 'N/A' (compte non trouvé), nous sautons la ligne
             if (accountCode === 'N/A') return;
 
-            // Initialisation du compte dans le Grand Livre
             if (!ledger[accountCode]) {
                 ledger[accountCode] = {
                     code: accountCode,
@@ -609,7 +369,6 @@ exports.getGeneralLedger = async (req, res) => {
                 };
             }
             
-            // Ajout de la ligne et mise à jour des totaux
             ledger[accountCode].lines.push({
                 date: line.date,
                 journalEntry: line.move_name,
@@ -624,7 +383,7 @@ exports.getGeneralLedger = async (req, res) => {
             ledger[accountCode].finalBalance += line.balance;
         });
         
-        // 4. Conversion en tableau et tri par code de compte pour le Front-end
+        // 4. Conversion en tableau et tri par code de compte
         const finalLedger = Object.values(ledger).sort((a, b) => a.code.localeCompare(b.code));
 
         res.status(200).json({
@@ -635,11 +394,27 @@ exports.getGeneralLedger = async (req, res) => {
 
     } catch (error) {
         console.error('[General Ledger Error]', error.message);
-        res.status(500).json({ 
-            status: 'error', 
-            error: `Échec de la récupération du Grand Livre : ${error.message}` 
+        res.status(500).json({ 
+            status: 'error', 
+            error: `Échec de la récupération du Grand Livre : ${error.message}` 
         });
     }
+};
+
+/**
+ * Récupère les détails d'une écriture comptable spécifique (Drill-Down).
+ * Endpoint: GET /api/accounting/details/:entryId
+ */
+exports.getEntryDetails = async (req, res) => {
+    return res.status(501).json({ error: `La récupération des détails de l'écriture #${req.params.entryId} n'est pas encore implémentée (501).` });
+};
+
+/**
+ * Enregistre une nouvelle écriture comptable simplifiée (Opération de Caisse).
+ * Endpoint: POST /api/accounting/caisse-entry
+ */
+exports.handleCaisseEntry = async (req, res) => {
+    return res.status(501).json({ error: `L'enregistrement de l'opération de caisse pour la compagnie ${req.body.companyId} n'est pas encore implémenté (501).` });
 };
 
 exports.getBalanceSheet = async (req, res) => {
