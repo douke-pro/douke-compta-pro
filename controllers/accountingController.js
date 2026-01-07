@@ -175,9 +175,6 @@ exports.getFinancialReport = async (req, res) => {
 };
 
 
-
-
-
 /**
 
  * Récupère les données de synthèse pour le tableau de bord de la compagnie spécifiée.
