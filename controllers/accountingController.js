@@ -165,26 +165,32 @@ exports.getDashboardData = async (req, res, next) => {
 exports.getChartOfAccounts = async (req, res) => {
     try {
         const companyIdRaw = req.query.companyId;
-        const odooUid = req.user.odooUid; // 🔑 NOUVEAU/CORRIGÉ : UID de l'utilisateur connecté
+        const odooUid = req.user.odooUid;
 
         if (!companyIdRaw) {
             return res.status(400).json({ error: "L'ID de compagnie est requis pour la lecture du Plan Comptable." });
         }
         if (!odooUid) {
-             return res.status(401).json({ error: "UID utilisateur Odoo manquant pour l'exécution de la requête." });
+            return res.status(401).json({ error: "UID utilisateur Odoo manquant pour l'exécution de la requête." });
         }
         
         const companyId = parseInt(companyIdRaw, 10);
-        const filter = []; // Nous comptons sur l'UID et le contexte pour le cloisonnement
+        
+        // 🔑 NOUVELLE RÈGLE DE CLOISONNEMENT :
+        // Le filtre doit être appliqué au domaine, en utilisant le champ réel 'company_ids' (Many2many)
+        // L'opérateur 'in' est utilisé pour vérifier si l'ID de la compagnie (companyId) est dans la liste des IDs du champ 'company_ids'.
+        const domainFilter = [['company_ids', 'in', [companyId]]]; 
         
         const accounts = await odooExecuteKw({
-            uid: odooUid, // 🔑 CRITIQUE CORRIGÉ : Utiliser l'UID de l'utilisateur pour activer le cloisonnement Odoo
+            uid: odooUid,
             model: 'account.account',
             method: 'search_read',
-            args: [filter], 
-            kwargs: { 
-                fields: ['id', 'code', 'name', 'account_type'], 
-                context: { company_id: companyId } 
+            // Utilisation du filtre explicite pour le cloisonnement
+            args: [domainFilter], 
+            kwargs: { 
+                fields: ['id', 'code', 'name', 'account_type'], 
+                // Context est vidé ou laissé par défaut, car le filtre est dans args
+                context: {} 
             }
         });
 
@@ -195,8 +201,9 @@ exports.getChartOfAccounts = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[COA Read Error]', error.message); 
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Vérifiez les droits de l\'UID utilisateur et l\'initialisation du Plan Comptable de la compagnie).' });
+        console.error('[COA Read Error]', error.message); 
+        // ⚠️ Le message d'erreur est mis à jour pour indiquer le besoin de la correction Odoo
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Problème de permission Odoo, voir les instructions de correction d\'élimination des erreurs de domaine).' });
     }
 };
 
