@@ -217,3 +217,74 @@ exports.odooRegisterUser = async (name, email, password) => {
         throw new Error(`Erreur d'inscription Odoo : ${error.message}`);
     }
 };
+
+// services/odoo.js (conceptuel)
+
+async function getBalanceSixColumns(odooUid, companyId, date_from, date_to) {
+    // 1. Définir le domaine pour filtrer par société, date et statut (posté)
+    const domain = [
+        ['company_id', 'in', [companyId]], // Ou ['company_ids', 'in', [companyId]] si le bug est corrigé
+        ['date', '>=', date_from],
+        ['date', '<=', date_to],
+        ['parent_state', '=', 'posted'] // Ne prendre que les écritures validées
+    ];
+
+    // Dans Odoo, les calculs de balance sont complexes et ne peuvent généralement pas 
+    // être faits avec un simple 'search_read' sur account.move.line. 
+    // Nous devons appeler un rapport spécifique ou la méthode 'action_get_balances'
+    // d'un objet de rapport.
+
+    // **ASSUMPTION CRITIQUE :** Votre instance Odoo a un module de localisation (l10n_...) 
+    // ou un module de rapport financier qui sait comment calculer ces soldes.
+
+    try {
+        const reportResult = await odooExecuteKw({
+            uid: odooUid,
+            model: 'account.report.general.ledger', // Exemple de modèle de rapport
+            method: 'get_balance_six_columns_data', // Méthode hypothétique
+            args: [domain, date_from, date_to],
+            // ... autres kwargs
+        });
+        
+        return reportResult;
+        
+    } catch (error) {
+        // ... gestion d'erreur
+    }
+}
+
+async function getGeneralLedger(odooUid, companyId, date_from, date_to, journal_ids = []) {
+    let domain = [
+        ['company_id', 'in', [companyId]], // Cloisonnement !
+        ['date', '>=', date_from],
+        ['date', '<=', date_to],
+        ['parent_state', '=', 'posted'] // Uniquement les écritures postées
+    ];
+
+    if (journal_ids.length > 0) {
+        domain.push(['journal_id', 'in', journal_ids]);
+    }
+
+    try {
+        const lines = await odooExecuteKw({
+            uid: odooUid,
+            model: 'account.move.line',
+            method: 'search_read',
+            args: [domain],
+            kwargs: {
+                fields: [
+                    'date', 'ref', 'move_name', 'account_id', 
+                    'partner_id', 'name', 'debit', 'credit'
+                ],
+                order: 'account_id asc, date asc, move_name asc' // Classement essentiel
+            }
+        });
+        
+        // La post-traitement côté Node.js sera essentiel pour organiser
+        // les lignes par compte et calculer les soldes cumulatifs.
+        return lines;
+        
+    } catch (error) {
+        // ... gestion d'erreur
+    }
+}
