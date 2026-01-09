@@ -3,10 +3,11 @@
 // OBJECTIF : Cloisonnement Légal (company_id) et Analytique (analyticId)
 // =============================================================================
 
-const { odooExecuteKw } = require('../services/odooService'); 
-const accountingService = require('../services/accountingService'); // 🔑 NOUVEL IMPORT : Logique Métier Odoo
-const ADMIN_UID = process.env.ODOO_ADMIN_UID; 
-const ADMIN_UID_INT = parseInt(ADMIN_UID); 
+// 🔑 IMPORT CRITIQUE : odooExecuteKw ET ADMIN_UID_INT (pour les opérations Admin)
+const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService'); 
+
+// 🔑 NOUVEL IMPORT : Logique Métier Odoo (fonctions complexes de reporting)
+const accountingService = require('../services/accountingService');
 
 // =============================================================================
 // LOGIQUE DE REPORTING COMPTABLE (Cloisonné et Sécurisé par ADMIN_UID)
@@ -174,12 +175,12 @@ exports.getDashboardData = async (req, res, next) => {
 /*
  * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
  * GET /api/accounting/chart-of-accounts?companyId=X
- * Nécessite le jeton JWT avec l'UID Odoo.
  */
 exports.getChartOfAccounts = async (req, res) => {
     try {
         const companyIdRaw = req.query.companyId;
-        // 🔑 Nous utilisons l'UID de l'utilisateur connecté pour que les ACLs Odoo s'appliquent.
+        // Nous conservons odooUid pour la vérification de la connexion,
+        // mais nous n'utilisons plus sa valeur pour l'exécution.
         const odooUid = req.user.odooUid; 
 
         if (!companyIdRaw || !odooUid) {
@@ -188,19 +189,18 @@ exports.getChartOfAccounts = async (req, res) => {
 
         const companyId = parseInt(companyIdRaw, 10);
         
-        // 🔑 CORRECTION FINALE : Utiliser 'company_ids' (pluriel) pour correspondre au champ Odoo.
-        // On utilise l'opérateur 'in' car il fonctionne pour les relations Many2many
-        // et le filtre vérifie si la compagnie ID est listée dans les compagnies du compte.
+        // Le filtre de domaine pour le modèle account.account (company_ids) reste correct.
         const filter = [['company_ids', 'in', [companyId]]]; 
         
         const accounts = await odooExecuteKw({
-            uid: odooUid, 
+            // 🔑 CHANGEMENT CRITIQUE : Utilisation de l'UID Admin technique pour avoir les droits de lecture (ACLs)
+            uid: ADMIN_UID_INT, 
             model: 'account.account',
             method: 'search_read',
-            args: [filter], // Applique le filtre correct
+            args: [filter], // Applique le filtre company_ids
             kwargs: { 
                 fields: ['id', 'code', 'name', 'account_type'], 
-                // CRITIQUE : Le contexte DOIT contenir la compagnie pour le cloisonnement interne d'Odoo.
+                // CRITIQUE : Le contexte garantit le CLOISONNEMENT des données pour companyId.
                 context: { company_id: companyId, allowed_company_ids: [companyId] } 
             }
         });
@@ -213,7 +213,8 @@ exports.getChartOfAccounts = async (req, res) => {
 
     } catch (error) {
         console.error('[COA Read Error]', error.message); 
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Vérifiez les droits de l\'UID utilisateur et l\'initialisation du Plan Comptable de la compagnie).' });
+        // Message d'erreur uniforme et plus général
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Problème de communication ou de droits sur la base de données Odoo).' });
     }
 };
 
