@@ -19,7 +19,7 @@ router.get('/details/:entryId', protect, accountingController.getEntryDetails);
 
 // 4. Lecture du Plan Comptable (Ouvert aux rôles avec droit de vue)
 // GET /api/accounting/chart-of-accounts?companyId=X
-router.get('/chart-of-accounts', protect, accountingController.getChartOfAccounts); 
+router.get('/chart-of-accounts', protect, accountingController.getChartOfAccounts); 
 
 // 5. Lecture du Grand Livre (Ledger)
 // GET /api/accounting/ledger?companyId=X
@@ -55,5 +55,9 @@ router.post('/chart-of-accounts', protect, checkWritePermission, accountingContr
 // 11. Modification d'un compte
 // PUT /api/accounting/chart-of-accounts
 router.put('/chart-of-accounts', protect, checkWritePermission, accountingController.updateAccount);
+
+// 12. NOUVELLE ROUTE CRITIQUE : Création et Validation d'une Écriture Comptable (Journal Entry)
+// POST /api/accounting/move
+router.post('/move', protect, checkWritePermission, accountingController.createJournalEntry);
 
 module.exports = router;
