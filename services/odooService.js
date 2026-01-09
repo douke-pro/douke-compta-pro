@@ -34,7 +34,8 @@ if (!ODOO_CONFIG.adminUid) {
  * Fonction de base pour effectuer une requête JSON-RPC à Odoo.
  */
 async function executeJsonRpc(endpoint, payload) {
-    const url = `${ODOO_URL}${endpoint}`;
+    // ... (Logique executeJsonRpc)
+    const url = `${ODOO_URL}${endpoint}`;
 
     try {
         const response = await fetch(url, {
@@ -74,9 +75,9 @@ async function executeJsonRpc(endpoint, payload) {
 // =============================================================================
 
 exports.odooAuthenticate = async (email, password) => {
-    
-    const db = ODOO_CONFIG.db;
-    const adminPassword = ODOO_CONFIG.password; 
+    // ... (Logique odooAuthenticate)
+    const db = ODOO_CONFIG.db;
+    const adminPassword = ODOO_CONFIG.password; 
     
     if (!adminPassword) {
         throw new Error("Clé API Administrateur (ODOO_API_KEY) est manquante, les fonctions Admin échoueront.");
@@ -131,7 +132,8 @@ exports.odooAuthenticate = async (email, password) => {
  * Exécute une méthode de modèle Odoo (execute_kw) via JSON-RPC.
  */
 exports.odooExecuteKw = async (params) => {
-    const { uid, model, method, args = [], kwargs = {} } = params;
+    // ... (Logique odooExecuteKw)
+    const { uid, model, method, args = [], kwargs = {} } = params;
     const db = ODOO_CONFIG.db;
     const password = ODOO_CONFIG.password; 
 
@@ -160,8 +162,8 @@ exports.odooExecuteKw = async (params) => {
  * Crée un nouvel utilisateur Odoo et lui attribue des droits de base.
  */
 exports.odooRegisterUser = async (name, email, password) => {
-    
-    const adminUid = ODOO_CONFIG.adminUid;
+    // ... (Logique odooRegisterUser)
+    const adminUid = ODOO_CONFIG.adminUid;
     
     if (!adminUid) {
         throw new Error("L'UID de l'Administrateur Odoo est requis (ODOO_ADMIN_UID manquant) pour créer des utilisateurs.");
@@ -176,7 +178,7 @@ exports.odooRegisterUser = async (name, email, password) => {
 
     try {
         const newUid = await exports.odooExecuteKw({
-            uid: adminUid, 
+            uid: adminUid, 
             model: 'res.users',
             method: 'create',
             args: [userValues],
@@ -194,3 +196,14 @@ exports.odooRegisterUser = async (name, email, password) => {
         throw new Error(`Erreur d'inscription Odoo : ${error.message}`);
     }
 };
+
+// =============================================================================
+// EXPORT ADDITIONNEL : UID de l'Administrateur Technique
+// =============================================================================
+
+/**
+ * Exporte l'UID de l'administrateur technique Odoo sous forme de nombre entier.
+ * Utilisé pour les opérations critiques de lecture (rapports, configuration) qui 
+ * nécessitent des droits élevés, le cloisonnement étant assuré par le 'context'.
+ */
+exports.ADMIN_UID_INT = parseInt(ODOO_CONFIG.adminUid, 10);
