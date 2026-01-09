@@ -171,45 +171,50 @@ exports.getDashboardData = async (req, res, next) => {
 // LOGIQUE DU PLAN COMPTABLE (CRUD Cloisonné par req.user.odooUid)
 // =============================================================================
 
-/**
- * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
- * Endpoint: GET /api/accounting/chart-of-accounts?companyId=X
- */
+/*
+ * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
+ * GET /api/accounting/chart-of-accounts?companyId=X
+ * Nécessite le jeton JWT avec l'UID Odoo.
+ */
 exports.getChartOfAccounts = async (req, res) => {
-    try {
-        const companyIdRaw = req.query.companyId;
-        const odooUid = req.user.odooUid; // 🔑 UID de l'utilisateur connecté (Force les ACLs)
+    try {
+        const companyIdRaw = req.query.companyId;
+        // 🔑 Nous utilisons l'UID de l'utilisateur connecté pour que les ACLs Odoo s'appliquent.
+        const odooUid = req.user.odooUid; 
 
-        if (!companyIdRaw || !odooUid) {
-            return res.status(400).json({ error: "L'ID de compagnie ou UID est requis pour la lecture du Plan Comptable." });
-        }
+        if (!companyIdRaw || !odooUid) {
+            return res.status(400).json({ error: "L'ID de compagnie ou UID est requis pour la lecture du Plan Comptable." });
+        }
 
-        const companyId = parseInt(companyIdRaw, 10);
-        // 🔑 CORRIGÉ CRITIQUE : Filtre explicite par company_id pour le multicompany
-        const filter = [['company_id', 'in', [companyId]]]; 
-        
-        const accounts = await odooExecuteKw({
-            uid: odooUid, // 🔑 CRITIQUE : Utiliser l'UID de l'utilisateur pour activer le cloisonnement Odoo
-            model: 'account.account',
-            method: 'search_read',
-            args: [filter], // Applique le filtre légal
-            kwargs: { 
-                fields: ['id', 'code', 'name', 'account_type'], 
-                // Contexte de sécurité critique pour le multicompany
-                context: { company_id: companyId, allowed_company_ids: [companyId] } 
-            }
-        });
+        const companyId = parseInt(companyIdRaw, 10);
+        
+        // 🔑 CORRECTION FINALE : Utiliser 'company_ids' (pluriel) pour correspondre au champ Odoo.
+        // On utilise l'opérateur 'in' car il fonctionne pour les relations Many2many
+        // et le filtre vérifie si la compagnie ID est listée dans les compagnies du compte.
+        const filter = [['company_ids', 'in', [companyId]]]; 
+        
+        const accounts = await odooExecuteKw({
+            uid: odooUid, 
+            model: 'account.account',
+            method: 'search_read',
+            args: [filter], // Applique le filtre correct
+            kwargs: { 
+                fields: ['id', 'code', 'name', 'account_type'], 
+                // CRITIQUE : Le contexte DOIT contenir la compagnie pour le cloisonnement interne d'Odoo.
+                context: { company_id: companyId, allowed_company_ids: [companyId] } 
+            }
+        });
 
-        res.status(200).json({
-            status: 'success',
-            results: accounts.length,
-            data: accounts
-        });
+        res.status(200).json({
+            status: 'success',
+            results: accounts.length,
+            data: accounts
+        });
 
-    } catch (error) {
-        console.error('[COA Read Error]', error.message); 
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Vérifiez les droits de l\'UID utilisateur et l\'initialisation du Plan Comptable de la compagnie).' });
-    }
+    } catch (error) {
+        console.error('[COA Read Error]', error.message); 
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Vérifiez les droits de l\'UID utilisateur et l\'initialisation du Plan Comptable de la compagnie).' });
+    }
 };
 
 /**
