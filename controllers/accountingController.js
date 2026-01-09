@@ -326,6 +326,135 @@ exports.updateAccount = async (req, res) => {
     }
 };
 
+/**
+ * Crée une nouvelle écriture comptable (account.move) dans Odoo.
+ * Endpoint: POST /api/accounting/move
+ * Corps de la requête (req.body) doit inclure :
+ * - companyId (int)
+ * - journalCode (string, ex: 'VENTES', 'ACHATS')
+ * - date (string, 'YYYY-MM-DD')
+ * - narration (string, libellé général)
+ * - lines (array of { accountCode: string, name: string, debit: float, credit: float })
+ */
+exports.createJournalEntry = async (req, res) => {
+    try {
+        const { companyId, journalCode, date, narration, lines } = req.body;
+        // 🔑 Utilisation de l'UID de l'utilisateur pour la passation d'écriture
+        const odooUid = req.user.odooUid; 
+
+        if (!odooUid || !companyId || !journalCode || !date || !Array.isArray(lines) || lines.length === 0) {
+            return res.status(400).json({ 
+                error: "Données requises manquantes ou format incorrect (companyId, journalCode, date, lines)." 
+            });
+        }
+
+        // 1. **Vérification de la Partie Double (Principe SYSCOHADA / Comptabilité)**
+        const totalDebit = lines.reduce((sum, line) => sum + (line.debit || 0), 0);
+        const totalCredit = lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+
+        if (Math.abs(totalDebit - totalCredit) > 0.005) { // Tolérance pour flottants
+            return res.status(400).json({ 
+                error: `Le total Débit (${totalDebit.toFixed(2)}) ne correspond pas au total Crédit (${totalCredit.toFixed(2)}). La partie double est requise.` 
+            });
+        }
+
+        // 2. **Récupération de l'ID du Journal (Crucial)**
+        // On cherche le journal dans la compagnie spécifiée pour le cloisonnement.
+        const journalIdResult = await odooExecuteKw({
+            uid: odooUid,
+            model: 'account.journal',
+            method: 'search_read',
+            args: [[['code', '=', journalCode], ['company_id', '=', companyId]]],
+            kwargs: {
+                fields: ['id'],
+                limit: 1,
+                context: { company_id: companyId }
+            }
+        });
+        
+        if (!journalIdResult || journalIdResult.length === 0) {
+            return res.status(404).json({ 
+                error: `Journal comptable non trouvé pour le code ${journalCode} dans la compagnie ${companyId}.` 
+            });
+        }
+        const journalId = journalIdResult[0].id;
+        
+        // 3. **Formatage des Lignes pour Odoo (account.move.line)**
+        const moveLinesData = [];
+        for (const line of lines) {
+            // Rechercher l'ID du compte à partir du code (ex: '411000')
+            // NOTE: Nous utilisons ici l'UID de l'utilisateur pour rechercher les comptes.
+            // Si l'utilisateur standard n'a pas le droit de lire 'account.account', cela pourrait échouer. 
+            // Si c'est le cas, nous devrons utiliser ADMIN_UID_INT ici aussi, mais conservons odooUid pour l'instant.
+            const accountResult = await odooExecuteKw({
+                uid: odooUid,
+                model: 'account.account',
+                method: 'search_read',
+                args: [[['code', '=', line.accountCode], ['company_ids', 'in', [companyId]]]],
+                kwargs: { fields: ['id'], limit: 1, context: { company_id: companyId } }
+            });
+
+            if (!accountResult || accountResult.length === 0) {
+                return res.status(404).json({ 
+                    error: `Compte comptable non trouvé pour le code ${line.accountCode} dans la compagnie ${companyId}.` 
+                });
+            }
+            const accountId = accountResult[0].id;
+
+            moveLinesData.push([0, 0, { // [0, 0, VALUES] est le format Odoo pour créer une ligne
+                account_id: accountId,
+                name: line.name || narration,
+                debit: line.debit || 0,
+                credit: line.credit || 0,
+                // Le champ company_id n'est pas nécessaire ici, Odoo le déduira du move
+            }]);
+        }
+
+        // 4. **Création du Mouvement (account.move)**
+        const moveValues = {
+            journal_id: journalId,
+            date: date,
+            ref: narration, // Le libellé général est utilisé comme référence temporaire
+            narration: narration,
+            company_id: companyId, // 🔑 Cloisonnement Légal
+            line_ids: moveLinesData, // Les lignes associées
+            state: 'draft', // Par défaut, l'écriture reste en brouillon
+        };
+
+        const newMoveId = await odooExecuteKw({
+            uid: odooUid,
+            model: 'account.move',
+            method: 'create',
+            args: [moveValues],
+            kwargs: { context: { company_id: companyId } }
+        });
+
+        if (!newMoveId) {
+            throw new Error("Échec de la création de l'écriture dans Odoo.");
+        }
+        
+        // 5. **Valider l'Écriture (Passation Définitive)**
+        // C'est l'opération qui garantit le numéro chronologique (SYSCOHADA).
+        await odooExecuteKw({
+            uid: odooUid,
+            model: 'account.move',
+            method: 'action_post',
+            args: [[newMoveId]],
+            kwargs: { context: { company_id: companyId } }
+        });
+
+
+        res.status(201).json({
+            status: 'success',
+            message: 'Écriture comptable créée et validée avec succès.',
+            moveId: newMoveId
+        });
+
+    } catch (error) {
+        console.error('[Journal Entry Creation Error]', error.message);
+        res.status(500).json({ error: `Échec de l'enregistrement de l'écriture: ${error.message}` });
+    }
+};
 
 // =============================================================================
 // FONCTIONS DE REPORTING DÉTAILLÉES (Utilisation accountingService.js)
