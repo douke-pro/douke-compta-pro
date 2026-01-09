@@ -4,13 +4,14 @@
 // =============================================================================
 
 // 🔑 IMPORT CRITIQUE : odooExecuteKw ET ADMIN_UID_INT (pour les opérations Admin)
+// L'Admin UID est importé de odooService pour garantir la cohérence et l'accès élevé.
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService'); 
 
 // 🔑 NOUVEL IMPORT : Logique Métier Odoo (fonctions complexes de reporting)
 const accountingService = require('../services/accountingService');
 
 // =============================================================================
-// LOGIQUE DE REPORTING COMPTABLE (Cloisonné et Sécurisé par ADMIN_UID)
+// LOGIQUE DE REPORTING COMPTABLE (Cloisonné et Sécurisé par ADMIN_UID_INT)
 // =============================================================================
 
 /**
@@ -19,157 +20,159 @@ const accountingService = require('../services/accountingService');
  * Cloisonnement sur CompanyId (Légal) ET AnalyticId (Projet/Filiale).
  */
 exports.getFinancialReport = async (req, res) => {
-    try {
-        const { analyticId } = req.params; 
-        const { systemType, companyId } = req.query; // 🔑 companyId ajouté
+    try {
+        const { analyticId } = req.params; 
+        const { systemType, companyId } = req.query; // 🔑 companyId ajouté
 
-        if (!ADMIN_UID || !companyId) {
-            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID ou companyId manquant." });
-        }
+        // 🛑 CORRIGÉ : Utiliser la variable ADMIN_UID_INT pour la vérification
+        if (!ADMIN_UID_INT || !companyId) {
+            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID ou companyId manquant." });
+        }
         
         const companyIdInt = parseInt(companyId, 10);
-        
-        // 1. Définition du filtre de cloisonnement (Filtre Analytique ET Légal)
-        const analyticFilter = [['analytic_distribution', 'in', [analyticId.toString()]]];
+        
+        // 1. Définition du filtre de cloisonnement (Filtre Analytique ET Légal)
+        const analyticFilter = [['analytic_distribution', 'in', [analyticId.toString()]]];
         const companyFilter = [['company_id', 'in', [companyIdInt]]]; // 🔑 Filtre LÉGAL CRITIQUE
 
-        // 2. Récupération des écritures comptables (account.move.line)
-        const moveLines = await odooExecuteKw({ 
-            uid: ADMIN_UID, // L'Admin est utilisé pour le reporting global
-            model: 'account.move.line',
-            method: 'search_read',
-            args: [
-                [
-                    ...companyFilter, // 🔑 Cloisonnement Légal
-                    ...analyticFilter,
-                    ['parent_state', '=', 'posted'] // Uniquement les écritures validées
-                ]
-            ],
-            kwargs: { 
+        // 2. Récupération des écritures comptables (account.move.line)
+        const moveLines = await odooExecuteKw({ 
+            uid: ADMIN_UID_INT, // 🔑 CORRIGÉ : Utiliser ADMIN_UID_INT
+            model: 'account.move.line',
+            method: 'search_read',
+            args: [
+                [
+                    ...companyFilter, // 🔑 Cloisonnement Légal
+                    ...analyticFilter,
+                    ['parent_state', '=', 'posted'] // Uniquement les écritures validées
+                ]
+            ],
+            kwargs: { 
                 fields: ['account_id', 'debit', 'credit', 'date', 'name'],
                 context: { company_id: companyIdInt } // Contexte de travail
             }
-        });
+        });
 
-        // 3. Traitement selon le référentiel SYSCOHADA (Logique de calcul conservée)
-        let report = {
-            chiffreAffaires: 0, 
-            chargesExploitation: 0, 
-            tresorerie: 0, 
-            resultat: 0
-        };
+        // 3. Traitement selon le référentiel SYSCOHADA (Logique de calcul conservée)
+        let report = {
+            chiffreAffaires: 0, 
+            chargesExploitation: 0, 
+            tresorerie: 0, 
+            resultat: 0
+        };
 
-        moveLines.forEach(line => {
-            const accountCode = line.account_id ? line.account_id[1] : ''; 
+        moveLines.forEach(line => {
+            const accountCode = line.account_id ? line.account_id[1] : ''; 
 
-            if (accountCode.startsWith('7')) {
-                report.chiffreAffaires += (line.credit - line.debit);
-            } else if (accountCode.startsWith('6')) {
-                report.chargesExploitation += (line.debit - line.credit);
-            } else if (accountCode.startsWith('5')) {
-                report.tresorerie += (line.debit - line.credit);
-            }
-        });
+            if (accountCode.startsWith('7')) {
+                report.chiffreAffaires += (line.credit - line.debit);
+            } else if (accountCode.startsWith('6')) {
+                report.chargesExploitation += (line.debit - line.credit);
+            } else if (accountCode.startsWith('5')) {
+                report.tresorerie += (line.debit - line.credit);
+            }
+        });
 
-        report.resultat = report.chiffreAffaires - report.chargesExploitation;
+        report.resultat = report.chiffreAffaires - report.chargesExploitation;
 
-        // 4. Adaptation spécifique au Système Minimal de Trésorerie (SMT)
-        if (systemType === 'SMT') {
-            return res.json({
-                systeme: "Minimal de Trésorerie (SMT)",
-                flux: {
-                    encaissements: report.chiffreAffaires,
-                    decaissements: report.chargesExploitation,
-                    soldeNet: report.tresorerie
-                }
-            });
-        }
-        
-        res.json({
-            systeme: "Normal (Comptabilité d'engagement)",
-            donnees: report
-        });
+        // 4. Adaptation spécifique au Système Minimal de Trésorerie (SMT)
+        if (systemType === 'SMT') {
+            return res.json({
+                systeme: "Minimal de Trésorerie (SMT)",
+                flux: {
+                    encaissements: report.chiffreAffaires,
+                    decaissements: report.chargesExploitation,
+                    soldeNet: report.tresorerie
+                }
+            });
+        }
+        
+        res.json({
+            systeme: "Normal (Comptabilité d'engagement)",
+            donnees: report
+        });
 
-    } catch (error) {
-        console.error('[Accounting Report Error]', error.message);
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) {
+        console.error('[Accounting Report Error]', error.message);
+        res.status(500).json({ error: error.message });
+    }
 };
 
 
 /**
- * Récupère les données de synthèse pour le tableau de bord de la compagnie spécifiée.
- * Endpoint: GET /api/accounting/dashboard?companyId=X
- */
+ * Récupère les données de synthèse pour le tableau de bord de la compagnie spécifiée.
+ * Endpoint: GET /api/accounting/dashboard?companyId=X
+ */
 exports.getDashboardData = async (req, res, next) => {
-    try {
-        const companyId = req.query.companyId;
+    try {
+        const companyId = req.query.companyId;
 
-        if (!companyId || !ADMIN_UID) {
-            return res.status(400).json({ status: 'fail', error: 'Le paramètre companyId ou l\'Admin UID est requis.' });
-        }
+        // 🛑 CORRIGÉ : Utiliser la variable ADMIN_UID_INT pour la vérification
+        if (!companyId || !ADMIN_UID_INT) {
+            return res.status(400).json({ status: 'fail', error: 'Le paramètre companyId ou l\'Admin UID est requis.' });
+        }
 
-        // 1. Définition du filtre LÉGAL (Correction Critique)
-        const companyIdInt = parseInt(companyId, 10);
-        const companyFilter = [['company_id', 'in', [companyIdInt]]]; // 🔑 CORRIGÉ : Cible la société légale
+        // 1. Définition du filtre LÉGAL (Correction Critique)
+        const companyIdInt = parseInt(companyId, 10);
+        const companyFilter = [['company_id', 'in', [companyIdInt]]]; // 🔑 CORRIGÉ : Cible la société légale
 
-        // 2. Récupération des écritures comptables
-        const moveLines = await odooExecuteKw({ 
-            uid: ADMIN_UID, 
-            model: 'account.move.line',
-            method: 'search_read',
-            args: [[...companyFilter, ['parent_state', '=', 'posted']]],
-            kwargs: { 
+        // 2. Récupération des écritures comptables
+        const moveLines = await odooExecuteKw({ 
+            uid: ADMIN_UID_INT, // 🔑 CORRIGÉ : Utiliser ADMIN_UID_INT
+            model: 'account.move.line',
+            method: 'search_read',
+            args: [[...companyFilter, ['parent_state', '=', 'posted']]],
+            kwargs: { 
                 fields: ['account_id', 'debit', 'credit', 'balance'], 
                 context: { company_id: companyIdInt } 
-            } 
-        });
+            } 
+        });
 
-        let data = { cash: 0, profit: 0, debts: 0 };
+        let data = { cash: 0, profit: 0, debts: 0 };
 
-        moveLines.forEach(line => {
-            const accountCode = line.account_id ? line.account_id[1] : ''; 
-            const balance = line.balance || 0; 
+        moveLines.forEach(line => {
+            const accountCode = line.account_id ? line.account_id[1] : ''; 
+            const balance = line.balance || 0; 
             const debit = line.debit || 0;
             const credit = line.credit || 0;
 
             // Utilisation des débits/crédits pour un calcul de profit plus précis (Logique SYSCOHADA)
-            if (accountCode.startsWith('7')) {
-                data.profit += (credit - debit); 
-            } else if (accountCode.startsWith('6')) {
+            if (accountCode.startsWith('7')) {
+                data.profit += (credit - debit); 
+            } else if (accountCode.startsWith('6')) {
                 data.profit -= (debit - credit);
             }
-            
-            if (accountCode.startsWith('5')) { 
-                data.cash += balance;
-            } else if (accountCode.startsWith('40') && balance < 0) { 
-                data.debts += Math.abs(balance);
-            }
-        });
-        
-        // 3. Fallback/Simulation conservée
-        if (moveLines.length === 0) {
-            data = { cash: 25000000, profit: 12500000, debts: 3500000 };
-        }
+            
+            if (accountCode.startsWith('5')) { 
+                data.cash += balance;
+            } else if (accountCode.startsWith('40') && balance < 0) { 
+                data.debts += Math.abs(balance);
+            }
+        });
+        
+        // 3. Fallback/Simulation conservée
+        if (moveLines.length === 0) {
+            data = { cash: 25000000, profit: 12500000, debts: 3500000 };
+        }
 
-        res.status(200).json({
-            status: 'success',
-            message: 'Données du tableau de bord récupérées.',
-            data: data
-        });
+        res.status(200).json({
+            status: 'success',
+            message: 'Données du tableau de bord récupérées.',
+            data: data
+        });
 
-    } catch (err) {
-        console.error('Erreur lors de la récupération du dashboard:', err.message);
-        res.status(500).json({
-            status: 'error',
-            error: 'Erreur serveur lors de la récupération des données de synthèse.'
-        });
-    }
+    } catch (err) {
+        console.error('Erreur lors de la récupération du dashboard:', err.message);
+        res.status(500).json({
+            status: 'error',
+            error: 'Erreur serveur lors de la récupération des données de synthèse.'
+        });
+    }
 };
 
 
 // =============================================================================
-// LOGIQUE DU PLAN COMPTABLE (CRUD Cloisonné par req.user.odooUid)
+// LOGIQUE DU PLAN COMPTABLE (CRUD Cloisonné par ADMIN_UID_INT)
 // =============================================================================
 
 /*
@@ -180,7 +183,6 @@ exports.getChartOfAccounts = async (req, res) => {
     try {
         const companyIdRaw = req.query.companyId;
         // Nous conservons odooUid pour la vérification de la connexion,
-        // mais nous n'utilisons plus sa valeur pour l'exécution.
         const odooUid = req.user.odooUid; 
 
         if (!companyIdRaw || !odooUid) {
@@ -189,11 +191,11 @@ exports.getChartOfAccounts = async (req, res) => {
 
         const companyId = parseInt(companyIdRaw, 10);
         
-        // Le filtre de domaine pour le modèle account.account (company_ids) reste correct.
+        // 🔑 Le filtre de domaine pour le modèle account.account (company_ids) reste correct.
         const filter = [['company_ids', 'in', [companyId]]]; 
         
         const accounts = await odooExecuteKw({
-            // 🔑 CHANGEMENT CRITIQUE : Utilisation de l'UID Admin technique pour avoir les droits de lecture (ACLs)
+            // 🔑 Utilisation de l'UID Admin technique pour avoir les droits de lecture (ACLs)
             uid: ADMIN_UID_INT, 
             model: 'account.account',
             method: 'search_read',
