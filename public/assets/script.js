@@ -1273,16 +1273,63 @@ function generateJournalLineHTML(lineNumber) {
 
 
 /**
- * Ajoute une ligne au conteneur du formulaire.
+ * Ajoute une ligne au conteneur du formulaire avec la logique d'autocomplétion.
+ * (CORRECTION du Problème 1 : Autocomplétion)
  */
 let lineCounter = 0;
 window.addLineToEntry = function() {
     lineCounter++;
     const container = document.getElementById('lines-container');
-    if (container) {
-        container.insertAdjacentHTML('beforeend', generateJournalLineHTML(lineCounter));
+    if (!container) return;
+
+    // Assurez-vous que generateJournalLineHTML génère un <select class="line-account-code">
+    container.insertAdjacentHTML('beforeend', generateJournalLineHTML(lineCounter));
+    
+    // Cible la ligne et le sélecteur d'entrée récemment ajoutés
+    const newLineElement = container.querySelector(`[data-line-number="${lineCounter}"]`);
+    const newSelect = newLineElement ? newLineElement.querySelector('.line-account-code') : null;
+    
+    // Si le sélecteur et les comptes sont disponibles
+    if (newSelect && window.allChartOfAccounts) {
+        
+        newSelect.innerHTML = '<option value="">Choisir un compte...</option>';
+
+        // 1. Peupler le sélecteur avec les comptes du Plan Comptable
+        window.allChartOfAccounts.forEach(account => {
+            const option = document.createElement('option');
+            // Assurez-vous que votre Plan Comptable utilise 'id' et 'name' (ou ajustez ici)
+            option.value = account.id; 
+            option.textContent = `${account.id} - ${account.name}`; 
+            newSelect.appendChild(option);
+        });
+
+        // 2. Écouteur pour l'autocomplétion du libellé (Problème 1)
+        newSelect.addEventListener('change', (e) => {
+            const selectedAccountId = e.target.value;
+            // Trouver l'objet compte complet à partir de l'ID sélectionné
+            const account = window.allChartOfAccounts.find(a => a.id === selectedAccountId);
+            
+            const lineNameInput = newLineElement.querySelector('.line-name');
+
+            if (account && lineNameInput) {
+                // Remplir le champ de libellé avec le nom du compte
+                lineNameInput.value = account.name;
+            } else if (lineNameInput) {
+                 lineNameInput.value = '';
+            }
+        });
     }
-}
+
+    // Ajouter les écouteurs de Débit/Crédit (si nécessaire)
+    const debitInput = newLineElement.querySelector('.line-debit');
+    const creditInput = newLineElement.querySelector('.line-credit');
+    
+    if (debitInput) debitInput.addEventListener('input', updateLineBalance);
+    if (creditInput) creditInput.addEventListener('input', updateLineBalance);
+
+    // Mettre à jour la balance après ajout
+    updateLineBalance();
+};
 
 /**
  * Supprime une ligne et recalcule la balance.
