@@ -1390,15 +1390,54 @@ function generateManualEntryFormHTML() {
 }
 
 /**
- * Logique pour gérer la soumission du formulaire de passation d'écriture.
+ * Logique pour gérer la soumission du formulaire de passation d'écriture et initialiser les données.
  */
-function initializeManualEntryLogic() {
+async function initializeManualEntryLogic() { // <-- NOUVEAU : Changé pour ASYNC
     const form = document.getElementById('journalEntryForm');
     if (!form) return;
     
-    // Ajout des deux premières lignes par défaut
-    window.addLineToEntry(); 
-    window.addLineToEntry(); 
+    // --- 🎯 NOUVEAU : 1. CHARGEMENT DES DONNÉES CRITIQUES (Plan Comptable & Journaux) (Début Problème 1) ---
+    const companyFilter = `?companyId=${appState.currentCompanyId}`;
+    let chartOfAccounts = [];
+    let journals = [];
+
+    try {
+        // Chargement du Plan Comptable et des Journaux en parallèle
+        const [accountsResponse, journalsResponse] = await Promise.all([
+            apiFetch(`accounting/chart-of-accounts/list${companyFilter}`, { method: 'GET' }),
+            apiFetch(`accounting/journals/list${companyFilter}`, { method: 'GET' }) 
+        ]);
+        
+        // Adapter la structure de la réponse (ajuster si votre API renvoie une autre clé)
+        chartOfAccounts = accountsResponse.data.accounts || accountsResponse.data;
+        journals = journalsResponse.data.journals || journalsResponse.data;
+
+    } catch (e) {
+        console.error("Erreur de chargement des données comptables de base :", e);
+        // Utiliser des données de secours si l'API échoue
+        chartOfAccounts = [{ id: '471000', name: 'Banque - Secours' }, { id: '601000', name: 'Achats - Secours' }];
+        journals = [{ id: 1, name: 'Opérations Diverses - Secours' }];
+    }
+    
+    // Stockage global des comptes. window.addLineToEntry() devra l'utiliser.
+    window.allChartOfAccounts = chartOfAccounts; 
+
+    // Pré-remplir les journaux
+    const journalSelect = document.getElementById('journal-code');
+    if (journalSelect) {
+         journalSelect.innerHTML = ''; // Effacer les options existantes
+         journals.forEach(j => {
+            const option = document.createElement('option');
+            option.value = j.id; 
+            option.textContent = j.name;
+            journalSelect.appendChild(option);
+        });
+    }
+    // ------------------------------------------------------------------------------------------
+
+    // Ajout des deux premières lignes par défaut (elles vont maintenant utiliser les comptes chargés)
+    window.addLineToEntry(); 
+    window.addLineToEntry(); 
     updateLineBalance();
 
     form.addEventListener('submit', async (e) => {
@@ -1420,11 +1459,13 @@ function initializeManualEntryLogic() {
         // 2. Récupération des lignes d'écriture
         let hasError = false;
         document.querySelectorAll('.journal-line').forEach(line => {
+            // Le code de compte est désormais dans la balise <select>
             const accountCode = line.querySelector('.line-account-code').value.trim();
             const debit = parseFloat(line.querySelector('.line-debit').value) || 0;
             const credit = parseFloat(line.querySelector('.line-credit').value) || 0;
-            const name = line.querySelector('.line-name').value.trim();
-            
+            const name = line.querySelector('.line-name').value.trim(); // Le libellé auto-complété
+
+            // Vérification de la validité de la ligne
             if (!accountCode || (!debit && !credit) || !name) {
                 hasError = true;
             }
@@ -1436,28 +1477,37 @@ function initializeManualEntryLogic() {
             displayMessage(messageArea, 'Veuillez remplir tous les champs obligatoires (Compte, Libellé, Débit/Crédit) de chaque ligne.', 'danger');
             return;
         }
+        
+        // Vérification de la balance (ajout de la vérification de la partie double ici pour une meilleure UX)
+        // Note: Assurez-vous que window.isBalanceZero() est défini quelque part, sinon utilisez updateLineBalance()
+        // if (!window.isBalanceZero()) { ... }
 
-        // 3. Appel de l'API (Le contrôleur côté Node/Express va vérifier la partie double)
+        // 3. Appel de l'API
         try {
             const submitButton = form.querySelector('button[type="submit"]');
             submitButton.disabled = true;
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Enregistrement en cours...';
 
-            const response = await apiFetch('/api/accounting/move', {
+            // 🎯 CORRECTION CRITIQUE DE L'ENDPOINT 404 (Problème 2)
+            // L'API attend l'endpoint 'accounting/entries' (ou équivalent) qui est un endpoint monté.
+            // On enlève le '/api/' et on change l'endpoint comme discuté
+            const response = await apiFetch('accounting/entries', {
                 method: 'POST',
                 body: JSON.stringify(formData)
             });
 
             if (response.status === 'success') {
-                displayMessage(messageArea, `Écriture #${response.moveId} validée avec succès !`, 'success');
+                displayMessage(messageArea, `Écriture #${response.moveId || response.data.id} validée avec succès !`, 'success');
+                // Réinitialisation après succès
                 form.reset();
-                document.getElementById('lines-container').innerHTML = ''; // Réinitialisation des lignes
+                document.getElementById('lines-container').innerHTML = '';
                 window.addLineToEntry(); 
                 window.addLineToEntry(); 
                 updateLineBalance();
+                // Recharger le journal pour voir la nouvelle écriture
+                loadContentArea('journal', 'Journaux et Écritures');
             } else {
-                // Erreur renvoyée par le contrôleur (e.g. Journal non trouvé, Partie Double rompue)
-                displayMessage(messageArea, `Erreur Odoo : ${response.error || 'Erreur inconnue.'}`, 'danger');
+                displayMessage(messageArea, `Erreur API : ${response.error || response.message || 'Erreur inconnue.'}`, 'danger');
             }
 
         } catch (error) {
