@@ -340,7 +340,8 @@ exports.createJournalEntry = async (req, res) => {
     try {
         const { companyId, journalCode, date, narration, lines } = req.body;
         // 🔑 Utilisation de l'UID de l'utilisateur pour la passation d'écriture
-        const odooUid = req.user.odooUid; 
+        // const odooUid = req.user.odooUid; 
+        const odooUid = ADMIN_UID_INT; // 🛑 TEST CRITIQUE: Forcer l'écriture avec l'Admin UID (2) 
 
         if (!odooUid || !companyId || !journalCode || !date || !Array.isArray(lines) || lines.length === 0) {
             return res.status(400).json({ 
