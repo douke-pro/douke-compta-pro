@@ -452,6 +452,9 @@ function getRoleBaseMenus(role) {
 /**
  * Charge le contenu HTML/Données dans la zone principale (Unifié V8/V9).
  */
+/**
+ * Charge le contenu HTML/Données dans la zone principale (Unifié V8/V9).
+ */
 async function loadContentArea(contentId, title) {
     const contentArea = document.getElementById('dashboard-content-area');
     contentArea.innerHTML = `<div class="p-8 text-center"><div class="loading-spinner mx-auto"></div><p class="mt-4 text-gray-500 font-bold">Chargement du module ${title}...</p></div>`;
@@ -508,14 +511,23 @@ async function loadContentArea(contentId, title) {
                 content = generateReportsMenuHTML();
                 break;
                 
+            // 🚀 CORRECTION CRITIQUE : CAS 'manual-entry'
+            case 'manual-entry':
+                // Injection directe du HTML du formulaire
+                contentArea.innerHTML = generateManualEntryFormHTML();
+                // Initialisation de la logique du formulaire
+                window.initializeManualEntryLogic(); 
+                // On retourne pour éviter l'écrasement par le 'if (content)' final
+                return;
+
             case 'ledger':
-            case 'manual-entry': 
             case 'admin-users':
             default:
+                // Fallback pour les cas non gérés
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
         }
         
-        // Mettre à jour la zone de contenu (sauf si une modale a été ouverte)
+        // Mettre à jour la zone de contenu (pour les cas asynchrones qui ont défini 'content')
         if (content) {
             contentArea.innerHTML = content;
         }
@@ -524,7 +536,6 @@ async function loadContentArea(contentId, title) {
         contentArea.innerHTML = `<div class="p-8 text-center text-danger"><i class="fas fa-exclamation-triangle fa-2x mb-3"></i><p class="font-bold">Erreur de chargement des données pour ${title}.</p><p class="text-sm">${error.message}</p></div>`;
     }
 }
-
 // --- Fonctions de récupération et de rendu ---
 
 // =================================================================
@@ -1226,3 +1237,236 @@ document.addEventListener('DOMContentLoaded', () => {
     attachGlobalListeners();
     checkAuthAndRender();
 });
+
+// =================================================================
+// FORMULAIRE DE PASSATION D'ÉCRITURE MANUELLE
+// =================================================================
+
+/**
+ * Génère le HTML pour une ligne d'écriture comptable (Débit/Crédit).
+ */
+function generateJournalLineHTML(lineNumber) {
+    // NOTE: La liste des comptes devrait être chargée dynamiquement dans un scénario réel
+    // Ici, nous utilisons un input texte simple pour le code de compte pour simplifier.
+    return `
+        <div class="journal-line grid grid-cols-6 gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm" data-line-id="${lineNumber}">
+            <div class="col-span-1">
+                <input type="text" class="line-account-code w-full rounded-md p-2 text-sm" placeholder="Code Cpte" data-field="accountCode" required>
+            </div>
+            <div class="col-span-2">
+                <input type="text" class="line-name w-full rounded-md p-2 text-sm" placeholder="Libellé Ligne" data-field="name" required>
+            </div>
+            <div class="col-span-1">
+                <input type="number" step="0.01" class="line-debit w-full rounded-md p-2 text-sm text-right" placeholder="Débit (XOF)" data-field="debit" value="0" oninput="updateLineBalance()">
+            </div>
+            <div class="col-span-1">
+                <input type="number" step="0.01" class="line-credit w-full rounded-md p-2 text-sm text-right" placeholder="Crédit (XOF)" data-field="credit" value="0" oninput="updateLineBalance()">
+            </div>
+            <div class="col-span-1 flex items-center justify-center">
+                <button type="button" onclick="removeJournalLine(${lineNumber})" class="text-danger hover:text-red-700 transition-colors">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+
+/**
+ * Ajoute une ligne au conteneur du formulaire.
+ */
+let lineCounter = 0;
+window.addLineToEntry = function() {
+    lineCounter++;
+    const container = document.getElementById('lines-container');
+    if (container) {
+        container.insertAdjacentHTML('beforeend', generateJournalLineHTML(lineCounter));
+    }
+}
+
+/**
+ * Supprime une ligne et recalcule la balance.
+ */
+window.removeJournalLine = function(lineNumber) {
+    const lineElement = document.querySelector(`.journal-line[data-line-id="${lineNumber}"]`);
+    if (lineElement) {
+        lineElement.remove();
+        updateLineBalance();
+    }
+}
+
+/**
+ * Calcule et affiche la balance Débit/Crédit.
+ */
+function updateLineBalance() {
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    document.querySelectorAll('.journal-line').forEach(line => {
+        const debitInput = line.querySelector('.line-debit');
+        const creditInput = line.querySelector('.line-credit');
+        
+        const debit = parseFloat(debitInput.value) || 0;
+        const credit = parseFloat(creditInput.value) || 0;
+
+        totalDebit += debit;
+        totalCredit += credit;
+    });
+
+    const balanceDiff = Math.abs(totalDebit - totalCredit);
+    const balanceMsgElement = document.getElementById('total-balance');
+    const message = `Balance : Débit Total ${totalDebit.toFixed(2).replace('.', ',')} XOF | Crédit Total ${totalCredit.toFixed(2).replace('.', ',')} XOF`;
+    
+    if (balanceDiff > 0.005) { // Tolérance pour les flottants
+        balanceMsgElement.innerHTML = `${message} <span class="text-danger font-bold">(Écart de ${balanceDiff.toFixed(2).replace('.', ',')} XOF - IMPOSSIBLE DE VALIDER)</span>`;
+        balanceMsgElement.classList.remove('text-success');
+        balanceMsgElement.classList.add('text-danger');
+        document.querySelector('#journalEntryForm button[type="submit"]').disabled = true;
+    } else {
+        balanceMsgElement.innerHTML = `${message} <span class="text-success font-bold">(Équilibre Parfait : OK)</span>`;
+        balanceMsgElement.classList.remove('text-danger');
+        balanceMsgElement.classList.add('text-success');
+        document.querySelector('#journalEntryForm button[type="submit"]').disabled = false;
+    }
+}
+
+
+/**
+ * Génère le conteneur principal du formulaire.
+ */
+function generateManualEntryFormHTML() {
+    return `
+        <h3 class="text-3xl font-black text-secondary mb-8 fade-in">
+            <i class="fas fa-calculator mr-3"></i> Passation d'une Nouvelle Écriture
+        </h3>
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl">
+            
+            <form id="journalEntryForm">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label for="entry-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date de l'Écriture</label>
+                        <input type="date" id="entry-date" name="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary p-2" required value="${new Date().toISOString().slice(0, 10)}">
+                    </div>
+                    <div>
+                        <label for="journal-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Journal (Code)</label>
+                        <select id="journal-code" name="journalCode" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary p-2" required>
+                            <option value="">Sélectionner un journal...</option>
+                            <option value="VENTES">Ventes</option>
+                            <option value="ACHATS">Achats</option>
+                            <option value="BQ">Banque</option>
+                            <option value="CS">Caisse</option>
+                            <option value="MISC">Opérations Diverses</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-1">
+                        <label for="narration" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Libellé Général</label>
+                        <input type="text" id="narration" name="narration" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary p-2" placeholder="Ex: Facture #2026/01/001" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-6 gap-3 mb-3 text-sm font-semibold text-gray-500 dark:text-gray-400 border-b pb-2">
+                    <div class="col-span-1">Compte</div>
+                    <div class="col-span-2">Description</div>
+                    <div class="col-span-1 text-right">Débit</div>
+                    <div class="col-span-1 text-right">Crédit</div>
+                    <div class="col-span-1">Action</div>
+                </div>
+
+                <div id="lines-container" class="space-y-3 mb-6">
+                    </div>
+                
+                <button type="button" onclick="window.addLineToEntry()" class="bg-success text-white font-bold py-2 px-4 rounded-xl hover:bg-success/80 transition-colors mr-3">
+                    <i class="fas fa-plus mr-2"></i> Ajouter Ligne
+                </button>
+                <button type="submit" class="bg-primary text-white font-bold py-2 px-6 rounded-xl hover:bg-primary/80 transition-colors">
+                    <i class="fas fa-check-square mr-2"></i> Valider et Passer l'Écriture
+                </button>
+            </form>
+            <p id="total-balance" class="text-lg font-bold mt-4 text-danger">Balance : Débit Total 0 XOF = Crédit Total 0 XOF (Écart - IMPOSSIBLE DE VALIDER)</p>
+
+            <div id="entry-message" class="mt-4 text-center p-3 rounded-lg hidden"></div>
+        </div>
+    `;
+}
+
+/**
+ * Logique pour gérer la soumission du formulaire de passation d'écriture.
+ */
+function initializeManualEntryLogic() {
+    const form = document.getElementById('journalEntryForm');
+    if (!form) return;
+    
+    // Ajout des deux premières lignes par défaut
+    window.addLineToEntry(); 
+    window.addLineToEntry(); 
+    updateLineBalance();
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const messageArea = document.getElementById('entry-message');
+        messageArea.classList.add('hidden');
+        messageArea.textContent = '';
+        
+        // 1. Récupération des données du formulaire
+        const formData = {
+            companyId: appState.currentCompanyId,
+            journalCode: document.getElementById('journal-code').value,
+            date: document.getElementById('entry-date').value,
+            narration: document.getElementById('narration').value,
+            lines: []
+        };
+        
+        // 2. Récupération des lignes d'écriture
+        let hasError = false;
+        document.querySelectorAll('.journal-line').forEach(line => {
+            const accountCode = line.querySelector('.line-account-code').value.trim();
+            const debit = parseFloat(line.querySelector('.line-debit').value) || 0;
+            const credit = parseFloat(line.querySelector('.line-credit').value) || 0;
+            const name = line.querySelector('.line-name').value.trim();
+            
+            if (!accountCode || (!debit && !credit) || !name) {
+                hasError = true;
+            }
+            
+            formData.lines.push({ accountCode, name, debit, credit });
+        });
+        
+        if (hasError) {
+            displayMessage(messageArea, 'Veuillez remplir tous les champs obligatoires (Compte, Libellé, Débit/Crédit) de chaque ligne.', 'danger');
+            return;
+        }
+
+        // 3. Appel de l'API (Le contrôleur côté Node/Express va vérifier la partie double)
+        try {
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Enregistrement en cours...';
+
+            const response = await apiFetch('/api/accounting/move', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+
+            if (response.status === 'success') {
+                displayMessage(messageArea, `Écriture #${response.moveId} validée avec succès !`, 'success');
+                form.reset();
+                document.getElementById('lines-container').innerHTML = ''; // Réinitialisation des lignes
+                window.addLineToEntry(); 
+                window.addLineToEntry(); 
+                updateLineBalance();
+            } else {
+                // Erreur renvoyée par le contrôleur (e.g. Journal non trouvé, Partie Double rompue)
+                displayMessage(messageArea, `Erreur Odoo : ${response.error || 'Erreur inconnue.'}`, 'danger');
+            }
+
+        } catch (error) {
+            console.error('Erreur API Passation Écriture:', error);
+            displayMessage(messageArea, `Erreur de communication serveur : ${error.message}`, 'danger');
+        } finally {
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-check-square mr-2"></i> Valider et Passer l\'Écriture';
+        }
+    });
+}
