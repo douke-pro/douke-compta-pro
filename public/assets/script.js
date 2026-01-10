@@ -1581,20 +1581,18 @@ async function initializeManualEntryLogic() { // <-- NOUVEAU : Changé pour ASYN
         // if (!window.isBalanceZero()) { ... }
 
         // 3. Appel de l'API
-        try {
-            const submitButton = form.querySelector('button[type="submit"]');
-            submitButton.disabled = true;
-            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Enregistrement en cours...';
+try {
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Enregistrement en cours...';
 
-            // 🎯 CORRECTION CRITIQUE DE L'ENDPOINT 404 (Problème 2)
-            // L'API attend l'endpoint 'accounting/entries' (ou équivalent) qui est un endpoint monté.
-            // On enlève le '/api/' et on change l'endpoint comme discuté
-            const response = await apiFetch('accounting/entries', {
-                method: 'POST',
-                body: JSON.stringify(formData)
-            });
+    // 🏆 CORRECTION CRITIQUE (Passer de 'accounting/entries' à 'accounting/move')
+    const response = await apiFetch('accounting/move', { // ⬅️ LA CORRECTION EST ICI
+        method: 'POST',
+        body: JSON.stringify(formData)
+    });
 
-            if (response.status === 'success') {
+    if (response.status === 'success') {
                 displayMessage(messageArea, `Écriture #${response.moveId || response.data.id} validée avec succès !`, 'success');
                 // Réinitialisation après succès
                 form.reset();
