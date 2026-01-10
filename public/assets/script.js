@@ -673,6 +673,66 @@ async function fetchJournalData(endpoint) {
 }
 
 /**
+ * Génère le tableau HTML affichant les écritures du Journal.
+ * Cette fonction est appelée par fetchJournalData.
+ */
+function generateJournalHTML(entries) {
+    if (!entries || entries.length === 0) {
+        return '<p class="text-center text-gray-500 mt-4">Aucune écriture trouvée pour le moment.</p>';
+    }
+
+    const tableRows = entries.map(entry => {
+        // Déterminer le libellé pour l'affichage (utilise la colonne 'libelle')
+        const narration = entry.libelle || `Écriture #${entry.id}`;
+        
+        // Formater les montants
+        const debit = (entry.debit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
+        const credit = (entry.credit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
+        
+        // Logique pour le statut (couleur)
+        let statusClass = 'text-gray-500';
+        if (entry.status === 'Validé') {
+            statusClass = 'text-success'; // Vert
+        } else if (entry.status === 'Brouillon') {
+            statusClass = 'text-warning'; // Jaune
+        } else if (entry.status === 'Erreur') {
+             statusClass = 'text-danger'; // Rouge
+        }
+
+        return `
+            <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer" onclick="window.handleDrillDown(${entry.id}, 'Journal')">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">${entry.id}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${entry.date}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">${narration}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-success">${debit}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-danger">${credit}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm ${statusClass}">${entry.status || 'Inconnu'}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N°</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Libellé</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Débit</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Crédit</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    ${tableRows}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
  * Génère le HTML pour une ligne d'écriture comptable (Débit/Crédit).
  * (CORRECTION du Problème 1 : Remplacement de l'input par le select pour le compte)
  */
