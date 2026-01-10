@@ -1500,11 +1500,12 @@ async function initializeManualEntryLogic() { // <-- NOUVEAU : Changé pour ASYN
     let journals = [];
 
     try {
-        // Chargement du Plan Comptable et des Journaux en parallèle
-        const [accountsResponse, journalsResponse] = await Promise.all([
-            apiFetch(`accounting/chart-of-accounts/list${companyFilter}`, { method: 'GET' }),
-            apiFetch(`accounting/journals/list${companyFilter}`, { method: 'GET' }) 
-        ]);
+    // Chargement du Plan Comptable et des Journaux en parallèle
+    const [accountsResponse, journalsResponse] = await Promise.all([
+        // Suppression du '/list' pour correspondre à la route Backend
+        apiFetch(`accounting/chart-of-accounts${companyFilter}`, { method: 'GET' }), 
+        apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' }) 
+    ]);
         
         // Adapter la structure de la réponse (ajuster si votre API renvoie une autre clé)
         chartOfAccounts = accountsResponse.data.accounts || accountsResponse.data;
