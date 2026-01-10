@@ -673,51 +673,42 @@ async function fetchJournalData(endpoint) {
 }
 
 /**
- * Génère le HTML pour l'affichage des écritures de journal. (V9)
+ * Génère le HTML pour une ligne d'écriture comptable (Débit/Crédit).
+ * (CORRECTION du Problème 1 : Remplacement de l'input par le select pour le compte)
  */
-function generateJournalHTML(entries) {
-    if (!entries || entries.length === 0) {
-        return `<div class="p-4 text-center text-info"><i class="fas fa-info-circle mr-2"></i> Aucune écriture trouvée.</div>`;
-    }
-
-    // Limiter la vue dashboard à 5 entrées (gestion du drill-down)
-    const rows = entries.map(entry => {
-        const debit = entry.debit ? entry.debit.toLocaleString('fr-FR') : '-';
-        const credit = entry.credit ? entry.credit.toLocaleString('fr-FR') : '-';
-        const statusClass = entry.status === 'Validé' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning';
-        return `
-            <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td class="px-4 py-2 font-bold">${entry.date}</td>
-                <td class="px-4 py-2">${entry.libelle}</td>
-                <td class="px-4 py-2 text-right text-success font-semibold">${debit}</td>
-                <td class="px-4 py-2 text-right text-danger font-semibold">${credit}</td>
-                <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-bold rounded-full ${statusClass}">${entry.status}</span></td>
-                <td class="px-4 py-2">
-                    <button onclick="window.handleDrillDown(${entry.id}, 'Journal Entry')" class="text-primary hover:text-primary-dark font-bold text-sm">Détails</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
+function generateJournalLineHTML(lineNumber) {
+    // NOTE: L'input texte est remplacé par un select vide, qui sera peuplé par addLineToEntry.
     return `
-        <div class="overflow-x-auto">
-            <table class="min-w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                    <tr>
-                        <th scope="col" class="px-4 py-3">Date</th>
-                        <th scope="col" class="px-4 py-3">Libellé</th>
-                        <th scope="col" class="px-4 py-3 text-right">Débit (XOF)</th>
-                        <th scope="col" class="px-4 py-3 text-right">Crédit (XOF)</th>
-                        <th scope="col" class="px-4 py-3">Statut</th>
-                        <th scope="col" class="px-4 py-3">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows}
-                </tbody>
-            </table>
+        <div class="journal-line grid grid-cols-6 gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm" data-line-id="${lineNumber}">
+            
+            <div class="col-span-1">
+                <select 
+                    class="line-account-code w-full rounded-md p-2 text-sm" 
+                    placeholder="Code Cpte" 
+                    data-field="accountCode" 
+                    required
+                >
+                    </select>
+            </div>
+            
+            <div class="col-span-2">
+                <input type="text" class="line-name w-full rounded-md p-2 text-sm" placeholder="Libellé Ligne" data-field="name" required>
+            </div>
+            
+            <div class="col-span-1">
+                <input type="number" step="0.01" class="line-debit w-full rounded-md p-2 text-sm text-right" placeholder="Débit (XOF)" data-field="debit" value="0">
+            </div>
+            
+            <div class="col-span-1">
+                <input type="number" step="0.01" class="line-credit w-full rounded-md p-2 text-sm text-right" placeholder="Crédit (XOF)" data-field="credit" value="0">
+            </div>
+            
+            <div class="col-span-1 flex items-center justify-center">
+                <button type="button" onclick="removeJournalLine(${lineNumber})" class="text-danger hover:text-red-700 transition-colors">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
         </div>
-        ${entries.length > 5 ? `<div class="mt-4 text-center"><button onclick="loadContentArea('journal', 'Journaux et Écritures')" class="text-primary font-bold hover:underline">Voir tout le Journal (${entries.length} entrées)</button></div>` : ''}
     `;
 }
 
