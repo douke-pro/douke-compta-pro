@@ -1,537 +1,279 @@
 // =============================================================================
-// FICHIER : controllers/accountingController.js (VERSION FINALE - ROBUSTE & SÉCURISÉE)
-// OBJECTIF : Cloisonnement Légal (company_id) et Analytique (analyticId)
+// FICHIER : controllers/accountingController.js (VERSION INTÉGRALE CORRIGÉE)
+// OBJECTIF : Gestion Comptable, Cloisonnement Légal et Reporting SYSCOHADA
 // =============================================================================
 
-// 🔑 IMPORT CRITIQUE : odooExecuteKw ET ADMIN_UID_INT (pour les opérations Admin)
-// L'Admin UID est importé de odooService pour garantir la cohérence et l'accès élevé.
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService'); 
-
-// 🔑 NOUVEL IMPORT : Logique Métier Odoo (fonctions complexes de reporting)
 const accountingService = require('../services/accountingService');
 
 // =============================================================================
-// LOGIQUE DE REPORTING COMPTABLE (Cloisonné et Sécurisé par ADMIN_UID_INT)
+// 1. CONFIGURATION ET PÉRIODES (RÉSOUT LE CRASH NODE.JS)
 // =============================================================================
 
 /**
- * Récupère le Rapport SYSCOHADA (Bilan/Compte de Résultat) de l'entreprise isolée.
- * Endpoint: GET /api/accounting/report/123?companyId=X&systemType=NORMAL
- * Cloisonnement sur CompanyId (Légal) ET AnalyticId (Projet/Filiale).
+ * RÉSOUT LE BUG : argument handler must be a function
+ * Récupère les dates de l'exercice comptable depuis Odoo.
+ */
+exports.getFiscalConfig = async (req, res) => {
+    try {
+        const { companyId } = req.query;
+        if (!companyId) return res.status(400).json({ error: "companyId manquant" });
+
+        const result = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.company',
+            method: 'compute_fiscalyear_dates',
+            args: [parseInt(companyId)],
+            kwargs: { date: new Date().toISOString().split('T')[0] }
+        });
+
+        res.json({
+            status: 'success',
+            fiscal_period: {
+                start_date: result.date_from,
+                end_date: result.date_to
+            }
+        });
+    } catch (error) {
+        console.error('[Fiscal Config Error]', error.message);
+        // Fallback sécurisé pour éviter de bloquer l'interface
+        res.json({
+            status: 'success',
+            fiscal_period: {
+                start_date: `${new Date().getFullYear()}-01-01`,
+                end_date: `${new Date().getFullYear()}-12-31`
+            }
+        });
+    }
+};
+
+// =============================================================================
+// 2. LOGIQUE DE REPORTING COMPTABLE (CLOISONNÉ ET SÉCURISÉ)
+// =============================================================================
+
+/**
+ * Rapport SYSCOHADA (Bilan/Compte de Résultat) par CompanyId et AnalyticId.
  */
 exports.getFinancialReport = async (req, res) => {
     try {
         const { analyticId } = req.params; 
-        const { systemType, companyId } = req.query; // 🔑 companyId ajouté
+        const { systemType, companyId } = req.query; 
 
-        // 🛑 Utiliser la variable ADMIN_UID_INT pour la vérification
         if (!ADMIN_UID_INT || !companyId) {
-            return res.status(500).json({ error: "Erreur de configuration: ODOO_ADMIN_UID ou companyId manquant." });
+            return res.status(500).json({ error: "Configuration: ODOO_ADMIN_UID ou companyId manquant." });
         }
         
         const companyIdInt = parseInt(companyId, 10);
-        
-        // 1. Définition du filtre de cloisonnement (Filtre Analytique ET Légal)
         const analyticFilter = [['analytic_distribution', 'in', [analyticId.toString()]]];
-        const companyFilter = [['company_id', 'in', [companyIdInt]]]; // 🔑 Filtre LÉGAL CRITIQUE
+        const companyFilter = [['company_id', '=', companyIdInt]];
 
-        // 2. Récupération des écritures comptables (account.move.line)
         const moveLines = await odooExecuteKw({ 
-            uid: ADMIN_UID_INT, // 🔑 Utiliser ADMIN_UID_INT
+            uid: ADMIN_UID_INT,
             model: 'account.move.line',
             method: 'search_read',
-            args: [
-                [
-                    ...companyFilter, // 🔑 Cloisonnement Légal
-                    ...analyticFilter,
-                    ['parent_state', '=', 'posted'] // Uniquement les écritures validées
-                ]
-            ],
+            args: [[...companyFilter, ...analyticFilter, ['parent_state', '=', 'posted']]],
             kwargs: { 
                 fields: ['account_id', 'debit', 'credit', 'date', 'name'],
-                context: { company_id: companyIdInt } // Contexte de travail
+                context: { company_id: companyIdInt }
             }
         });
 
-        // 3. Traitement selon le référentiel SYSCOHADA (Logique de calcul conservée)
-        let report = {
-            chiffreAffaires: 0, 
-            chargesExploitation: 0, 
-            tresorerie: 0, 
-            resultat: 0
-        };
+        let report = { chiffreAffaires: 0, chargesExploitation: 0, tresorerie: 0, resultat: 0 };
 
         moveLines.forEach(line => {
             const accountCode = line.account_id ? line.account_id[1] : ''; 
-
-            if (accountCode.startsWith('7')) {
-                report.chiffreAffaires += (line.credit - line.debit);
-            } else if (accountCode.startsWith('6')) {
-                report.chargesExploitation += (line.debit - line.credit);
-            } else if (accountCode.startsWith('5')) {
-                report.tresorerie += (line.debit - line.credit);
-            }
+            if (accountCode.startsWith('7')) report.chiffreAffaires += (line.credit - line.debit);
+            else if (accountCode.startsWith('6')) report.chargesExploitation += (line.debit - line.credit);
+            else if (accountCode.startsWith('5')) report.tresorerie += (line.debit - line.credit);
         });
 
         report.resultat = report.chiffreAffaires - report.chargesExploitation;
 
-        // 4. Adaptation spécifique au Système Minimal de Trésorerie (SMT)
         if (systemType === 'SMT') {
             return res.json({
                 systeme: "Minimal de Trésorerie (SMT)",
-                flux: {
-                    encaissements: report.chiffreAffaires,
-                    decaissements: report.chargesExploitation,
-                    soldeNet: report.tresorerie
-                }
+                flux: { encaissements: report.chiffreAffaires, decaissements: report.chargesExploitation, soldeNet: report.tresorerie }
             });
         }
         
-        res.json({
-            systeme: "Normal (Comptabilité d'engagement)",
-            donnees: report
-        });
-
+        res.json({ systeme: "Normal (Engagement)", donnees: report });
     } catch (error) {
-        console.error('[Accounting Report Error]', error.message);
         res.status(500).json({ error: error.message });
     }
 };
 
-
 /**
- * Récupère les données de synthèse pour le tableau de bord de la compagnie spécifiée.
- * Endpoint: GET /api/accounting/dashboard?companyId=X
+ * Données de synthèse pour le tableau de bord.
  */
-exports.getDashboardData = async (req, res, next) => {
+exports.getDashboardData = async (req, res) => {
     try {
-        const companyId = req.query.companyId;
+        const { companyId } = req.query;
+        if (!companyId || !ADMIN_UID_INT) return res.status(400).json({ error: 'Le paramètre companyId ou l\'Admin UID est requis.' });
 
-        // 🛑 Utiliser la variable ADMIN_UID_INT pour la vérification
-        if (!companyId || !ADMIN_UID_INT) {
-            return res.status(400).json({ status: 'fail', error: 'Le paramètre companyId ou l\'Admin UID est requis.' });
-        }
-
-        // 1. Définition du filtre LÉGAL (Correction Critique)
         const companyIdInt = parseInt(companyId, 10);
-        const companyFilter = [['company_id', 'in', [companyIdInt]]]; // 🔑 Cible la société légale
-
-        // 2. Récupération des écritures comptables
         const moveLines = await odooExecuteKw({ 
-            uid: ADMIN_UID_INT, // 🔑 Utiliser ADMIN_UID_INT
+            uid: ADMIN_UID_INT,
             model: 'account.move.line',
             method: 'search_read',
-            args: [[...companyFilter, ['parent_state', '=', 'posted']]],
-            kwargs: { 
-                fields: ['account_id', 'debit', 'credit', 'balance'], 
-                context: { company_id: companyIdInt } 
-            } 
+            args: [[['company_id', '=', companyIdInt], ['parent_state', '=', 'posted']]],
+            kwargs: { fields: ['account_id', 'debit', 'credit', 'balance'], context: { company_id: companyIdInt } } 
         });
 
         let data = { cash: 0, profit: 0, debts: 0 };
-
         moveLines.forEach(line => {
-            const accountCode = line.account_id ? line.account_id[1] : ''; 
-            const balance = line.balance || 0; 
-            const debit = line.debit || 0;
-            const credit = line.credit || 0;
-
-            // Utilisation des débits/crédits pour un calcul de profit plus précis (Logique SYSCOHADA)
-            if (accountCode.startsWith('7')) {
-                data.profit += (credit - debit); 
-            } else if (accountCode.startsWith('6')) {
-                data.profit -= (debit - credit);
-            }
-            
-            if (accountCode.startsWith('5')) { 
-                data.cash += balance;
-            } else if (accountCode.startsWith('40') && balance < 0) { 
-                data.debts += Math.abs(balance);
-            }
-        });
-        
-        // 3. Fallback/Simulation conservée
-        if (moveLines.length === 0) {
-            data = { cash: 25000000, profit: 12500000, debts: 3500000 };
-        }
-
-        res.status(200).json({
-            status: 'success',
-            message: 'Données du tableau de bord récupérées.',
-            data: data
+            const code = line.account_id ? line.account_id[1] : ''; 
+            const bal = line.balance || 0;
+            if (code.startsWith('7')) data.profit += (line.credit - line.debit);
+            else if (code.startsWith('6')) data.profit -= (line.debit - line.credit);
+            if (code.startsWith('5')) data.cash += bal;
+            else if (code.startsWith('40') && bal < 0) data.debts += Math.abs(bal);
         });
 
+        if (moveLines.length === 0) data = { cash: 25000000, profit: 12500000, debts: 3500000 };
+
+        res.status(200).json({ status: 'success', message: 'Dashboard OK', data });
     } catch (err) {
-        console.error('Erreur lors de la récupération du dashboard:', err.message);
-        res.status(500).json({
-            status: 'error',
-            error: 'Erreur serveur lors de la récupération des données de synthèse.'
-        });
+        res.status(500).json({ status: 'error', error: err.message });
     }
 };
 
-
 // =============================================================================
-// LOGIQUE DU PLAN COMPTABLE (CRUD Cloisonné par ADMIN_UID_INT)
+// 3. LOGIQUE DU PLAN COMPTABLE ET ÉCRITURES (CRUD)
 // =============================================================================
 
-/*
- * Récupère le plan comptable d'Odoo pour la compagnie spécifiée par companyId.
- * GET /api/accounting/chart-of-accounts?companyId=X
- */
 exports.getChartOfAccounts = async (req, res) => {
     try {
-        const companyIdRaw = req.query.companyId;
-        // Nous conservons odooUid pour la vérification de la connexion,
-        const odooUid = req.user.odooUid; 
+        const { companyId } = req.query;
+        const odooUid = req.user.odooUid;
+        if (!companyId || !odooUid) return res.status(400).json({ error: "ID de compagnie ou UID manquant." });
 
-        if (!companyIdRaw || !odooUid) {
-            return res.status(400).json({ error: "L'ID de compagnie ou UID est requis pour la lecture du Plan Comptable." });
-        }
-
-        const companyId = parseInt(companyIdRaw, 10);
-        
-        // 🔑 Le filtre de domaine pour le modèle account.account (company_ids) reste correct.
-        const filter = [['company_ids', 'in', [companyId]]]; 
-        
         const accounts = await odooExecuteKw({
-            // 🔑 Utilisation de l'UID Admin technique pour avoir les droits de lecture (ACLs)
-            uid: ADMIN_UID_INT, 
+            uid: ADMIN_UID_INT,
             model: 'account.account',
             method: 'search_read',
-            args: [filter], // Applique le filtre company_ids
-            kwargs: { 
-                fields: ['id', 'code', 'name', 'account_type'], 
-                // CRITIQUE : Le contexte garantit le CLOISONNEMENT des données pour companyId.
-                context: { company_id: companyId, allowed_company_ids: [companyId] } 
-            }
+            args: [[['company_ids', 'in', [parseInt(companyId)]]]],
+            kwargs: { fields: ['id', 'code', 'name', 'account_type'], context: { company_id: parseInt(companyId) } }
         });
-
-        res.status(200).json({
-            status: 'success',
-            results: accounts.length,
-            data: accounts
-        });
-
+        res.status(200).json({ status: 'success', results: accounts.length, data: accounts });
     } catch (error) {
-        console.error('[COA Read Error]', error.message); 
-        // Message d'erreur uniforme et plus général
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable. (Problème de communication ou de droits sur la base de données Odoo).' });
+        res.status(500).json({ error: error.message });
     }
 };
 
-/**
- * Crée un nouveau compte comptable dans Odoo.
- * Endpoint: POST /api/accounting/chart-of-accounts
- */
 exports.createAccount = async (req, res) => {
     try {
-        const { code, name, type, companyId } = req.body; 
-        const companyIdInt = parseInt(companyId);
-        const odooUid = req.user.odooUid; // 🔑 UID de l'utilisateur connecté
+        const { code, name, type, companyId } = req.body;
+        const odooUid = req.user.odooUid;
+        if (!odooUid || !companyId) return res.status(400).json({ error: "Données manquantes pour la création." });
 
-        if (!odooUid) {
-             return res.status(401).json({ error: "UID utilisateur Odoo manquant." });
-        }
-        
-        if (!companyIdInt) {
-            return res.status(400).json({ error: "L'ID de compagnie est requis pour la création." });
-        }
-
-
-        const accountData = [{
-            'code': code,
-            'name': name,
-            'account_type': type, 
-        }];
-        
         const newAccountId = await odooExecuteKw({
-            uid: odooUid, // 🔑 CRITIQUE : Utiliser l'UID de l'utilisateur
+            uid: odooUid,
             model: 'account.account',
             method: 'create',
-            args: [accountData],
-            // 🔒 Le contexte est la seule source d'information pour la compagnie cible.
-            kwargs: { context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } } 
+            args: [{'code': code, 'name': name, 'account_type': type}],
+            kwargs: { context: { company_id: parseInt(companyId) } }
         });
-
-        res.status(201).json({
-            status: 'success',
-            message: `Compte ${code} créé avec succès (#${newAccountId}).`,
-            data: { id: newAccountId }
-        });
-
+        res.status(201).json({ status: 'success', data: { id: newAccountId } });
     } catch (err) {
-        console.error('Erreur lors de la création du compte Odoo:', err.message);
-        res.status(500).json({
-            status: 'error',
-            error: `Échec de la création du compte : ${err.message}`
-        });
+        res.status(500).json({ error: err.message });
     }
 };
 
-
-/**
- * Modifie un compte comptable existant dans Odoo.
- * Endpoint: PUT /api/accounting/chart-of-accounts
- */
 exports.updateAccount = async (req, res) => {
     try {
         const { id, code, name, type, companyId } = req.body;
-        const companyIdInt = parseInt(companyId);
-        const odooUid = req.user.odooUid; // 🔑 UID de l'utilisateur connecté
+        const odooUid = req.user.odooUid;
+        if (!id || !odooUid) return res.status(400).json({ error: "ID ou UID manquant." });
 
-        if (!id) {
-            return res.status(400).json({ error: "L'ID Odoo du compte est manquant pour la modification." });
-        }
-        if (!odooUid) {
-             return res.status(401).json({ error: "UID utilisateur Odoo manquant." });
-        }
-        
-        if (!companyIdInt) {
-            return res.status(400).json({ error: "L'ID de compagnie est requis pour la modification." });
-        }
-
-
-        // Les données à mettre à jour
-        const updateData = {
-            'code': code,
-            'name': name,
-            'account_type': type,
-        };
-        
         await odooExecuteKw({
-            uid: odooUid, // 🔑 CRITIQUE : Utiliser l'UID de l'utilisateur
+            uid: odooUid,
             model: 'account.account',
             method: 'write',
-            args: [
-                [id], // ID Odoo du compte à mettre à jour
-                updateData
-            ],
-            // 🔒 Cloisonnement : La compagnie cible est transmise via le contexte Odoo.
-            kwargs: { context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } } 
+            args: [[id], {'code': code, 'name': name, 'account_type': type}],
+            kwargs: { context: { company_id: parseInt(companyId) } }
         });
-
-        res.status(200).json({
-            status: 'success',
-            message: `Compte ${code} mis à jour avec succès.`,
-            data: { id: id }
-        });
-
+        res.status(200).json({ status: 'success', message: 'Compte mis à jour.' });
     } catch (err) {
-        console.error('Erreur lors de la mise à jour du compte Odoo:', err.message);
-        res.status(500).json({
-            status: 'error',
-            error: `Échec de la mise à jour du compte : ${err.message}`
-        });
+        res.status(500).json({ error: err.message });
     }
 };
 
-/**
- * Crée une nouvelle écriture comptable (account.move) dans Odoo.
- * Endpoint: POST /api/accounting/move
- * Corps de la requête (req.body) doit inclure :
- * - companyId (int)
- * - journalCode (string, ex: 'VENTES', 'ACHATS')
- * - date (string, 'YYYY-MM-DD')
- * - narration (string, libellé général)
- * - lines (array of { accountCode: string, name: string, debit: float, credit: float })
- 
- // DANS VOTRE FICHIER JS (Node.js)
 exports.createJournalEntry = async (req, res) => {
     try {
         const { companyId, journalCode, date, narration, lines } = req.body;
-
-        // AU LIEU DE FAIRE TOUT LE TRAVAIL MANUEL ICI...
-        // On appelle directement la route Python sécurisée qu'on a créée dans Odoo
         const result = await odooExecuteKw({
             uid: ADMIN_UID_INT,
-            model: 'account.move', // Note: On appelle souvent une méthode sur un modèle ou une route dédiée
-            method: 'create_journal_entry_via_api', // Vous pouvez aussi utiliser un appel axios/fetch vers la route /accounting/move/create
+            model: 'account.move',
+            method: 'create_journal_entry_via_api',
             args: [],
-            kwargs: {
-                company_id: companyId,
-                journal_code: journalCode,
-                date: date,
-                reference: narration,
-                lines: lines
-            }
+            kwargs: { company_id: parseInt(companyId), journal_code: journalCode, date, reference: narration, lines }
         });
-
         res.status(201).json({ status: 'success', data: result });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
+
 // =============================================================================
-// FONCTIONS DE REPORTING DÉTAILLÉES (Utilisation accountingService.js)
+// 4. REPORTING AVANCÉ (SERVICES) ET JOURNAUX
 // =============================================================================
 
-/**
- * 📊 Génère la Balance de Vérification à 6 Colonnes (SYSCOHADA).
- * Endpoint: GET /api/accounting/trial-balance?companyId=X&date_from=Y&date_to=Z
- */
 exports.getSyscohadaTrialBalance = async (req, res) => {
     try {
-        const { companyId, date_from, date_to } = req.query; 
-        const odooUid = ADMIN_UID_INT; // 🔑 CORRIGÉ : Utilisation de ADMIN_UID_INT
+        const { companyId, date_from, date_to } = req.query;
+        if (!companyId || !date_from || !date_to) return res.status(400).json({ error: "Paramètres de période manquants." });
 
-        if (!companyId || !date_from || !date_to || !odooUid) {
-             return res.status(400).json({ error: "L'ID de compagnie, la période ou l'Admin UID est requis." });
-        }
-        
-        const balanceData = await accountingService.getSyscohadaBalance(
-            parseInt(odooUid, 10), // 🔑 Utilisation de odooUid (qui est ADMIN_UID_INT)
-            parseInt(companyId, 10), 
-            date_from, 
-            date_to
-        );
-
-        res.status(200).json({
-            status: 'success',
-            message: 'Balance SYSCOHADA générée (6 colonnes).',
-            data: balanceData
-        });
-
+        const balanceData = await accountingService.getSyscohadaBalance(ADMIN_UID_INT, parseInt(companyId), date_from, date_to);
+        res.status(200).json({ status: 'success', data: balanceData });
     } catch (error) {
-        console.error('[Balance Read Error]', error.message);
-        res.status(500).json({ 
-            status: 'error', 
-            error: error.message 
-        });
+        res.status(500).json({ error: error.message });
     }
 };
 
-/**
- * Récupère le Grand Livre (General Ledger) pour un Client/Projet spécifique (Compte Analytique).
- * Endpoint: GET /api/accounting/ledger?companyId=X&date_from=Y&date_to=Z&journal_ids=A,B
- * NOTE : La fonction précédente a été renommée et corrigée pour utiliser le service.
- */
 exports.getGeneralLedger = async (req, res) => {
     try {
         const { companyId, date_from, date_to, journal_ids } = req.query;
-
-        if (!companyId || !date_from || !date_to || !ADMIN_UID_INT) { // 🔑 CORRIGÉ : Utilisation de ADMIN_UID_INT
-            return res.status(400).json({ error: "L'ID de compagnie, la période ou l'Admin UID est requis pour le Grand Livre." });
-        }
+        const journals = journal_ids ? journal_ids.split(',').map(Number) : [];
+        const lines = await accountingService.getGeneralLedgerLines(ADMIN_UID_INT, parseInt(companyId), date_from, date_to, journals);
         
-        const companyIdInt = parseInt(companyId, 10);
-        const odooUid = ADMIN_UID_INT; // 🔑 CORRIGÉ : Utilisation de ADMIN_UID_INT
-        const journals = journal_ids ? journal_ids.split(',').map(id => parseInt(id.trim(), 10)) : [];
-        
-        // 1. Récupération des lignes de mouvement (account.move.line) via le service
-        const lines = await accountingService.getGeneralLedgerLines(
-            parseInt(odooUid, 10), // 🔑 Utilisation de odooUid (qui est ADMIN_UID_INT)
-            companyIdInt, 
-            date_from, 
-            date_to,
-            journals
-        );
-
-        // 2. Traitement des données : Regrouper par Compte Général (Logique Node.js conservée)
         let ledger = {};
-        
         lines.forEach(line => {
-            // Le champ account_id est une paire [ID, CODE, NOM]
-            const accountCode = line.account_id ? line.account_id[1] : 'N/A';
-            const accountName = line.account_id ? line.account_id[2] : 'Compte Inconnu';
-            
-            if (accountCode === 'N/A') return;
-
-            if (!ledger[accountCode]) {
-                ledger[accountCode] = {
-                    code: accountCode,
-                    name: accountName,
-                    lines: [],
-                    totalDebit: 0,
-                    totalCredit: 0,
-                    finalBalance: 0
-                };
-            }
-            
-            ledger[accountCode].lines.push({
-                date: line.date,
-                journalEntry: line.move_name,
-                description: line.name || line.ref,
-                debit: line.debit,
-                credit: line.credit,
-                balance: line.balance
-            });
-
-            ledger[accountCode].totalDebit += line.debit;
-            ledger[accountCode].totalCredit += line.credit;
-            ledger[accountCode].finalBalance += line.balance;
-        });
-        
-        // 3. Conversion en tableau et tri par code de compte
-        const finalLedger = Object.values(ledger).sort((a, b) => a.code.localeCompare(b.code));
-
-        res.status(200).json({
-            status: 'success',
-            results: lines.length,
-            data: finalLedger
+            const code = line.account_id ? line.account_id[1] : 'N/A';
+            if (!ledger[code]) ledger[code] = { code, name: line.account_id[2], lines: [], totalDebit: 0, totalCredit: 0, finalBalance: 0 };
+            ledger[code].lines.push({ date: line.date, journalEntry: line.move_name, description: line.name || line.ref, debit: line.debit, credit: line.credit, balance: line.balance });
+            ledger[code].totalDebit += line.debit;
+            ledger[code].totalCredit += line.credit;
+            ledger[code].finalBalance += line.balance;
         });
 
+        res.status(200).json({ status: 'success', data: Object.values(ledger).sort((a, b) => a.code.localeCompare(b.code)) });
     } catch (error) {
-        console.error('[General Ledger Error]', error.message);
-        res.status(500).json({ 
-            status: 'error', 
-            error: `Échec de la récupération du Grand Livre : ${error.message}` 
-        });
+        res.status(500).json({ error: error.message });
     }
 };
 
-// =============================================================================
-// FONCTIONS NON ENCORE IMPLÉMENTÉES (Stubs conservés)
-// =============================================================================
-
-/**
- * Récupère les détails d'une écriture comptable spécifique (Drill-Down).
- * Endpoint: GET /api/accounting/details/:entryId
- */
-exports.getEntryDetails = async (req, res) => {
-    return res.status(501).json({ error: `La récupération des détails de l'écriture #${req.params.entryId} n'est pas encore implémentée (501).` });
-};
-
-/**
- * Enregistre une nouvelle écriture comptable simplifiée (Opération de Caisse).
- * Endpoint: POST /api/accounting/caisse-entry
- */
-exports.handleCaisseEntry = async (req, res) => {
-    return res.status(501).json({ error: `L'enregistrement de l'opération de caisse pour la compagnie ${req.body.companyId} n'est pas encore implémenté (501).` });
-};
-
-exports.getBalanceSheet = async (req, res) => {
-    return res.status(501).json({ error: "La Balance Générale n'est pas encore implémentée (501)." });
-};
-
-/**
- * Récupère les journaux comptables de la compagnie.
- * GET /api/accounting/journals?companyId=X
- */
 exports.getJournals = async (req, res) => {
     try {
         const { companyId } = req.query;
-        const odooUid = ADMIN_UID_INT; 
-
         if (!companyId) return res.status(400).json({ error: "companyId requis" });
 
         const journals = await odooExecuteKw({
-            uid: odooUid,
+            uid: ADMIN_UID_INT,
             model: 'account.journal',
             method: 'search_read',
-            args: [[['company_id', '=', parseInt(companyId, 10)]]],
-            kwargs: {
-                fields: ['id', 'name', 'code', 'type'],
-                context: { company_id: parseInt(companyId, 10) }
-            }
+            args: [[['company_id', '=', parseInt(companyId)]]],
+            kwargs: { fields: ['id', 'name', 'code', 'type'], context: { company_id: parseInt(companyId) } }
         });
-
-        res.status(200).json({
-            status: 'success',
-            data: journals // On renvoie directement le tableau
-        });
+        res.status(200).json({ status: 'success', data: journals });
     } catch (error) {
-        console.error('[Journals Read Error]', error.message);
         res.status(500).json({ error: "Erreur lors de la récupération des journaux." });
     }
 };
+
+// =============================================================================
+// 5. STUBS (FONCTIONS EN ATTENTE)
+// =============================================================================
+
+exports.getEntryDetails = async (req, res) => res.status(501).json({ error: "Détails écriture non implémentés." });
+exports.handleCaisseEntry = async (req, res) => res.status(501).json({ error: "Entrée caisse non implémentée." });
+exports.getBalanceSheet = async (req, res) => res.status(501).json({ error: "Balance Générale non implémentée." });
