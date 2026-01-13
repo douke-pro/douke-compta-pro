@@ -211,19 +211,33 @@ exports.updateAccount = async (req, res) => {
 // =============================================================================
 
 exports.createJournalEntry = async (req, res) => {
-    try {
-        const { companyId, journalCode, date, narration, lines } = req.body;
-        const result = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.move',
-            method: 'create_journal_entry_via_api',
-            args: [],
-            kwargs: { company_id: parseInt(companyId), journal_code: journalCode, date, reference: narration, lines }
-        });
-        res.status(201).json({ status: 'success', data: result });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    try {
+        const { companyId, journalCode, date, narration, lines } = req.body;
+
+        // Appel direct à la méthode du modèle AccountMove définie en Python
+        const result = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'create_journal_entry_via_api', // Nom exact de la fonction Python
+            args: [], 
+            kwargs: {
+                company_id: parseInt(companyId),
+                journal_code: journalCode,
+                date: date,
+                reference: narration,
+                lines: lines // On passe le tableau de lignes tel quel
+            }
+        });
+
+        if (result.status === 'error') {
+            return res.status(400).json({ error: result.message });
+        }
+
+        res.status(201).json({ status: 'success', data: result });
+    } catch (error) {
+        console.error('[Node Error]', error.message);
+        res.status(500).json({ error: "Échec de la communication avec Odoo." });
+    }
 };
 
 exports.getSyscohadaTrialBalance = async (req, res) => {
