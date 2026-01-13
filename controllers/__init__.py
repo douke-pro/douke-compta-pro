@@ -1,53 +1,36 @@
 # -*- coding: utf-8 -*-
-from odoo import models, fields, api, _
+from odoo import models, api, fields, _
 from odoo.exceptions import UserError
-import logging
-
-_logger = logging.getLogger(__name__)
-
-class ResCompany(models.Model):
-    _inherit = 'res.company'
-
-    def compute_fiscalyear_dates_api(self, date_str=None):
-        """ Appelé par Node.js pour getFiscalConfig """
-        self.ensure_one()
-        date_ref = fields.Date.from_string(date_str) if date_str else fields.Date.today()
-        res = self.compute_fiscalyear_dates(date_ref)
-        return {
-            'date_from': res['date_from'].strftime('%Y-%m-%d'),
-            'date_to': res['date_to'].strftime('%Y-%m-%d')
-        }
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
     @api.model
     def create_journal_entry_via_api(self, company_id, journal_code, date, reference, lines):
-        """ 
-        C'est cette fonction que Node.js appelle via execute_kw.
-        Elle doit être dans le MODEL, pas dans un CONTROLLER.
+        """
+        Méthode robuste appelée par Node.js via XML-RPC (execute_kw)
         """
         try:
-            # 1. Récupérer le journal
+            # 1. Vérification du Journal
             journal = self.env['account.journal'].sudo().search([
                 ('code', '=', journal_code),
-                ('company_id', '=', company_id)
+                ('company_id', '=', int(company_id))
             ], limit=1)
 
             if not journal:
-                raise UserError(_('Journal "%s" introuvable pour cette société.') % journal_code)
+                return {'status': 'error', 'message': f'Journal {journal_code} introuvable.'}
 
-            # 2. Préparer les lignes
+            # 2. Construction des lignes (Format Odoo [0, 0, {values}])
             move_lines = []
             for line in lines:
-                # On cherche le compte par CODE (SYSCOHADA)
+                # Recherche du compte par CODE (ex: 521100)
                 account = self.env['account.account'].sudo().search([
-                    ('code', '=', line['account_code']),
-                    ('company_id', '=', company_id)
+                    ('code', '=', line.get('account_code')),
+                    ('company_id', '=', int(company_id))
                 ], limit=1)
 
                 if not account:
-                    raise UserError(_('Compte "%s" introuvable.') % line['account_code'])
+                    return {'status': 'error', 'message': f'Compte {line.get("account_code")} introuvable.'}
 
                 move_lines.append((0, 0, {
                     'account_id': account.id,
@@ -56,18 +39,17 @@ class AccountMove(models.Model):
                     'credit': float(line.get('credit', 0.0)),
                 }))
 
-            # 3. Création de la pièce
+            # 3. Création et Validation
             move = self.create({
-                'company_id': company_id,
+                'company_id': int(company_id),
                 'journal_id': journal.id,
                 'date': date,
                 'ref': reference,
                 'move_type': 'entry',
                 'line_ids': move_lines,
             })
-
-            # 4. Validation (Post)
-            move.action_post()
+            
+            move.action_post() # Validation automatique
 
             return {
                 'status': 'success',
@@ -76,5 +58,4 @@ class AccountMove(models.Model):
             }
 
         except Exception as e:
-            _logger.error(f"Erreur API Odoo: {str(e)}")
             return {'status': 'error', 'message': str(e)}
