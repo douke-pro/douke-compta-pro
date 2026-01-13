@@ -596,6 +596,34 @@ exports.getBalanceSheet = async (req, res) => {
     return res.status(501).json({ error: "La Balance Générale n'est pas encore implémentée (501)." });
 };
 
+/**
+ * Récupère les journaux comptables de la compagnie.
+ * GET /api/accounting/journals?companyId=X
+ */
 exports.getJournals = async (req, res) => {
-    return res.status(501).json({ error: "La liste des Journaux n'est pas encore implémentée (501)." });
+    try {
+        const { companyId } = req.query;
+        const odooUid = ADMIN_UID_INT; 
+
+        if (!companyId) return res.status(400).json({ error: "companyId requis" });
+
+        const journals = await odooExecuteKw({
+            uid: odooUid,
+            model: 'account.journal',
+            method: 'search_read',
+            args: [[['company_id', '=', parseInt(companyId, 10)]]],
+            kwargs: {
+                fields: ['id', 'name', 'code', 'type'],
+                context: { company_id: parseInt(companyId, 10) }
+            }
+        });
+
+        res.status(200).json({
+            status: 'success',
+            data: journals // On renvoie directement le tableau
+        });
+    } catch (error) {
+        console.error('[Journals Read Error]', error.message);
+        res.status(500).json({ error: "Erreur lors de la récupération des journaux." });
+    }
 };
