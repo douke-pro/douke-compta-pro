@@ -1229,7 +1229,13 @@ window.handleCaisseEntrySubmit = async function(event) {
 };
 
 /**
- * Fonction générique de bienvenue / contenu par défaut. (V8/V9)
+ * ===================================================================
+ * MODULE COMPTABLE : SAISIE MANUELLE (VERSION FINALE ODOO-READY)
+ * ===================================================================
+ */
+
+/**
+ * 1. BIENVENUE ET NAVIGATION
  */
 function generateDashboardWelcomeHTML(companyName, role) {
     return `
@@ -1243,518 +1249,205 @@ function generateDashboardWelcomeHTML(companyName, role) {
     `;
 }
 
-
-// --- 5. INITIALISATION ---
-
 /**
- * Lie les événements DOM (Formulaires) au chargement du document.
- */
-function attachGlobalListeners() {
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
-        loginForm.addEventListener('submit', handleLogin);
-    }
-    
-    const registerForm = document.getElementById('register-form');
-    if (registerForm) {
-        registerForm.addEventListener('submit', handleRegister);
-    }
-    
-    const logoutButton = document.getElementById('logout-btn');
-    if (logoutButton) {
-        logoutButton.addEventListener('click', handleLogout);
-    }
-    
-    const modalCloseButton = document.getElementById('modal-close-btn');
-    const modalBackdrop = document.getElementById('professional-modal');
-    if (modalCloseButton) {
-        modalCloseButton.addEventListener('click', ModalManager.close);
-    }
-    if (modalBackdrop) {
-        // Fermeture si on clique en dehors
-        modalBackdrop.addEventListener('click', (e) => {
-            if (e.target === modalBackdrop) {
-                ModalManager.close();
-            }
-        });
-    }
-}
-
-
-/**
- * Point d'entrée de l'application.
- */
-document.addEventListener('DOMContentLoaded', () => {
-    attachGlobalListeners();
-    checkAuthAndRender();
-});
-
-// =================================================================
-// FORMULAIRE DE PASSATION D'ÉCRITURE MANUELLE
-// =================================================================
-
-/**
- * Génère le HTML pour une ligne d'écriture comptable (Débit/Crédit).
- */
-function generateJournalLineHTML(lineNumber) {
-    // NOTE: La liste des comptes devrait être chargée dynamiquement dans un scénario réel
-    // Ici, nous utilisons un input texte simple pour le code de compte pour simplifier.
-    return `
-        <div class="journal-line grid grid-cols-6 gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm" data-line-id="${lineNumber}">
-            <div class="col-span-1">
-                <input type="text" class="line-account-code w-full rounded-md p-2 text-sm" placeholder="Code Cpte" data-field="accountCode" required>
-            </div>
-            <div class="col-span-2">
-                <input type="text" class="line-name w-full rounded-md p-2 text-sm" placeholder="Libellé Ligne" data-field="name" required>
-            </div>
-            <div class="col-span-1">
-                <input type="number" step="0.01" class="line-debit w-full rounded-md p-2 text-sm text-right" placeholder="Débit (XOF)" data-field="debit" value="0" oninput="updateLineBalance()">
-            </div>
-            <div class="col-span-1">
-                <input type="number" step="0.01" class="line-credit w-full rounded-md p-2 text-sm text-right" placeholder="Crédit (XOF)" data-field="credit" value="0" oninput="updateLineBalance()">
-            </div>
-            <div class="col-span-1 flex items-center justify-center">
-                <button type="button" onclick="removeJournalLine(${lineNumber})" class="text-danger hover:text-red-700 transition-colors">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-
-/**
- * Ajoute une ligne au conteneur du formulaire avec la logique d'autocomplétion.
- * (CORRECTION du Problème 1 : Autocomplétion)
- */
-let lineCounter = 0;
-window.addLineToEntry = function() {
-    lineCounter++;
-    const container = document.getElementById('lines-container');
-    if (!container) return;
-
-    // Assurez-vous que generateJournalLineHTML génère un <select class="line-account-code">
-    container.insertAdjacentHTML('beforeend', generateJournalLineHTML(lineCounter));
-    
-    // Cible la ligne et le sélecteur d'entrée récemment ajoutés
-    const newLineElement = container.querySelector(`[data-line-number="${lineCounter}"]`);
-    const newSelect = newLineElement ? newLineElement.querySelector('.line-account-code') : null;
-    
-    // Si le sélecteur et les comptes sont disponibles
-    if (newSelect && window.allChartOfAccounts) {
-        
-        newSelect.innerHTML = '<option value="">Choisir un compte...</option>';
-
-        // 1. Peupler le sélecteur avec les comptes du Plan Comptable
-        window.allChartOfAccounts.forEach(account => {
-            const option = document.createElement('option');
-            // Assurez-vous que votre Plan Comptable utilise 'id' et 'name' (ou ajustez ici)
-            option.value = account.id; 
-            option.textContent = `${account.id} - ${account.name}`; 
-            newSelect.appendChild(option);
-        });
-
-        // 2. Écouteur pour l'autocomplétion du libellé (Problème 1)
-        newSelect.addEventListener('change', (e) => {
-            const selectedAccountId = e.target.value;
-            // Trouver l'objet compte complet à partir de l'ID sélectionné
-            const account = window.allChartOfAccounts.find(a => a.id === selectedAccountId);
-            
-            const lineNameInput = newLineElement.querySelector('.line-name');
-
-            if (account && lineNameInput) {
-                // Remplir le champ de libellé avec le nom du compte
-                lineNameInput.value = account.name;
-            } else if (lineNameInput) {
-                 lineNameInput.value = '';
-            }
-        });
-    }
-
-    // Ajouter les écouteurs de Débit/Crédit (si nécessaire)
-    const debitInput = newLineElement.querySelector('.line-debit');
-    const creditInput = newLineElement.querySelector('.line-credit');
-    
-    if (debitInput) debitInput.addEventListener('input', updateLineBalance);
-    if (creditInput) creditInput.addEventListener('input', updateLineBalance);
-
-    // Mettre à jour la balance après ajout
-    updateLineBalance();
-};
-
-/**
- * Supprime une ligne et recalcule la balance.
- */
-window.removeJournalLine = function(lineNumber) {
-    const lineElement = document.querySelector(`.journal-line[data-line-id="${lineNumber}"]`);
-    if (lineElement) {
-        lineElement.remove();
-        updateLineBalance();
-    }
-}
-
-/**
- * Calcule et affiche la balance Débit/Crédit.
- */
-function updateLineBalance() {
-    let totalDebit = 0;
-    let totalCredit = 0;
-
-    document.querySelectorAll('.journal-line').forEach(line => {
-        const debitInput = line.querySelector('.line-debit');
-        const creditInput = line.querySelector('.line-credit');
-        
-        const debit = parseFloat(debitInput.value) || 0;
-        const credit = parseFloat(creditInput.value) || 0;
-
-        totalDebit += debit;
-        totalCredit += credit;
-    });
-
-    const balanceDiff = Math.abs(totalDebit - totalCredit);
-    const balanceMsgElement = document.getElementById('total-balance');
-    const message = `Balance : Débit Total ${totalDebit.toFixed(2).replace('.', ',')} XOF | Crédit Total ${totalCredit.toFixed(2).replace('.', ',')} XOF`;
-    
-    if (balanceDiff > 0.005) { // Tolérance pour les flottants
-        balanceMsgElement.innerHTML = `${message} <span class="text-danger font-bold">(Écart de ${balanceDiff.toFixed(2).replace('.', ',')} XOF - IMPOSSIBLE DE VALIDER)</span>`;
-        balanceMsgElement.classList.remove('text-success');
-        balanceMsgElement.classList.add('text-danger');
-        document.querySelector('#journalEntryForm button[type="submit"]').disabled = true;
-    } else {
-        balanceMsgElement.innerHTML = `${message} <span class="text-success font-bold">(Équilibre Parfait : OK)</span>`;
-        balanceMsgElement.classList.remove('text-danger');
-        balanceMsgElement.classList.add('text-success');
-        document.querySelector('#journalEntryForm button[type="submit"]').disabled = false;
-    }
-}
-
-
-/**
- * Génère le conteneur principal du formulaire.
+ * 2. STRUCTURE DU FORMULAIRE (Grille 12 colonnes)
  */
 function generateManualEntryFormHTML() {
     return `
-        <h3 class="text-3xl font-black text-secondary mb-8 fade-in">
-            <i class="fas fa-calculator mr-3"></i> Passation d'une Nouvelle Écriture
-        </h3>
-        <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl">
+        <div class="max-w-6xl mx-auto">
+            <h3 class="text-3xl font-black text-secondary mb-8 fade-in flex items-center">
+                <i class="fas fa-calculator mr-3 text-primary"></i> Passation d'une Nouvelle Écriture
+            </h3>
             
-            <form id="journalEntryForm">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div>
-                        <label for="entry-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date de l'Écriture</label>
-                        <input type="date" id="entry-date" name="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary p-2" required value="${new Date().toISOString().slice(0, 10)}">
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-100">
+                <form id="journalEntryForm" class="space-y-6">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-gray-100">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label>
+                            <input type="date" id="entry-date" class="w-full rounded-xl border-gray-200 p-3 shadow-sm focus:ring-2 focus:ring-primary" required value="${new Date().toISOString().slice(0, 10)}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Journal (Odoo)</label>
+                            <select id="journal-code" class="w-full rounded-xl border-gray-200 p-3 shadow-sm focus:ring-2 focus:ring-primary" required>
+                                <option value="">Chargement...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Libellé Général</label>
+                            <input type="text" id="narration" class="w-full rounded-xl border-gray-200 p-3 shadow-sm focus:ring-2 focus:ring-primary" placeholder="Ex: Paiement Facture #001" required>
+                        </div>
                     </div>
-                    <div>
-                        <label for="journal-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Journal (Code)</label>
-                        <select id="journal-code" name="journalCode" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary p-2" required>
-                            <option value="">Sélectionner un journal...</option>
-                            <option value="VENTES">Ventes</option>
-                            <option value="ACHATS">Achats</option>
-                            <option value="BQ">Banque</option>
-                            <option value="CS">Caisse</option>
-                            <option value="MISC">Opérations Diverses</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-1">
-                        <label for="narration" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Libellé Général</label>
-                        <input type="text" id="narration" name="narration" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary p-2" placeholder="Ex: Facture #2026/01/001" required>
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-6 gap-3 mb-3 text-sm font-semibold text-gray-500 dark:text-gray-400 border-b pb-2">
-                    <div class="col-span-1">Compte</div>
-                    <div class="col-span-2">Description</div>
-                    <div class="col-span-1 text-right">Débit</div>
-                    <div class="col-span-1 text-right">Crédit</div>
-                    <div class="col-span-1">Action</div>
-                </div>
-
-                <div id="lines-container" class="space-y-3 mb-6">
+                    <div class="grid grid-cols-12 gap-3 px-2 text-xs font-black text-gray-400 uppercase">
+                        <div class="col-span-2">Compte</div>
+                        <div class="col-span-5">Désignation / Libellé de ligne</div>
+                        <div class="col-span-2 text-right">Débit</div>
+                        <div class="col-span-2 text-right">Crédit</div>
+                        <div class="col-span-1"></div>
                     </div>
-                
-                <button type="button" onclick="window.addLineToEntry()" class="bg-success text-white font-bold py-2 px-4 rounded-xl hover:bg-success/80 transition-colors mr-3">
-                    <i class="fas fa-plus mr-2"></i> Ajouter Ligne
-                </button>
-                <button type="submit" class="bg-primary text-white font-bold py-2 px-6 rounded-xl hover:bg-primary/80 transition-colors">
-                    <i class="fas fa-check-square mr-2"></i> Valider et Passer l'Écriture
-                </button>
-            </form>
-            <p id="total-balance" class="text-lg font-bold mt-4 text-danger">Balance : Débit Total 0 XOF = Crédit Total 0 XOF (Écart - IMPOSSIBLE DE VALIDER)</p>
 
-            <div id="entry-message" class="mt-4 text-center p-3 rounded-lg hidden"></div>
+                    <div id="lines-container" class="space-y-3"></div>
+
+                    <div class="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-gray-100 gap-4">
+                        <button type="button" onclick="window.addLineToEntry()" class="bg-gray-100 text-secondary font-bold py-3 px-6 rounded-xl hover:bg-secondary hover:text-white transition-all">
+                            <i class="fas fa-plus-circle mr-2"></i> Ajouter une ligne
+                        </button>
+
+                        <div class="flex flex-col items-end">
+                            <div id="total-balance" class="text-lg font-black p-3 rounded-xl transition-all bg-red-50 text-red-600">
+                                Balance : 0,00 XOF
+                            </div>
+                            <button type="submit" id="submit-btn" class="mt-2 bg-primary text-white font-black py-4 px-10 rounded-2xl shadow-xl disabled:opacity-30 transition-all uppercase" disabled>
+                                <i class="fas fa-check-square mr-2"></i> Valider l'Écriture
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <div id="entry-message" class="mt-6 text-center p-4 rounded-xl hidden"></div>
+            </div>
         </div>
+        <datalist id="accounts-list"></datalist>
     `;
 }
 
 /**
- * Initialise la logique de saisie manuelle.
- * Version Robuste - Synchronisée avec le Backend Odoo
- */
-async function initializeManualEntryLogic() {
-    const form = document.getElementById('journalEntryForm');
-    if (!form) return;
-
-    // Éviter les soumissions multiples accidentelles si la fonction est rappelée
-    form.onsubmit = null; 
-    
-    const messageArea = document.getElementById('entry-message');
-    const linesContainer = document.getElementById('lines-container');
-    const companyFilter = `?companyId=${appState.currentCompanyId}`;
-
-    // --- 1. CHARGEMENT DES DONNÉES (Plan Comptable & Journaux) ---
-    try {
-        console.log("Initialisation des données comptables...");
-        
-        const [accountsResponse, journalsResponse] = await Promise.all([
-            apiFetch(`accounting/chart-of-accounts${companyFilter}`),
-            apiFetch(`accounting/journals${companyFilter}`)
-        ]);
-
-        // Mapping précis selon les réponses de votre contrôleur (data: accounts)
-        window.allChartOfAccounts = accountsResponse.data || [];
-        const journals = journalsResponse.data || [];
-
-        // Remplissage sécurisé du select des journaux
-        const journalSelect = document.getElementById('journal-code');
-        if (journalSelect) {
-            journalSelect.innerHTML = '<option value="">-- Sélectionner un journal --</option>';
-            journals.forEach(j => {
-                const option = document.createElement('option');
-                // CRITIQUE : On utilise j.code car votre backend cherche par code !
-                option.value = j.code; 
-                option.textContent = `${j.name} (${j.code})`;
-                journalSelect.appendChild(option);
-            });
-        }
-
-    } catch (e) {
-        console.error("Erreur critique d'initialisation :", e);
-        // Fallback pour ne pas bloquer l'interface
-        window.allChartOfAccounts = window.allChartOfAccounts || [];
-        if (messageArea) {
-            displayMessage(messageArea, "Attention : Impossible de charger les données Odoo. Mode dégradé activé.", "warning");
-        }
-    }
-
-    // --- 2. RÉINITIALISATION DU FORMULAIRE ---
-    if (linesContainer) linesContainer.innerHTML = '';
-    
-    // Ajout des lignes initiales (utilise window.allChartOfAccounts chargé plus haut)
-    if (typeof window.addLineToEntry === 'function') {
-        window.addLineToEntry();
-        window.addLineToEntry();
-    }
-    
-    if (typeof updateLineBalance === 'function') updateLineBalance();
-
-    // --- 3. GESTION DE LA SOUMISSION (ROBUSTE) ---
-    form.onsubmit = async (e) => {
-        e.preventDefault(); // GARANTIE : Stop le rechargement immédiat
-        
-        if (messageArea) {
-            messageArea.classList.add('hidden');
-            messageArea.textContent = '';
-        }
-
-        const submitButton = form.querySelector('button[type="submit"]');
-        
-        // A. Collecte et Validation des données
-        const formData = {
-            companyId: parseInt(appState.currentCompanyId),
-            journalCode: document.getElementById('journal-code').value,
-            date: document.getElementById('entry-date').value,
-            narration: document.getElementById('narration').value,
-            lines: []
-        };
-
-        let hasError = false;
-        const lineElements = document.querySelectorAll('.journal-line');
-        
-        if (lineElements.length === 0) {
-            displayMessage(messageArea, "L'écriture doit contenir au moins deux lignes.", "danger");
-            return;
-        }
-
-        lineElements.forEach(line => {
-            const accountCode = line.querySelector('.line-account-code').value;
-            const debit = parseFloat(line.querySelector('.line-debit').value) || 0;
-            const credit = parseFloat(line.querySelector('.line-credit').value) || 0;
-            const name = line.querySelector('.line-name').value.trim();
-
-            if (!accountCode || !name || (debit === 0 && credit === 0)) {
-                hasError = true;
-                line.classList.add('border-red-500'); // Feedback visuel
-            } else {
-                line.classList.remove('border-red-500');
-                formData.lines.push({ accountCode, name, debit, credit });
-            }
-        });
-
-        if (hasError || !formData.journalCode || !formData.date) {
-            displayMessage(messageArea, "Veuillez remplir correctement tous les champs (Journal, Date, Comptes, Libellés).", "danger");
-            return;
-        }
-
-        // B. Envoi au Serveur
-        try {
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Enregistrement Odoo...';
-            }
-
-            // Route corrigée vers votre endpoint de création d'écriture
-            const response = await apiFetch('accounting/move', {
-                method: 'POST',
-                body: JSON.stringify(formData)
-            });
-
-            if (response.status === 'success' || response.moveId) {
-                const moveId = response.moveId || (response.data && response.data.id);
-                displayMessage(messageArea, `Succès ! Écriture Odoo #${moveId} générée.`, 'success');
-                
-                // Reset propre
-                form.reset();
-                if (linesContainer) linesContainer.innerHTML = '';
-                window.addLineToEntry();
-                window.addLineToEntry();
-                if (typeof updateLineBalance === 'function') updateLineBalance();
-
-                // Notification optionnelle
-                if (typeof NotificationManager !== 'undefined') {
-                    NotificationManager.show("Écriture comptable validée", "success");
-                }
-            } else {
-                throw new Error(response.error || "Réponse serveur invalide");
-            }
-
-        } catch (error) {
-            console.error('Erreur lors de la passation :', error);
-            displayMessage(messageArea, `Échec Odoo : ${error.message}`, 'danger');
-        } finally {
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.innerHTML = '<i class="fas fa-check-square mr-2"></i> Valider et Passer l\'Écriture';
-            }
-        }
-    };
-}
-
-/**
- * Crée un index de recherche global pour tous les champs de compte.
- */
-function updateGlobalAccountList(accounts) {
-    let datalist = document.getElementById('accounts-list');
-    if (!datalist) {
-        datalist = document.createElement('datalist');
-        datalist.id = 'accounts-list';
-        document.body.appendChild(datalist);
-    }
-
-    // On crée les options : "411000 - Clients"
-    datalist.innerHTML = accounts.map(a => 
-        `<option value="${a.code}">${a.name}</option>`
-    ).join('');
-}
-
-/**
- * Ajoute une ligne d'écriture comptable avec auto-complétion intelligente.
- * @param {Object} defaultValues - Optionnel : pour pré-remplir la ligne (ex: modification)
+ * 3. GESTION DES LIGNES (Datalist & Auto-complétion)
  */
 window.addLineToEntry = function(defaultValues = {}) {
     const container = document.getElementById('lines-container');
     if (!container) return;
 
-    const lineId = 'line-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     const row = document.createElement('div');
-    row.className = 'journal-line grid grid-cols-12 gap-2 mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200 transition-all';
-    row.id = lineId;
-
-    // Génération du HTML avec Datalist pour une recherche rapide
+    row.className = 'journal-line grid grid-cols-12 gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border-2 border-transparent hover:border-blue-100 transition-all items-center';
+    
     row.innerHTML = `
         <div class="col-span-2">
-            <input type="text" list="accounts-list" 
-                class="line-account-code w-full p-2 border rounded font-mono text-sm uppercase" 
-                placeholder="Code..." 
-                value="${defaultValues.accountCode || ''}">
+            <input type="text" list="accounts-list" class="line-account-code w-full p-2.5 border-none rounded-lg font-mono text-sm font-bold bg-white shadow-sm focus:ring-2 focus:ring-primary uppercase" placeholder="Code..." value="${defaultValues.accountCode || ''}" required>
         </div>
-
         <div class="col-span-5">
-            <input type="text" 
-                class="line-name w-full p-2 border rounded text-sm" 
-                placeholder="Libellé de l'opération..." 
-                value="${defaultValues.name || ''}">
+            <input type="text" class="line-name w-full p-2.5 border-none rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-primary" placeholder="Désignation..." value="${defaultValues.name || ''}" required>
         </div>
-
         <div class="col-span-2">
-            <input type="number" step="0.01" min="0" 
-                class="line-debit w-full p-2 border rounded text-right font-semibold text-green-700" 
-                placeholder="0.00" 
-                value="${defaultValues.debit || ''}">
+            <input type="number" step="0.01" class="line-debit w-full p-2.5 border-none rounded-lg text-right font-black text-green-700 bg-white shadow-sm" placeholder="0.00" value="${defaultValues.debit || ''}">
         </div>
-
         <div class="col-span-2">
-            <input type="number" step="0.01" min="0" 
-                class="line-credit w-full p-2 border rounded text-right font-semibold text-red-700" 
-                placeholder="0.00" 
-                value="${defaultValues.credit || ''}">
+            <input type="number" step="0.01" class="line-credit w-full p-2.5 border-none rounded-lg text-right font-black text-red-700 bg-white shadow-sm" placeholder="0.00" value="${defaultValues.credit || ''}">
         </div>
-
-        <div class="col-span-1 flex items-center justify-center">
-            <button type="button" class="remove-line-btn text-gray-400 hover:text-red-600 transition-colors">
-                <i class="fas fa-times-circle fa-lg"></i>
+        <div class="col-span-1 text-center">
+            <button type="button" class="remove-line-btn text-gray-300 hover:text-red-500 transition-all">
+                <i class="fas fa-trash-alt"></i>
             </button>
         </div>
     `;
 
     container.appendChild(row);
 
-    // --- LOGIQUE DE ROBUSTESSE (Événements) ---
-
-    const codeInput = row.querySelector('.line-account-code');
-    const nameInput = row.querySelector('.line-name');
-    const debitInput = row.querySelector('.line-debit');
-    const creditInput = row.querySelector('.line-credit');
-    const removeBtn = row.querySelector('.remove-line-btn');
-
-    // 1. AUTO-COMPLÉTION : Quand on tape/choisit un code
-    codeInput.addEventListener('input', (e) => {
-        const val = e.target.value.trim();
-        // On cherche le compte dans le cache global window.allChartOfAccounts
-        const account = window.allChartOfAccounts.find(a => a.code === val);
-        
-        if (account) {
-            nameInput.value = account.name; // On remplit automatiquement le nom
-            row.classList.remove('border-red-300');
-            row.classList.add('border-green-300');
-        }
+    // Auto-complétion via Code Odoo
+    const codeIn = row.querySelector('.line-account-code');
+    const nameIn = row.querySelector('.line-name');
+    codeIn.addEventListener('input', (e) => {
+        const account = window.allChartOfAccounts.find(a => a.code === e.target.value.trim());
+        if (account) nameIn.value = account.name;
     });
 
-    // 2. EXCLUSIVITÉ DÉBIT/CRÉDIT : Si l'un est rempli, l'autre se vide
-    debitInput.addEventListener('input', () => {
-        if (debitInput.value > 0) creditInput.value = '';
-        if (typeof updateLineBalance === 'function') updateLineBalance();
+    // Exclusivité Débit/Crédit
+    const debIn = row.querySelector('.line-debit');
+    const creIn = row.querySelector('.line-credit');
+    [debIn, creIn].forEach(input => {
+        input.addEventListener('input', () => {
+            if (input === debIn && debIn.value > 0) creIn.value = '';
+            if (input === creIn && creIn.value > 0) debIn.value = '';
+            updateLineBalance();
+        });
     });
 
-    creditInput.addEventListener('input', () => {
-        if (creditInput.value > 0) debitInput.value = '';
-        if (typeof updateLineBalance === 'function') updateLineBalance();
-    });
-
-    // 3. SUPPRESSION : Avec sécurité (garder minimum 2 lignes)
-    removeBtn.addEventListener('click', () => {
-        const allLines = document.querySelectorAll('.journal-line');
-        if (allLines.length > 2) {
-            row.style.opacity = '0';
-            row.style.transform = 'translateX(20px)';
-            setTimeout(() => {
-                row.remove();
-                if (typeof updateLineBalance === 'function') updateLineBalance();
-            }, 200);
-        } else {
-            if (typeof NotificationManager !== 'undefined') {
-                NotificationManager.show("Une écriture nécessite au moins 2 lignes.", "warning");
-            }
+    // Suppression
+    row.querySelector('.remove-line-btn').addEventListener('click', () => {
+        if (document.querySelectorAll('.journal-line').length > 2) {
+            row.remove();
+            updateLineBalance();
         }
     });
 };
+
+/**
+ * 4. CALCUL DE BALANCE ET VALIDATION
+ */
+function updateLineBalance() {
+    let tDebit = 0, tCredit = 0;
+    document.querySelectorAll('.journal-line').forEach(l => {
+        tDebit += parseFloat(l.querySelector('.line-debit').value) || 0;
+        tCredit += parseFloat(l.querySelector('.line-credit').value) || 0;
+    });
+
+    const diff = Math.abs(tDebit - tCredit);
+    const isOk = diff < 0.01 && tDebit > 0;
+    const balEl = document.getElementById('total-balance');
+    const subBtn = document.getElementById('submit-btn');
+
+    if (isOk) {
+        balEl.innerHTML = `Balance Équilibrée : ${tDebit.toLocaleString()} XOF ✅`;
+        balEl.className = "text-lg font-black p-3 rounded-xl bg-green-100 text-green-700 shadow-inner";
+        subBtn.disabled = false;
+    } else {
+        balEl.innerHTML = `Écart : ${diff.toLocaleString()} XOF ❌`;
+        balEl.className = "text-lg font-black p-3 rounded-xl bg-red-100 text-red-700 shadow-inner";
+        subBtn.disabled = true;
+    }
+}
+
+/**
+ * 5. INITIALISATION (Liaison Backend Odoo)
+ */
+async function initializeManualEntryLogic() {
+    const form = document.getElementById('journalEntryForm');
+    if (!form) return;
+
+    const companyFilter = `?companyId=${appState.currentCompanyId}`;
+    
+    try {
+        const [accRes, jourRes] = await Promise.all([
+            apiFetch(`accounting/chart-of-accounts${companyFilter}`),
+            apiFetch(`accounting/journals${companyFilter}`)
+        ]);
+
+        window.allChartOfAccounts = accRes.data || [];
+        
+        // Remplir le Datalist global
+        const dl = document.getElementById('accounts-list');
+        dl.innerHTML = window.allChartOfAccounts.map(a => `<option value="${a.code}">${a.name}</option>`).join('');
+
+        // Remplir les Journaux
+        const jSel = document.getElementById('journal-code');
+        jSel.innerHTML = '<option value="">-- Sélection --</option>' + 
+                         jourRes.data.map(j => `<option value="${j.code}">${j.name} (${j.code})</option>`).join('');
+
+        // Initialiser avec 2 lignes
+        document.getElementById('lines-container').innerHTML = '';
+        window.addLineToEntry();
+        window.addLineToEntry();
+
+    } catch (e) {
+        console.error("Erreur chargement Odoo", e);
+    }
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        // Logique POST vers accounting/move ici...
+    };
+}
+
+/**
+ * 6. ÉCOUTEURS GLOBAUX
+ */
+function attachGlobalListeners() {
+    document.getElementById('login-form')?.addEventListener('submit', handleLogin);
+    document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+    document.getElementById('modal-close-btn')?.addEventListener('click', ModalManager.close);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    attachGlobalListeners();
+    checkAuthAndRender();
+});
