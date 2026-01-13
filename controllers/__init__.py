@@ -1,90 +1,80 @@
 # -*- coding: utf-8 -*-
-from odoo import http, fields
-from odoo.http import request
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError
 import logging
 
 _logger = logging.getLogger(__name__)
 
-class AccountingController(http.Controller):
+class ResCompany(models.Model):
+    _inherit = 'res.company'
 
-    # --- ROUTE 1 : RÉCUPÉRATION DE LA PÉRIODE FISCALE ---
-    @http.route('/accounting/fiscal-config', type='json', auth='user', methods=['POST', 'GET'], csrf=False)
-    def get_fiscal_config(self, companyId=None, **post):
+    def compute_fiscalyear_dates_api(self, date_str=None):
+        """ Appelé par Node.js pour getFiscalConfig """
+        self.ensure_one()
+        date_ref = fields.Date.from_string(date_str) if date_str else fields.Date.today()
+        res = self.compute_fiscalyear_dates(date_ref)
+        return {
+            'date_from': res['date_from'].strftime('%Y-%m-%d'),
+            'date_to': res['date_to'].strftime('%Y-%m-%d')
+        }
+
+class AccountMove(models.Model):
+    _inherit = 'account.move'
+
+    @api.model
+    def create_journal_entry_via_api(self, company_id, journal_code, date, reference, lines):
+        """ 
+        C'est cette fonction que Node.js appelle via execute_kw.
+        Elle doit être dans le MODEL, pas dans un CONTROLLER.
+        """
         try:
-            # Si companyId n'est pas passé, on prend celle de l'utilisateur
-            c_id = int(companyId) if companyId else request.env.company.id
-            company = request.env['res.company'].sudo().browse(c_id)
-            
-            # Calcul des dates de l'exercice pour aujourd'hui
-            fiscal_year = company.compute_fiscalyear_dates(fields.Date.today())
-            
-            return {
-                'status': 'success',
-                'fiscal_period': {
-                    'start_date': fiscal_year['date_from'].strftime('%Y-%m-%d'),
-                    'end_date': fiscal_year['date_to'].strftime('%Y-%m-%d'),
-                }
-            }
-        except Exception as e:
-            return {'status': 'error', 'message': str(e)}
-
-    # --- ROUTE 2 : CRÉATION DE L'ÉCRITURE ---
-    @http.route('/accounting/move/create', type='json', auth='user', methods=['POST'], csrf=False)
-    def create_journal_entry(self, **post):
-        # ... (Le code de création que je vous ai donné précédemment) ...
-        try:
-            data = request.jsonrequest
-            company_id = data.get('company_id')
-            journal_code = data.get('journal_code')
-            entry_date = data.get('date')
-            reference = data.get('reference')
-            lines = data.get('lines', [])
-
-            if not all([company_id, journal_code, entry_date, lines]):
-                return {'status': 'error', 'message': 'Données incomplètes.'}
-
-            journal = request.env['account.journal'].sudo().search([
+            # 1. Récupérer le journal
+            journal = self.env['account.journal'].sudo().search([
                 ('code', '=', journal_code),
                 ('company_id', '=', company_id)
             ], limit=1)
 
             if not journal:
-                return {'status': 'error', 'message': f'Journal "{journal_code}" introuvable.'}
+                raise UserError(_('Journal "%s" introuvable pour cette société.') % journal_code)
 
+            # 2. Préparer les lignes
             move_lines = []
             for line in lines:
-                account = request.env['account.account'].sudo().search([
+                # On cherche le compte par CODE (SYSCOHADA)
+                account = self.env['account.account'].sudo().search([
                     ('code', '=', line['account_code']),
                     ('company_id', '=', company_id)
                 ], limit=1)
 
                 if not account:
-                    return {'status': 'error', 'message': f'Compte "{line["account_code"]}" introuvable.'}
+                    raise UserError(_('Compte "%s" introuvable.') % line['account_code'])
 
                 move_lines.append((0, 0, {
                     'account_id': account.id,
-                    'name': line['name'],
-                    'debit': line['debit'],
-                    'credit': line['credit'],
+                    'name': line.get('name', reference),
+                    'debit': float(line.get('debit', 0.0)),
+                    'credit': float(line.get('credit', 0.0)),
                 }))
 
-            new_move = request.env['account.move'].sudo().create({
+            # 3. Création de la pièce
+            move = self.create({
                 'company_id': company_id,
                 'journal_id': journal.id,
-                'date': entry_date,
+                'date': date,
                 'ref': reference,
                 'move_type': 'entry',
                 'line_ids': move_lines,
             })
 
-            new_move.action_post()
+            # 4. Validation (Post)
+            move.action_post()
 
             return {
                 'status': 'success',
-                'move_id': new_move.id,
-                'move_name': new_move.name
+                'move_id': move.id,
+                'move_name': move.name
             }
 
         except Exception as e:
-            _logger.error(f"Erreur création écriture Odoo: {str(e)}")
+            _logger.error(f"Erreur API Odoo: {str(e)}")
             return {'status': 'error', 'message': str(e)}
