@@ -1,17 +1,38 @@
 # -*- coding: utf-8 -*-
 from odoo import http, fields
 from odoo.http import request
-import json
 import logging
 
 _logger = logging.getLogger(__name__)
 
 class AccountingController(http.Controller):
 
+    # --- ROUTE 1 : RÉCUPÉRATION DE LA PÉRIODE FISCALE ---
+    @http.route('/accounting/fiscal-config', type='json', auth='user', methods=['POST', 'GET'], csrf=False)
+    def get_fiscal_config(self, companyId=None, **post):
+        try:
+            # Si companyId n'est pas passé, on prend celle de l'utilisateur
+            c_id = int(companyId) if companyId else request.env.company.id
+            company = request.env['res.company'].sudo().browse(c_id)
+            
+            # Calcul des dates de l'exercice pour aujourd'hui
+            fiscal_year = company.compute_fiscalyear_dates(fields.Date.today())
+            
+            return {
+                'status': 'success',
+                'fiscal_period': {
+                    'start_date': fiscal_year['date_from'].strftime('%Y-%m-%d'),
+                    'end_date': fiscal_year['date_to'].strftime('%Y-%m-%d'),
+                }
+            }
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    # --- ROUTE 2 : CRÉATION DE L'ÉCRITURE ---
     @http.route('/accounting/move/create', type='json', auth='user', methods=['POST'], csrf=False)
     def create_journal_entry(self, **post):
+        # ... (Le code de création que je vous ai donné précédemment) ...
         try:
-            # 1. Récupération des données JSON
             data = request.jsonrequest
             company_id = data.get('company_id')
             journal_code = data.get('journal_code')
@@ -22,7 +43,6 @@ class AccountingController(http.Controller):
             if not all([company_id, journal_code, entry_date, lines]):
                 return {'status': 'error', 'message': 'Données incomplètes.'}
 
-            # 2. Recherche du Journal par Code
             journal = request.env['account.journal'].sudo().search([
                 ('code', '=', journal_code),
                 ('company_id', '=', company_id)
@@ -31,10 +51,8 @@ class AccountingController(http.Controller):
             if not journal:
                 return {'status': 'error', 'message': f'Journal "{journal_code}" introuvable.'}
 
-            # 3. Préparation des lignes (mapping Codes -> IDs)
             move_lines = []
             for line in lines:
-                # Recherche du compte par code
                 account = request.env['account.account'].sudo().search([
                     ('code', '=', line['account_code']),
                     ('company_id', '=', company_id)
@@ -50,26 +68,21 @@ class AccountingController(http.Controller):
                     'credit': line['credit'],
                 }))
 
-            # 4. Création de la pièce comptable (account.move)
-            # Odoo vérifiera automatiquement la période fiscale lors de la création
             new_move = request.env['account.move'].sudo().create({
                 'company_id': company_id,
                 'journal_id': journal.id,
                 'date': entry_date,
                 'ref': reference,
-                'move_type': 'entry', # Écriture manuelle
+                'move_type': 'entry',
                 'line_ids': move_lines,
             })
 
-            # 5. Validation (Postage) de l'écriture
-            # Si vous voulez qu'elle reste en brouillon, commentez la ligne ci-dessous
             new_move.action_post()
 
-            # 6. Retourner la référence officielle générée par Odoo (ex: MISC/2026/01/0001)
             return {
                 'status': 'success',
                 'move_id': new_move.id,
-                'move_name': new_move.name # C'est le numéro séquentiel Odoo
+                'move_name': new_move.name
             }
 
         except Exception as e:
