@@ -1639,3 +1639,122 @@ async function initializeManualEntryLogic() {
         }
     };
 }
+
+/**
+ * Crée un index de recherche global pour tous les champs de compte.
+ */
+function updateGlobalAccountList(accounts) {
+    let datalist = document.getElementById('accounts-list');
+    if (!datalist) {
+        datalist = document.createElement('datalist');
+        datalist.id = 'accounts-list';
+        document.body.appendChild(datalist);
+    }
+
+    // On crée les options : "411000 - Clients"
+    datalist.innerHTML = accounts.map(a => 
+        `<option value="${a.code}">${a.name}</option>`
+    ).join('');
+}
+
+/**
+ * Ajoute une ligne d'écriture comptable avec auto-complétion intelligente.
+ * @param {Object} defaultValues - Optionnel : pour pré-remplir la ligne (ex: modification)
+ */
+window.addLineToEntry = function(defaultValues = {}) {
+    const container = document.getElementById('lines-container');
+    if (!container) return;
+
+    const lineId = 'line-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    const row = document.createElement('div');
+    row.className = 'journal-line grid grid-cols-12 gap-2 mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200 transition-all';
+    row.id = lineId;
+
+    // Génération du HTML avec Datalist pour une recherche rapide
+    row.innerHTML = `
+        <div class="col-span-2">
+            <input type="text" list="accounts-list" 
+                class="line-account-code w-full p-2 border rounded font-mono text-sm uppercase" 
+                placeholder="Code..." 
+                value="${defaultValues.accountCode || ''}">
+        </div>
+
+        <div class="col-span-5">
+            <input type="text" 
+                class="line-name w-full p-2 border rounded text-sm" 
+                placeholder="Libellé de l'opération..." 
+                value="${defaultValues.name || ''}">
+        </div>
+
+        <div class="col-span-2">
+            <input type="number" step="0.01" min="0" 
+                class="line-debit w-full p-2 border rounded text-right font-semibold text-green-700" 
+                placeholder="0.00" 
+                value="${defaultValues.debit || ''}">
+        </div>
+
+        <div class="col-span-2">
+            <input type="number" step="0.01" min="0" 
+                class="line-credit w-full p-2 border rounded text-right font-semibold text-red-700" 
+                placeholder="0.00" 
+                value="${defaultValues.credit || ''}">
+        </div>
+
+        <div class="col-span-1 flex items-center justify-center">
+            <button type="button" class="remove-line-btn text-gray-400 hover:text-red-600 transition-colors">
+                <i class="fas fa-times-circle fa-lg"></i>
+            </button>
+        </div>
+    `;
+
+    container.appendChild(row);
+
+    // --- LOGIQUE DE ROBUSTESSE (Événements) ---
+
+    const codeInput = row.querySelector('.line-account-code');
+    const nameInput = row.querySelector('.line-name');
+    const debitInput = row.querySelector('.line-debit');
+    const creditInput = row.querySelector('.line-credit');
+    const removeBtn = row.querySelector('.remove-line-btn');
+
+    // 1. AUTO-COMPLÉTION : Quand on tape/choisit un code
+    codeInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        // On cherche le compte dans le cache global window.allChartOfAccounts
+        const account = window.allChartOfAccounts.find(a => a.code === val);
+        
+        if (account) {
+            nameInput.value = account.name; // On remplit automatiquement le nom
+            row.classList.remove('border-red-300');
+            row.classList.add('border-green-300');
+        }
+    });
+
+    // 2. EXCLUSIVITÉ DÉBIT/CRÉDIT : Si l'un est rempli, l'autre se vide
+    debitInput.addEventListener('input', () => {
+        if (debitInput.value > 0) creditInput.value = '';
+        if (typeof updateLineBalance === 'function') updateLineBalance();
+    });
+
+    creditInput.addEventListener('input', () => {
+        if (creditInput.value > 0) debitInput.value = '';
+        if (typeof updateLineBalance === 'function') updateLineBalance();
+    });
+
+    // 3. SUPPRESSION : Avec sécurité (garder minimum 2 lignes)
+    removeBtn.addEventListener('click', () => {
+        const allLines = document.querySelectorAll('.journal-line');
+        if (allLines.length > 2) {
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(20px)';
+            setTimeout(() => {
+                row.remove();
+                if (typeof updateLineBalance === 'function') updateLineBalance();
+            }, 200);
+        } else {
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.show("Une écriture nécessite au moins 2 lignes.", "warning");
+            }
+        }
+    });
+};
