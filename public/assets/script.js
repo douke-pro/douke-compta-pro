@@ -1488,132 +1488,154 @@ function generateManualEntryFormHTML() {
 }
 
 /**
- * Logique pour gérer la soumission du formulaire de passation d'écriture et initialiser les données.
+ * Initialise la logique de saisie manuelle.
+ * Version Robuste - Synchronisée avec le Backend Odoo
  */
-async function initializeManualEntryLogic() { // <-- NOUVEAU : Changé pour ASYNC
+async function initializeManualEntryLogic() {
     const form = document.getElementById('journalEntryForm');
     if (!form) return;
-    
-    // --- 🎯 NOUVEAU : 1. CHARGEMENT DES DONNÉES CRITIQUES (Plan Comptable & Journaux) (Début Problème 1) ---
-    const companyFilter = `?companyId=${appState.currentCompanyId}`;
-    let chartOfAccounts = [];
-    let journals = [];
 
+    // Éviter les soumissions multiples accidentelles si la fonction est rappelée
+    form.onsubmit = null; 
+    
+    const messageArea = document.getElementById('entry-message');
+    const linesContainer = document.getElementById('lines-container');
+    const companyFilter = `?companyId=${appState.currentCompanyId}`;
+
+    // --- 1. CHARGEMENT DES DONNÉES (Plan Comptable & Journaux) ---
     try {
-    // Chargement du Plan Comptable et des Journaux en parallèle
-    const [accountsResponse, journalsResponse] = await Promise.all([
-        // Suppression du '/list' pour correspondre à la route Backend
-        apiFetch(`accounting/chart-of-accounts${companyFilter}`, { method: 'GET' }), 
-        apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' }) 
-    ]);
+        console.log("Initialisation des données comptables...");
         
-        // Adapter la structure de la réponse (ajuster si votre API renvoie une autre clé)
-        chartOfAccounts = accountsResponse.data.accounts || accountsResponse.data;
-        journals = journalsResponse.data.journals || journalsResponse.data;
+        const [accountsResponse, journalsResponse] = await Promise.all([
+            apiFetch(`accounting/chart-of-accounts${companyFilter}`),
+            apiFetch(`accounting/journals${companyFilter}`)
+        ]);
+
+        // Mapping précis selon les réponses de votre contrôleur (data: accounts)
+        window.allChartOfAccounts = accountsResponse.data || [];
+        const journals = journalsResponse.data || [];
+
+        // Remplissage sécurisé du select des journaux
+        const journalSelect = document.getElementById('journal-code');
+        if (journalSelect) {
+            journalSelect.innerHTML = '<option value="">-- Sélectionner un journal --</option>';
+            journals.forEach(j => {
+                const option = document.createElement('option');
+                // CRITIQUE : On utilise j.code car votre backend cherche par code !
+                option.value = j.code; 
+                option.textContent = `${j.name} (${j.code})`;
+                journalSelect.appendChild(option);
+            });
+        }
 
     } catch (e) {
-        console.error("Erreur de chargement des données comptables de base :", e);
-        // Utiliser des données de secours si l'API échoue
-        chartOfAccounts = [{ id: '471000', name: 'Banque - Secours' }, { id: '601000', name: 'Achats - Secours' }];
-        journals = [{ id: 1, name: 'Opérations Diverses - Secours' }];
+        console.error("Erreur critique d'initialisation :", e);
+        // Fallback pour ne pas bloquer l'interface
+        window.allChartOfAccounts = window.allChartOfAccounts || [];
+        if (messageArea) {
+            displayMessage(messageArea, "Attention : Impossible de charger les données Odoo. Mode dégradé activé.", "warning");
+        }
+    }
+
+    // --- 2. RÉINITIALISATION DU FORMULAIRE ---
+    if (linesContainer) linesContainer.innerHTML = '';
+    
+    // Ajout des lignes initiales (utilise window.allChartOfAccounts chargé plus haut)
+    if (typeof window.addLineToEntry === 'function') {
+        window.addLineToEntry();
+        window.addLineToEntry();
     }
     
-    // Stockage global des comptes. window.addLineToEntry() devra l'utiliser.
-    window.allChartOfAccounts = chartOfAccounts; 
+    if (typeof updateLineBalance === 'function') updateLineBalance();
 
-    // Pré-remplir les journaux
-    const journalSelect = document.getElementById('journal-code');
-    if (journalSelect) {
-         journalSelect.innerHTML = ''; // Effacer les options existantes
-         journals.forEach(j => {
-            const option = document.createElement('option');
-            option.value = j.id; 
-            option.textContent = j.name;
-            journalSelect.appendChild(option);
-        });
-    }
-    // ------------------------------------------------------------------------------------------
-
-    // Ajout des deux premières lignes par défaut (elles vont maintenant utiliser les comptes chargés)
-    window.addLineToEntry(); 
-    window.addLineToEntry(); 
-    updateLineBalance();
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    // --- 3. GESTION DE LA SOUMISSION (ROBUSTE) ---
+    form.onsubmit = async (e) => {
+        e.preventDefault(); // GARANTIE : Stop le rechargement immédiat
         
-        const messageArea = document.getElementById('entry-message');
-        messageArea.classList.add('hidden');
-        messageArea.textContent = '';
+        if (messageArea) {
+            messageArea.classList.add('hidden');
+            messageArea.textContent = '';
+        }
+
+        const submitButton = form.querySelector('button[type="submit"]');
         
-        // 1. Récupération des données du formulaire
+        // A. Collecte et Validation des données
         const formData = {
-            companyId: appState.currentCompanyId,
+            companyId: parseInt(appState.currentCompanyId),
             journalCode: document.getElementById('journal-code').value,
             date: document.getElementById('entry-date').value,
             narration: document.getElementById('narration').value,
             lines: []
         };
-        
-        // 2. Récupération des lignes d'écriture
-        let hasError = false;
-        document.querySelectorAll('.journal-line').forEach(line => {
-            // Le code de compte est désormais dans la balise <select>
-            const accountCode = line.querySelector('.line-account-code').value.trim();
-            const debit = parseFloat(line.querySelector('.line-debit').value) || 0;
-            const credit = parseFloat(line.querySelector('.line-credit').value) || 0;
-            const name = line.querySelector('.line-name').value.trim(); // Le libellé auto-complété
 
-            // Vérification de la validité de la ligne
-            if (!accountCode || (!debit && !credit) || !name) {
-                hasError = true;
-            }
-            
-            formData.lines.push({ accountCode, name, debit, credit });
-        });
+        let hasError = false;
+        const lineElements = document.querySelectorAll('.journal-line');
         
-        if (hasError) {
-            displayMessage(messageArea, 'Veuillez remplir tous les champs obligatoires (Compte, Libellé, Débit/Crédit) de chaque ligne.', 'danger');
+        if (lineElements.length === 0) {
+            displayMessage(messageArea, "L'écriture doit contenir au moins deux lignes.", "danger");
             return;
         }
-        
-        // Vérification de la balance (ajout de la vérification de la partie double ici pour une meilleure UX)
-        // Note: Assurez-vous que window.isBalanceZero() est défini quelque part, sinon utilisez updateLineBalance()
-        // if (!window.isBalanceZero()) { ... }
 
-        // 3. Appel de l'API
-try {
-    const submitButton = form.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
-    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Enregistrement en cours...';
+        lineElements.forEach(line => {
+            const accountCode = line.querySelector('.line-account-code').value;
+            const debit = parseFloat(line.querySelector('.line-debit').value) || 0;
+            const credit = parseFloat(line.querySelector('.line-credit').value) || 0;
+            const name = line.querySelector('.line-name').value.trim();
 
-    // 🏆 CORRECTION CRITIQUE (Passer de 'accounting/entries' à 'accounting/move')
-    const response = await apiFetch('accounting/move', { // ⬅️ LA CORRECTION EST ICI
-        method: 'POST',
-        body: JSON.stringify(formData)
-    });
-
-    if (response.status === 'success') {
-                displayMessage(messageArea, `Écriture #${response.moveId || response.data.id} validée avec succès !`, 'success');
-                // Réinitialisation après succès
-                form.reset();
-                document.getElementById('lines-container').innerHTML = '';
-                window.addLineToEntry(); 
-                window.addLineToEntry(); 
-                updateLineBalance();
-                // Recharger le journal pour voir la nouvelle écriture
-                loadContentArea('journal', 'Journaux et Écritures');
+            if (!accountCode || !name || (debit === 0 && credit === 0)) {
+                hasError = true;
+                line.classList.add('border-red-500'); // Feedback visuel
             } else {
-                displayMessage(messageArea, `Erreur API : ${response.error || response.message || 'Erreur inconnue.'}`, 'danger');
+                line.classList.remove('border-red-500');
+                formData.lines.push({ accountCode, name, debit, credit });
+            }
+        });
+
+        if (hasError || !formData.journalCode || !formData.date) {
+            displayMessage(messageArea, "Veuillez remplir correctement tous les champs (Journal, Date, Comptes, Libellés).", "danger");
+            return;
+        }
+
+        // B. Envoi au Serveur
+        try {
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Enregistrement Odoo...';
+            }
+
+            // Route corrigée vers votre endpoint de création d'écriture
+            const response = await apiFetch('accounting/move', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+
+            if (response.status === 'success' || response.moveId) {
+                const moveId = response.moveId || (response.data && response.data.id);
+                displayMessage(messageArea, `Succès ! Écriture Odoo #${moveId} générée.`, 'success');
+                
+                // Reset propre
+                form.reset();
+                if (linesContainer) linesContainer.innerHTML = '';
+                window.addLineToEntry();
+                window.addLineToEntry();
+                if (typeof updateLineBalance === 'function') updateLineBalance();
+
+                // Notification optionnelle
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.show("Écriture comptable validée", "success");
+                }
+            } else {
+                throw new Error(response.error || "Réponse serveur invalide");
             }
 
         } catch (error) {
-            console.error('Erreur API Passation Écriture:', error);
-            displayMessage(messageArea, `Erreur de communication serveur : ${error.message}`, 'danger');
+            console.error('Erreur lors de la passation :', error);
+            displayMessage(messageArea, `Échec Odoo : ${error.message}`, 'danger');
         } finally {
-            const submitButton = form.querySelector('button[type="submit"]');
-            submitButton.disabled = false;
-            submitButton.innerHTML = '<i class="fas fa-check-square mr-2"></i> Valider et Passer l\'Écriture';
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-check-square mr-2"></i> Valider et Passer l\'Écriture';
+            }
         }
-    });
+    };
 }
