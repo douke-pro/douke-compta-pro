@@ -1230,13 +1230,11 @@ window.handleCaisseEntrySubmit = async function(event) {
 
 /**
  * ===================================================================
- * MODULE COMPTABLE : SAISIE MANUELLE (VERSION FINALE ODOO-READY)
+ * MODULE COMPTABLE : SAISIE MANUELLE (VERSION ULTIME & SÉCURISÉE)
  * ===================================================================
  */
 
-/**
- * 1. BIENVENUE ET NAVIGATION
- */
+// --- 1. BIENVENUE ET NAVIGATION ---
 function generateDashboardWelcomeHTML(companyName, role) {
     return `
         <div class="h-full flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
@@ -1249,77 +1247,79 @@ function generateDashboardWelcomeHTML(companyName, role) {
     `;
 }
 
-/**
- * 2. STRUCTURE DU FORMULAIRE (Grille 12 colonnes)
- */
+// --- 2. STRUCTURE DU FORMULAIRE (Grille 12 colonnes avec contraintes Odoo) ---
 function generateManualEntryFormHTML() {
     return `
         <div class="max-w-6xl mx-auto">
-            <h3 class="text-3xl font-black text-secondary mb-8 fade-in flex items-center">
-                <i class="fas fa-calculator mr-3 text-primary"></i> Passation d'une Nouvelle Écriture
-            </h3>
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-3xl font-black text-secondary flex items-center">
+                    <i class="fas fa-calculator mr-3 text-primary"></i> Nouvelle Écriture Comptable
+                </h3>
+                <div id="period-badge" class="px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100 shadow-sm">
+                    <i class="fas fa-calendar-check mr-2"></i> Période : Vérification...
+                </div>
+            </div>
             
             <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-100">
                 <form id="journalEntryForm" class="space-y-6">
                     
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-gray-100">
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label>
-                            <input type="date" id="entry-date" class="w-full rounded-xl border-gray-200 p-3 shadow-sm focus:ring-2 focus:ring-primary" required value="${new Date().toISOString().slice(0, 10)}">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Date d'Écriture (Période Active)</label>
+                            <input type="date" id="entry-date" class="w-full rounded-xl border-gray-200 p-3 shadow-sm focus:ring-2 focus:ring-primary font-bold" required>
+                            <span id="date-hint" class="text-[10px] text-gray-400 mt-1 block">Date autorisée par Odoo</span>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Journal (Odoo)</label>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Journal de destination</label>
                             <select id="journal-code" class="w-full rounded-xl border-gray-200 p-3 shadow-sm focus:ring-2 focus:ring-primary" required>
-                                <option value="">Chargement...</option>
+                                <option value="">Chargement des journaux...</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Libellé Général</label>
-                            <input type="text" id="narration" class="w-full rounded-xl border-gray-200 p-3 shadow-sm focus:ring-2 focus:ring-primary" placeholder="Ex: Paiement Facture #001" required>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Référence / Libellé (REF Odoo)</label>
+                            <input type="text" id="narration" class="w-full rounded-xl border-gray-200 p-3 shadow-sm focus:ring-2 focus:ring-primary" placeholder="Ex: FACTURE-2026-XYZ" required>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-12 gap-3 px-2 text-xs font-black text-gray-400 uppercase">
+                    <div class="grid grid-cols-12 gap-3 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">
                         <div class="col-span-2">Compte</div>
                         <div class="col-span-5">Désignation / Libellé de ligne</div>
-                        <div class="col-span-2 text-right">Débit</div>
-                        <div class="col-span-2 text-right">Crédit</div>
+                        <div class="col-span-2 text-right">Débit (XOF)</div>
+                        <div class="col-span-2 text-right">Crédit (XOF)</div>
                         <div class="col-span-1"></div>
                     </div>
 
-                    <div id="lines-container" class="space-y-3"></div>
+                    <div id="lines-container" class="space-y-3 min-h-[150px]"></div>
 
                     <div class="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-gray-100 gap-4">
-                        <button type="button" onclick="window.addLineToEntry()" class="bg-gray-100 text-secondary font-bold py-3 px-6 rounded-xl hover:bg-secondary hover:text-white transition-all">
-                            <i class="fas fa-plus-circle mr-2"></i> Ajouter une ligne
+                        <button type="button" onclick="window.addLineToEntry()" class="group bg-gray-100 text-secondary font-bold py-3 px-6 rounded-xl hover:bg-secondary hover:text-white transition-all shadow-sm">
+                            <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform"></i> Ajouter une ligne
                         </button>
 
                         <div class="flex flex-col items-end">
-                            <div id="total-balance" class="text-lg font-black p-3 rounded-xl transition-all bg-red-50 text-red-600">
+                            <div id="total-balance" class="text-lg font-black p-3 rounded-xl transition-all shadow-inner">
                                 Balance : 0,00 XOF
                             </div>
-                            <button type="submit" id="submit-btn" class="mt-2 bg-primary text-white font-black py-4 px-10 rounded-2xl shadow-xl disabled:opacity-30 transition-all uppercase" disabled>
-                                <i class="fas fa-check-square mr-2"></i> Valider l'Écriture
+                            <button type="submit" id="submit-btn" class="mt-2 bg-primary text-white font-black py-4 px-10 rounded-2xl shadow-xl hover:scale-105 active:scale-95 disabled:opacity-30 disabled:grayscale transition-all uppercase tracking-widest" disabled>
+                                <i class="fas fa-paper-plane mr-2"></i> Valider dans Odoo
                             </button>
                         </div>
                     </div>
                 </form>
-                <div id="entry-message" class="mt-6 text-center p-4 rounded-xl hidden"></div>
+                <div id="entry-message" class="mt-6 text-center p-4 rounded-xl hidden animate-pulse"></div>
             </div>
         </div>
         <datalist id="accounts-list"></datalist>
     `;
 }
 
-/**
- * 3. GESTION DES LIGNES (Datalist & Auto-complétion)
- */
+// --- 3. LOGIQUE DES LIGNES (Saisie Rapide & Auto-complétion) ---
 window.addLineToEntry = function(defaultValues = {}) {
     const container = document.getElementById('lines-container');
     if (!container) return;
 
     const row = document.createElement('div');
-    row.className = 'journal-line grid grid-cols-12 gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border-2 border-transparent hover:border-blue-100 transition-all items-center';
+    row.className = 'journal-line grid grid-cols-12 gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border-2 border-transparent hover:border-blue-100 transition-all items-center animate-in slide-in-from-left-2';
     
     row.innerHTML = `
         <div class="col-span-2">
@@ -1329,31 +1329,33 @@ window.addLineToEntry = function(defaultValues = {}) {
             <input type="text" class="line-name w-full p-2.5 border-none rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-primary" placeholder="Désignation..." value="${defaultValues.name || ''}" required>
         </div>
         <div class="col-span-2">
-            <input type="number" step="0.01" class="line-debit w-full p-2.5 border-none rounded-lg text-right font-black text-green-700 bg-white shadow-sm" placeholder="0.00" value="${defaultValues.debit || ''}">
+            <input type="number" step="0.01" min="0" class="line-debit w-full p-2.5 border-none rounded-lg text-right font-black text-green-700 bg-white shadow-sm" placeholder="0.00" value="${defaultValues.debit || ''}">
         </div>
         <div class="col-span-2">
-            <input type="number" step="0.01" class="line-credit w-full p-2.5 border-none rounded-lg text-right font-black text-red-700 bg-white shadow-sm" placeholder="0.00" value="${defaultValues.credit || ''}">
+            <input type="number" step="0.01" min="0" class="line-credit w-full p-2.5 border-none rounded-lg text-right font-black text-red-700 bg-white shadow-sm" placeholder="0.00" value="${defaultValues.credit || ''}">
         </div>
         <div class="col-span-1 text-center">
             <button type="button" class="remove-line-btn text-gray-300 hover:text-red-500 transition-all">
-                <i class="fas fa-trash-alt"></i>
+                <i class="fas fa-minus-circle fa-lg"></i>
             </button>
         </div>
     `;
 
     container.appendChild(row);
 
-    // Auto-complétion via Code Odoo
     const codeIn = row.querySelector('.line-account-code');
     const nameIn = row.querySelector('.line-name');
-    codeIn.addEventListener('input', (e) => {
-        const account = window.allChartOfAccounts.find(a => a.code === e.target.value.trim());
-        if (account) nameIn.value = account.name;
-    });
-
-    // Exclusivité Débit/Crédit
     const debIn = row.querySelector('.line-debit');
     const creIn = row.querySelector('.line-credit');
+
+    codeIn.addEventListener('input', (e) => {
+        const account = window.allChartOfAccounts.find(a => a.code === e.target.value.trim());
+        if (account) {
+            nameIn.value = account.name;
+            row.classList.replace('bg-gray-50', 'bg-blue-50/30');
+        }
+    });
+
     [debIn, creIn].forEach(input => {
         input.addEventListener('input', () => {
             if (input === debIn && debIn.value > 0) creIn.value = '';
@@ -1362,7 +1364,6 @@ window.addLineToEntry = function(defaultValues = {}) {
         });
     });
 
-    // Suppression
     row.querySelector('.remove-line-btn').addEventListener('click', () => {
         if (document.querySelectorAll('.journal-line').length > 2) {
             row.remove();
@@ -1371,9 +1372,6 @@ window.addLineToEntry = function(defaultValues = {}) {
     });
 };
 
-/**
- * 4. CALCUL DE BALANCE ET VALIDATION
- */
 function updateLineBalance() {
     let tDebit = 0, tCredit = 0;
     document.querySelectorAll('.journal-line').forEach(l => {
@@ -1387,60 +1385,115 @@ function updateLineBalance() {
     const subBtn = document.getElementById('submit-btn');
 
     if (isOk) {
-        balEl.innerHTML = `Balance Équilibrée : ${tDebit.toLocaleString()} XOF ✅`;
+        balEl.innerHTML = `<i class="fas fa-check-circle mr-2"></i> Équilibré : ${tDebit.toLocaleString()} XOF`;
         balEl.className = "text-lg font-black p-3 rounded-xl bg-green-100 text-green-700 shadow-inner";
         subBtn.disabled = false;
     } else {
-        balEl.innerHTML = `Écart : ${diff.toLocaleString()} XOF ❌`;
+        balEl.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> Écart : ${diff.toLocaleString()} XOF`;
         balEl.className = "text-lg font-black p-3 rounded-xl bg-red-100 text-red-700 shadow-inner";
         subBtn.disabled = true;
     }
 }
 
-/**
- * 5. INITIALISATION (Liaison Backend Odoo)
- */
+// --- 4. INITIALISATION & SÉCURITÉ ODOO (Périodes & Soumission) ---
 async function initializeManualEntryLogic() {
     const form = document.getElementById('journalEntryForm');
     if (!form) return;
 
-    const companyFilter = `?companyId=${appState.currentCompanyId}`;
+    const msgArea = document.getElementById('entry-message');
+    const dateInput = document.getElementById('entry-date');
+    const periodBadge = document.getElementById('period-badge');
+    const companyId = appState.currentCompanyId;
+    const companyFilter = `?companyId=${companyId}`;
     
     try {
-        const [accRes, jourRes] = await Promise.all([
+        // Chargement simultané : Comptes, Journaux ET Paramètres de période
+        const [accRes, jourRes, configRes] = await Promise.all([
             apiFetch(`accounting/chart-of-accounts${companyFilter}`),
-            apiFetch(`accounting/journals${companyFilter}`)
+            apiFetch(`accounting/journals${companyFilter}`),
+            apiFetch(`accounting/fiscal-config${companyFilter}`) // Nouveau endpoint requis
         ]);
 
         window.allChartOfAccounts = accRes.data || [];
         
-        // Remplir le Datalist global
+        // 1. Limitation des dates (Sécurité Période Active)
+        if (configRes.status === 'success') {
+            const { start_date, end_date } = configRes.fiscal_period;
+            dateInput.min = start_date;
+            dateInput.max = end_date;
+            dateInput.value = end_date < new Date().toISOString().split('T')[0] ? end_date : new Date().toISOString().split('T')[0];
+            periodBadge.innerHTML = `<i class="fas fa-lock-open mr-2"></i> Ouvert du ${new Date(start_date).toLocaleDateString()} au ${new Date(end_date).toLocaleDateString()}`;
+        }
+
+        // 2. Population des listes
         const dl = document.getElementById('accounts-list');
         dl.innerHTML = window.allChartOfAccounts.map(a => `<option value="${a.code}">${a.name}</option>`).join('');
 
-        // Remplir les Journaux
         const jSel = document.getElementById('journal-code');
-        jSel.innerHTML = '<option value="">-- Sélection --</option>' + 
+        jSel.innerHTML = '<option value="">-- Choisir un Journal --</option>' + 
                          jourRes.data.map(j => `<option value="${j.code}">${j.name} (${j.code})</option>`).join('');
 
-        // Initialiser avec 2 lignes
+        // 3. Initialisation lignes
         document.getElementById('lines-container').innerHTML = '';
         window.addLineToEntry();
         window.addLineToEntry();
 
     } catch (e) {
-        console.error("Erreur chargement Odoo", e);
+        console.error("Erreur Init Odoo:", e);
+        displayMessage(msgArea, "Erreur de connexion aux données Odoo.", "danger");
     }
 
+    // --- LOGIQUE DE SOUMISSION API ---
     form.onsubmit = async (e) => {
         e.preventDefault();
-        // Logique POST vers accounting/move ici...
+        const subBtn = document.getElementById('submit-btn');
+        
+        const payload = {
+            company_id: parseInt(companyId),
+            journal_code: document.getElementById('journal-code').value,
+            date: dateInput.value,
+            reference: document.getElementById('narration').value,
+            lines: Array.from(document.querySelectorAll('.journal-line')).map(l => ({
+                account_code: l.querySelector('.line-account-code').value.trim(),
+                name: l.querySelector('.line-name').value.trim(),
+                debit: parseFloat(l.querySelector('.line-debit').value) || 0,
+                credit: parseFloat(l.querySelector('.line-credit').value) || 0
+            }))
+        };
+
+        try {
+            subBtn.disabled = true;
+            subBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Création Odoo...';
+            
+            const response = await apiFetch('accounting/move/create', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (response.status === 'success') {
+                // Affichage du numéro de pièce généré par Odoo (ex: BNK1/2026/0001)
+                displayMessage(msgArea, `
+                    <div class="flex flex-col">
+                        <span class="font-bold text-lg"><i class="fas fa-check-double mr-2"></i> Écriture Validée !</span>
+                        <span class="text-sm">N° Pièce Odoo : <strong>${response.move_name}</strong></span>
+                    </div>
+                `, "success");
+                
+                form.reset();
+                initializeManualEntryLogic(); // Reboot complet pour sécurité
+            } else {
+                throw new Error(response.message || "Erreur Odoo");
+            }
+        } catch (err) {
+            displayMessage(msgArea, `<strong>Erreur :</strong> ${err.message}`, "danger");
+        } finally {
+            subBtn.disabled = false;
+            subBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Valider dans Odoo';
+        }
     };
 }
 
-/**
- * 6. ÉCOUTEURS GLOBAUX
- */
+// --- 5. ÉCOUTEURS GLOBAUX ---
 function attachGlobalListeners() {
     document.getElementById('login-form')?.addEventListener('submit', handleLogin);
     document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
