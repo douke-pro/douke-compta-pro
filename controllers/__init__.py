@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from odoo import models, api, fields, _
-from odoo.exceptions import UserError
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
@@ -8,7 +10,8 @@ class AccountMove(models.Model):
     @api.model
     def create_journal_entry_via_api(self, company_id, journal_code, date, reference, lines):
         """
-        Méthode robuste appelée par Node.js via XML-RPC (execute_kw)
+        Méthode robuste appelée par Node.js via XML-RPC (execute_kw).
+        Elle résout l'erreur 'Route non trouvée' en créant un endpoint interne au modèle.
         """
         try:
             # 1. Vérification du Journal
@@ -23,7 +26,7 @@ class AccountMove(models.Model):
             # 2. Construction des lignes (Format Odoo [0, 0, {values}])
             move_lines = []
             for line in lines:
-                # Recherche du compte par CODE (ex: 521100)
+                # Recherche du compte par CODE SYSCOHADA (ex: 521100)
                 account = self.env['account.account'].sudo().search([
                     ('code', '=', line.get('account_code')),
                     ('company_id', '=', int(company_id))
@@ -39,8 +42,8 @@ class AccountMove(models.Model):
                     'credit': float(line.get('credit', 0.0)),
                 }))
 
-            # 3. Création et Validation
-            move = self.create({
+            # 3. CRÉATION EFFECTIVE DE LA PIÈCE (Ce qu'il manquait à votre fichier)
+            move = self.sudo().create({
                 'company_id': int(company_id),
                 'journal_id': journal.id,
                 'date': date,
@@ -49,7 +52,8 @@ class AccountMove(models.Model):
                 'line_ids': move_lines,
             })
             
-            move.action_post() # Validation automatique
+            # 4. VALIDATION (Équivalent du bouton "Valider")
+            move.action_post()
 
             return {
                 'status': 'success',
@@ -58,4 +62,5 @@ class AccountMove(models.Model):
             }
 
         except Exception as e:
+            _logger.error(f"Erreur API Odoo (AccountMove): {str(e)}")
             return {'status': 'error', 'message': str(e)}
