@@ -20,12 +20,16 @@ exports.getFiscalConfig = async (req, res) => {
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
         const result = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'res.company',
-            method: 'compute_fiscalyear_dates',
-            args: [parseInt(companyId)],
-            kwargs: {}
-        });
+        JavaScript
+
+// MODIFIEZ LIGNES 25-30
+const result = await odooExecuteKw({
+    uid: ADMIN_UID_INT,
+    model: 'res.company',
+    method: 'compute_fiscalyear_dates',
+    args: [parseInt(companyId)], // L'ID suffit
+    kwargs: {} // Laissez vide pour corriger le TypeError
+});
 
         res.json({
             status: 'success',
