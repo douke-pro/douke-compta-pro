@@ -57,15 +57,17 @@ exports.odooAuthenticate = async (email, password) => {
     const passwordToUse = (email === ODOO_CONFIG.username) ? adminPassword : password;
     
     const payload = {
-        jsonrpc: "2.0",
-        method: "call",
-        params: {
-            service: "common",
-            method: "login",
-            args: [db, email, passwordToUse],
-        },
-        id: new Date().getTime(),
-    };
+    jsonrpc: "2.0",
+    method: "call",
+    params: {
+        service: "object",
+        method: "execute_kw",
+        // L'ordre Odoo est strict : [db, uid, password, model, method, args, kwargs]
+        args: [ODOO_CONFIG.db, finalUid, ODOO_CONFIG.password, model, method, args, kwargs],
+        kwargs: {} // Toujours vide ici
+    },
+    id: new Date().getTime(),
+};
 
     const uid = await executeJsonRpc('/jsonrpc', payload);
     if (!uid) throw new Error("Identifiants Odoo invalides.");
