@@ -24,7 +24,7 @@ exports.getFiscalConfig = async (req, res) => {
             model: 'res.company',
             method: 'compute_fiscalyear_dates',
             args: [parseInt(companyId)],
-            kwargs: { date: new Date().toISOString().split('T')[0] }
+            kwargs: {}
         });
 
         res.json({
