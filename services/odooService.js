@@ -132,32 +132,23 @@ exports.odooAuthenticate = async (email, password) => {
  * Exécute une méthode de modèle Odoo (execute_kw) via JSON-RPC.
  */
 exports.odooExecuteKw = async (params) => {
-    // ... (Logique odooExecuteKw)
     const { uid, model, method, args = [], kwargs = {} } = params;
-    const db = ODOO_CONFIG.db;
-    const password = ODOO_CONFIG.password; 
+    const db = ODOO_CONFIG.db;
+    const password = ODOO_CONFIG.password; 
 
-    if (!uid || !password) {
-        throw new Error('UID ou Clé API Odoo manquant pour l\'exécution de la requête.');
-    }
-
-    const executeKwArgs = [db, uid, password, model, method, args, kwargs];
-
-    const payload = {
-        jsonrpc: "2.0",
-        method: "call",
-        params: {
-            service: "object",
-            method: "execute_kw",
-            args: executeKwArgs,
-            kwargs: {}
-        },
-        id: new Date().getTime(),
-    };
-
-    return executeJsonRpc('/jsonrpc', payload);
+    const payload = {
+        jsonrpc: "2.0",
+        method: "call",
+        params: {
+            service: "object",
+            method: "execute_kw",
+            args: [db, uid, password, model, method, args, kwargs], // Les kwargs doivent être ICI
+            kwargs: {} // Laissez ceci vide (c'est le kwarg du wrapper RPC)
+        },
+        id: new Date().getTime(),
+    };
+    return executeJsonRpc('/jsonrpc', payload);
 };
-
 /**
  * Crée un nouvel utilisateur Odoo et lui attribue des droits de base.
  */
