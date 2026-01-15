@@ -20,16 +20,25 @@ exports.getFiscalConfig = async (req, res) => {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
+        const today = new Date().toISOString().split('T')[0];
+
         const result = await odooExecuteKw({
-            // On force l'utilisation de l'UID admin récupéré au démarrage
-            uid: exports.ADMIN_UID_INT || 2, 
+            // On s'assure d'utiliser l'UID admin si l'utilisateur n'est pas authentifié
+            uid: req.user ? req.user.uid : exports.ADMIN_UID_INT,
             model: 'res.company',
             method: 'compute_fiscalyear_dates',
+            // ARGUMENT 1 (Positionnel) : L'ID de la compagnie (le "self" en Python)
             args: [parseInt(companyId)], 
-            kwargs: {} 
+            // ARGUMENT 2 (Nommé) : La date actuelle
+            // Passer par kwargs permet au serveur Odoo de convertir la string en objet Date nativement
+            kwargs: { 
+                current_date: today 
+            } 
         });
 
-        if (!result) throw new Error("Aucune donnée reçue d'Odoo");
+        if (!result || !result.date_from) {
+            throw new Error("Réponse Odoo incomplète");
+        }
 
         res.json({
             status: 'success',
@@ -40,14 +49,17 @@ exports.getFiscalConfig = async (req, res) => {
         });
     } catch (error) {
         console.error('[Fiscal Config Error]', error.message);
+        // Fallback SYSCOHADA standard (Année civile)
         const year = new Date().getFullYear();
         res.json({
             status: 'success',
-            fiscal_period: { start_date: `${year}-01-01`, end_date: `${year}-12-31` }
+            fiscal_period: {
+                start_date: `${year}-01-01`,
+                end_date: `${year}-12-31`
+            }
         });
     }
 };
-
 // =============================================================================
 // 2. LOGIQUE DE REPORTING COMPTABLE (CLOISONNÉ ET SÉCURISÉ)
 // =============================================================================
