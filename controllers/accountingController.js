@@ -20,15 +20,14 @@ exports.getFiscalConfig = async (req, res) => {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
-        // Aujourd'hui au format YYYY-MM-DD
-        const today = new Date().toISOString().split('T')[0];
-
+        // SOLUTION ODOO 19 : On retire la variable 'today' de l'appel
         const result = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.company',
             method: 'compute_fiscalyear_dates',
-            // Odoo 19 attend : [id_compagnie, date_actuelle]
-            args: [parseInt(companyId), today], 
+            // On ne passe QUE l'ID de la compagnie. 
+            // Odoo prendra la date du jour automatiquement côté serveur.
+            args: [parseInt(companyId)], 
             kwargs: {} 
         });
 
@@ -41,6 +40,7 @@ exports.getFiscalConfig = async (req, res) => {
         });
     } catch (error) {
         console.error('[Fiscal Config Error]', error.message);
+        // Fallback pour que l'interface utilisateur s'affiche quand même
         res.json({
             status: 'success',
             fiscal_period: {
@@ -50,6 +50,7 @@ exports.getFiscalConfig = async (req, res) => {
         });
     }
 };
+
 // =============================================================================
 // 2. LOGIQUE DE REPORTING COMPTABLE (CLOISONNÉ ET SÉCURISÉ)
 // =============================================================================
