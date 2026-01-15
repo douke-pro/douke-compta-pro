@@ -14,18 +14,22 @@ const accountingService = require('../services/accountingService');
  * RÉSOUT LE BUG : Unexpected token 'const' et TypeError Odoo
  * Récupère les dates de l'exercice comptable depuis Odoo.
  */
+
 exports.getFiscalConfig = async (req, res) => {
     try {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
-        // Appel corrigé : sans le mot-clé 'date' dans kwargs
+        // Aujourd'hui au format YYYY-MM-DD
+        const today = new Date().toISOString().split('T')[0];
+
         const result = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.company',
             method: 'compute_fiscalyear_dates',
-            args: [parseInt(companyId)], // L'ID suffit
-            kwargs: {} // Corrigé : on laisse vide pour éviter le crash TypeError
+            // Odoo 19 attend : [id_compagnie, date_actuelle]
+            args: [parseInt(companyId), today], 
+            kwargs: {} 
         });
 
         res.json({
@@ -37,7 +41,6 @@ exports.getFiscalConfig = async (req, res) => {
         });
     } catch (error) {
         console.error('[Fiscal Config Error]', error.message);
-        // Fallback sécurisé en cas d'erreur de communication ou de droits
         res.json({
             status: 'success',
             fiscal_period: {
@@ -47,8 +50,6 @@ exports.getFiscalConfig = async (req, res) => {
         });
     }
 };
-  
-
 // =============================================================================
 // 2. LOGIQUE DE REPORTING COMPTABLE (CLOISONNÉ ET SÉCURISÉ)
 // =============================================================================
