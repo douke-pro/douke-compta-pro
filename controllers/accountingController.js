@@ -20,15 +20,16 @@ exports.getFiscalConfig = async (req, res) => {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
-        // Pour Odoo 19, on n'envoie PAS de date. 
-        // La méthode compute_fiscalyear_dates() utilisera date.today() par défaut.
         const result = await odooExecuteKw({
-            uid: exports.ADMIN_UID_INT,
+            // On force l'utilisation de l'UID admin récupéré au démarrage
+            uid: exports.ADMIN_UID_INT || 2, 
             model: 'res.company',
             method: 'compute_fiscalyear_dates',
-            args: [parseInt(companyId)], // Juste l'ID
+            args: [parseInt(companyId)], 
             kwargs: {} 
         });
+
+        if (!result) throw new Error("Aucune donnée reçue d'Odoo");
 
         res.json({
             status: 'success',
@@ -39,7 +40,6 @@ exports.getFiscalConfig = async (req, res) => {
         });
     } catch (error) {
         console.error('[Fiscal Config Error]', error.message);
-        // Fallback sécurisé : 1er Janvier au 31 Décembre de l'année en cours
         const year = new Date().getFullYear();
         res.json({
             status: 'success',
