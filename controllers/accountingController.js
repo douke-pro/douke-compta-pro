@@ -11,45 +11,43 @@ const accountingService = require('../services/accountingService');
 // =============================================================================
 
 /**
- * RÉSOUT LE BUG : argument handler must be a function.
- * Récupère les dates de l'exercice comptable depuis Odoo.
- */
+ * RÉSOUT LE BUG : Unexpected token 'const' et TypeError Odoo
+ * Récupère les dates de l'exercice comptable depuis Odoo.
+ */
 exports.getFiscalConfig = async (req, res) => {
-    try {
-        const { companyId } = req.query;
-        if (!companyId) return res.status(400).json({ error: "companyId manquant" });
+    try {
+        const { companyId } = req.query;
+        if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
-        const result = await odooExecuteKw({
-        JavaScript
+        // Appel corrigé : sans le mot-clé 'date' dans kwargs
+        const result = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.company',
+            method: 'compute_fiscalyear_dates',
+            args: [parseInt(companyId)], // L'ID suffit
+            kwargs: {} // Corrigé : on laisse vide pour éviter le crash TypeError
+        });
 
-// MODIFIEZ LIGNES 25-30
-const result = await odooExecuteKw({
-    uid: ADMIN_UID_INT,
-    model: 'res.company',
-    method: 'compute_fiscalyear_dates',
-    args: [parseInt(companyId)], // L'ID suffit
-    kwargs: {} // Laissez vide pour corriger le TypeError
-});
-
-        res.json({
-            status: 'success',
-            fiscal_period: {
-                start_date: result.date_from,
-                end_date: result.date_to
-            }
-        });
-    } catch (error) {
-        console.error('[Fiscal Config Error]', error.message);
-        // Fallback sécurisé pour éviter de bloquer l'interface
-        res.json({
-            status: 'success',
-            fiscal_period: {
-                start_date: `${new Date().getFullYear()}-01-01`,
-                end_date: `${new Date().getFullYear()}-12-31`
-            }
-        });
-    }
+        res.json({
+            status: 'success',
+            fiscal_period: {
+                start_date: result.date_from,
+                end_date: result.date_to
+            }
+        });
+    } catch (error) {
+        console.error('[Fiscal Config Error]', error.message);
+        // Fallback sécurisé en cas d'erreur de communication ou de droits
+        res.json({
+            status: 'success',
+            fiscal_period: {
+                start_date: `${new Date().getFullYear()}-01-01`,
+                end_date: `${new Date().getFullYear()}-12-31`
+            }
+        });
+    }
 };
+  
 
 // =============================================================================
 // 2. LOGIQUE DE REPORTING COMPTABLE (CLOISONNÉ ET SÉCURISÉ)
