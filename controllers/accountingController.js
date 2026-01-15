@@ -20,15 +20,19 @@ exports.getFiscalConfig = async (req, res) => {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
-        // SOLUTION ODOO 19 : On retire la variable 'today' de l'appel
+        // On définit la date actuelle
+        const today = new Date().toISOString().split('T')[0];
+
         const result = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.company',
             method: 'compute_fiscalyear_dates',
-            // On ne passe QUE l'ID de la compagnie. 
-            // Odoo prendra la date du jour automatiquement côté serveur.
+            // On passe l'ID de la compagnie dans args
             args: [parseInt(companyId)], 
-            kwargs: {} 
+            // On passe l'argument nommé 'current_date' dans kwargs pour Odoo 19
+            kwargs: { 
+                current_date: today 
+            } 
         });
 
         res.json({
@@ -40,7 +44,7 @@ exports.getFiscalConfig = async (req, res) => {
         });
     } catch (error) {
         console.error('[Fiscal Config Error]', error.message);
-        // Fallback pour que l'interface utilisateur s'affiche quand même
+        // Fallback pour éviter de bloquer l'interface
         res.json({
             status: 'success',
             fiscal_period: {
