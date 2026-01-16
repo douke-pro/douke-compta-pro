@@ -11,7 +11,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');      
 const companyRoutes = require('./routes/company'); 
 const accountingRoutes = require('./routes/accounting'); // ⬅️ NOUVEL IMPORT (Rapports SYSCOHADA)
-const userRoutes = require('./routes/user');        // ⬅️ NOUVEL IMPORT (Session Data/Tableau de Bord)
+const userRoutes = require('./routes/user');        // ⬅️ NOUVEL IMPORT (Session Data/Tableau de Bord)
 
 
 const app = express();
@@ -28,7 +28,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRoutes); 
 app.use('/api/companies', companyRoutes);
 app.use('/api/accounting', accountingRoutes); // ⬅️ MONTAGE DES ROUTES COMPTABLES (Fichier 5/6)
-app.use('/api/user', userRoutes);            // ⬅️ MONTAGE DES NOUVELLES ROUTES UTILISATEUR/SESSION
+app.use('/api/user', userRoutes);            // ⬅️ MONTAGE DES NOUVELLES ROUTES UTILISATEUR/SESSION
 
 
 // 3. LE FIX RADICAL : Middleware de secours au lieu d'une route '*'
