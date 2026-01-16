@@ -1,47 +1,44 @@
+// services/odooService.js
 const nodeFetch = require('node-fetch');
 const fetch = nodeFetch.default || nodeFetch;
 
-// 1. Variables d'environnement
-const ODOO_URL = process.env.ODOO_URL;
-const ODOO_DB = process.env.ODOO_DB;
-
 const ODOO_CONFIG = {
-    db: ODOO_DB,
-    adminUid: process.env.ODOO_ADMIN_UID,
-    username: process.env.ODOO_USERNAME || 'doukepro@gmail.com',
+    url: process.env.ODOO_URL,
+    db: process.env.ODOO_DB,
+    username: process.env.ODOO_USERNAME,
     password: process.env.ODOO_API_KEY,
+    adminUid: parseInt(process.env.ODOO_ADMIN_UID, 10) || 2
 };
 
-// 2. Exportation immédiate de l'UID Admin (pour éviter les NoneType/Undefined)
-const ADMIN_UID_INT = parseInt(ODOO_CONFIG.adminUid, 10) || 2;
-exports.ADMIN_UID_INT = ADMIN_UID_INT;
+exports.ADMIN_UID_INT = ODOO_CONFIG.adminUid;
 
-/**
- * Fonction interne de communication JSON-RPC
- */
 async function executeJsonRpc(endpoint, payload) {
-    const url = `${ODOO_URL}${endpoint}`;
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-
-        const jsonResponse = await response.json();
-
-        if (jsonResponse.error) {
-            const error = jsonResponse.error;
-            const errorMessage = error.data && error.data.message ? error.data.message : error.message;
-            console.error('[Odoo JSON-RPC Error]', errorMessage);
-            throw new Error(`Erreur Odoo: ${errorMessage}`);
-        }
-        return jsonResponse.result;
-    } catch (error) {
-        console.error('[Execution Fatal Error]', error.message);
-        throw new Error(`Échec de la communication Odoo : ${error.message}`);
-    }
+    const response = await fetch(`${ODOO_CONFIG.url}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    const json = await response.json();
+    if (json.error) throw new Error(json.error.data ? json.error.data.message : json.error.message);
+    return json.result;
 }
+
+exports.odooExecuteKw = async ({ uid, model, method, args = [], kwargs = {} }) => {
+    const finalUid = parseInt(uid || ODOO_CONFIG.adminUid, 10);
+    const payload = {
+        jsonrpc: "2.0",
+        method: "call",
+        params: {
+            service: "object",
+            method: "execute_kw",
+            // Ordre Odoo strict : [db, uid, password, model, method, args]
+            args: [ODOO_CONFIG.db, finalUid, ODOO_CONFIG.password, model, method, args],
+            kwargs: kwargs // Les options vont ICI
+        },
+        id: Date.now(),
+    };
+    return await executeJsonRpc('/jsonrpc', payload);
+};
 
 /**
  * AUTHENTIFICATION (Reprise de votre logique initiale qui marchait)
