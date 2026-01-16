@@ -10,6 +10,10 @@ const accountingService = require('../services/accountingService');
 // 1. CONFIGURATION ET PÉRIODES (RÉSOUT LE CRASH NODE.JS)
 // =============================================================================
 
+/**
+ * RÉSOUT LE BUG : argument handler must be a function.
+ * Récupère les dates de l'exercice comptable depuis Odoo.
+ */
 exports.getFiscalConfig = async (req, res) => {
     try {
         const { companyId } = req.query;
@@ -32,6 +36,7 @@ exports.getFiscalConfig = async (req, res) => {
         });
     } catch (error) {
         console.error('[Fiscal Config Error]', error.message);
+        // Fallback sécurisé pour éviter de bloquer l'interface
         res.json({
             status: 'success',
             fiscal_period: {
@@ -46,6 +51,9 @@ exports.getFiscalConfig = async (req, res) => {
 // 2. LOGIQUE DE REPORTING COMPTABLE (CLOISONNÉ ET SÉCURISÉ)
 // =============================================================================
 
+/**
+ * Rapport SYSCOHADA (Bilan/Compte de Résultat) par CompanyId et AnalyticId.
+ */
 exports.getFinancialReport = async (req, res) => {
     try {
         const { analyticId } = req.params; 
@@ -57,7 +65,7 @@ exports.getFinancialReport = async (req, res) => {
         
         const companyIdInt = parseInt(companyId, 10);
         const analyticFilter = [['analytic_distribution', 'in', [analyticId.toString()]]];
-        const companyFilter = [['company_id', '=', companyIdInt]]; 
+        const companyFilter = [['company_id', 'in', [companyIdInt]]]; // 🔑 Filtre LÉGAL CRITIQUE
 
         const moveLines = await odooExecuteKw({ 
             uid: ADMIN_UID_INT,
@@ -94,13 +102,16 @@ exports.getFinancialReport = async (req, res) => {
     }
 };
 
+/**
+ * Données de synthèse pour le tableau de bord.
+ */
 exports.getDashboardData = async (req, res) => {
     try {
         const { companyId } = req.query;
         if (!companyId || !ADMIN_UID_INT) return res.status(400).json({ error: 'Le paramètre companyId ou l\'Admin UID est requis.' });
 
         const companyIdInt = parseInt(companyId, 10);
-        const companyFilter = [['company_id', '=', companyIdInt]];
+        const companyFilter = [['company_id', 'in', [companyIdInt]]];
 
         const moveLines = await odooExecuteKw({ 
             uid: ADMIN_UID_INT,
@@ -129,7 +140,7 @@ exports.getDashboardData = async (req, res) => {
 };
 
 // =============================================================================
-// 3. LOGIQUE DU PLAN COMPTABLE (CRUD CLOISONNÉ) - CORRIGÉ
+// 3. LOGIQUE DU PLAN COMPTABLE (CRUD CLOISONNÉ)
 // =============================================================================
 
 exports.getChartOfAccounts = async (req, res) => {
@@ -138,20 +149,19 @@ exports.getChartOfAccounts = async (req, res) => {
         const odooUid = req.user.odooUid;
         if (!companyId || !odooUid) return res.status(400).json({ error: "ID de compagnie ou UID manquant." });
 
-        const cid = parseInt(companyId, 10);
+        const companyIdInt = parseInt(companyId, 10);
         const accounts = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
+            uid: ADMIN_UID_INT, // 🔑 Utilisation Admin pour lecture selon ta logique
             model: 'account.account',
             method: 'search_read',
-            args: [[['company_id', '=', cid]]], // 🔑 CORRECTION : 'company_id' au singulier
+            args: [[['company_ids', 'in', [companyIdInt]]]], // 🔑 Utilisation de company_ids (pluriel)
             kwargs: { 
                 fields: ['id', 'code', 'name', 'account_type'], 
-                context: { company_id: cid, allowed_company_ids: [cid] } 
+                context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } // 🔒 Cloisonnement
             }
         });
         res.status(200).json({ status: 'success', results: accounts.length, data: accounts });
     } catch (error) {
-        console.error('[Chart Error]', error.message);
         res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
     }
 };
@@ -160,15 +170,15 @@ exports.createAccount = async (req, res) => {
     try {
         const { code, name, type, companyId } = req.body;
         const odooUid = req.user.odooUid;
-        const cid = parseInt(companyId);
-        if (!odooUid || !cid) return res.status(400).json({ error: "UID ou companyId manquant." });
+        const companyIdInt = parseInt(companyId);
+        if (!odooUid || !companyIdInt) return res.status(400).json({ error: "UID ou companyId manquant." });
 
         const newAccountId = await odooExecuteKw({
-            uid: odooUid,
+            uid: odooUid, // 🔑 Utilisation de l'UID utilisateur pour traçabilité
             model: 'account.account',
             method: 'create',
-            args: [{ 'code': code, 'name': name, 'account_type': type, 'company_id': cid }],
-            kwargs: { context: { company_id: cid, allowed_company_ids: [cid] } }
+            args: [{ 'code': code, 'name': name, 'account_type': type }],
+            kwargs: { context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } }
         });
         res.status(201).json({ status: 'success', data: { id: newAccountId } });
     } catch (err) {
@@ -180,15 +190,15 @@ exports.updateAccount = async (req, res) => {
     try {
         const { id, code, name, type, companyId } = req.body;
         const odooUid = req.user.odooUid;
-        const cid = parseInt(companyId);
-        if (!id || !odooUid || !cid) return res.status(400).json({ error: "Données manquantes." });
+        const companyIdInt = parseInt(companyId);
+        if (!id || !odooUid || !companyIdInt) return res.status(400).json({ error: "Données manquantes." });
 
         await odooExecuteKw({
             uid: odooUid,
             model: 'account.account',
             method: 'write',
-            args: [[parseInt(id)], { 'code': code, 'name': name, 'account_type': type }],
-            kwargs: { context: { company_id: cid, allowed_company_ids: [cid] } }
+            args: [[id], { 'code': code, 'name': name, 'account_type': type }],
+            kwargs: { context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } }
         });
         res.status(200).json({ status: 'success', message: 'Compte mis à jour.' });
     } catch (err) {
@@ -203,31 +213,16 @@ exports.updateAccount = async (req, res) => {
 exports.createJournalEntry = async (req, res) => {
     try {
         const { companyId, journalCode, date, narration, lines } = req.body;
-        const cid = parseInt(companyId);
-        
-        // Tentative de création d'écriture via méthode standard pour éviter les erreurs de modules manquants
         const result = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
-            method: 'create',
-            args: [{
-                company_id: cid,
-                journal_id: parseInt(journalCode),
-                date: date,
-                ref: narration,
-                move_type: 'entry',
-                line_ids: lines.map(l => [0, 0, {
-                    account_id: parseInt(l.accountId),
-                    name: l.name || narration,
-                    debit: parseFloat(l.debit) || 0,
-                    credit: parseFloat(l.credit) || 0
-                }])
-            }],
-            kwargs: { context: { company_id: cid } }
+            method: 'create_journal_entry_via_api',
+            args: [],
+            kwargs: { company_id: parseInt(companyId), journal_code: journalCode, date, reference: narration, lines }
         });
-        res.status(201).json({ status: 'success', data: { id: result } });
+        res.status(201).json({ status: 'success', data: result });
     } catch (error) {
-        res.status(500).json({ error: "Erreur lors de la validation : " + error.message });
+        res.status(500).json({ error: error.message });
     }
 };
 
@@ -247,8 +242,7 @@ exports.getGeneralLedger = async (req, res) => {
     try {
         const { companyId, date_from, date_to, journal_ids } = req.query;
         const journals = journal_ids ? journal_ids.split(',').map(Number) : [];
-        const cid = parseInt(companyId);
-        const lines = await accountingService.getGeneralLedgerLines(ADMIN_UID_INT, cid, date_from, date_to, journals);
+        const lines = await accountingService.getGeneralLedgerLines(ADMIN_UID_INT, parseInt(companyId), date_from, date_to, journals);
         
         let ledger = {};
         lines.forEach(line => {
@@ -271,13 +265,12 @@ exports.getJournals = async (req, res) => {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: "companyId requis" });
 
-        const cid = parseInt(companyId);
         const journals = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.journal',
             method: 'search_read',
-            args: [[['company_id', '=', cid]]],
-            kwargs: { fields: ['id', 'name', 'code', 'type'], context: { company_id: cid } }
+            args: [[['company_id', '=', parseInt(companyId)]]],
+            kwargs: { fields: ['id', 'name', 'code', 'type'], context: { company_id: parseInt(companyId) } }
         });
         res.status(200).json({ status: 'success', data: journals });
     } catch (error) {
@@ -286,25 +279,9 @@ exports.getJournals = async (req, res) => {
 };
 
 // =============================================================================
-// 5. STUBS & DETAILS
+// 5. STUBS (FONCTIONS EN ATTENTE)
 // =============================================================================
 
-exports.getEntryDetails = async (req, res) => {
-    try {
-        const { entryId } = req.params;
-        const result = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.move',
-            method: 'read',
-            args: [[parseInt(entryId)]],
-            kwargs: { fields: ['name', 'date', 'ref', 'line_ids'] }
-        });
-        res.json({ status: 'success', data: result[0] });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-};
-
-exports.handleCaisseEntry = async (req, res) => res.status(501).json({ error: "Module Caisse en attente." });
-exports.getBalanceSheet = async (req, res) => res.status(501).json({ error: "Bilan SYSCOHADA détaillé en attente." });
-
-exports.handleCaisseEntry = async (req, res) => res.status(501).json({ error: "Module Caisse en attente." });
-exports.getBalanceSheet = async (req, res) => res.status(501).json({ error: "Bilan SYSCOHADA détaillé en attente." });
+exports.getEntryDetails = async (req, res) => res.status(501).json({ error: "Détails non implémentés." });
+exports.handleCaisseEntry = async (req, res) => res.status(501).json({ error: "Caisse non implémentée." });
+exports.getBalanceSheet = async (req, res) => res.status(501).json({ error: "Bilan non implémenté." });
