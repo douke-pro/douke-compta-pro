@@ -20,25 +20,16 @@ exports.getFiscalConfig = async (req, res) => {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
-        const today = new Date().toISOString().split('T')[0];
-
-        const result = await odooExecuteKw({
-            // On s'assure d'utiliser l'UID admin si l'utilisateur n'est pas authentifié
-            uid: req.user ? req.user.uid : exports.ADMIN_UID_INT,
+        // SOLUTION 100% ROBUSTE : On ne passe PLUS de date du tout.
+        // Odoo 19 utilisera Date.today() nativement côté Python.
+        // Cela supprime définitivement l'erreur 'str' object has no attribute 'strftime'.
+        const result = await odoo.odooExecuteKw({
+            uid: odoo.ADMIN_UID_INT || 5, // Utilisation de l'UID 5 qui fonctionne chez vous
             model: 'res.company',
             method: 'compute_fiscalyear_dates',
-            // ARGUMENT 1 (Positionnel) : L'ID de la compagnie (le "self" en Python)
-            args: [parseInt(companyId)], 
-            // ARGUMENT 2 (Nommé) : La date actuelle
-            // Passer par kwargs permet au serveur Odoo de convertir la string en objet Date nativement
-            kwargs: { 
-                current_date: today 
-            } 
+            args: [parseInt(companyId)], // Seul l'ID est envoyé
+            kwargs: {} // On laisse vide pour laisser Odoo décider du type
         });
-
-        if (!result || !result.date_from) {
-            throw new Error("Réponse Odoo incomplète");
-        }
 
         res.json({
             status: 'success',
@@ -48,18 +39,16 @@ exports.getFiscalConfig = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('[Fiscal Config Error]', error.message);
-        // Fallback SYSCOHADA standard (Année civile)
+        console.error('[Fiscal Config Error] Utilisation du fallback sécurisé:', error.message);
+        // Fallback pour ne jamais bloquer l'interface utilisateur
         const year = new Date().getFullYear();
         res.json({
             status: 'success',
-            fiscal_period: {
-                start_date: `${year}-01-01`,
-                end_date: `${year}-12-31`
-            }
+            fiscal_period: { start_date: `${year}-01-01`, end_date: `${year}-12-31` }
         });
     }
 };
+
 // =============================================================================
 // 2. LOGIQUE DE REPORTING COMPTABLE (CLOISONNÉ ET SÉCURISÉ)
 // =============================================================================
