@@ -86,14 +86,22 @@ exports.odooAuthenticate = async (email, password) => {
 /**
  * EXECUTE_KW (Version corrigée avec finalUid et kwargs pour Odoo 19)
  */
+/**
+ * EXECUTE_KW (Version finale blindée)
+ */
 exports.odooExecuteKw = async (params) => {
     const { uid, model, method, args = [], kwargs = {} } = params;
     
-    // Sécurité : si uid est absent, on prend l'admin, sinon 2
-    const finalUid = parseInt(uid || ADMIN_UID_INT, 10);
+    // On sécurise l'UID : priorité à l'UID passé, sinon l'UID Admin, sinon 2
+    const finalUid = parseInt(uid || exports.ADMIN_UID_INT || 2, 10);
     
-    const db = ODOO_CONFIG.db;
-    const password = ODOO_CONFIG.password;
+    // On récupère les constantes (en s'assurant qu'elles existent)
+    const db = process.env.ODOO_DB;
+    const password = process.env.ODOO_API_KEY;
+
+    if (!db || !password) {
+        throw new Error("Base de données ou Clé API manquante dans les variables d'environnement.");
+    }
 
     const payload = {
         jsonrpc: "2.0",
@@ -101,7 +109,7 @@ exports.odooExecuteKw = async (params) => {
         params: {
             service: "object",
             method: "execute_kw",
-            // Ordre Odoo : [db, uid, password, model, method, args, kwargs]
+            // Ordre exact requis par Odoo 19 : [db, uid, password, model, method, args, kwargs]
             args: [db, finalUid, password, model, method, args, kwargs],
             kwargs: {} 
         },
@@ -110,7 +118,6 @@ exports.odooExecuteKw = async (params) => {
 
     return await executeJsonRpc('/jsonrpc', payload);
 };
-
 /**
  * CRÉATION UTILISATEUR
  */
