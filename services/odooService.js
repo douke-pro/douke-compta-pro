@@ -92,13 +92,9 @@ exports.odooAuthenticate = async (email, password) => {
 exports.odooExecuteKw = async (params) => {
     const { uid, model, method, args = [], kwargs = {} } = params;
     
-    const finalUid = parseInt(uid || exports.ADMIN_UID_INT || 2, 10);
+    const finalUid = parseInt(uid || exports.ADMIN_UID_INT || 5, 10);
     const db = process.env.ODOO_DB;
     const password = process.env.ODOO_API_KEY;
-
-    if (!db || !password) {
-        throw new Error("Base de données ou Clé API manquante.");
-    }
 
     const payload = {
         jsonrpc: "2.0",
@@ -106,17 +102,16 @@ exports.odooExecuteKw = async (params) => {
         params: {
             service: "object",
             method: "execute_kw",
-            // CORRECT : args contient uniquement les identifiants et les paramètres positionnels
+            // STRUCTURE EXPERTE : args contient les identifiants + le domaine de recherche
+            // kwargs contient les options (fields, context, limit)
             args: [db, finalUid, password, model, method, args],
-            // CORRECT : les paramètres nommés (comme current_date) DOIVENT être ici
             kwargs: kwargs 
         },
-        id: new Date().getTime(),
+        id: Date.now(),
     };
 
     return await executeJsonRpc('/jsonrpc', payload);
 };
-
 /**
  * CRÉATION UTILISATEUR
  */
