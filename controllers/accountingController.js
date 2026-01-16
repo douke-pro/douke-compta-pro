@@ -12,6 +12,10 @@ const accountingService = require('../services/accountingService');
 exports.getFiscalConfig = async (req, res) => {
     try {
         const { companyId } = req.query;
+
+        // Le log doit être ICI, après la définition de companyId
+        console.log(`[DEBUG] Appel fiscal pour la compagnie : ${companyId}`);
+        
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
         // Correction : On utilise directement la fonction importée
@@ -148,26 +152,53 @@ exports.getDashboardData = async (req, res) => {
 // =============================================================================
 
 exports.getChartOfAccounts = async (req, res) => {
-    try {
-        const { companyId } = req.query;
-        const odooUid = req.user.odooUid;
-        if (!companyId || !odooUid) return res.status(400).json({ error: "ID de compagnie ou UID manquant." });
+    try {
+        const { companyId } = req.query;
+        // On récupère l'UID de l'utilisateur authentifié ou l'Admin par défaut
+        const odooUid = (req.user && req.user.odooUid) ? req.user.odooUid : ADMIN_UID_INT;
 
-        const companyIdInt = parseInt(companyId, 10);
-        const accounts = await odooExecuteKw({
-            uid: ADMIN_UID_INT, // 🔑 Utilisation Admin pour lecture selon ta logique
-            model: 'account.account',
-            method: 'search_read',
-            args: [[['company_ids', 'in', [companyIdInt]]]], // 🔑 Utilisation de company_ids (pluriel)
-            kwargs: { 
-                fields: ['id', 'code', 'name', 'account_type'], 
-                context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } // 🔒 Cloisonnement
-            }
-        });
-        res.status(200).json({ status: 'success', results: accounts.length, data: accounts });
-    } catch (error) {
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
-    }
+        if (!companyId) {
+            return res.status(400).json({ error: "ID de compagnie manquant." });
+        }
+
+        const companyIdInt = parseInt(companyId, 10);
+
+        const accounts = await odooExecuteKw({
+            uid: odooUid, 
+            model: 'account.account',
+            method: 'search_read',
+            // ARGS : On utilise un filtre plus universel pour éviter les erreurs de champ
+            args: [[
+                '|', 
+                ['company_id', '=', companyIdInt], 
+                ['company_id', '=', false] // Pour inclure les comptes génériques si nécessaire
+            ]], 
+            kwargs: { 
+                fields: ['id', 'code', 'name', 'account_type'], 
+                // CONTEXT : Indispensable pour que l'ORM Odoo filtre correctement en interne
+                context: { 
+                    company_id: companyIdInt, 
+                    allowed_company_ids: [companyIdInt] 
+                }
+            }
+        });
+
+        // Log de debug interne pour Render
+        console.log(`[Plan Comptable] ${accounts.length} comptes récupérés pour la société ${companyIdInt}`);
+
+        res.status(200).json({ 
+            status: 'success', 
+            results: accounts.length, 
+            data: accounts 
+        });
+
+    } catch (error) {
+        console.error('[Plan Comptable Error]:', error.message);
+        res.status(500).json({ 
+            error: 'Échec de la récupération du Plan Comptable.',
+            details: error.message 
+        });
+    }
 };
 
 exports.createAccount = async (req, res) => {
@@ -218,29 +249,43 @@ exports.createJournalEntry = async (req, res) => {
     try {
         const { companyId, journalCode, date, narration, lines } = req.body;
 
-        // Appel direct à la méthode du modèle AccountMove définie en Python
+        // Validation stricte des entrées avant d'appeler Odoo
+        if (!companyId || !lines || !Array.isArray(lines)) {
+            return res.status(400).json({ error: "Données invalides : 'companyId' et 'lines' (Array) sont requis." });
+        }
+
+        console.log(`[Odoo API] Tentative de création d'écriture : Journal ${journalCode}, Co: ${companyId}`);
+
         const result = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
-            method: 'create_journal_entry_via_api', // Nom exact de la fonction Python
+            method: 'create_journal_entry_via_api', 
             args: [], 
             kwargs: {
-                company_id: parseInt(companyId),
+                company_id: parseInt(companyId, 10),
                 journal_code: journalCode,
-                date: date,
+                date: date, // Format YYYY-MM-DD attendu par Odoo
                 reference: narration,
-                lines: lines // On passe le tableau de lignes tel quel
+                lines: lines // On s'assure que c'est un Array d'objets
             }
         });
 
-        if (result.status === 'error') {
-            return res.status(400).json({ error: result.message });
+        // Gestion de la réponse structurée de ton module Python
+        if (!result || result.status === 'error') {
+            console.error('[Odoo Business Error]', result ? result.message : 'Réponse vide');
+            return res.status(400).json({ error: result ? result.message : "Erreur inconnue lors de la création dans Odoo." });
         }
 
-        res.status(201).json({ status: 'success', data: result });
+        res.status(201).json({ 
+            status: 'success', 
+            message: "Écriture comptable validée", 
+            data: result 
+        });
+
     } catch (error) {
-        console.error('[Node Error]', error.message);
-        res.status(500).json({ error: "Échec de la communication avec Odoo." });
+        // Capture des erreurs de communication (Timeout, Crash RPC, etc.)
+        console.error('[Node Fatal Error]', error.message);
+        res.status(500).json({ error: "Échec critique de la communication avec Odoo." });
     }
 };
 
