@@ -305,3 +305,6 @@ exports.getEntryDetails = async (req, res) => {
 
 exports.handleCaisseEntry = async (req, res) => res.status(501).json({ error: "Module Caisse en attente." });
 exports.getBalanceSheet = async (req, res) => res.status(501).json({ error: "Bilan SYSCOHADA détaillé en attente." });
+
+exports.handleCaisseEntry = async (req, res) => res.status(501).json({ error: "Module Caisse en attente." });
+exports.getBalanceSheet = async (req, res) => res.status(501).json({ error: "Bilan SYSCOHADA détaillé en attente." });
