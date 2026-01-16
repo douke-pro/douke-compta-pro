@@ -1,35 +1,33 @@
 // =============================================================================
 // FICHIER : controllers/accountingController.js
-// OBJECTIF : Gestion Comptable SYSCOHADA, Cloisonnement Légal et Sécurité Odoo
 // =============================================================================
 
-const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService'); 
+// On importe les fonctions directement (Destructuring)
+const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService'); 
 const accountingService = require('../services/accountingService');
 
-// =============================================================================
-// 1. CONFIGURATION ET PÉRIODES (RÉSOUT LE CRASH NODE.JS)
-// =============================================================================
-
 /**
- * RÉSOUT LE BUG : Unexpected token 'const' et TypeError Odoo
  * Récupère les dates de l'exercice comptable depuis Odoo.
  */
-
 exports.getFiscalConfig = async (req, res) => {
     try {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: "companyId manquant" });
 
-        // SOLUTION 100% ROBUSTE : On ne passe PLUS de date du tout.
-        // Odoo 19 utilisera Date.today() nativement côté Python.
-        // Cela supprime définitivement l'erreur 'str' object has no attribute 'strftime'.
-        const result = await odoo.odooExecuteKw({
-            uid: odoo.ADMIN_UID_INT || 5, // Utilisation de l'UID 5 qui fonctionne chez vous
+        // Correction : On utilise directement la fonction importée
+        // On sécurise l'UID avec une valeur par défaut au cas où
+        const result = await odooExecuteKw({ 
+            uid: ADMIN_UID_INT || 5, 
             model: 'res.company',
             method: 'compute_fiscalyear_dates',
-            args: [parseInt(companyId)], // Seul l'ID est envoyé
-            kwargs: {} // On laisse vide pour laisser Odoo décider du type
+            args: [parseInt(companyId)],
+            kwargs: {} // Vide pour laisser Odoo 19 utiliser la date du jour serveur
         });
+
+        // Sécurité supplémentaire : On vérifie que result existe
+        if (!result || !result.date_from) {
+            throw new Error("Réponse Odoo incomplète");
+        }
 
         res.json({
             status: 'success',
@@ -39,12 +37,16 @@ exports.getFiscalConfig = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('[Fiscal Config Error] Utilisation du fallback sécurisé:', error.message);
-        // Fallback pour ne jamais bloquer l'interface utilisateur
+        console.error('[Fiscal Config Error] Fallback activé:', error.message);
+        
+        // Année en cours dynamique pour le fallback
         const year = new Date().getFullYear();
         res.json({
             status: 'success',
-            fiscal_period: { start_date: `${year}-01-01`, end_date: `${year}-12-31` }
+            fiscal_period: { 
+                start_date: `${year}-01-01`, 
+                end_date: `${year}-12-31` 
+            }
         });
     }
 };
