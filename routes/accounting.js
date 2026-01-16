@@ -25,7 +25,7 @@ router.get('/journals', protect, accountingController.getJournals);
 router.get('/details/:entryId', protect, accountingController.getEntryDetails);
 
 // Plan Comptable (Lecture)
-router.get('/chart-of-accounts', protect, accountingController.getChartOfAccounts); 
+router.get('/chart-of-accounts', protect, accountingController.getChartOfAccounts); 
 
 // -------------------------------------------------------------
 // ROUTES DE MODIFICATION (Nécessite 'protect' ET 'checkWritePermission')
