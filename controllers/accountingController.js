@@ -146,19 +146,21 @@ exports.getDashboardData = async (req, res) => {
 exports.getChartOfAccounts = async (req, res) => {
     try {
         const { companyId } = req.query;
-        // On s'assure d'avoir un UID, priorité à l'utilisateur, fallback sur Admin
+        // Priorité à l'UID utilisateur, fallback sur Admin pour la stabilité de l'affichage
         const odooUid = (req.user && req.user.odooUid) ? req.user.odooUid : ADMIN_UID_INT;
         
-        if (!companyId) return res.status(400).json({ error: "ID de compagnie manquant." });
+        if (!companyId) {
+            return res.status(400).json({ error: "ID de compagnie manquant." });
+        }
 
         const companyIdInt = parseInt(companyId, 10);
-        
+
         const accounts = await odooExecuteKw({
-            uid: ADMIN_UID_INT, // Lecture en Admin pour la stabilité de l'affichage
+            uid: ADMIN_UID_INT, // Utilisation Admin pour garantir la lecture du plan complet
             model: 'account.account',
             method: 'search_read',
-            // HARMONISATION : On utilise company_id (singulier) comme dans create/update
-            args: [[['company_id', '=', companyIdInt]]], 
+            // 💡 HARMONISATION : Utilisation de 'company_ids' au pluriel pour la séparation stricte
+            args: [[['company_ids', 'in', [companyIdInt]]]], 
             kwargs: { 
                 fields: ['id', 'code', 'name', 'account_type'], 
                 context: { 
@@ -168,36 +170,37 @@ exports.getChartOfAccounts = async (req, res) => {
             }
         });
 
+        // Gestion du cas où aucun compte n'est trouvé pour éviter une erreur front-end
+        if (!accounts || accounts.length === 0) {
+            return res.status(200).json({ 
+                status: 'success', 
+                results: 0, 
+                data: [],
+                message: "Aucun compte configuré pour cette entreprise." 
+            });
+        }
+
         res.status(200).json({ 
             status: 'success', 
             results: accounts.length, 
             data: accounts 
         });
+
     } catch (error) {
-        console.error('[Harmonization Error] getChartOfAccounts:', error.message);
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
+        console.error('[COA Error] getChartOfAccounts (Pluriel):', error.message);
+        res.status(500).json({ 
+            error: 'Échec de la récupération du Plan Comptable.',
+            details: error.message 
+        });
     }
 };
 
 exports.createAccount = async (req, res) => {
     try {
         const { code, name, type, companyId } = req.body;
-        
-        // Utilisation de l'UID Admin si l'UID utilisateur est manquant pour garantir la création
         const odooUid = (req.user && req.user.odooUid) ? req.user.odooUid : ADMIN_UID_INT;
         const companyIdInt = parseInt(companyId, 10);
 
-        // Validation stricte pour éviter les crashs RPC
-        if (!code || !name || !companyIdInt) {
-            return res.status(400).json({ error: "Données obligatoires manquantes : code, name ou companyId." });
-        }
-
-        /**
-         * LOGIQUE SENIOR ODOO 19 :
-         * 1. On injecte explicitement 'company_id' dans l'objet de création (args).
-         * 2. On limite les champs aux données de base pour laisser Odoo calculer les 220+ autres champs.
-         * 3. On force le contexte de cloisonnement pour le moteur de règles d'Odoo.
-         */
         const newAccountId = await odooExecuteKw({
             uid: odooUid,
             model: 'account.account',
@@ -205,74 +208,40 @@ exports.createAccount = async (req, res) => {
             args: [{ 
                 'code': code.toString(), 
                 'name': name, 
-                'account_type': type || 'asset_current', // Fallback type pour éviter undefined
-                'company_id': companyIdInt 
+                'account_type': type || 'asset_current',
+                // 🔑 HARMONIE : Utilisation du format Many2Many (6, 0, [ids])
+                'company_ids': [[6, 0, [companyIdInt]]] 
             }],
-            kwargs: { 
-                context: { 
-                    company_id: companyIdInt, 
-                    allowed_company_ids: [companyIdInt] 
-                } 
-            }
+            kwargs: { context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } }
         });
-
-        res.status(201).json({ 
-            status: 'success', 
-            message: `Compte ${code} créé avec succès.`,
-            data: { id: newAccountId } 
-        });
-
+        res.status(201).json({ status: 'success', data: { id: newAccountId } });
     } catch (err) {
-        console.error('[Create Account Error]:', err.message);
-        // Gestion propre de l'erreur de doublon (contrainte d'unicité Odoo)
-        const errorMsg = err.message.includes('already exists') 
-            ? "Ce code de compte existe déjà pour cette entreprise." 
-            : err.message;
-            
-        res.status(500).json({ error: errorMsg });
+        res.status(500).json({ error: err.message });
     }
 };
 
 exports.updateAccount = async (req, res) => {
     try {
         const { id, code, name, type, companyId } = req.body;
-        
-        // 🔑 Utilisation d'un UID de secours (Admin) si l'UID session est expiré ou manquant
         const odooUid = (req.user && req.user.odooUid) ? req.user.odooUid : ADMIN_UID_INT;
         const companyIdInt = parseInt(companyId, 10);
-
-        if (!id || !companyIdInt) {
-            return res.status(400).json({ error: "L'ID du compte et le companyId sont requis pour la mise à jour." });
-        }
-
-        /**
-         * LOGIQUE ODOO 19 :
-         * Nous ne mettons à jour que les champs modifiables vus sur tes captures.
-         * On exclut tout champ technique (comme ceux marqués 'Lecture seule' sur l'image image_90707f.png).
-         */
-        const updatePayload = {};
-        if (code) updatePayload.code = code.toString();
-        if (name) updatePayload.name = name;
-        if (type) updatePayload.account_type = type;
 
         await odooExecuteKw({
             uid: odooUid,
             model: 'account.account',
             method: 'write',
-            // args: [ [id_à_modifier], {champs_à_mettre_à_jour} ]
-            args: [[parseInt(id)], updatePayload],
-            kwargs: { 
-                context: { 
-                    company_id: companyIdInt, 
-                    allowed_company_ids: [companyIdInt] 
-                } 
-            }
+            args: [[parseInt(id)], { 
+                'code': code, 
+                'name': name, 
+                'account_type': type,
+                // On réaffirme l'appartenance à la compagnie
+                'company_ids': [[6, 0, [companyIdInt]]]
+            }],
+            kwargs: { context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } }
         });
-
-        res.status(200).json({ status: 'success', message: 'Compte mis à jour avec succès.' });
+        res.status(200).json({ status: 'success', message: 'Compte mis à jour.' });
     } catch (err) {
-        console.error('[Update Account Error]:', err.message);
-        res.status(500).json({ error: `Erreur de mise à jour : ${err.message}` });
+        res.status(500).json({ error: err.message });
     }
 };
 
