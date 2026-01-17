@@ -140,67 +140,127 @@ exports.getDashboardData = async (req, res) => {
 };
 
 exports.getChartOfAccounts = async (req, res) => {
+
     try {
+
         const { companyId } = req.query;
+
         const odooUid = req.user.odooUid;
+
         if (!companyId || !odooUid) return res.status(400).json({ error: "ID de compagnie ou UID manquant." });
 
-        const cid = parseInt(companyId, 10);
+
+
+        const companyIdInt = parseInt(companyId, 10);
+
         const accounts = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
+
+            uid: ADMIN_UID_INT, // 🔑 Utilisation Admin pour lecture selon ta logique
+
             model: 'account.account',
+
             method: 'search_read',
-            args: [[['company_id', '=', cid]]], // 🔑 CORRECTION : 'company_id' au singulier
+
+            args: [[['company_ids', 'in', [companyIdInt]]]], // 🔑 Utilisation de company_ids (pluriel)
+
             kwargs: { 
+
                 fields: ['id', 'code', 'name', 'account_type'], 
-                context: { company_id: cid, allowed_company_ids: [cid] } 
+
+                context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } // 🔒 Cloisonnement
+
             }
+
         });
+
         res.status(200).json({ status: 'success', results: accounts.length, data: accounts });
+
     } catch (error) {
-        console.error('[Chart Error]', error.message);
+
         res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
+
     }
+
 };
+
+
 
 exports.createAccount = async (req, res) => {
+
     try {
+
         const { code, name, type, companyId } = req.body;
+
         const odooUid = req.user.odooUid;
-        const cid = parseInt(companyId);
-        if (!odooUid || !cid) return res.status(400).json({ error: "UID ou companyId manquant." });
+
+        const companyIdInt = parseInt(companyId);
+
+        if (!odooUid || !companyIdInt) return res.status(400).json({ error: "UID ou companyId manquant." });
+
+
 
         const newAccountId = await odooExecuteKw({
-            uid: odooUid,
+
+            uid: odooUid, // 🔑 Utilisation de l'UID utilisateur pour traçabilité
+
             model: 'account.account',
+
             method: 'create',
-            args: [{ 'code': code, 'name': name, 'account_type': type, 'company_id': cid }],
-            kwargs: { context: { company_id: cid, allowed_company_ids: [cid] } }
+
+            args: [{ 'code': code, 'name': name, 'account_type': type }],
+
+            kwargs: { context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } }
+
         });
+
         res.status(201).json({ status: 'success', data: { id: newAccountId } });
+
     } catch (err) {
+
         res.status(500).json({ error: err.message });
+
     }
+
 };
 
+
+
 exports.updateAccount = async (req, res) => {
+
     try {
+
         const { id, code, name, type, companyId } = req.body;
+
         const odooUid = req.user.odooUid;
-        const cid = parseInt(companyId);
-        if (!id || !odooUid || !cid) return res.status(400).json({ error: "Données manquantes." });
+
+        const companyIdInt = parseInt(companyId);
+
+        if (!id || !odooUid || !companyIdInt) return res.status(400).json({ error: "Données manquantes." });
+
+
 
         await odooExecuteKw({
+
             uid: odooUid,
+
             model: 'account.account',
+
             method: 'write',
-            args: [[parseInt(id)], { 'code': code, 'name': name, 'account_type': type }],
-            kwargs: { context: { company_id: cid, allowed_company_ids: [cid] } }
+
+            args: [[id], { 'code': code, 'name': name, 'account_type': type }],
+
+            kwargs: { context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } }
+
         });
+
         res.status(200).json({ status: 'success', message: 'Compte mis à jour.' });
+
     } catch (err) {
+
         res.status(500).json({ error: err.message });
+
     }
+
 };
 
 // =============================================================================
