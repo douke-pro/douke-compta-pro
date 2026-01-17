@@ -299,3 +299,4 @@ exports.getJournals = async (req, res) => {
 exports.getEntryDetails = async (req, res) => res.status(501).json({ error: "Détails non implémentés." });
 exports.handleCaisseEntry = async (req, res) => res.status(501).json({ error: "Caisse non implémentée." });
 exports.getBalanceSheet = async (req, res) => res.status(501).json({ error: "Bilan non implémenté." });
+
