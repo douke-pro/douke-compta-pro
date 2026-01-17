@@ -139,126 +139,67 @@ exports.getDashboardData = async (req, res) => {
     }
 };
 
-// =============================================================================
-// 3. LOGIQUE DU PLAN COMPTABLE (CRUD CLOISONNÉ)
-// =============================================================================
-
 exports.getChartOfAccounts = async (req, res) => {
     try {
         const { companyId } = req.query;
-        // Priorité à l'UID utilisateur, fallback sur Admin pour la stabilité de l'affichage
-        const odooUid = (req.user && req.user.odooUid) ? req.user.odooUid : ADMIN_UID_INT;
-        
-        if (!companyId) {
-            return res.status(400).json({ error: "ID de compagnie manquant." });
-        }
+        const odooUid = req.user.odooUid;
+        if (!companyId || !odooUid) return res.status(400).json({ error: "ID de compagnie ou UID manquant." });
 
-        const companyIdInt = parseInt(companyId, 10);
-
+        const cid = parseInt(companyId, 10);
         const accounts = await odooExecuteKw({
-            uid: ADMIN_UID_INT, // Utilisation Admin pour garantir la lecture du plan complet
+            uid: ADMIN_UID_INT,
             model: 'account.account',
             method: 'search_read',
-            // 💡 HARMONISATION : Utilisation de 'company_ids' au pluriel pour la séparation stricte
-            args: [[['company_ids', 'in', [companyIdInt]]]], 
+            args: [[['company_id', '=', cid]]], // 🔑 CORRECTION : 'company_id' au singulier
             kwargs: { 
                 fields: ['id', 'code', 'name', 'account_type'], 
-                context: { 
-                    company_id: companyIdInt, 
-                    allowed_company_ids: [companyIdInt] 
-                } 
+                context: { company_id: cid, allowed_company_ids: [cid] } 
             }
         });
-
-        // Gestion du cas où aucun compte n'est trouvé pour éviter une erreur front-end
-        if (!accounts || accounts.length === 0) {
-            return res.status(200).json({ 
-                status: 'success', 
-                results: 0, 
-                data: [],
-                message: "Aucun compte configuré pour cette entreprise." 
-            });
-        }
-
-        res.status(200).json({ 
-            status: 'success', 
-            results: accounts.length, 
-            data: accounts 
-        });
-
+        res.status(200).json({ status: 'success', results: accounts.length, data: accounts });
     } catch (error) {
-        console.error('[COA Error] getChartOfAccounts (Pluriel):', error.message);
-        res.status(500).json({ 
-            error: 'Échec de la récupération du Plan Comptable.',
-            details: error.message 
-        });
+        console.error('[Chart Error]', error.message);
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
     }
 };
 
-// =============================================================================
-// CRÉATION DE COMPTE (FIX: ACCÈS REFUSÉ)
-// =============================================================================
 exports.createAccount = async (req, res) => {
     try {
         const { code, name, type, companyId } = req.body;
-        const companyIdInt = parseInt(companyId, 10);
+        const odooUid = req.user.odooUid;
+        const cid = parseInt(companyId);
+        if (!odooUid || !cid) return res.status(400).json({ error: "UID ou companyId manquant." });
 
-        // 💡 FORCE ADMIN UID : On utilise l'Admin pour bypasser le "Accès Refusé"
-        // tout en injectant la donnée dans le bon dossier via company_ids
         const newAccountId = await odooExecuteKw({
-            uid: ADMIN_UID_INT, 
+            uid: odooUid,
             model: 'account.account',
             method: 'create',
-            args: [{ 
-                'code': code.toString(), 
-                'name': name, 
-                'account_type': type || 'asset_current',
-                'company_ids': [[6, 0, [companyIdInt]]] // Ton format stabilisé
-            }],
-            kwargs: { 
-                context: { 
-                    company_id: companyIdInt, 
-                    allowed_company_ids: [companyIdInt] 
-                } 
-            }
+            args: [{ 'code': code, 'name': name, 'account_type': type, 'company_id': cid }],
+            kwargs: { context: { company_id: cid, allowed_company_ids: [cid] } }
         });
-
         res.status(201).json({ status: 'success', data: { id: newAccountId } });
     } catch (err) {
-        console.error('[Access Error] Create:', err.message);
-        res.status(403).json({ error: "Accès refusé ou erreur de permission Odoo." });
+        res.status(500).json({ error: err.message });
     }
 };
 
-// =============================================================================
-// MISE À JOUR DE COMPTE (FIX: ACCÈS REFUSÉ)
-// =============================================================================
 exports.updateAccount = async (req, res) => {
     try {
         const { id, code, name, type, companyId } = req.body;
-        const companyIdInt = parseInt(companyId, 10);
+        const odooUid = req.user.odooUid;
+        const cid = parseInt(companyId);
+        if (!id || !odooUid || !cid) return res.status(400).json({ error: "Données manquantes." });
 
         await odooExecuteKw({
-            uid: ADMIN_UID_INT, // 💡 FORCE ADMIN UID pour modification
+            uid: odooUid,
             model: 'account.account',
             method: 'write',
-            args: [[parseInt(id)], { 
-                'code': code, 
-                'name': name, 
-                'account_type': type,
-                'company_ids': [[6, 0, [companyIdInt]]]
-            }],
-            kwargs: { 
-                context: { 
-                    company_id: companyIdInt, 
-                    allowed_company_ids: [companyIdInt] 
-                } 
-            }
+            args: [[parseInt(id)], { 'code': code, 'name': name, 'account_type': type }],
+            kwargs: { context: { company_id: cid, allowed_company_ids: [cid] } }
         });
         res.status(200).json({ status: 'success', message: 'Compte mis à jour.' });
     } catch (err) {
-        console.error('[Access Error] Update:', err.message);
-        res.status(403).json({ error: "Accès refusé : Vérifiez les droits du dossier client." });
+        res.status(500).json({ error: err.message });
     }
 };
 
