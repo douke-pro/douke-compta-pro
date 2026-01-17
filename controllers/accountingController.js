@@ -146,25 +146,60 @@ exports.getDashboardData = async (req, res) => {
 exports.getChartOfAccounts = async (req, res) => {
     try {
         const { companyId } = req.query;
-        if (!companyId) return res.status(400).json({ error: "ID de compagnie manquant." });
+        
+        // 1. Validation de l'entrée (Sécurité SaaS)
+        if (!companyId) {
+            return res.status(400).json({ error: "Le paramètre companyId est obligatoire pour isoler les données." });
+        }
 
         const companyIdInt = parseInt(companyId, 10);
+
+        // 2. Appel RPC avec Forçage de Contexte
+        // On utilise l'ADMIN_UID_INT pour bypasser les droits limités, 
+        // mais on restreint par le domaine 'company_id'
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID_INT, 
             model: 'account.account',
             method: 'search_read',
+            // FILTRE : On cherche uniquement les comptes de CETTE entreprise
             args: [[['company_id', '=', companyIdInt]]], 
             kwargs: { 
                 fields: ['id', 'code', 'name', 'account_type'], 
-                context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } 
+                // CRITIQUE : force Odoo à se comporter comme s'il était dans cette entreprise
+                context: { 
+                    company_id: companyIdInt, 
+                    allowed_company_ids: [companyIdInt] 
+                } 
             }
         });
-        res.status(200).json({ status: 'success', results: accounts.length, data: accounts });
+
+        // 3. Gestion du cas "Nouveau Client" (Plan vide)
+        if (!accounts || accounts.length === 0) {
+            console.log(`[INFO] Plan comptable vide ou inexistant pour la compagnie ${companyIdInt}`);
+            return res.status(200).json({ 
+                status: 'success', 
+                message: "Aucun compte trouvé pour cette entreprise.", 
+                results: 0, 
+                data: [] 
+            });
+        }
+
+        res.status(200).json({ 
+            status: 'success', 
+            results: accounts.length, 
+            data: accounts 
+        });
+
     } catch (error) {
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
+        // Log détaillé pour Render/Logs
+        console.error(`[CRITICAL] Erreur Plan Comptable (Co ID: ${req.query.companyId}):`, error.message);
+        
+        res.status(500).json({ 
+            error: 'Échec de la récupération du Plan Comptable.',
+            details: error.message 
+        });
     }
 };
-
 exports.createAccount = async (req, res) => {
     try {
         const { code, name, type, companyId } = req.body;
