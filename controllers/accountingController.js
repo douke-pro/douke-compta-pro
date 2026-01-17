@@ -144,26 +144,39 @@ exports.getDashboardData = async (req, res) => {
 // =============================================================================
 
 exports.getChartOfAccounts = async (req, res) => {
-    try {
-        const { companyId } = req.query;
-        const odooUid = req.user.odooUid;
-        if (!companyId || !odooUid) return res.status(400).json({ error: "ID de compagnie ou UID manquant." });
+    try {
+        const { companyId } = req.query;
+        // On s'assure d'avoir un UID, priorité à l'utilisateur, fallback sur Admin
+        const odooUid = (req.user && req.user.odooUid) ? req.user.odooUid : ADMIN_UID_INT;
+        
+        if (!companyId) return res.status(400).json({ error: "ID de compagnie manquant." });
 
-        const companyIdInt = parseInt(companyId, 10);
-        const accounts = await odooExecuteKw({
-            uid: ADMIN_UID_INT, // 🔑 Utilisation Admin pour lecture selon ta logique
-            model: 'account.account',
-            method: 'search_read',
-            args: [[['company_ids', 'in', [companyIdInt]]]], // 🔑 Utilisation de company_ids (pluriel)
-            kwargs: { 
-                fields: ['id', 'code', 'name', 'account_type'], 
-                context: { company_id: companyIdInt, allowed_company_ids: [companyIdInt] } // 🔒 Cloisonnement
-            }
-        });
-        res.status(200).json({ status: 'success', results: accounts.length, data: accounts });
-    } catch (error) {
-        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
-    }
+        const companyIdInt = parseInt(companyId, 10);
+        
+        const accounts = await odooExecuteKw({
+            uid: ADMIN_UID_INT, // Lecture en Admin pour la stabilité de l'affichage
+            model: 'account.account',
+            method: 'search_read',
+            // HARMONISATION : On utilise company_id (singulier) comme dans create/update
+            args: [[['company_id', '=', companyIdInt]]], 
+            kwargs: { 
+                fields: ['id', 'code', 'name', 'account_type'], 
+                context: { 
+                    company_id: companyIdInt, 
+                    allowed_company_ids: [companyIdInt] 
+                } 
+            }
+        });
+
+        res.status(200).json({ 
+            status: 'success', 
+            results: accounts.length, 
+            data: accounts 
+        });
+    } catch (error) {
+        console.error('[Harmonization Error] getChartOfAccounts:', error.message);
+        res.status(500).json({ error: 'Échec de la récupération du Plan Comptable.' });
+    }
 };
 
 exports.createAccount = async (req, res) => {
