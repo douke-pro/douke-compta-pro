@@ -48,26 +48,3 @@ app.listen(PORT, () => {
     console.log("=================================================");
 });
 
-// À ajouter TEMPORAIREMENT dans server.js (après les routes existantes)
-app.get('/api/get-my-uid', async (req, res) => {
-    const { odooAuthenticate } = require('./services/odooService');
-    
-    try {
-        const result = await odooAuthenticate(
-            'doukepro@gmail.com',
-            '8f435af7b71d3a8e2872cbf6ff549dcd5dfd0526'
-        );
-        
-        res.json({
-            uid: result.uid,
-            message: `Ton UID Odoo est : ${result.uid}. Ajoute ODOO_ADMIN_UID=${result.uid} dans ton .env`
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-```
-
-**Étape 2 : Accéder à l'URL**
-```
-https://douke-compta-pro.onrender.com/api/get-my-uid
