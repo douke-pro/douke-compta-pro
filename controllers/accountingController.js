@@ -249,82 +249,37 @@ exports.updateAccount = async (req, res) => {
 
 exports.createJournalEntry = async (req, res) => {
     try {
-        const companyId = req.validatedCompanyId || parseInt(req.body.company_id || req.body.companyId);
-        const { journal_code, date, reference, lines } = req.body;
+        const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
+        const { journalCode, date, narration, lines } = req.body;
         const odooUid = req.user.odooUid;
 
-        console.log('📝 Création écriture standard Odoo :', { companyId, journal_code });
+        console.log('📝 Création écriture via méthode Python personnalisée :', { companyId, journalCode });
 
-        // MAPPING journal_code → journal_id
-        const journalSearch = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.journal',
-            method: 'search_read',
-            args: [[['code', '=', journal_code], ['company_id', '=', companyId]]],
-            kwargs: { fields: ['id'], limit: 1, context: { allowed_company_ids: [companyId] } }
-        });
-
-        if (!journalSearch || journalSearch.length === 0) {
-            return res.status(400).json({ 
-                status: 'error',
-                error: `Journal ${journal_code} introuvable.` 
-            });
-        }
-
-        const journalId = journalSearch[0].id;
-
-        // MAPPING account_code → account_id
-        const lineIds = await Promise.all(
-            lines.map(async (line) => {
-                const accountSearch = await odooExecuteKw({
-                    uid: ADMIN_UID_INT,
-                    model: 'account.account',
-                    method: 'search_read',
-                    args: [[['code', '=', line.account_code], ['company_ids', 'in', [companyId]]]],
-                    kwargs: { fields: ['id'], limit: 1, context: { allowed_company_ids: [companyId] } }
-                });
-
-                if (!accountSearch || accountSearch.length === 0) {
-                    throw new Error(`Compte ${line.account_code} introuvable`);
-                }
-
-                return [0, 0, {
-                    account_id: accountSearch[0].id,
-                    name: line.name,
-                    debit: parseFloat(line.debit) || 0,
-                    credit: parseFloat(line.credit) || 0
-                }];
-            })
-        );
-
-        const moveId = await odooExecuteKw({
+        const result = await odooExecuteKw({
             uid: odooUid,
             model: 'account.move',
-            method: 'create',
-            args: [{ company_id: companyId, journal_id: journalId, date, ref: reference, line_ids: lineIds }],
-            kwargs: { context: { allowed_company_ids: [companyId] } }
+            method: 'create_journal_entry_via_api',
+            args: [], 
+            kwargs: {
+                company_id: companyId,
+                journal_code: journalCode,
+                date: date,
+                reference: narration,
+                lines: lines
+            }
         });
 
-        const moveRecord = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.move',
-            method: 'read',
-            args: [[moveId], ['name']],
-            kwargs: {}
-        });
+        if (result.status === 'error') {
+            return res.status(400).json({ status: 'error', error: result.message });
+        }
 
-        res.status(201).json({ 
-            status: 'success', 
-            move_id: moveId,
-            move_name: moveRecord[0].name
-        });
-
+        res.status(201).json({ status: 'success', data: result });
     } catch (error) {
         console.error('🚨 createJournalEntry Error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ status: 'error', error: "Échec de la communication avec Odoo." });
     }
 };
-*/
+
 
 // =============================================================================
 // 5. REPORTING AVANCÉ (RESTAURÉ depuis ton fichier original)
