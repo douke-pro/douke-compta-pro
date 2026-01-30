@@ -32,7 +32,7 @@ router.get('/chart-of-accounts', protect, accountingController.getChartOfAccount
 // -------------------------------------------------------------
 
 router.post('/caisse-entry', protect, checkWritePermission, accountingController.handleCaisseEntry);
-router.post('/move', protect, checkWritePermission, accountingController.createJournalEntry);
+router.post('/move/create', protect, checkWritePermission, accountingController.createJournalEntry);
 
 // CRUD Plan Comptable
 router.post('/chart-of-accounts', protect, checkWritePermission, accountingController.createAccount);
