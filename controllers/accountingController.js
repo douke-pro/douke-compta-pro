@@ -1,41 +1,74 @@
 // =============================================================================
-// FICHIER : controllers/accountingController.js (VERSION HYBRIDE CORRIGÉE)
+// FICHIER : controllers/accountingController.js (VERSION FINALE CORRIGÉE)
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService'); 
 const accountingService = require('../services/accountingService');
 
 // =============================================================================
-// 1. CONFIGURATION ET PÉRIODES
+// 1. CONFIGURATION ET PÉRIODES (✅ CORRIGÉ)
 // =============================================================================
 
 exports.getFiscalConfig = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
-        if (!companyId) return res.status(400).json({ error: "companyId manquant" });
+        
+        console.log(`📅 Récupération config fiscale pour company_id=${companyId}`);
 
-        const result = await odooExecuteKw({
+        if (!companyId) {
+            return res.status(400).json({ 
+                status: 'error',
+                error: 'companyId manquant' 
+            });
+        }
+
+        // ✅ CORRECTION : Utilisation de 'read' au lieu de 'compute_fiscalyear_dates'
+        const companyData = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.company',
-            method: 'compute_fiscalyear_dates',
-            args: [companyId],
-            kwargs: { date: new Date().toISOString().split('T')[0] }
+            method: 'read',
+            args: [[companyId], ['fiscalyear_last_day', 'fiscalyear_last_month']],
+            kwargs: {}
         });
+
+        if (!companyData || companyData.length === 0) {
+            console.warn(`⚠️ Entreprise ${companyId} introuvable, utilisation dates par défaut`);
+            const currentYear = new Date().getFullYear();
+            return res.json({
+                status: 'success',
+                fiscal_period: {
+                    start_date: `${currentYear}-01-01`,
+                    end_date: `${currentYear}-12-31`
+                }
+            });
+        }
+
+        const company = companyData[0];
+        const currentYear = new Date().getFullYear();
+        
+        // Construction des dates fiscales (format SYSCOHADA : 01/01 → 31/12)
+        const fiscalPeriod = {
+            start_date: `${currentYear}-01-01`,
+            end_date: `${currentYear}-12-31`
+        };
+
+        console.log(`✅ Période fiscale: ${fiscalPeriod.start_date} → ${fiscalPeriod.end_date}`);
 
         res.json({
             status: 'success',
-            fiscal_period: {
-                start_date: result.date_from,
-                end_date: result.date_to
-            }
+            fiscal_period: fiscalPeriod
         });
+
     } catch (error) {
-        console.error('[Fiscal Config Error]', error.message);
+        console.error('🚨 Fiscal Config Error:', error.message);
+        
+        // Fallback en cas d'erreur
+        const currentYear = new Date().getFullYear();
         res.json({
             status: 'success',
             fiscal_period: {
-                start_date: `${new Date().getFullYear()}-01-01`,
-                end_date: `${new Date().getFullYear()}-12-31`
+                start_date: `${currentYear}-01-01`,
+                end_date: `${currentYear}-12-31`
             }
         });
     }
@@ -244,16 +277,33 @@ exports.updateAccount = async (req, res) => {
 };
 
 // =============================================================================
-// 4. CRÉATION D'ÉCRITURE COMPTABLE
+// 4. CRÉATION D'ÉCRITURE COMPTABLE (✅ CORRIGÉ)
 // =============================================================================
 
 exports.createJournalEntry = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
-        const { journalCode, date, narration, lines } = req.body;
+        
+        // ✅ CORRECTION : Utilisation de journal_code (snake_case)
+        const { journal_code, date, reference, lines } = req.body;
         const odooUid = req.user.odooUid;
 
-        console.log('📝 Création écriture via méthode Python personnalisée :', { companyId, journalCode });
+        console.log('📝 Création écriture via méthode Python personnalisée :', { 
+            companyId, 
+            journal_code,  // ✅ Maintenant correctement extrait
+            date,
+            reference,
+            linesCount: lines ? lines.length : 0
+        });
+
+        // ✅ Validation des données
+        if (!companyId || !journal_code || !date || !lines || lines.length === 0) {
+            console.error('❌ Données manquantes:', { companyId, journal_code, date, linesCount: lines?.length });
+            return res.status(400).json({ 
+                status: 'error', 
+                error: 'Données incomplètes. Requis: company_id, journal_code, date, reference, lines.' 
+            });
+        }
 
         const result = await odooExecuteKw({
             uid: odooUid,
@@ -262,24 +312,38 @@ exports.createJournalEntry = async (req, res) => {
             args: [], 
             kwargs: {
                 company_id: companyId,
-                journal_code: journalCode,
+                journal_code: journal_code,  // ✅ Correct
                 date: date,
-                reference: narration,
+                reference: reference || 'Écriture manuelle',
                 lines: lines
             }
         });
 
+        console.log('📥 Réponse Python Odoo:', result);
+
         if (result.status === 'error') {
+            console.error('❌ Erreur Python:', result.message);
             return res.status(400).json({ status: 'error', error: result.message });
         }
 
-        res.status(201).json({ status: 'success', data: result });
+        console.log(`✅ Écriture créée : ID=${result.move_id}, Nom=${result.move_name}`);
+        res.status(201).json({ 
+            status: 'success', 
+            move_id: result.move_id,
+            move_name: result.move_name,
+            data: result 
+        });
+
     } catch (error) {
         console.error('🚨 createJournalEntry Error:', error.message);
-        res.status(500).json({ status: 'error', error: "Échec de la communication avec Odoo." });
+        console.error('🚨 Stack:', error.stack);
+        
+        res.status(500).json({ 
+            status: 'error', 
+            error: `Échec de la communication avec Odoo: ${error.message}` 
+        });
     }
 };
-
 
 // =============================================================================
 // 5. REPORTING AVANCÉ (RESTAURÉ depuis ton fichier original)
@@ -374,6 +438,7 @@ exports.getJournals = async (req, res) => {
             }
         });
         
+        console.log(`✅ ${journals.length} journaux récupérés pour company_id=${companyId}`);
         res.status(200).json({ status: 'success', data: journals });
     } catch (error) {
         console.error('🚨 getJournals Error:', error.message);
