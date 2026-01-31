@@ -1,6 +1,6 @@
 //
 // =============================================================================
-// FICHIER : public/assets/script.js (VERSION V11 - ROBUSTE & COMPATIBLE ODOO)
+// FICHIER : public/assets/script.js (VERSION V12 - CORRIGÉE FINALE)
 // Description : Logique Front-End avec compatibilité totale module Python
 // Architecture : Multi-tenant sécurisé + API Odoo optimisée
 // =============================================================================
@@ -1197,6 +1197,10 @@ window.initializeManualEntryLogic = async function() {
         const jSel = document.getElementById('journal-code');
         jSel.innerHTML = '<option value="">-- Choisir --</option>' + 
                          jourRes.data.map(j => `<option value="${j.code}">${j.name} (${j.code})</option>`).join('');
+
+        // ✅ LOGS DE DEBUG AJOUTÉS
+        console.log('📋 Journaux disponibles:', jourRes.data);
+        console.log('📋 Premier journal:', jourRes.data[0]);
 
         document.getElementById('lines-container').innerHTML = '';
         window.addLineToEntry();
