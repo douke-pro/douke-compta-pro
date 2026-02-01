@@ -711,6 +711,100 @@ exports.getBalanceSheet = async (req, res) => {
 };
 
 // =============================================================================
+// AJOUT À LA FIN DE accountingController.js (AVANT LES STUBS)
+// =============================================================================
+
+/**
+ * Récupère les écritures d'un journal
+ * @route GET /api/accounting/journal?companyId=X&journal_id=Y&date_from=Z&date_to=W
+ */
+exports.getJournalEntries = async (req, res) => {
+    try {
+        const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
+        const { journal_id, date_from, date_to } = req.query;
+
+        console.log('📖 Récupération journal des écritures');
+        console.log('   Company ID:', companyId);
+        console.log('   Journal ID:', journal_id);
+        console.log('   Période:', date_from, '→', date_to);
+
+        if (!companyId) {
+            return res.status(400).json({ 
+                error: "companyId requis" 
+            });
+        }
+
+        // Filtre de base : company_id + état validé
+        let domain = [
+            ['company_id', '=', companyId],
+            ['state', '=', 'posted']  // Uniquement les écritures validées
+        ];
+
+        // Filtre optionnel par journal
+        if (journal_id) {
+            domain.push(['journal_id', '=', parseInt(journal_id)]);
+        }
+
+        // Filtre optionnel par période
+        if (date_from) {
+            domain.push(['date', '>=', date_from]);
+        }
+        if (date_to) {
+            domain.push(['date', '<=', date_to]);
+        }
+
+        console.log('🔍 Recherche avec domain:', JSON.stringify(domain));
+
+        // Récupération des écritures
+        const moves = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'search_read',
+            args: [domain],
+            kwargs: { 
+                fields: [
+                    'id', 
+                    'name', 
+                    'date', 
+                    'ref', 
+                    'journal_id', 
+                    'amount_total',
+                    'state'
+                ],
+                order: 'date desc, id desc',  // Plus récent en premier
+                limit: 100,  // Limiter à 100 écritures
+                context: { allowed_company_ids: [companyId] } 
+            }
+        });
+
+        console.log(`✅ ${moves.length} écritures récupérées`);
+
+        // Formatage des résultats
+        const formattedMoves = moves.map(move => ({
+            id: move.id,
+            name: move.name,
+            date: move.date,
+            reference: move.ref || '',
+            journal: move.journal_id ? move.journal_id[1] : 'N/A',
+            journal_id: move.journal_id ? move.journal_id[0] : null,
+            amount: move.amount_total || 0,
+            state: move.state
+        }));
+
+        res.status(200).json({ 
+            status: 'success', 
+            count: formattedMoves.length,
+            data: formattedMoves 
+        });
+
+    } catch (error) {
+        console.error('🚨 getJournalEntries Error:', error.message);
+        res.status(500).json({ 
+            error: "Erreur récupération journal des écritures." 
+        });
+    }
+};
+// =============================================================================
 // 6. STUBS (À IMPLÉMENTER)
 // =============================================================================
 
