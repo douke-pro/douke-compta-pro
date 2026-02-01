@@ -283,55 +283,122 @@ exports.updateAccount = async (req, res) => {
 exports.createJournalEntry = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
-        
-        // ✅ CORRECTION : Utilisation de journal_code (snake_case)
         const { journal_code, date, reference, lines } = req.body;
         const odooUid = req.user.odooUid;
 
-        console.log('📝 Création écriture via méthode Python personnalisée :', { 
+        console.log('📝 Création écriture via méthode standard Odoo :', { 
             companyId, 
-            journal_code,  // ✅ Maintenant correctement extrait
+            journal_code,
             date,
             reference,
             linesCount: lines ? lines.length : 0
         });
 
-        // ✅ Validation des données
+        // Validation
         if (!companyId || !journal_code || !date || !lines || lines.length === 0) {
-            console.error('❌ Données manquantes:', { companyId, journal_code, date, linesCount: lines?.length });
             return res.status(400).json({ 
                 status: 'error', 
-                error: 'Données incomplètes. Requis: company_id, journal_code, date, reference, lines.' 
+                error: 'Données incomplètes (company_id, journal_code, date, lines requis).' 
             });
         }
 
-        const result = await odooExecuteKw({
-            uid: odooUid,
-            model: 'account.move',
-            method: 'create_journal_entry_via_api',
-            args: [], 
-            kwargs: {
-                company_id: companyId,
-                journal_code: journal_code,  // ✅ Correct
-                date: date,
-                reference: reference || 'Écriture manuelle',
-                lines: lines
-            }
+        // 1️⃣ MAPPING journal_code → journal_id
+        const journalSearch = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.journal',
+            method: 'search_read',
+            args: [[['code', '=', journal_code], ['company_id', '=', companyId]]],
+            kwargs: { fields: ['id'], limit: 1, context: { allowed_company_ids: [companyId] } }
         });
 
-        console.log('📥 Réponse Python Odoo:', result);
-
-        if (result.status === 'error') {
-            console.error('❌ Erreur Python:', result.message);
-            return res.status(400).json({ status: 'error', error: result.message });
+        if (!journalSearch || journalSearch.length === 0) {
+            console.error(`❌ Journal ${journal_code} introuvable pour company_id=${companyId}`);
+            return res.status(400).json({ 
+                status: 'error',
+                error: `Journal "${journal_code}" introuvable.` 
+            });
         }
 
-        console.log(`✅ Écriture créée : ID=${result.move_id}, Nom=${result.move_name}`);
+        const journalId = journalSearch[0].id;
+        console.log(`✅ Journal trouvé : ${journal_code} (ID: ${journalId})`);
+
+        // 2️⃣ MAPPING account_code → account_id (pour chaque ligne)
+        const lineIds = await Promise.all(
+            lines.map(async (line, idx) => {
+                const accountSearch = await odooExecuteKw({
+                    uid: ADMIN_UID_INT,
+                    model: 'account.account',
+                    method: 'search_read',
+                    args: [[['code', '=', line.account_code], ['company_ids', 'in', [companyId]]]],
+                    kwargs: { fields: ['id'], limit: 1, context: { allowed_company_ids: [companyId] } }
+                });
+
+                if (!accountSearch || accountSearch.length === 0) {
+                    throw new Error(`Compte "${line.account_code}" introuvable (ligne ${idx + 1}).`);
+                }
+
+                console.log(`✅ Ligne ${idx + 1}: ${line.account_code} - ${line.name}`);
+
+                return [0, 0, {
+                    account_id: accountSearch[0].id,
+                    name: line.name,
+                    debit: parseFloat(line.debit) || 0,
+                    credit: parseFloat(line.credit) || 0
+                }];
+            })
+        );
+
+        // 3️⃣ CRÉATION avec méthode standard Odoo
+        const moveData = {
+            company_id: companyId,
+            journal_id: journalId,
+            date: date,
+            ref: reference || 'Écriture manuelle',
+            move_type: 'entry',
+            line_ids: lineIds
+        };
+
+        console.log('🔵 Création de l\'écriture...');
+
+        const moveId = await odooExecuteKw({
+            uid: odooUid,
+            model: 'account.move',
+            method: 'create',  // ✅ Méthode standard Odoo
+            args: [moveData],
+            kwargs: { context: { allowed_company_ids: [companyId] } }
+        });
+
+        console.log(`✅ Écriture créée : ID=${moveId}`);
+
+        // 4️⃣ VALIDATION (équivalent du bouton "Valider")
+        await odooExecuteKw({
+            uid: odooUid,
+            model: 'account.move',
+            method: 'action_post',
+            args: [[moveId]],
+            kwargs: { context: { allowed_company_ids: [companyId] } }
+        });
+
+        console.log(`✅ Écriture validée`);
+
+        // 5️⃣ Récupération du nom (ex: BNK1/2026/0001)
+        const moveRecord = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'read',
+            args: [[moveId], ['name']],
+            kwargs: {}
+        });
+
+        const moveName = moveRecord && moveRecord[0] ? moveRecord[0].name : `MOVE-${moveId}`;
+
+        console.log(`✅ Nom de l'écriture : ${moveName}`);
+
         res.status(201).json({ 
             status: 'success', 
-            move_id: result.move_id,
-            move_name: result.move_name,
-            data: result 
+            move_id: moveId,
+            move_name: moveName,
+            message: `Écriture ${moveName} créée et validée avec succès.`
         });
 
     } catch (error) {
@@ -340,11 +407,10 @@ exports.createJournalEntry = async (req, res) => {
         
         res.status(500).json({ 
             status: 'error', 
-            error: `Échec de la communication avec Odoo: ${error.message}` 
+            error: `Échec création écriture : ${error.message}` 
         });
     }
 };
-
 // =============================================================================
 // 5. REPORTING AVANCÉ (RESTAURÉ depuis ton fichier original)
 // =============================================================================
