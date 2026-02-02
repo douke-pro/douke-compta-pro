@@ -1146,7 +1146,7 @@ function generateReportsMenuHTML() {
             Sélectionnez un rapport pour afficher sa version interactive ou l'exporter.
         </p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-            ${generateReportCard('Bilan', 'fas fa-balance-scale', 'bilan', 'Aperçu des actifs, passifs et capitaux propres à une date donnée.')}
+            ${generateReportCard('Bilan', 'fas fa-balance-scale', 'balance-sheet', 'Aperçu des actifs, passifs et capitaux propres à une date donnée.', true)}
             ${generateReportCard('Compte de Résultat', 'fas fa-money-bill-transfer', 'pnl', 'Performance financière (revenus et dépenses) sur une période.')}
             ${generateReportCard('Tableau des Flux', 'fas fa-arrows-split-up-and-down', 'cash-flow', 'Analyse des mouvements de trésorerie sur la période.')}
             ${generateReportCard('Balance Générale', 'fas fa-list-ol', 'balance', 'Liste de tous les comptes avec leurs soldes débiteurs et créditeurs.')}
@@ -1154,7 +1154,11 @@ function generateReportsMenuHTML() {
     `;
 }
 
-function generateReportCard(title, icon, reportId, description) {
+function generateReportCard(title, icon, reportId, description, isImplemented = false) {
+    const viewAction = isImplemented 
+        ? `onclick="window.handleOpenBalanceSheet()"` 
+        : `onclick="window.handleOpenReportModal('${reportId}', '${title}')"`;
+    
     return `
         <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-info transition duration-200 hover:shadow-lg">
             <div class="flex items-start">
@@ -1165,7 +1169,7 @@ function generateReportCard(title, icon, reportId, description) {
                 </div>
             </div>
             <div class="mt-4 flex space-x-3">
-                <button onclick="window.handleOpenReportModal('${reportId}', '${title}')" 
+                <button ${viewAction}
                     class="text-sm bg-primary text-white py-2 px-3 rounded-xl font-bold hover:bg-primary-dark transition-colors flex-1">
                     <i class="fas fa-eye mr-2"></i> Voir
                 </button>
@@ -1177,6 +1181,7 @@ function generateReportCard(title, icon, reportId, description) {
         </div>
     `;
 }
+
 
 window.handleOpenReportModal = async function(reportId, reportTitle) {
     try {
