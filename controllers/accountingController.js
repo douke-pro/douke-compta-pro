@@ -795,41 +795,548 @@ exports.getGeneralLedger = async (req, res) => {
 };
 
 // =============================================================================
-// 7. STUBS (À IMPLÉMENTER)
+// 7. DÉTAILS D'UNE ÉCRITURE COMPTABLE
 // =============================================================================
 
 /**
- * Détails d'une écriture
- * @route GET /api/accounting/details/:entryId?companyId=X
- * @access Private
+ * Récupère les détails complets d'une écriture avec ses lignes
+ * @route GET /api/accounting/entry/:id?companyId=X
  */
 exports.getEntryDetails = async (req, res) => {
-    console.log('⚠️ [getEntryDetails] Non implémenté');
-    res.status(501).json({ 
-        error: "Fonction non implémentée." 
-    });
+    try {
+        const { id } = req.params;
+        const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
+
+        console.log(`📄 Récupération détails écriture ID=${id} pour company_id=${companyId}`);
+
+        if (!id || !companyId) {
+            return res.status(400).json({ 
+                error: "ID d'écriture et companyId requis." 
+            });
+        }
+
+        const moveId = parseInt(id);
+
+        // 1️⃣ Vérification de sécurité : L'écriture appartient-elle à cette entreprise ?
+        const moveCheck = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'search_read',
+            args: [[['id', '=', moveId], ['company_id', '=', companyId]]],
+            kwargs: { 
+                fields: ['id'], 
+                limit: 1,
+                context: { allowed_company_ids: [companyId] } 
+            }
+        });
+
+        if (!moveCheck || moveCheck.length === 0) {
+            console.error(`🚨 TENTATIVE CROSS-COMPANY : Écriture ${moveId} n'appartient pas à company_id=${companyId}`);
+            return res.status(403).json({ 
+                error: "Accès refusé. Cette écriture n'appartient pas à votre entreprise." 
+            });
+        }
+
+        // 2️⃣ Récupération des informations principales de l'écriture
+        const moveData = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'read',
+            args: [[moveId], [
+                'name', 
+                'date', 
+                'ref', 
+                'journal_id', 
+                'state', 
+                'amount_total',
+                'line_ids',
+                'create_date',
+                'write_date',
+                'create_uid',
+                'write_uid'
+            ]],
+            kwargs: { context: { allowed_company_ids: [companyId] } }
+        });
+
+        if (!moveData || moveData.length === 0) {
+            return res.status(404).json({ 
+                error: "Écriture introuvable." 
+            });
+        }
+
+        const move = moveData[0];
+
+        // 3️⃣ Récupération des lignes d'écriture (account.move.line)
+        const lineIds = move.line_ids || [];
+        
+        let lines = [];
+        if (lineIds.length > 0) {
+            lines = await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'account.move.line',
+                method: 'read',
+                args: [lineIds, [
+                    'id',
+                    'account_id',
+                    'name',
+                    'debit',
+                    'credit',
+                    'balance',
+                    'date',
+                    'partner_id'
+                ]],
+                kwargs: { context: { allowed_company_ids: [companyId] } }
+            });
+        }
+
+        // 4️⃣ Formatage des lignes
+        const formattedLines = lines.map(line => ({
+            id: line.id,
+            account_code: line.account_id ? line.account_id[1].split(' ')[0] : 'N/A',
+            account_name: line.account_id ? line.account_id[1] : 'Compte inconnu',
+            label: line.name || move.ref || 'Sans libellé',
+            debit: line.debit || 0,
+            credit: line.credit || 0,
+            balance: line.balance || 0,
+            partner: line.partner_id ? line.partner_id[1] : null
+        }));
+
+        // 5️⃣ Calcul des totaux
+        const totalDebit = formattedLines.reduce((sum, l) => sum + l.debit, 0);
+        const totalCredit = formattedLines.reduce((sum, l) => sum + l.credit, 0);
+
+        // 6️⃣ Réponse finale
+        const response = {
+            status: 'success',
+            data: {
+                id: move.id,
+                name: move.name,
+                date: move.date,
+                reference: move.ref || '',
+                journal: move.journal_id ? move.journal_id[1] : 'N/A',
+                journal_id: move.journal_id ? move.journal_id[0] : null,
+                state: move.state,
+                state_label: move.state === 'posted' ? 'Validé' : move.state === 'draft' ? 'Brouillon' : 'Autre',
+                amount_total: move.amount_total || 0,
+                lines: formattedLines,
+                totals: {
+                    debit: totalDebit,
+                    credit: totalCredit,
+                    difference: Math.abs(totalDebit - totalCredit)
+                },
+                metadata: {
+                    created_at: move.create_date,
+                    updated_at: move.write_date,
+                    created_by: move.create_uid ? move.create_uid[1] : 'N/A',
+                    updated_by: move.write_uid ? move.write_uid[1] : 'N/A'
+                }
+            }
+        };
+
+        console.log(`✅ Écriture ${move.name} récupérée avec ${formattedLines.length} lignes`);
+
+        res.status(200).json(response);
+
+    } catch (error) {
+        console.error('🚨 getEntryDetails Error:', error.message);
+        res.status(500).json({ 
+            error: `Erreur récupération détails : ${error.message}` 
+        });
+    }
 };
 
+// =============================================================================
+// 8. OPÉRATION DE CAISSE (RECETTE/DÉPENSE)
+// =============================================================================
+
 /**
- * Opérations de caisse
+ * Enregistre une opération de caisse simplifiée (Recette ou Dépense)
  * @route POST /api/accounting/caisse-entry
- * @access Private
  */
 exports.handleCaisseEntry = async (req, res) => {
-    console.log('⚠️ [handleCaisseEntry] Non implémenté');
-    res.status(501).json({ 
-        error: "Fonction Caisse non implémentée." 
-    });
+    try {
+        const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
+        const { type, contraAccountCode, libelle, amount } = req.body;
+
+        console.log('💰 Opération de caisse:', { 
+            type, 
+            contraAccountCode, 
+            libelle, 
+            amount, 
+            companyId 
+        });
+
+        // Validation
+        if (!companyId || !type || !contraAccountCode || !libelle || !amount) {
+            return res.status(400).json({ 
+                status: 'error',
+                error: 'Données incomplètes (type, contraAccountCode, libelle, amount, companyId requis).' 
+            });
+        }
+
+        if (!['RECETTE', 'DEPENSE'].includes(type)) {
+            return res.status(400).json({ 
+                status: 'error',
+                error: 'Type invalide. Doit être RECETTE ou DEPENSE.' 
+            });
+        }
+
+        if (amount <= 0) {
+            return res.status(400).json({ 
+                status: 'error',
+                error: 'Le montant doit être positif.' 
+            });
+        }
+
+        // 1️⃣ MAPPING contraAccountCode → account_id
+        console.log(`🔍 Recherche du compte de contrepartie "${contraAccountCode}"...`);
+
+        const contraAccountSearch = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.account',
+            method: 'search_read',
+            args: [[['code', '=', contraAccountCode], ['company_ids', 'in', [companyId]]]],
+            kwargs: { 
+                fields: ['id', 'name'], 
+                limit: 1,
+                context: { allowed_company_ids: [companyId] } 
+            }
+        });
+
+        if (!contraAccountSearch || contraAccountSearch.length === 0) {
+            console.error(`❌ Compte "${contraAccountCode}" introuvable`);
+            return res.status(400).json({ 
+                status: 'error',
+                error: `Compte "${contraAccountCode}" introuvable.` 
+            });
+        }
+
+        const contraAccountId = contraAccountSearch[0].id;
+        const contraAccountName = contraAccountSearch[0].name;
+
+        console.log(`✅ Compte contrepartie : ${contraAccountName} (ID: ${contraAccountId})`);
+
+        // 2️⃣ Récupération du compte de caisse (571000 - Caisse en SYSCOHADA)
+        console.log(`🔍 Recherche du compte Caisse (571000)...`);
+
+        const caisseAccountSearch = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.account',
+            method: 'search_read',
+            args: [[['code', '=', '571000'], ['company_ids', 'in', [companyId]]]],
+            kwargs: { 
+                fields: ['id', 'name'], 
+                limit: 1,
+                context: { allowed_company_ids: [companyId] } 
+            }
+        });
+
+        if (!caisseAccountSearch || caisseAccountSearch.length === 0) {
+            console.error(`❌ Compte Caisse (571000) introuvable`);
+            return res.status(400).json({ 
+                status: 'error',
+                error: 'Compte Caisse (571000) introuvable. Veuillez le créer dans le plan comptable.' 
+            });
+        }
+
+        const caisseAccountId = caisseAccountSearch[0].id;
+        const caisseAccountName = caisseAccountSearch[0].name;
+
+        console.log(`✅ Compte Caisse : ${caisseAccountName} (ID: ${caisseAccountId})`);
+
+        // 3️⃣ Récupération du journal de caisse
+        console.log(`🔍 Recherche du journal de Caisse...`);
+
+        const journalSearch = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.journal',
+            method: 'search_read',
+            args: [[['type', '=', 'cash'], ['company_id', '=', companyId]]],
+            kwargs: { 
+                fields: ['id', 'name', 'code'], 
+                limit: 1,
+                context: { allowed_company_ids: [companyId] } 
+            }
+        });
+
+        if (!journalSearch || journalSearch.length === 0) {
+            console.error(`❌ Journal de Caisse introuvable`);
+            return res.status(400).json({ 
+                status: 'error',
+                error: 'Journal de Caisse introuvable. Veuillez créer un journal de type "Caisse".' 
+            });
+        }
+
+        const journalId = journalSearch[0].id;
+        const journalName = journalSearch[0].name;
+
+        console.log(`✅ Journal : ${journalName} (ID: ${journalId})`);
+
+        // 4️⃣ Construction des lignes selon le type
+        let lineIds;
+
+        if (type === 'RECETTE') {
+            // RECETTE : Caisse au débit, Contrepartie au crédit
+            lineIds = [
+                [0, 0, {
+                    account_id: caisseAccountId,
+                    name: libelle,
+                    debit: parseFloat(amount),
+                    credit: 0
+                }],
+                [0, 0, {
+                    account_id: contraAccountId,
+                    name: libelle,
+                    debit: 0,
+                    credit: parseFloat(amount)
+                }]
+            ];
+        } else {
+            // DÉPENSE : Contrepartie au débit, Caisse au crédit
+            lineIds = [
+                [0, 0, {
+                    account_id: contraAccountId,
+                    name: libelle,
+                    debit: parseFloat(amount),
+                    credit: 0
+                }],
+                [0, 0, {
+                    account_id: caisseAccountId,
+                    name: libelle,
+                    debit: 0,
+                    credit: parseFloat(amount)
+                }]
+            ];
+        }
+
+        // 5️⃣ Création de l'écriture
+        const moveData = {
+            company_id: companyId,
+            journal_id: journalId,
+            date: new Date().toISOString().split('T')[0], // Date du jour
+            ref: `${type} - ${libelle}`,
+            move_type: 'entry',
+            line_ids: lineIds
+        };
+
+        console.log('🔵 Création de l\'écriture de caisse...');
+
+        const moveId = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'create',
+            args: [moveData],
+            kwargs: { context: { allowed_company_ids: [companyId] } }
+        });
+
+        console.log(`✅ Écriture créée : ID=${moveId}`);
+
+        // 6️⃣ Validation automatique
+        console.log('🔵 Validation de l\'écriture...');
+
+        await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'action_post',
+            args: [[moveId]],
+            kwargs: { context: { allowed_company_ids: [companyId] } }
+        });
+
+        console.log('✅ Écriture validée');
+
+        // 7️⃣ Récupération du nom
+        const moveRecord = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'read',
+            args: [[moveId], ['name']],
+            kwargs: {}
+        });
+
+        const moveName = moveRecord && moveRecord[0] ? moveRecord[0].name : `CAISSE-${moveId}`;
+
+        console.log(`✅ Opération caisse enregistrée : ${moveName}`);
+
+        res.status(201).json({ 
+            status: 'success', 
+            move_id: moveId,
+            move_name: moveName,
+            type: type,
+            amount: parseFloat(amount),
+            message: `${type} de ${parseFloat(amount).toLocaleString('fr-FR')} XOF enregistrée avec succès.`
+        });
+
+    } catch (error) {
+        console.error('🚨 handleCaisseEntry Error:', error.message);
+        console.error('🚨 Stack:', error.stack);
+        
+        res.status(500).json({ 
+            status: 'error', 
+            error: `Échec opération caisse : ${error.message}` 
+        });
+    }
 };
 
+// =============================================================================
+// 9. BILAN SYSCOHADA
+// =============================================================================
+
 /**
- * Bilan SYSCOHADA
- * @route GET /api/accounting/balance?companyId=X&date=Y
- * @access Private
+ * Génère le bilan comptable SYSCOHADA (Actif/Passif)
+ * @route GET /api/accounting/balance-sheet?companyId=X&date=YYYY-MM-DD
  */
 exports.getBalanceSheet = async (req, res) => {
-    console.log('⚠️ [getBalanceSheet] Non implémenté');
-    res.status(501).json({ 
-        error: "Bilan non implémenté." 
-    });
+    try {
+        const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
+        const { date } = req.query;
+
+        console.log(`📊 Génération du Bilan pour company_id=${companyId} à la date ${date || 'aujourd\'hui'}`);
+
+        if (!companyId) {
+            return res.status(400).json({ 
+                error: "companyId requis." 
+            });
+        }
+
+        // Date par défaut : aujourd'hui
+        const balanceDate = date || new Date().toISOString().split('T')[0];
+
+        // 1️⃣ Récupération de tous les comptes avec leurs soldes
+        const accounts = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.account',
+            method: 'search_read',
+            args: [[['company_ids', 'in', [companyId]]]],
+            kwargs: { 
+                fields: ['id', 'code', 'name', 'account_type'],
+                context: { allowed_company_ids: [companyId] }
+            }
+        });
+
+        console.log(`📋 ${accounts.length} comptes trouvés`);
+
+        // 2️⃣ Récupération des lignes d'écriture validées jusqu'à la date
+        const moveLines = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move.line',
+            method: 'search_read',
+            args: [[
+                ['company_id', '=', companyId],
+                ['parent_state', '=', 'posted'],
+                ['date', '<=', balanceDate]
+            ]],
+            kwargs: { 
+                fields: ['account_id', 'debit', 'credit', 'balance'],
+                context: { allowed_company_ids: [companyId] }
+            }
+        });
+
+        console.log(`📋 ${moveLines.length} lignes d'écriture analysées`);
+
+        // 3️⃣ Calcul des soldes par compte
+        const accountBalances = {};
+
+        moveLines.forEach(line => {
+            const accountId = line.account_id ? line.account_id[0] : null;
+            if (!accountId) return;
+
+            if (!accountBalances[accountId]) {
+                accountBalances[accountId] = {
+                    debit: 0,
+                    credit: 0,
+                    balance: 0
+                };
+            }
+
+            accountBalances[accountId].debit += line.debit || 0;
+            accountBalances[accountId].credit += line.credit || 0;
+            accountBalances[accountId].balance += line.balance || 0;
+        });
+
+        // 4️⃣ Classification SYSCOHADA
+        const bilan = {
+            actif: {
+                immobilise: { label: 'ACTIF IMMOBILISÉ', accounts: [], total: 0 },
+                circulant: { label: 'ACTIF CIRCULANT', accounts: [], total: 0 },
+                tresorerie: { label: 'TRÉSORERIE-ACTIF', accounts: [], total: 0 }
+            },
+            passif: {
+                capitaux: { label: 'CAPITAUX PROPRES', accounts: [], total: 0 },
+                dettes: { label: 'DETTES FINANCIÈRES', accounts: [], total: 0 },
+                tresorerie: { label: 'TRÉSORERIE-PASSIF', accounts: [], total: 0 }
+            }
+        };
+
+        accounts.forEach(account => {
+            const balance = accountBalances[account.id];
+            if (!balance || balance.balance === 0) return;
+
+            const code = account.code;
+            const accountData = {
+                code: code,
+                name: account.name,
+                balance: balance.balance
+            };
+
+            // Classification selon SYSCOHADA
+            if (code.startsWith('2')) {
+                // Classe 2 : Actif Immobilisé
+                bilan.actif.immobilise.accounts.push(accountData);
+                bilan.actif.immobilise.total += balance.balance;
+            } else if (code.startsWith('3') || code.startsWith('4')) {
+                // Classe 3/4 : Actif/Passif Circulant
+                if (balance.balance > 0) {
+                    bilan.actif.circulant.accounts.push(accountData);
+                    bilan.actif.circulant.total += balance.balance;
+                } else {
+                    bilan.passif.dettes.accounts.push(accountData);
+                    bilan.passif.dettes.total += Math.abs(balance.balance);
+                }
+            } else if (code.startsWith('5')) {
+                // Classe 5 : Trésorerie
+                if (balance.balance > 0) {
+                    bilan.actif.tresorerie.accounts.push(accountData);
+                    bilan.actif.tresorerie.total += balance.balance;
+                } else {
+                    bilan.passif.tresorerie.accounts.push(accountData);
+                    bilan.passif.tresorerie.total += Math.abs(balance.balance);
+                }
+            } else if (code.startsWith('1')) {
+                // Classe 1 : Capitaux Propres
+                bilan.passif.capitaux.accounts.push(accountData);
+                bilan.passif.capitaux.total += Math.abs(balance.balance);
+            }
+        });
+
+        // 5️⃣ Calcul des totaux généraux
+        const totalActif = bilan.actif.immobilise.total + 
+                          bilan.actif.circulant.total + 
+                          bilan.actif.tresorerie.total;
+
+        const totalPassif = bilan.passif.capitaux.total + 
+                           bilan.passif.dettes.total + 
+                           bilan.passif.tresorerie.total;
+
+        console.log(`✅ Bilan généré - Actif: ${totalActif.toLocaleString()} | Passif: ${totalPassif.toLocaleString()}`);
+
+        res.status(200).json({ 
+            status: 'success',
+            data: {
+                date: balanceDate,
+                actif: bilan.actif,
+                passif: bilan.passif,
+                totals: {
+                    actif: totalActif,
+                    passif: totalPassif,
+                    difference: Math.abs(totalActif - totalPassif)
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('🚨 getBalanceSheet Error:', error.message);
+        res.status(500).json({ 
+            error: `Erreur génération bilan : ${error.message}` 
+        });
+    }
 };
