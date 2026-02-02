@@ -1,7 +1,6 @@
-//
 // =============================================================================
-// FICHIER : public/assets/script.js (VERSION V12 - CORRIGÉE FINALE)
-// Description : Logique Front-End avec compatibilité totale module Python
+// FICHIER : public/assets/script.js (VERSION V13 - FINALE CORRIGÉE)
+// Description : Logique Front-End avec toutes les améliorations appliquées
 // Architecture : Multi-tenant sécurisé + API Odoo optimisée
 // =============================================================================
 
@@ -56,21 +55,53 @@ const ModalManager = {
     modalBackdrop: document.getElementById('professional-modal'),
     modalTitle: document.getElementById('modal-title'),
     modalBody: document.getElementById('modal-body'),
+    
     open: function (title, contentHTML) {
         if (!this.modalBackdrop) return;
+        
         this.modalTitle.textContent = title;
         this.modalBody.innerHTML = contentHTML;
+        
         document.body.classList.add('modal-open');
         this.modalBackdrop.style.display = 'flex';
+        
+        // 🔑 CORRECTION CRITIQUE: Réattacher l'événement au bouton de fermeture
+        this.attachCloseHandler();
     },
+    
     close: function () {
         if (!this.modalBackdrop) return;
+        
         document.body.classList.remove('modal-open');
         this.modalBackdrop.style.display = 'none';
         this.modalBody.innerHTML = '';
+    },
+    
+    // 🔑 NOUVELLE MÉTHODE: Attacher les événements de fermeture
+    attachCloseHandler: function() {
+        // Fermeture par le bouton X
+        const closeBtn = document.getElementById('modal-close-btn');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.close();
+        }
+        
+        // Fermeture par clic sur le backdrop
+        if (this.modalBackdrop) {
+            this.modalBackdrop.onclick = (e) => {
+                if (e.target === this.modalBackdrop) {
+                    this.close();
+                }
+            };
+        }
+        
+        // Fermeture par touche Échap
+        document.onkeydown = (e) => {
+            if (e.key === 'Escape' && this.modalBackdrop.style.display === 'flex') {
+                this.close();
+            }
+        };
     }
 };
-
 
 // =================================================================
 // 3. LOGIQUE D'AUTHENTIFICATION ET API
@@ -513,33 +544,118 @@ async function fetchDashboardData(endpoint) {
 }
 
 // =================================================================
-// JOURNAL
+// JOURNAL (AVEC AMÉLIORATIONS)
 // =================================================================
 
+/**
+ * 🔧 AMÉLIORATION: Récupère les journaux ET les écritures avec filtres
+ */
 async function fetchJournalData(endpoint) {
-    const simulatedData = [
-        { id: 101, date: '2025-01-15', libelle: 'Achat de fournitures - Facture XYZ', debit: 50000, credit: 0, status: 'Validé' },
-        { id: 102, date: '2025-01-15', libelle: 'Vente de biens - Client A', debit: 0, credit: 150000, status: 'Brouillon' },
-        { id: 103, date: '2025-01-16', libelle: 'Paiement fournisseur', debit: 0, credit: 25000, status: 'Validé' },
-        { id: 104, date: '2025-01-17', libelle: 'Encaissement vente B', debit: 80000, credit: 0, status: 'Validé' },
-    ];
+    const companyId = appState.currentCompanyId;
+    const companyFilter = `?companyId=${companyId}`;
     
     try {
-        const response = await apiFetch(endpoint, { method: 'GET' });
-        const entries = response.data.entries || response.data;
-        return generateJournalHTML(entries);
+        // 1️⃣ Récupérer la liste des journaux pour le filtre
+        const journalsResponse = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
+        const journals = journalsResponse.data || [];
+        
+        // 2️⃣ Récupérer les écritures
+        const entriesResponse = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
+        const entries = entriesResponse.data?.entries || entriesResponse.data || [];
+        
+        // 3️⃣ Générer le HTML avec filtres
+        return generateJournalWithFiltersHTML(entries, journals);
+        
     } catch (e) {
-        console.warn("Utilisation des données simulées pour le journal.");
-        return generateJournalHTML(simulatedData);
+        console.error("Erreur fetchJournalData:", e);
+        return '<p class="text-center text-danger mt-4">Erreur de chargement des données.</p>';
     }
 }
 
+/**
+ * 🔧 AMÉLIORATION: Génère le HTML avec filtres (Type/Journal/Période)
+ */
+function generateJournalWithFiltersHTML(entries, journals) {
+    // Options du menu déroulant journaux
+    const journalOptions = journals.map(j => 
+        `<option value="${j.id}">${j.name} (${j.code})</option>`
+    ).join('');
+    
+    // En-tête avec filtres
+    const filtersHTML = `
+        <div class="mb-6 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
+            <h3 class="text-2xl font-black text-secondary mb-4">
+                <i class="fas fa-filter mr-2"></i> Filtres
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Filtre par Type -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Type d'affichage
+                    </label>
+                    <select id="view-type-filter" onchange="window.handleViewTypeChange(this.value)" 
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        <option value="entries">📋 Écritures Comptables</option>
+                        <option value="journals">📖 Liste des Journaux</option>
+                    </select>
+                </div>
+                
+                <!-- Filtre par Journal -->
+                <div id="journal-filter-container">
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Filtrer par Journal
+                    </label>
+                    <select id="journal-filter" onchange="window.handleJournalFilter(this.value)" 
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        <option value="">Tous les journaux</option>
+                        ${journalOptions}
+                    </select>
+                </div>
+                
+                <!-- Filtre par Période -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Période
+                    </label>
+                    <select id="period-filter" onchange="window.handlePeriodFilter(this.value)" 
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        <option value="all">Toutes les périodes</option>
+                        <option value="today">Aujourd'hui</option>
+                        <option value="week">Cette semaine</option>
+                        <option value="month">Ce mois</option>
+                        <option value="year">Cette année</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Conteneur pour les résultats
+    const resultsHTML = `
+        <div id="journal-results-container" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-2xl font-black text-secondary mb-4">
+                <i class="fas fa-book mr-2"></i> Écritures Comptables
+            </h3>
+            <div id="journal-table-container">
+                ${generateJournalHTML(entries)}
+            </div>
+        </div>
+    `;
+    
+    return filtersHTML + resultsHTML;
+}
+
+/**
+ * 🔧 AMÉLIORATION: Affiche Journal + N° Opération
+ */
 function generateJournalHTML(entries) {
     if (!entries || entries.length === 0) {
         return '<p class="text-center text-gray-500 mt-4">Aucune écriture trouvée pour le moment.</p>';
     }
 
     const tableRows = entries.map(entry => {
+        const numero = entry.name || `#${entry.id}`;  // ← N° opération
+        const journal = entry.journal || 'N/A';  // ← Nom du journal
         const narration = entry.libelle || `Écriture #${entry.id}`;
         const debit = (entry.debit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
         const credit = (entry.credit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
@@ -549,15 +665,14 @@ function generateJournalHTML(entries) {
             statusClass = 'text-success';
         } else if (entry.status === 'Brouillon') {
             statusClass = 'text-warning';
-        } else if (entry.status === 'Erreur') {
-             statusClass = 'text-danger';
         }
 
         return `
             <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer" onclick="window.handleDrillDown(${entry.id}, 'Journal')">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">${entry.id}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-gray-100">${numero}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${entry.date}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">${narration}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">${journal}</td>
+                <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${narration}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-success">${debit}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-danger">${credit}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm ${statusClass}">${entry.status || 'Inconnu'}</td>
@@ -570,8 +685,9 @@ function generateJournalHTML(entries) {
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-800">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N°</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Opération</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Journal</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Libellé</th>
                         <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Débit</th>
                         <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Crédit</th>
@@ -585,6 +701,173 @@ function generateJournalHTML(entries) {
         </div>
     `;
 }
+
+// =================================================================
+// HANDLERS DES FILTRES (NOUVELLES FONCTIONS GLOBALES)
+// =================================================================
+
+/**
+ * 🔧 AMÉLIORATION: Change le type d'affichage (Écritures vs Journaux)
+ */
+window.handleViewTypeChange = async function(viewType) {
+    const companyId = appState.currentCompanyId;
+    const companyFilter = `?companyId=${companyId}`;
+    
+    const container = document.getElementById('journal-results-container');
+    const tableContainer = document.getElementById('journal-table-container');
+    
+    if (!container || !tableContainer) return;
+    
+    try {
+        if (viewType === 'journals') {
+            // Afficher la liste des journaux
+            container.querySelector('h3').innerHTML = '<i class="fas fa-book mr-2"></i> Liste des Journaux';
+            
+            const response = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
+            const journals = response.data || [];
+            
+            tableContainer.innerHTML = generateJournalsListHTML(journals);
+            
+            // Cacher le filtre par journal (pas utile ici)
+            document.getElementById('journal-filter-container').style.display = 'none';
+            
+        } else {
+            // Afficher les écritures
+            container.querySelector('h3').innerHTML = '<i class="fas fa-book mr-2"></i> Écritures Comptables';
+            
+            const response = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
+            const entries = response.data?.entries || response.data || [];
+            
+            tableContainer.innerHTML = generateJournalHTML(entries);
+            
+            // Réafficher le filtre par journal
+            document.getElementById('journal-filter-container').style.display = 'block';
+        }
+    } catch (error) {
+        NotificationManager.show('Erreur lors du changement de vue.', 'error');
+    }
+};
+
+/**
+ * 🔧 AMÉLIORATION: Filtre les écritures par journal
+ */
+window.handleJournalFilter = async function(journalId) {
+    const companyId = appState.currentCompanyId;
+    let endpoint = `accounting/journal?companyId=${companyId}`;
+    
+    if (journalId) {
+        endpoint += `&journal_id=${journalId}`;
+    }
+    
+    try {
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        const entries = response.data?.entries || response.data || [];
+        
+        const tableContainer = document.getElementById('journal-table-container');
+        if (tableContainer) {
+            tableContainer.innerHTML = generateJournalHTML(entries);
+        }
+        
+        NotificationManager.show(`Filtré: ${entries.length} écriture(s)`, 'info');
+    } catch (error) {
+        NotificationManager.show('Erreur lors du filtrage.', 'error');
+    }
+};
+
+/**
+ * 🔧 AMÉLIORATION: Filtre les écritures par période
+ */
+window.handlePeriodFilter = async function(period) {
+    const companyId = appState.currentCompanyId;
+    let endpoint = `accounting/journal?companyId=${companyId}`;
+    
+    // Calcul des dates selon la période
+    const today = new Date();
+    let dateFrom = null;
+    let dateTo = today.toISOString().split('T')[0];
+    
+    switch(period) {
+        case 'today':
+            dateFrom = dateTo;
+            break;
+        case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(today.getDate() - 7);
+            dateFrom = weekAgo.toISOString().split('T')[0];
+            break;
+        case 'month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(today.getMonth() - 1);
+            dateFrom = monthAgo.toISOString().split('T')[0];
+            break;
+        case 'year':
+            dateFrom = `${today.getFullYear()}-01-01`;
+            break;
+        default:
+            dateFrom = null;
+            dateTo = null;
+    }
+    
+    if (dateFrom) {
+        endpoint += `&date_from=${dateFrom}&date_to=${dateTo}`;
+    }
+    
+    try {
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        const entries = response.data?.entries || response.data || [];
+        
+        const tableContainer = document.getElementById('journal-table-container');
+        if (tableContainer) {
+            tableContainer.innerHTML = generateJournalHTML(entries);
+        }
+        
+        NotificationManager.show(`${entries.length} écriture(s) trouvée(s)`, 'info');
+    } catch (error) {
+        NotificationManager.show('Erreur lors du filtrage par période.', 'error');
+    }
+};
+
+/**
+ * 🔧 AMÉLIORATION: Génère le HTML de la liste des journaux
+ */
+function generateJournalsListHTML(journals) {
+    if (!journals || journals.length === 0) {
+        return '<p class="text-center text-gray-500 mt-4">Aucun journal trouvé.</p>';
+    }
+    
+    const cards = journals.map(journal => `
+        <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-primary hover:shadow-lg transition-shadow cursor-pointer"
+             onclick="window.handleJournalClick('${journal.id}', '${journal.name}')">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white">${journal.name}</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Code: ${journal.code}</p>
+                </div>
+                <div class="text-right">
+                    <span class="inline-block px-3 py-1 text-xs font-bold rounded-full bg-primary/10 text-primary">
+                        ${journal.type || 'N/A'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${cards}</div>`;
+}
+
+/**
+ * 🔧 AMÉLIORATION: Gère le clic sur un journal
+ */
+window.handleJournalClick = function(journalId, journalName) {
+    // Basculer vers la vue "Écritures" et filtrer par ce journal
+    document.getElementById('view-type-filter').value = 'entries';
+    document.getElementById('journal-filter').value = journalId;
+    
+    window.handleViewTypeChange('entries').then(() => {
+        window.handleJournalFilter(journalId);
+        NotificationManager.show(`Affichage des écritures du journal: ${journalName}`, 'info');
+    });
+};
 
 window.handleDrillDown = async function(entryId, moduleName) {
     try {
@@ -990,7 +1273,7 @@ window.handleCaisseEntrySubmit = async function(event) {
 };
 
 // =================================================================
-// SAISIE MANUELLE D'ÉCRITURE (100% COMPATIBLE AVEC TON MODULE PYTHON)
+// SAISIE MANUELLE D'ÉCRITURE (100% COMPATIBLE AVEC MODULE PYTHON)
 // =================================================================
 
 function generateDashboardWelcomeHTML(companyName, role) {
@@ -1069,7 +1352,6 @@ function generateManualEntryFormHTML() {
     `;
 }
 
-// 🔥 CORRECTION CRITIQUE : Compatible avec le module Python Odoo
 window.addLineToEntry = function(defaultValues = {}) {
     const container = document.getElementById('lines-container');
     if (!container) return;
@@ -1151,7 +1433,6 @@ function updateLineBalance() {
     }
 }
 
-// 🔥 FONCTION CRITIQUE : 100% Compatible avec ton module Python
 window.initializeManualEntryLogic = async function() {
     const form = document.getElementById('journalEntryForm');
     if (!form) {
@@ -1198,9 +1479,7 @@ window.initializeManualEntryLogic = async function() {
         jSel.innerHTML = '<option value="">-- Choisir --</option>' + 
                          jourRes.data.map(j => `<option value="${j.code}">${j.name} (${j.code})</option>`).join('');
 
-        // ✅ LOGS DE DEBUG AJOUTÉS
         console.log('📋 Journaux disponibles:', jourRes.data);
-        console.log('📋 Premier journal:', jourRes.data[0]);
 
         document.getElementById('lines-container').innerHTML = '';
         window.addLineToEntry();
@@ -1216,22 +1495,20 @@ window.initializeManualEntryLogic = async function() {
         return;
     }
 
-    // 🔥 SOUMISSION COMPATIBLE MODULE PYTHON
     form.onsubmit = async (e) => {
         e.preventDefault();
         const subBtn = document.getElementById('submit-btn');
         
-        // 🎯 FORMAT EXACT ATTENDU PAR TON MODULE PYTHON
         const payload = {
-            company_id: parseInt(companyId),              // ✅ company_id (snake_case)
-            journal_code: document.getElementById('journal-code').value,  // ✅ journal_code
-            date: dateInput.value,                        // ✅ date
-            reference: document.getElementById('narration').value,  // ✅ reference (pas narration!)
+            company_id: parseInt(companyId),
+            journal_code: document.getElementById('journal-code').value,
+            date: dateInput.value,
+            reference: document.getElementById('narration').value,
             lines: Array.from(document.querySelectorAll('.journal-line')).map(l => ({
-                account_code: l.querySelector('.line-account-code').value.trim(),  // ✅ account_code
-                name: l.querySelector('.line-name').value.trim(),                   // ✅ name
-                debit: parseFloat(l.querySelector('.line-debit').value) || 0,      // ✅ debit
-                credit: parseFloat(l.querySelector('.line-credit').value) || 0     // ✅ credit
+                account_code: l.querySelector('.line-account-code').value.trim(),
+                name: l.querySelector('.line-name').value.trim(),
+                debit: parseFloat(l.querySelector('.line-debit').value) || 0,
+                credit: parseFloat(l.querySelector('.line-credit').value) || 0
             }))
         };
 
