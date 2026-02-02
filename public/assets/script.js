@@ -434,9 +434,13 @@ async function loadContentArea(contentId, title) {
                 return;
 
             case 'ledger':
-            case 'admin-users':
-            default:
-                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+    endpoint = `accounting/syscohada-trial-balance${companyFilter}&date_from=2025-01-01&date_to=2025-12-31`;
+    content = await fetchTrialBalanceData(endpoint);
+    break;
+
+case 'admin-users':
+default:
+    content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
         }
         
         if (content) {
@@ -1132,6 +1136,191 @@ function generateBalanceSheetHTML(bilan) {
         <p class="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
             Date de génération : ${new Date(bilan.date).toLocaleDateString('fr-FR')}
         </p>
+    `;
+}
+
+// =================================================================
+// GRAND LIVRE ET BALANCE (NOUVELLES FONCTIONS)
+// =================================================================
+
+/**
+ * Récupère et affiche la Balance Générale SYSCOHADA
+ */
+async function fetchTrialBalanceData(endpoint) {
+    try {
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        return generateTrialBalanceHTML(response.data);
+    } catch (error) {
+        console.error('Erreur Balance:', error);
+        return `<div class="p-8 text-center text-danger">
+            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+            <p class="font-bold">Erreur de chargement de la Balance Générale.</p>
+            <p class="text-sm">${error.message}</p>
+        </div>`;
+    }
+}
+
+/**
+ * Génère le HTML de la Balance Générale
+ */
+function generateTrialBalanceHTML(balanceData) {
+    if (!balanceData || !balanceData.accounts || balanceData.accounts.length === 0) {
+        return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Balance Générale SYSCOHADA</h3>
+            <div class="p-8 text-center text-info">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <p class="font-bold">Aucune donnée disponible pour cette période.</p>
+            </div>`;
+    }
+
+    const rows = balanceData.accounts.map(account => {
+        const soldeDebiteur = account.balance > 0 ? account.balance : 0;
+        const soldeCrediteur = account.balance < 0 ? Math.abs(account.balance) : 0;
+
+        return `
+            <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td class="px-6 py-3 font-mono text-sm font-bold">${account.code}</td>
+                <td class="px-6 py-3 text-sm">${account.name}</td>
+                <td class="px-6 py-3 text-right font-bold">${account.debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-6 py-3 text-right font-bold">${account.credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-6 py-3 text-right font-bold ${soldeDebiteur > 0 ? 'text-success' : ''}">${soldeDebiteur.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-6 py-3 text-right font-bold ${soldeCrediteur > 0 ? 'text-danger' : ''}">${soldeCrediteur.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div class="fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-3xl font-black text-secondary">Balance Générale SYSCOHADA</h3>
+                <div class="text-sm text-gray-500">
+                    <i class="fas fa-calendar mr-2"></i> 
+                    Du ${new Date(balanceData.date_from).toLocaleDateString('fr-FR')} au ${new Date(balanceData.date_to).toLocaleDateString('fr-FR')}
+                </div>
+            </div>
+
+            <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+                <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Compte</th>
+                            <th scope="col" class="px-6 py-3">Libellé</th>
+                            <th scope="col" class="px-6 py-3 text-right">Mouvements Débit</th>
+                            <th scope="col" class="px-6 py-3 text-right">Mouvements Crédit</th>
+                            <th scope="col" class="px-6 py-3 text-right">Solde Débiteur</th>
+                            <th scope="col" class="px-6 py-3 text-right">Solde Créditeur</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                    <tfoot class="bg-gray-100 dark:bg-gray-700 font-black">
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 text-right uppercase">TOTAUX</td>
+                            <td class="px-6 py-4 text-right text-lg">${balanceData.totals.total_debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            <td class="px-6 py-4 text-right text-lg">${balanceData.totals.total_credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            <td class="px-6 py-4 text-right text-lg text-success">${balanceData.totals.total_debit_balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            <td class="px-6 py-4 text-right text-lg text-danger">${balanceData.totals.total_credit_balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="mt-6 p-4 rounded-xl ${Math.abs(balanceData.totals.total_debit - balanceData.totals.total_credit) < 0.01 ? 'bg-success/20 border-l-4 border-success' : 'bg-warning/20 border-l-4 border-warning'}">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-gray-700 dark:text-gray-300">
+                        ${Math.abs(balanceData.totals.total_debit - balanceData.totals.total_credit) < 0.01 ? '✅ Balance Équilibrée' : '⚠️ Écart Détecté'}
+                    </span>
+                    <span class="font-black text-lg">
+                        Écart : ${Math.abs(balanceData.totals.total_debit - balanceData.totals.total_credit).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} XOF
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Récupère et affiche le Grand Livre
+ */
+async function fetchGeneralLedgerData(endpoint) {
+    try {
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        return generateGeneralLedgerHTML(response.data);
+    } catch (error) {
+        console.error('Erreur Grand Livre:', error);
+        return `<div class="p-8 text-center text-danger">
+            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+            <p class="font-bold">Erreur de chargement du Grand Livre.</p>
+            <p class="text-sm">${error.message}</p>
+        </div>`;
+    }
+}
+
+/**
+ * Génère le HTML du Grand Livre
+ */
+function generateGeneralLedgerHTML(ledgerData) {
+    if (!ledgerData || ledgerData.length === 0) {
+        return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Grand Livre Général</h3>
+            <div class="p-8 text-center text-info">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <p class="font-bold">Aucune donnée disponible pour cette période.</p>
+            </div>`;
+    }
+
+    const accountSections = ledgerData.map(account => {
+        const linesHTML = account.lines.map(line => `
+            <tr class="border-b dark:border-gray-700">
+                <td class="px-4 py-2 text-sm">${new Date(line.date).toLocaleDateString('fr-FR')}</td>
+                <td class="px-4 py-2 text-sm font-mono">${line.journalEntry}</td>
+                <td class="px-4 py-2 text-sm">${line.description}</td>
+                <td class="px-4 py-2 text-right font-bold text-success">${line.debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-4 py-2 text-right font-bold text-danger">${line.credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-4 py-2 text-right font-bold">${line.balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+        `).join('');
+
+        return `
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+                <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 border-l-4 border-primary">
+                    <h4 class="text-lg font-black text-gray-900 dark:text-white">
+                        ${account.code} - ${account.name}
+                    </h4>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">N° Pièce</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Libellé</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Débit</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Crédit</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Solde</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${linesHTML}
+                        </tbody>
+                        <tfoot class="bg-gray-100 dark:bg-gray-700 font-black">
+                            <tr>
+                                <td colspan="3" class="px-4 py-3 text-right uppercase">TOTAUX</td>
+                                <td class="px-4 py-3 text-right text-success">${account.totalDebit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                <td class="px-4 py-3 text-right text-danger">${account.totalCredit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                <td class="px-4 py-3 text-right">${account.finalBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="fade-in">
+            <h3 class="text-3xl font-black text-secondary mb-6">Grand Livre Général</h3>
+            ${accountSections}
+        </div>
     `;
 }
 
