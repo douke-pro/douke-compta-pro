@@ -1,7 +1,12 @@
 // =============================================================================
-// FICHIER : public/assets/script.js (VERSION V13 - FINALE CORRIGÉE)
+// FICHIER : public/assets/script.js (VERSION V14 - BALANCE/GRAND LIVRE CORRIGÉS)
 // Description : Logique Front-End avec toutes les améliorations appliquées
 // Architecture : Multi-tenant sécurisé + API Odoo optimisée
+// Corrections V14 :
+//   - Sélecteur Balance / Grand Livre
+//   - Balance 6 colonnes SYSCOHADA Révisé
+//   - Gestion erreur backend Odoo (get_full_informations)
+//   - Filtres de période dynamiques
 // =============================================================================
 
 // --- 1. CONFIGURATION GLOBALE ---
@@ -433,14 +438,14 @@ async function loadContentArea(contentId, title) {
                 window.initializeManualEntryLogic(); 
                 return;
 
+            // 🔧 V14 CORRECTION: Nouveau case 'ledger' avec sélecteur
             case 'ledger':
-    endpoint = `accounting/syscohada-trial-balance${companyFilter}&date_from=2025-01-01&date_to=2025-12-31`;
-    content = await fetchTrialBalanceData(endpoint);
-    break;
+                content = generateLedgerBalanceSelectorHTML();
+                break;
 
-case 'admin-users':
-default:
-    content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+            case 'admin-users':
+            default:
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
         }
         
         if (content) {
@@ -1139,99 +1144,411 @@ function generateBalanceSheetHTML(bilan) {
     `;
 }
 
-// =================================================================
-// GRAND LIVRE ET BALANCE (NOUVELLES FONCTIONS)
-// =================================================================
+// =============================================================================
+// 🔧 V14 - BALANCE GÉNÉRALE ET GRAND LIVRE (SECTION ENTIÈREMENT RÉÉCRITE)
+// =============================================================================
 
 /**
- * Récupère et affiche la Balance Générale SYSCOHADA
+ * 🔧 V14: Génère l'interface de sélection Balance / Grand Livre
+ * avec filtres de période et types de rapport
  */
-async function fetchTrialBalanceData(endpoint) {
-    try {
-        const response = await apiFetch(endpoint, { method: 'GET' });
-        return generateTrialBalanceHTML(response.data);
-    } catch (error) {
-        console.error('Erreur Balance:', error);
-        return `<div class="p-8 text-center text-danger">
-            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-            <p class="font-bold">Erreur de chargement de la Balance Générale.</p>
-            <p class="text-sm">${error.message}</p>
-        </div>`;
-    }
+function generateLedgerBalanceSelectorHTML() {
+    const currentYear = new Date().getFullYear();
+    const today = new Date().toISOString().split('T')[0];
+    const yearStart = `${currentYear}-01-01`;
+    
+    return `
+        <div class="fade-in">
+            <h3 class="text-3xl font-black text-secondary mb-6">
+                <i class="fas fa-balance-scale mr-3"></i>Balance & Grand Livre
+            </h3>
+            
+            <p class="text-gray-600 dark:text-gray-400 mb-8">
+                Sélectionnez le type de rapport et la période d'analyse pour générer votre état comptable conforme au <strong>SYSCOHADA Révisé</strong>.
+            </p>
+
+            <!-- SÉLECTEUR DE TYPE DE RAPPORT -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border-l-4 border-primary mb-6">
+                <h4 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-file-alt mr-2 text-primary"></i>Type de Rapport
+                </h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Balance Générale -->
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="reportType" value="balance" class="peer sr-only" checked>
+                        <div class="p-4 border-2 rounded-xl transition-all peer-checked:border-primary peer-checked:bg-primary/5 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <div class="flex items-start">
+                                <i class="fas fa-list-ol fa-2x text-info mr-4 mt-1"></i>
+                                <div>
+                                    <span class="block font-bold text-gray-900 dark:text-white">Balance Générale</span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                                        6 colonnes SYSCOHADA : Soldes initiaux, Mouvements, Soldes finaux
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                    
+                    <!-- Grand Livre -->
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="reportType" value="ledger" class="peer sr-only">
+                        <div class="p-4 border-2 rounded-xl transition-all peer-checked:border-primary peer-checked:bg-primary/5 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <div class="flex items-start">
+                                <i class="fas fa-book-open fa-2x text-success mr-4 mt-1"></i>
+                                <div>
+                                    <span class="block font-bold text-gray-900 dark:text-white">Grand Livre Général</span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                                        Détail de toutes les écritures par compte avec solde progressif
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- FILTRES DE PÉRIODE -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border-l-4 border-info mb-6">
+                <h4 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-calendar-alt mr-2 text-info"></i>Période d'Analyse
+                </h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Date Début</label>
+                        <input type="date" id="ledger-date-from" value="${yearStart}"
+                            class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Date Fin</label>
+                        <input type="date" id="ledger-date-to" value="${today}"
+                            class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Période Rapide</label>
+                        <select id="quick-period" onchange="window.setQuickPeriod(this.value)"
+                            class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            <option value="">-- Personnalisé --</option>
+                            <option value="month">Mois en cours</option>
+                            <option value="quarter">Trimestre en cours</option>
+                            <option value="year" selected>Année en cours</option>
+                            <option value="last-year">Année précédente</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOUTON GÉNÉRER -->
+            <div class="flex justify-center">
+                <button onclick="window.generateLedgerBalanceReport()" 
+                    class="bg-gradient-to-r from-primary to-secondary text-white px-8 py-4 rounded-xl font-black text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                    <i class="fas fa-cogs mr-3"></i>Générer le Rapport
+                </button>
+            </div>
+
+            <!-- ZONE DE RÉSULTAT -->
+            <div id="ledger-balance-result" class="mt-8"></div>
+        </div>
+    `;
 }
 
 /**
- * Génère le HTML de la Balance Générale
+ * 🔧 V14: Définit rapidement une période prédéfinie
  */
-function generateTrialBalanceHTML(balanceData) {
+window.setQuickPeriod = function(period) {
+    const dateFrom = document.getElementById('ledger-date-from');
+    const dateTo = document.getElementById('ledger-date-to');
+    const now = new Date();
+    const year = now.getFullYear();
+    
+    switch(period) {
+        case 'month':
+            dateFrom.value = `${year}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+            dateTo.value = now.toISOString().split('T')[0];
+            break;
+        case 'quarter':
+            const quarter = Math.floor(now.getMonth() / 3);
+            dateFrom.value = `${year}-${String(quarter * 3 + 1).padStart(2, '0')}-01`;
+            dateTo.value = now.toISOString().split('T')[0];
+            break;
+        case 'year':
+            dateFrom.value = `${year}-01-01`;
+            dateTo.value = `${year}-12-31`;
+            break;
+        case 'last-year':
+            dateFrom.value = `${year - 1}-01-01`;
+            dateTo.value = `${year - 1}-12-31`;
+            break;
+    }
+};
+
+/**
+ * 🔧 V14: Génère le rapport Balance ou Grand Livre selon la sélection
+ */
+window.generateLedgerBalanceReport = async function() {
+    const reportType = document.querySelector('input[name="reportType"]:checked').value;
+    const dateFrom = document.getElementById('ledger-date-from').value;
+    const dateTo = document.getElementById('ledger-date-to').value;
+    const resultDiv = document.getElementById('ledger-balance-result');
+    const companyId = appState.currentCompanyId;
+    
+    // Validation
+    if (!dateFrom || !dateTo) {
+        NotificationManager.show('Veuillez sélectionner les dates de début et de fin.', 'warning');
+        return;
+    }
+    
+    if (new Date(dateFrom) > new Date(dateTo)) {
+        NotificationManager.show('La date de début doit être antérieure à la date de fin.', 'error');
+        return;
+    }
+    
+    // Afficher le spinner
+    resultDiv.innerHTML = `
+        <div class="p-8 text-center">
+            <div class="loading-spinner mx-auto"></div>
+            <p class="mt-4 text-gray-500 font-bold">Génération du ${reportType === 'balance' ? 'Balance Générale' : 'Grand Livre'}...</p>
+        </div>
+    `;
+    
+    try {
+        const companyFilter = `?companyId=${companyId}&date_from=${dateFrom}&date_to=${dateTo}`;
+        
+        if (reportType === 'balance') {
+            // BALANCE GÉNÉRALE SYSCOHADA 6 COLONNES
+            const endpoint = `accounting/trial-balance-syscohada${companyFilter}`;
+            const response = await apiFetch(endpoint, { method: 'GET' });
+            resultDiv.innerHTML = generateTrialBalance6ColumnsHTML(response.data, dateFrom, dateTo);
+        } else {
+            // GRAND LIVRE GÉNÉRAL
+            const endpoint = `accounting/general-ledger${companyFilter}`;
+            const response = await apiFetch(endpoint, { method: 'GET' });
+            resultDiv.innerHTML = generateGeneralLedgerHTML(response.data, dateFrom, dateTo);
+        }
+        
+        NotificationManager.show(`${reportType === 'balance' ? 'Balance' : 'Grand Livre'} généré avec succès !`, 'success');
+        
+    } catch (error) {
+        console.error('Erreur génération rapport:', error);
+        resultDiv.innerHTML = generateLedgerErrorHTML(error, reportType);
+    }
+};
+
+/**
+ * 🔧 V14: Génère le HTML d'erreur avec diagnostic
+ */
+function generateLedgerErrorHTML(error, reportType) {
+    const reportName = reportType === 'balance' ? 'Balance Générale' : 'Grand Livre';
+    
+    // Diagnostic de l'erreur Odoo
+    let diagnosticHTML = '';
+    if (error.message.includes('get_full_informations') || error.message.includes('does not exist')) {
+        diagnosticHTML = `
+            <div class="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border-l-4 border-yellow-500">
+                <h5 class="font-bold text-yellow-700 dark:text-yellow-400 mb-2">
+                    <i class="fas fa-lightbulb mr-2"></i>Diagnostic
+                </h5>
+                <p class="text-sm text-yellow-600 dark:text-yellow-300">
+                    <strong>Cause probable :</strong> Le backend utilise la méthode Odoo 
+                    <code class="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">account.report.get_full_informations</code> 
+                    qui n'existe pas dans votre version d'Odoo.
+                </p>
+                <p class="text-sm text-yellow-600 dark:text-yellow-300 mt-2">
+                    <strong>Solution :</strong> Le backend doit utiliser 
+                    <code class="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">account.move.line</code> 
+                    pour récupérer les écritures et calculer la balance côté serveur.
+                </p>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="p-8 text-center bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-800">
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-4"></i>
+            <h4 class="text-xl font-black text-danger mb-2">Erreur de chargement de la ${reportName}</h4>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">${error.message}</p>
+            
+            ${diagnosticHTML}
+            
+            <button onclick="window.generateLedgerBalanceReport()" 
+                class="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary-dark transition-colors">
+                <i class="fas fa-redo mr-2"></i>Réessayer
+            </button>
+        </div>
+    `;
+}
+
+// =============================================================================
+// 🔧 V14 - BALANCE GÉNÉRALE 6 COLONNES - SYSCOHADA RÉVISÉ
+// =============================================================================
+
+/**
+ * 🔧 V14: Génère le HTML de la Balance Générale à 6 colonnes
+ * Structure SYSCOHADA Révisé :
+ * - Solde Initial (Débit / Crédit)
+ * - Mouvements (Débit / Crédit)
+ * - Solde Final (Débit / Crédit)
+ */
+function generateTrialBalance6ColumnsHTML(balanceData, dateFrom, dateTo) {
     if (!balanceData || !balanceData.accounts || balanceData.accounts.length === 0) {
-        return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Balance Générale SYSCOHADA</h3>
-            <div class="p-8 text-center text-info">
-                <i class="fas fa-info-circle fa-2x mb-3"></i>
-                <p class="font-bold">Aucune donnée disponible pour cette période.</p>
-            </div>`;
+        return `
+            <div class="p-8 text-center bg-info/10 rounded-2xl">
+                <i class="fas fa-info-circle fa-3x text-info mb-4"></i>
+                <h4 class="text-xl font-black text-gray-700 dark:text-gray-300">Aucune donnée disponible</h4>
+                <p class="text-gray-500">Aucun compte n'a été mouvementé sur cette période.</p>
+            </div>
+        `;
     }
 
+    // Générer les lignes du tableau
     const rows = balanceData.accounts.map(account => {
-        const soldeDebiteur = account.balance > 0 ? account.balance : 0;
-        const soldeCrediteur = account.balance < 0 ? Math.abs(account.balance) : 0;
+        // Calcul des colonnes
+        const siDebit = account.opening_debit || 0;
+        const siCredit = account.opening_credit || 0;
+        const mvtDebit = account.debit || 0;
+        const mvtCredit = account.credit || 0;
+        
+        // Solde final = Solde initial + Mouvements
+        const sfDebit = Math.max(0, (siDebit - siCredit) + (mvtDebit - mvtCredit));
+        const sfCredit = Math.max(0, (siCredit - siDebit) + (mvtCredit - mvtDebit));
+
+        // Classe de la ligne (alternance + mise en évidence classes)
+        const isClassAccount = account.code.length <= 2;
+        const rowClass = isClassAccount 
+            ? 'bg-primary/10 font-bold' 
+            : 'hover:bg-gray-50 dark:hover:bg-gray-700';
 
         return `
-            <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td class="px-6 py-3 font-mono text-sm font-bold">${account.code}</td>
-                <td class="px-6 py-3 text-sm">${account.name}</td>
-                <td class="px-6 py-3 text-right font-bold">${account.debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                <td class="px-6 py-3 text-right font-bold">${account.credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                <td class="px-6 py-3 text-right font-bold ${soldeDebiteur > 0 ? 'text-success' : ''}">${soldeDebiteur.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                <td class="px-6 py-3 text-right font-bold ${soldeCrediteur > 0 ? 'text-danger' : ''}">${soldeCrediteur.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+            <tr class="border-b dark:border-gray-700 ${rowClass}">
+                <td class="px-3 py-2 font-mono text-sm ${isClassAccount ? 'font-black text-primary' : 'font-bold'}">${account.code}</td>
+                <td class="px-3 py-2 text-sm ${isClassAccount ? 'font-black' : ''}">${account.name}</td>
+                
+                <!-- Solde Initial -->
+                <td class="px-3 py-2 text-right font-mono text-sm ${siDebit > 0 ? 'text-blue-600' : 'text-gray-400'}">${formatAmount(siDebit)}</td>
+                <td class="px-3 py-2 text-right font-mono text-sm ${siCredit > 0 ? 'text-blue-600' : 'text-gray-400'}">${formatAmount(siCredit)}</td>
+                
+                <!-- Mouvements -->
+                <td class="px-3 py-2 text-right font-mono text-sm font-bold ${mvtDebit > 0 ? 'text-success' : 'text-gray-400'}">${formatAmount(mvtDebit)}</td>
+                <td class="px-3 py-2 text-right font-mono text-sm font-bold ${mvtCredit > 0 ? 'text-danger' : 'text-gray-400'}">${formatAmount(mvtCredit)}</td>
+                
+                <!-- Solde Final -->
+                <td class="px-3 py-2 text-right font-mono text-sm font-black ${sfDebit > 0 ? 'text-success' : 'text-gray-400'}">${formatAmount(sfDebit)}</td>
+                <td class="px-3 py-2 text-right font-mono text-sm font-black ${sfCredit > 0 ? 'text-danger' : 'text-gray-400'}">${formatAmount(sfCredit)}</td>
             </tr>
         `;
     }).join('');
 
+    // Calcul des totaux
+    const totals = balanceData.totals || calculateTotals(balanceData.accounts);
+
     return `
-        <div class="fade-in">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-3xl font-black text-secondary">Balance Générale SYSCOHADA</h3>
-                <div class="text-sm text-gray-500">
-                    <i class="fas fa-calendar mr-2"></i> 
-                    Du ${new Date(balanceData.date_from).toLocaleDateString('fr-FR')} au ${new Date(balanceData.date_to).toLocaleDateString('fr-FR')}
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+            <!-- En-tête -->
+            <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 border-b dark:border-gray-700">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h4 class="text-xl font-black text-gray-900 dark:text-white">
+                            <i class="fas fa-list-ol mr-2 text-primary"></i>Balance Générale SYSCOHADA
+                        </h4>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Entreprise : <strong>${appState.currentCompanyName}</strong>
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm text-gray-500">
+                            <i class="fas fa-calendar mr-2"></i>
+                            Du ${formatDate(dateFrom)} au ${formatDate(dateTo)}
+                        </span>
+                        <div class="mt-2">
+                            <button onclick="window.exportBalanceToExcel()" class="text-sm bg-success text-white px-3 py-1 rounded-lg font-bold hover:bg-success/80 mr-2">
+                                <i class="fas fa-file-excel mr-1"></i>Excel
+                            </button>
+                            <button onclick="window.printBalance()" class="text-sm bg-info text-white px-3 py-1 rounded-lg font-bold hover:bg-info/80">
+                                <i class="fas fa-print mr-1"></i>Imprimer
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
-                <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+            <!-- Tableau Balance 6 colonnes -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm" id="balance-table">
+                    <thead class="bg-gray-100 dark:bg-gray-700">
                         <tr>
-                            <th scope="col" class="px-6 py-3">Compte</th>
-                            <th scope="col" class="px-6 py-3">Libellé</th>
-                            <th scope="col" class="px-6 py-3 text-right">Mouvements Débit</th>
-                            <th scope="col" class="px-6 py-3 text-right">Mouvements Crédit</th>
-                            <th scope="col" class="px-6 py-3 text-right">Solde Débiteur</th>
-                            <th scope="col" class="px-6 py-3 text-right">Solde Créditeur</th>
+                            <th rowspan="2" class="px-3 py-3 text-left text-xs font-black text-gray-600 uppercase border-r dark:border-gray-600">Compte</th>
+                            <th rowspan="2" class="px-3 py-3 text-left text-xs font-black text-gray-600 uppercase border-r dark:border-gray-600">Libellé</th>
+                            <th colspan="2" class="px-3 py-2 text-center text-xs font-black text-blue-600 uppercase border-r dark:border-gray-600 bg-blue-50 dark:bg-blue-900/20">
+                                <i class="fas fa-flag-checkered mr-1"></i>Solde Initial
+                            </th>
+                            <th colspan="2" class="px-3 py-2 text-center text-xs font-black text-gray-600 uppercase border-r dark:border-gray-600">
+                                <i class="fas fa-exchange-alt mr-1"></i>Mouvements Période
+                            </th>
+                            <th colspan="2" class="px-3 py-2 text-center text-xs font-black text-purple-600 uppercase bg-purple-50 dark:bg-purple-900/20">
+                                <i class="fas fa-flag mr-1"></i>Solde Final
+                            </th>
+                        </tr>
+                        <tr class="bg-gray-50 dark:bg-gray-600">
+                            <th class="px-3 py-2 text-right text-xs font-bold text-gray-500 border-r dark:border-gray-500">Débit</th>
+                            <th class="px-3 py-2 text-right text-xs font-bold text-gray-500 border-r dark:border-gray-500">Crédit</th>
+                            <th class="px-3 py-2 text-right text-xs font-bold text-success border-r dark:border-gray-500">Débit</th>
+                            <th class="px-3 py-2 text-right text-xs font-bold text-danger border-r dark:border-gray-500">Crédit</th>
+                            <th class="px-3 py-2 text-right text-xs font-bold text-success">Débit</th>
+                            <th class="px-3 py-2 text-right text-xs font-bold text-danger">Crédit</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                         ${rows}
                     </tbody>
-                    <tfoot class="bg-gray-100 dark:bg-gray-700 font-black">
+                    <tfoot class="bg-gray-800 dark:bg-gray-900 text-white font-black">
                         <tr>
-                            <td colspan="2" class="px-6 py-4 text-right uppercase">TOTAUX</td>
-                            <td class="px-6 py-4 text-right text-lg">${balanceData.totals.total_debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                            <td class="px-6 py-4 text-right text-lg">${balanceData.totals.total_credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                            <td class="px-6 py-4 text-right text-lg text-success">${balanceData.totals.total_debit_balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                            <td class="px-6 py-4 text-right text-lg text-danger">${balanceData.totals.total_credit_balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            <td colspan="2" class="px-3 py-4 text-right uppercase">TOTAUX GÉNÉRAUX</td>
+                            <td class="px-3 py-4 text-right font-mono">${formatAmount(totals.opening_debit || 0)}</td>
+                            <td class="px-3 py-4 text-right font-mono">${formatAmount(totals.opening_credit || 0)}</td>
+                            <td class="px-3 py-4 text-right font-mono text-success">${formatAmount(totals.total_debit || 0)}</td>
+                            <td class="px-3 py-4 text-right font-mono text-danger">${formatAmount(totals.total_credit || 0)}</td>
+                            <td class="px-3 py-4 text-right font-mono text-success">${formatAmount(totals.closing_debit || 0)}</td>
+                            <td class="px-3 py-4 text-right font-mono text-danger">${formatAmount(totals.closing_credit || 0)}</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
 
-            <div class="mt-6 p-4 rounded-xl ${Math.abs(balanceData.totals.total_debit - balanceData.totals.total_credit) < 0.01 ? 'bg-success/20 border-l-4 border-success' : 'bg-warning/20 border-l-4 border-warning'}">
-                <div class="flex items-center justify-between">
-                    <span class="font-bold text-gray-700 dark:text-gray-300">
-                        ${Math.abs(balanceData.totals.total_debit - balanceData.totals.total_credit) < 0.01 ? '✅ Balance Équilibrée' : '⚠️ Écart Détecté'}
-                    </span>
-                    <span class="font-black text-lg">
-                        Écart : ${Math.abs(balanceData.totals.total_debit - balanceData.totals.total_credit).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} XOF
+            <!-- Indicateur d'équilibre -->
+            ${generateBalanceIndicator(totals)}
+        </div>
+    `;
+}
+
+/**
+ * 🔧 V14: Génère l'indicateur d'équilibre de la balance
+ */
+function generateBalanceIndicator(totals) {
+    const debitTotal = (totals.total_debit || 0);
+    const creditTotal = (totals.total_credit || 0);
+    const difference = Math.abs(debitTotal - creditTotal);
+    const isBalanced = difference < 0.01;
+
+    return `
+        <div class="p-4 ${isBalanced ? 'bg-success/20 border-t-4 border-success' : 'bg-warning/20 border-t-4 border-warning'}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas ${isBalanced ? 'fa-check-circle text-success' : 'fa-exclamation-triangle text-warning'} fa-2x mr-3"></i>
+                    <div>
+                        <span class="font-black text-gray-700 dark:text-gray-300 block">
+                            ${isBalanced ? '✅ Balance Équilibrée' : '⚠️ Écart Détecté'}
+                        </span>
+                        <span class="text-sm text-gray-500">
+                            ${isBalanced 
+                                ? 'Les totaux débit et crédit sont égaux.' 
+                                : `Un écart de ${formatAmount(difference)} XOF a été détecté.`}
+                        </span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-2xl font-black ${isBalanced ? 'text-success' : 'text-warning'}">
+                        ${formatAmount(difference)} XOF
                     </span>
                 </div>
             </div>
@@ -1239,63 +1556,72 @@ function generateTrialBalanceHTML(balanceData) {
     `;
 }
 
-/**
- * Récupère et affiche le Grand Livre
- */
-async function fetchGeneralLedgerData(endpoint) {
-    try {
-        const response = await apiFetch(endpoint, { method: 'GET' });
-        return generateGeneralLedgerHTML(response.data);
-    } catch (error) {
-        console.error('Erreur Grand Livre:', error);
-        return `<div class="p-8 text-center text-danger">
-            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-            <p class="font-bold">Erreur de chargement du Grand Livre.</p>
-            <p class="text-sm">${error.message}</p>
-        </div>`;
-    }
-}
+// =============================================================================
+// 🔧 V14 - GRAND LIVRE GÉNÉRAL AMÉLIORÉ
+// =============================================================================
 
 /**
- * Génère le HTML du Grand Livre
+ * 🔧 V14: Génère le HTML du Grand Livre avec détails des écritures
  */
-function generateGeneralLedgerHTML(ledgerData) {
+function generateGeneralLedgerHTML(ledgerData, dateFrom, dateTo) {
     if (!ledgerData || ledgerData.length === 0) {
-        return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Grand Livre Général</h3>
-            <div class="p-8 text-center text-info">
-                <i class="fas fa-info-circle fa-2x mb-3"></i>
-                <p class="font-bold">Aucune donnée disponible pour cette période.</p>
-            </div>`;
+        return `
+            <div class="p-8 text-center bg-info/10 rounded-2xl">
+                <i class="fas fa-info-circle fa-3x text-info mb-4"></i>
+                <h4 class="text-xl font-black text-gray-700 dark:text-gray-300">Aucune donnée disponible</h4>
+                <p class="text-gray-500">Aucune écriture trouvée pour cette période.</p>
+            </div>
+        `;
     }
 
+    // Générer les sections par compte
     const accountSections = ledgerData.map(account => {
-        const linesHTML = account.lines.map(line => `
-            <tr class="border-b dark:border-gray-700">
-                <td class="px-4 py-2 text-sm">${new Date(line.date).toLocaleDateString('fr-FR')}</td>
-                <td class="px-4 py-2 text-sm font-mono">${line.journalEntry}</td>
-                <td class="px-4 py-2 text-sm">${line.description}</td>
-                <td class="px-4 py-2 text-right font-bold text-success">${line.debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                <td class="px-4 py-2 text-right font-bold text-danger">${line.credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                <td class="px-4 py-2 text-right font-bold">${line.balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-            </tr>
-        `).join('');
+        let runningBalance = account.opening_balance || 0;
+        
+        const linesHTML = account.lines.map(line => {
+            runningBalance += (line.debit || 0) - (line.credit || 0);
+            
+            return `
+                <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-4 py-2 text-sm">${formatDate(line.date)}</td>
+                    <td class="px-4 py-2 text-sm font-mono font-bold text-primary">${line.move_name || line.journalEntry || '-'}</td>
+                    <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">${line.journal_code || '-'}</td>
+                    <td class="px-4 py-2 text-sm">${line.name || line.description || '-'}</td>
+                    <td class="px-4 py-2 text-right font-mono font-bold ${line.debit > 0 ? 'text-success' : 'text-gray-400'}">${formatAmount(line.debit || 0)}</td>
+                    <td class="px-4 py-2 text-right font-mono font-bold ${line.credit > 0 ? 'text-danger' : 'text-gray-400'}">${formatAmount(line.credit || 0)}</td>
+                    <td class="px-4 py-2 text-right font-mono font-black ${runningBalance >= 0 ? 'text-success' : 'text-danger'}">${formatAmount(runningBalance)}</td>
+                </tr>
+            `;
+        }).join('');
 
         return `
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+                <!-- En-tête du compte -->
                 <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 border-l-4 border-primary">
-                    <h4 class="text-lg font-black text-gray-900 dark:text-white">
-                        ${account.code} - ${account.name}
-                    </h4>
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-lg font-black text-gray-900 dark:text-white">
+                            <span class="font-mono text-primary">${account.code}</span> - ${account.name}
+                        </h4>
+                        <div class="text-right">
+                            <span class="text-sm text-gray-500">Solde Initial :</span>
+                            <span class="font-bold ml-2 ${(account.opening_balance || 0) >= 0 ? 'text-success' : 'text-danger'}">
+                                ${formatAmount(account.opening_balance || 0)} XOF
+                            </span>
+                        </div>
+                    </div>
                 </div>
+                
+                <!-- Tableau des écritures -->
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">N° Pièce</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Journal</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Libellé</th>
-                                <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Débit</th>
-                                <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Crédit</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-success uppercase">Débit</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-danger uppercase">Crédit</th>
                                 <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Solde</th>
                             </tr>
                         </thead>
@@ -1304,10 +1630,10 @@ function generateGeneralLedgerHTML(ledgerData) {
                         </tbody>
                         <tfoot class="bg-gray-100 dark:bg-gray-700 font-black">
                             <tr>
-                                <td colspan="3" class="px-4 py-3 text-right uppercase">TOTAUX</td>
-                                <td class="px-4 py-3 text-right text-success">${account.totalDebit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                                <td class="px-4 py-3 text-right text-danger">${account.totalCredit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                                <td class="px-4 py-3 text-right">${account.finalBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                <td colspan="4" class="px-4 py-3 text-right uppercase">TOTAUX DU COMPTE</td>
+                                <td class="px-4 py-3 text-right font-mono text-success">${formatAmount(account.totalDebit || 0)}</td>
+                                <td class="px-4 py-3 text-right font-mono text-danger">${formatAmount(account.totalCredit || 0)}</td>
+                                <td class="px-4 py-3 text-right font-mono ${(account.finalBalance || 0) >= 0 ? 'text-success' : 'text-danger'}">${formatAmount(account.finalBalance || 0)}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -1318,11 +1644,107 @@ function generateGeneralLedgerHTML(ledgerData) {
 
     return `
         <div class="fade-in">
-            <h3 class="text-3xl font-black text-secondary mb-6">Grand Livre Général</h3>
+            <!-- En-tête du Grand Livre -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 mb-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h4 class="text-xl font-black text-gray-900 dark:text-white">
+                            <i class="fas fa-book-open mr-2 text-success"></i>Grand Livre Général
+                        </h4>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Entreprise : <strong>${appState.currentCompanyName}</strong> | 
+                            Du ${formatDate(dateFrom)} au ${formatDate(dateTo)}
+                        </p>
+                    </div>
+                    <div>
+                        <button onclick="window.exportLedgerToExcel()" class="text-sm bg-success text-white px-3 py-2 rounded-lg font-bold hover:bg-success/80 mr-2">
+                            <i class="fas fa-file-excel mr-1"></i>Export Excel
+                        </button>
+                        <button onclick="window.printLedger()" class="text-sm bg-info text-white px-3 py-2 rounded-lg font-bold hover:bg-info/80">
+                            <i class="fas fa-print mr-1"></i>Imprimer
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sections par compte -->
             ${accountSections}
         </div>
     `;
 }
+
+// =============================================================================
+// 🔧 V14 - FONCTIONS UTILITAIRES
+// =============================================================================
+
+/**
+ * Formate un montant en XOF
+ */
+function formatAmount(amount) {
+    return (amount || 0).toLocaleString('fr-FR', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+    });
+}
+
+/**
+ * Formate une date au format français
+ */
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+}
+
+/**
+ * Calcule les totaux si non fournis par le backend
+ */
+function calculateTotals(accounts) {
+    return accounts.reduce((totals, acc) => {
+        totals.opening_debit += acc.opening_debit || 0;
+        totals.opening_credit += acc.opening_credit || 0;
+        totals.total_debit += acc.debit || 0;
+        totals.total_credit += acc.credit || 0;
+        
+        const sfDebit = Math.max(0, (acc.opening_debit - acc.opening_credit) + (acc.debit - acc.credit));
+        const sfCredit = Math.max(0, (acc.opening_credit - acc.opening_debit) + (acc.credit - acc.debit));
+        totals.closing_debit += sfDebit;
+        totals.closing_credit += sfCredit;
+        
+        return totals;
+    }, {
+        opening_debit: 0,
+        opening_credit: 0,
+        total_debit: 0,
+        total_credit: 0,
+        closing_debit: 0,
+        closing_credit: 0
+    });
+}
+
+// =============================================================================
+// 🔧 V14 - FONCTIONS D'EXPORT
+// =============================================================================
+
+window.exportBalanceToExcel = function() {
+    NotificationManager.show('Export Excel en cours de développement...', 'info');
+    // TODO: Implémenter avec SheetJS ou côté backend
+};
+
+window.printBalance = function() {
+    window.print();
+};
+
+window.exportLedgerToExcel = function() {
+    NotificationManager.show('Export Excel en cours de développement...', 'info');
+};
+
+window.printLedger = function() {
+    window.print();
+};
 
 // =================================================================
 // RAPPORTS
@@ -1993,7 +2415,7 @@ function attachGlobalListeners() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Application Doukè Compta Pro - Démarrage');
+    console.log('🚀 Application Doukè Compta Pro - Démarrage V14');
     attachGlobalListeners();
     checkAuthAndRender();
 });
