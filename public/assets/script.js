@@ -869,39 +869,271 @@ window.handleJournalClick = function(journalId, journalName) {
     });
 };
 
+// =================================================================
+// DRILL-DOWN DÉTAILS D'ÉCRITURE (VERSION COMPLÈTE)
+// =================================================================
+
+/**
+ * Affiche les détails complets d'une écriture dans une modal
+ */
 window.handleDrillDown = async function(entryId, moduleName) {
     try {
-        const endpoint = `accounting/details/${entryId}?companyId=${appState.currentCompanyId}`;
-        NotificationManager.show(`Récupération des détails pour l'entrée ${entryId}...`, 'info');
+        const companyId = appState.currentCompanyId;
+        const endpoint = `accounting/entry/${entryId}?companyId=${companyId}`;
         
-        await new Promise(resolve => setTimeout(resolve, 800));
+        NotificationManager.show(`Récupération des détails de l'écriture ${entryId}...`, 'info');
         
-        const mockDetails = {
-            id: entryId,
-            module: moduleName,
-            details: 'Détails complets de l\'écriture n° ' + entryId + ' avec lignes de comptes, documents attachés, etc.',
-            accounts: [
-                { code: '571000', name: 'Caisse', debit: 150000, credit: 0 },
-                { code: '701000', name: 'Ventes', debit: 0, credit: 150000 },
-            ]
-        };
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        
+        if (response.status === 'success') {
+            const entry = response.data;
+            
+            // Génération du HTML des lignes
+            const linesHTML = entry.lines.map(line => `
+                <tr class="border-b dark:border-gray-700">
+                    <td class="px-4 py-3 font-mono text-sm font-bold">${line.account_code}</td>
+                    <td class="px-4 py-3 text-sm">${line.account_name}</td>
+                    <td class="px-4 py-3 text-sm">${line.label}</td>
+                    <td class="px-4 py-3 text-right font-bold text-success">${line.debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                    <td class="px-4 py-3 text-right font-bold text-danger">${line.credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                </tr>
+            `).join('');
+            
+            // HTML complet de la modal
+            const detailsHTML = `
+                <div class="space-y-6">
+                    <!-- En-tête -->
+                    <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-xl border-l-4 border-primary">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold">N° Pièce</p>
+                                <p class="text-xl font-black text-gray-900 dark:text-white">${entry.name}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold">Date</p>
+                                <p class="text-lg font-bold text-gray-700 dark:text-gray-300">${new Date(entry.date).toLocaleDateString('fr-FR')}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold">Journal</p>
+                                <p class="text-lg font-bold text-primary">${entry.journal}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold">Statut</p>
+                                <span class="inline-block px-3 py-1 text-sm font-bold rounded-full ${entry.state === 'posted' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">
+                                    ${entry.state_label}
+                                </span>
+                            </div>
+                        </div>
+                        ${entry.reference ? `
+                        <div class="mt-4">
+                            <p class="text-xs text-gray-500 uppercase font-bold">Référence</p>
+                            <p class="text-sm text-gray-700 dark:text-gray-300">${entry.reference}</p>
+                        </div>
+                        ` : ''}
+                    </div>
 
-        const detailsHTML = `
-            <p class="text-lg font-bold mb-4">Écriture N° ${mockDetails.id} - ${moduleName}</p>
-            <p class="mb-4 text-gray-600 dark:text-gray-400">${mockDetails.details}</p>
-            <h5 class="font-bold text-gray-700 dark:text-gray-300 mb-2">Lignes Comptables:</h5>
-            <ul class="list-disc list-inside space-y-1">
-                ${mockDetails.accounts.map(acc => 
-                    `<li>${acc.code} - ${acc.name}: Débit: ${acc.debit.toLocaleString('fr-FR')} | Crédit: ${acc.credit.toLocaleString('fr-FR')}</li>`
-                ).join('')}
-            </ul>
-        `;
-        ModalManager.open(`Détails: ${moduleName} #${entryId}`, detailsHTML);
+                    <!-- Lignes comptables -->
+                    <div>
+                        <h4 class="text-lg font-black text-gray-900 dark:text-white mb-3">
+                            <i class="fas fa-list-ul mr-2 text-primary"></i> Lignes Comptables (${entry.lines.length})
+                        </h4>
+                        <div class="overflow-x-auto border rounded-xl">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Compte</th>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Libellé Compte</th>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Libellé</th>
+                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Débit (XOF)</th>
+                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Crédit (XOF)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    ${linesHTML}
+                                </tbody>
+                                <tfoot class="bg-gray-100 dark:bg-gray-700">
+                                    <tr class="font-black">
+                                        <td colspan="3" class="px-4 py-3 text-right uppercase text-sm">TOTAUX</td>
+                                        <td class="px-4 py-3 text-right text-success text-lg">${entry.totals.debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                        <td class="px-4 py-3 text-right text-danger text-lg">${entry.totals.credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                    </tr>
+                                    ${entry.totals.difference > 0.01 ? `
+                                    <tr class="bg-red-50 dark:bg-red-900/20">
+                                        <td colspan="5" class="px-4 py-3 text-center text-danger font-bold">
+                                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                                            ATTENTION : Écart de ${entry.totals.difference.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} XOF
+                                        </td>
+                                    </tr>
+                                    ` : ''}
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Métadonnées -->
+                    <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2 font-bold uppercase">Métadonnées</p>
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <span class="text-gray-500">Créé le :</span>
+                                <span class="font-bold ml-2">${new Date(entry.metadata.created_at).toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Par :</span>
+                                <span class="font-bold ml-2">${entry.metadata.created_by}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Modifié le :</span>
+                                <span class="font-bold ml-2">${new Date(entry.metadata.updated_at).toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Par :</span>
+                                <span class="font-bold ml-2">${entry.metadata.updated_by}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            ModalManager.open(`📄 Détails de l'Écriture #${entry.name}`, detailsHTML);
+        }
 
     } catch (error) {
-        NotificationManager.show(`Erreur lors du Drill-Down: ${error.message}`, 'error');
+        console.error('🚨 handleDrillDown Error:', error);
+        NotificationManager.show(`Erreur lors du chargement : ${error.message}`, 'error');
     }
 };
+
+// =================================================================
+// BILAN SYSCOHADA
+// =================================================================
+
+/**
+ * Ouvre la modal du bilan avec les données réelles
+ */
+window.handleOpenBalanceSheet = async function() {
+    const companyId = appState.currentCompanyId;
+    const companyFilter = `?companyId=${companyId}`;
+    
+    try {
+        NotificationManager.show('Génération du Bilan en cours...', 'info', 10000);
+        
+        const response = await apiFetch(`accounting/balance-sheet${companyFilter}`, { method: 'GET' });
+        
+        if (response.status === 'success') {
+            const bilan = response.data;
+            const bilanHTML = generateBalanceSheetHTML(bilan);
+            ModalManager.open(`📊 Bilan SYSCOHADA au ${new Date(bilan.date).toLocaleDateString('fr-FR')}`, bilanHTML);
+        }
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur génération bilan : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * Génère le HTML du Bilan SYSCOHADA
+ */
+function generateBalanceSheetHTML(bilan) {
+    // Fonction helper pour générer une section
+    const generateSection = (title, section) => {
+        if (section.accounts.length === 0) return '';
+        
+        const rows = section.accounts.map(acc => `
+            <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td class="px-4 py-2 font-mono text-sm font-bold">${acc.code}</td>
+                <td class="px-4 py-2 text-sm">${acc.name}</td>
+                <td class="px-4 py-2 text-right font-bold">${Math.abs(acc.balance).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+        `).join('');
+        
+        return `
+            <tr class="bg-primary/10">
+                <td colspan="2" class="px-4 py-3 font-black text-primary uppercase">${title}</td>
+                <td class="px-4 py-3 text-right font-black text-primary">${section.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            ${rows}
+        `;
+    };
+    
+    return `
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- ACTIF -->
+            <div>
+                <h4 class="text-xl font-black text-secondary mb-3 pb-2 border-b-2 border-secondary">
+                    <i class="fas fa-chart-line mr-2"></i> ACTIF
+                </h4>
+                <div class="overflow-x-auto border rounded-xl">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Compte</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Libellé</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Montant (XOF)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-gray-800">
+                            ${generateSection('ACTIF IMMOBILISÉ', bilan.actif.immobilise)}
+                            ${generateSection('ACTIF CIRCULANT', bilan.actif.circulant)}
+                            ${generateSection('TRÉSORERIE-ACTIF', bilan.actif.tresorerie)}
+                        </tbody>
+                        <tfoot class="bg-success/20">
+                            <tr class="font-black">
+                                <td colspan="2" class="px-4 py-3 text-right uppercase">TOTAL ACTIF</td>
+                                <td class="px-4 py-3 text-right text-lg">${bilan.totals.actif.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PASSIF -->
+            <div>
+                <h4 class="text-xl font-black text-secondary mb-3 pb-2 border-b-2 border-secondary">
+                    <i class="fas fa-balance-scale mr-2"></i> PASSIF
+                </h4>
+                <div class="overflow-x-auto border rounded-xl">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Compte</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Libellé</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Montant (XOF)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-gray-800">
+                            ${generateSection('CAPITAUX PROPRES', bilan.passif.capitaux)}
+                            ${generateSection('DETTES FINANCIÈRES', bilan.passif.dettes)}
+                            ${generateSection('TRÉSORERIE-PASSIF', bilan.passif.tresorerie)}
+                        </tbody>
+                        <tfoot class="bg-danger/20">
+                            <tr class="font-black">
+                                <td colspan="2" class="px-4 py-3 text-right uppercase">TOTAL PASSIF</td>
+                                <td class="px-4 py-3 text-right text-lg">${bilan.totals.passif.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Équilibre -->
+        <div class="mt-6 p-4 rounded-xl ${bilan.totals.difference < 0.01 ? 'bg-success/20 border-l-4 border-success' : 'bg-warning/20 border-l-4 border-warning'}">
+            <div class="flex items-center justify-between">
+                <span class="font-bold text-gray-700 dark:text-gray-300">
+                    ${bilan.totals.difference < 0.01 ? '✅ Bilan Équilibré' : '⚠️ Écart Détecté'}
+                </span>
+                <span class="font-black text-lg">
+                    ${bilan.totals.difference.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} XOF
+                </span>
+            </div>
+        </div>
+
+        <p class="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
+            Date de génération : ${new Date(bilan.date).toLocaleDateString('fr-FR')}
+        </p>
+    `;
+}
 
 // =================================================================
 // RAPPORTS
