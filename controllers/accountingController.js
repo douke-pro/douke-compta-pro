@@ -595,6 +595,11 @@ exports.getJournals = async (req, res) => {
  * @route GET /api/accounting/journal?companyId=X&journal_id=Y&date_from=Z&date_to=W
  * @access Private
  */
+/**
+ * Écritures d'un journal
+ * @route GET /api/accounting/journal?companyId=X&journal_id=Y&date_from=Z&date_to=W
+ * @access Private
+ */
 exports.getJournalEntries = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
@@ -606,12 +611,16 @@ exports.getJournalEntries = async (req, res) => {
         console.log('   Période:', date_from || 'Début', '→', date_to || 'Fin');
 
         if (!companyId) {
-            return res.status(400).json({ error: "companyId requis" });
+            return res.status(400).json({ 
+                status: 'error',
+                error: "companyId requis" 
+            });
         }
 
+        // Construction du domaine de recherche
         let domain = [
             ['company_id', '=', companyId],
-            ['state', '=', 'posted']
+            ['state', '=', 'posted']  // Uniquement les écritures validées
         ];
 
         if (journal_id) {
@@ -626,6 +635,7 @@ exports.getJournalEntries = async (req, res) => {
             domain.push(['date', '<=', date_to]);
         }
 
+        // Récupération des écritures
         const moves = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
@@ -649,26 +659,30 @@ exports.getJournalEntries = async (req, res) => {
 
         console.log(`✅ ${moves.length} écritures récupérées`);
 
-        const formattedMoves = moves.map(move => ({
+        // 🔑 FORMATAGE POUR LE FRONTEND (format compatible avec generateJournalHTML)
+        const entries = moves.map(move => ({
             id: move.id,
-            name: move.name,
             date: move.date,
-            reference: move.ref || '',
+            libelle: move.ref || move.name,  // ← 🔑 "libelle" au lieu de "reference"
             journal: move.journal_id ? move.journal_id[1] : 'N/A',
-            journal_id: move.journal_id ? move.journal_id[0] : null,
-            amount: move.amount_total || 0,
-            state: move.state
+            debit: move.amount_total && move.amount_total > 0 ? move.amount_total : 0,
+            credit: move.amount_total && move.amount_total < 0 ? Math.abs(move.amount_total) : 0,
+            status: move.state === 'posted' ? 'Validé' : 'Brouillon'  // ← 🔑 "status" avec majuscule
         }));
 
+        // 🔑 FORMAT ATTENDU PAR LE FRONTEND
         res.status(200).json({ 
-            status: 'success', 
-            count: formattedMoves.length,
-            data: formattedMoves 
+            status: 'success',
+            results: entries.length,  // ← Nombre de résultats
+            data: {
+                entries: entries  // ← 🔑 Clé "entries" importante
+            }
         });
 
     } catch (error) {
         console.error('🚨 getJournalEntries Error:', error.message);
         res.status(500).json({ 
+            status: 'error',
             error: "Erreur récupération écritures." 
         });
     }
