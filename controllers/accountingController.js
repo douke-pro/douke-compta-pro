@@ -1,7 +1,9 @@
 // =============================================================================
-// FICHIER : controllers/accountingController.js (VERSION FINALE EXPERTISÉE)
+// FICHIER : controllers/accountingController.js (VERSION PRODUCTION FINALE)
 // Description : Gestion Comptable SYSCOHADA Multi-Tenant Sécurisée
-// Architecture : Un seul UID Odoo Admin (UID=2) + Isolation par company_id
+// Architecture : UID Admin Unique + Isolation stricte par company_id
+// Auteur : Doukè Compta Pro Team
+// Date : Février 2026
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService'); 
@@ -14,12 +16,13 @@ const accountingService = require('../services/accountingService');
 /**
  * Récupère la configuration de l'exercice fiscal
  * @route GET /api/accounting/fiscal-config?companyId=X
+ * @access Private (protect + checkCompanyAccess)
  */
 exports.getFiscalConfig = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
         
-        console.log(`📅 Récupération config fiscale pour company_id=${companyId}`);
+        console.log(`📅 [getFiscalConfig] Company ID: ${companyId}`);
 
         if (!companyId) {
             return res.status(400).json({ 
@@ -28,7 +31,6 @@ exports.getFiscalConfig = async (req, res) => {
             });
         }
 
-        // Lecture des paramètres fiscaux de l'entreprise
         const companyData = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.company',
@@ -50,8 +52,6 @@ exports.getFiscalConfig = async (req, res) => {
         }
 
         const currentYear = new Date().getFullYear();
-        
-        // SYSCOHADA : Exercice fiscal standard 01/01 → 31/12
         const fiscalPeriod = {
             start_date: `${currentYear}-01-01`,
             end_date: `${currentYear}-12-31`
@@ -67,7 +67,6 @@ exports.getFiscalConfig = async (req, res) => {
     } catch (error) {
         console.error('🚨 getFiscalConfig Error:', error.message);
         
-        // Fallback
         const currentYear = new Date().getFullYear();
         res.json({
             status: 'success',
@@ -86,12 +85,15 @@ exports.getFiscalConfig = async (req, res) => {
 /**
  * Génère un rapport financier par centre analytique
  * @route GET /api/accounting/report/:analyticId?companyId=X&systemType=NORMAL
+ * @access Private
  */
 exports.getFinancialReport = async (req, res) => {
     try {
         const { analyticId } = req.params; 
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
         const { systemType } = req.query; 
+
+        console.log(`📊 [getFinancialReport] Analytic: ${analyticId}, Company: ${companyId}, Type: ${systemType}`);
 
         if (!ADMIN_UID_INT || !companyId) {
             return res.status(500).json({ 
@@ -123,24 +125,19 @@ exports.getFinancialReport = async (req, res) => {
         moveLines.forEach(line => {
             const accountCode = line.account_id ? line.account_id[1] : ''; 
             
-            // Classe 7 : Produits
             if (accountCode.startsWith('7')) {
                 report.chiffreAffaires += (line.credit - line.debit);
-            }
-            // Classe 6 : Charges
-            else if (accountCode.startsWith('6')) {
+            } else if (accountCode.startsWith('6')) {
                 report.chargesExploitation += (line.debit - line.credit);
-            }
-            // Classe 5 : Trésorerie
-            else if (accountCode.startsWith('5')) {
+            } else if (accountCode.startsWith('5')) {
                 report.tresorerie += (line.debit - line.credit);
             }
         });
 
         report.resultat = report.chiffreAffaires - report.chargesExploitation;
 
-        // Système Minimal de Trésorerie (PME)
         if (systemType === 'SMT') {
+            console.log(`✅ Rapport SMT généré: ${moveLines.length} lignes`);
             return res.json({
                 systeme: "Minimal de Trésorerie (SMT)",
                 flux: { 
@@ -151,7 +148,7 @@ exports.getFinancialReport = async (req, res) => {
             });
         }
         
-        // Système Normal (engagement)
+        console.log(`✅ Rapport Normal généré: ${moveLines.length} lignes`);
         res.json({ 
             systeme: "Normal (Comptabilité d'engagement)", 
             donnees: report 
@@ -166,11 +163,14 @@ exports.getFinancialReport = async (req, res) => {
 /**
  * Récupère les KPI du tableau de bord
  * @route GET /api/accounting/dashboard?companyId=X
+ * @access Private
  */
 exports.getDashboardData = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
         
+        console.log(`📈 [getDashboardData] Company ID: ${companyId}`);
+
         if (!companyId || !ADMIN_UID_INT) {
             return res.status(400).json({ error: 'companyId requis.' });
         }
@@ -194,29 +194,25 @@ exports.getDashboardData = async (req, res) => {
             const code = line.account_id ? line.account_id[1] : ''; 
             const bal = line.balance || 0;
             
-            // Classe 7 : Produits
             if (code.startsWith('7')) {
                 data.profit += (line.credit - line.debit);
-            }
-            // Classe 6 : Charges
-            else if (code.startsWith('6')) {
+            } else if (code.startsWith('6')) {
                 data.profit -= (line.debit - line.credit);
             }
-            // Classe 5 : Trésorerie
+            
             if (code.startsWith('5')) {
                 data.cash += bal;
-            }
-            // Classe 40 : Fournisseurs (dettes)
-            else if (code.startsWith('40') && bal < 0) {
+            } else if (code.startsWith('40') && bal < 0) {
                 data.debts += Math.abs(bal);
             }
         });
 
-        // Données de démonstration si aucune écriture
         if (moveLines.length === 0) {
+            console.log('⚠️ Aucune donnée, utilisation valeurs de démonstration');
             data = { cash: 25000000, profit: 12500000, debts: 3500000 };
         }
 
+        console.log(`✅ Dashboard: ${moveLines.length} lignes analysées`);
         res.status(200).json({ status: 'success', data });
 
     } catch (err) {
@@ -232,10 +228,13 @@ exports.getDashboardData = async (req, res) => {
 /**
  * Récupère le plan comptable SYSCOHADA
  * @route GET /api/accounting/chart-of-accounts?companyId=X
+ * @access Private
  */
 exports.getChartOfAccounts = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
+
+        console.log(`📚 [getChartOfAccounts] Company ID: ${companyId}`);
 
         if (!companyId) {
             return res.status(400).json({ 
@@ -254,6 +253,8 @@ exports.getChartOfAccounts = async (req, res) => {
             }
         });
 
+        console.log(`✅ ${accounts.length} comptes récupérés`);
+
         res.status(200).json({ 
             status: 'success', 
             results: accounts.length, 
@@ -271,11 +272,14 @@ exports.getChartOfAccounts = async (req, res) => {
 /**
  * Crée un nouveau compte
  * @route POST /api/accounting/chart-of-accounts
+ * @access Private
  */
 exports.createAccount = async (req, res) => {
     try {
         const { code, name, type } = req.body;
         const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
+
+        console.log(`📝 [createAccount] Code: ${code}, Company: ${companyId}`);
 
         if (!companyId) {
             return res.status(400).json({ 
@@ -283,9 +287,6 @@ exports.createAccount = async (req, res) => {
             });
         }
 
-        console.log(`📝 Création compte ${code} pour company_id=${companyId}`);
-
-        // 🔑 UTILISATION UID ADMIN (isolation par company_id validé par middleware)
         const newAccountId = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
@@ -294,7 +295,8 @@ exports.createAccount = async (req, res) => {
             kwargs: { context: { allowed_company_ids: [companyId] } }
         });
 
-        console.log(`✅ Compte créé avec ID: ${newAccountId}`);
+        console.log(`✅ Compte créé: ID=${newAccountId}`);
+
         res.status(201).json({ 
             status: 'success', 
             data: { id: newAccountId } 
@@ -309,11 +311,14 @@ exports.createAccount = async (req, res) => {
 /**
  * Modifie un compte existant
  * @route PUT /api/accounting/chart-of-accounts
+ * @access Private
  */
 exports.updateAccount = async (req, res) => {
     try {
         const { id, code, name, type } = req.body;
         const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
+
+        console.log(`✏️ [updateAccount] ID: ${id}, Company: ${companyId}`);
 
         if (!id || !companyId) {
             return res.status(400).json({ 
@@ -321,9 +326,7 @@ exports.updateAccount = async (req, res) => {
             });
         }
 
-        console.log(`📝 Mise à jour compte ID=${id} pour company_id=${companyId}`);
-
-        // 🔒 VÉRIFICATION DE SÉCURITÉ : Le compte appartient-il à cette entreprise ?
+        // Vérification de sécurité cross-company
         const accountCheck = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
@@ -337,13 +340,12 @@ exports.updateAccount = async (req, res) => {
         });
 
         if (!accountCheck || accountCheck.length === 0) {
-            console.error(`🚨 TENTATIVE CROSS-COMPANY : Compte ${id} n'appartient pas à company_id=${companyId}`);
+            console.error(`🚨 CROSS-COMPANY ATTEMPT: Account ${id} not in company ${companyId}`);
             return res.status(403).json({ 
                 error: "Accès refusé. Ce compte n'appartient pas à votre entreprise." 
             });
         }
 
-        // 🔑 UTILISATION UID ADMIN
         await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
@@ -353,6 +355,7 @@ exports.updateAccount = async (req, res) => {
         });
 
         console.log(`✅ Compte ${id} mis à jour`);
+
         res.status(200).json({ 
             status: 'success', 
             message: 'Compte mis à jour.' 
@@ -378,38 +381,36 @@ exports.updateAccount = async (req, res) => {
 /**
  * Crée et valide une écriture comptable
  * @route POST /api/accounting/move/create
+ * @access Private
  */
 exports.createJournalEntry = async (req, res) => {
     try {
-        // 🔒 company_id déjà validé par middleware checkCompanyAccess
         const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
         const { journal_code, date, reference, lines } = req.body;
 
-        console.log('📝 Création écriture via méthode standard Odoo');
-        console.log('   User:', req.user.email, '(Role:', req.user.role + ')');
-        console.log('   Company ID:', companyId, '(Validé par middleware)');
-        console.log('   Journal Code:', journal_code);
+        console.log('='.repeat(70));
+        console.log('📝 [createJournalEntry] DÉBUT');
+        console.log('   User:', req.user.email, `(${req.user.role})`);
+        console.log('   Company ID:', companyId);
+        console.log('   Journal:', journal_code);
         console.log('   Date:', date);
         console.log('   Reference:', reference);
-        console.log('   Lines Count:', lines ? lines.length : 0);
+        console.log('   Lines:', lines ? lines.length : 0);
 
-        // =====================================================================
-        // VALIDATION DES DONNÉES
-        // =====================================================================
+        // Validation
         if (!companyId || !journal_code || !date || !lines || lines.length === 0) {
+            console.error('❌ Données incomplètes');
             return res.status(400).json({ 
                 status: 'error', 
                 error: 'Données incomplètes. Requis: company_id, journal_code, date, lines.'
             });
         }
 
-        // =====================================================================
-        // 1️⃣ MAPPING : journal_code → journal_id
-        // =====================================================================
-        console.log(`🔍 Recherche du journal "${journal_code}"...`);
+        // 1️⃣ MAPPING: journal_code → journal_id
+        console.log(`🔍 Recherche journal "${journal_code}"...`);
         
         const journalSearch = await odooExecuteKw({
-            uid: ADMIN_UID_INT,  // 🔑 UID ADMIN
+            uid: ADMIN_UID_INT,
             model: 'account.journal',
             method: 'search_read',
             args: [[['code', '=', journal_code], ['company_id', '=', companyId]]],
@@ -424,27 +425,25 @@ exports.createJournalEntry = async (req, res) => {
             console.error(`❌ Journal "${journal_code}" introuvable`);
             return res.status(400).json({ 
                 status: 'error',
-                error: `Journal "${journal_code}" introuvable dans cette entreprise.`
+                error: `Journal "${journal_code}" introuvable.`
             });
         }
 
         const journalId = journalSearch[0].id;
         const journalName = journalSearch[0].name;
-        console.log(`✅ Journal trouvé: ${journalName} (ID: ${journalId})`);
+        console.log(`✅ Journal: ${journalName} (ID: ${journalId})`);
 
-        // =====================================================================
-        // 2️⃣ MAPPING : account_code → account_id (pour chaque ligne)
-        // =====================================================================
-        console.log(`🔍 Mapping des comptes (${lines.length} lignes)...`);
+        // 2️⃣ MAPPING: account_code → account_id
+        console.log(`🔍 Mapping comptes (${lines.length} lignes)...`);
         
         const lineIds = await Promise.all(
             lines.map(async (line, idx) => {
                 const accountCode = line.account_code;
                 
-                console.log(`   Ligne ${idx + 1}: compte ${accountCode}`);
+                console.log(`   [${idx + 1}/${lines.length}] Compte: ${accountCode}`);
 
                 const accountSearch = await odooExecuteKw({
-                    uid: ADMIN_UID_INT,  // 🔑 UID ADMIN
+                    uid: ADMIN_UID_INT,
                     model: 'account.account',
                     method: 'search_read',
                     args: [[['code', '=', accountCode], ['company_ids', 'in', [companyId]]]],
@@ -463,7 +462,7 @@ exports.createJournalEntry = async (req, res) => {
                 const accountName = accountSearch[0].name;
                 
                 console.log(`      ✅ ${accountCode} - ${accountName}`);
-                console.log(`         Débit: ${line.debit || 0} | Crédit: ${line.credit || 0}`);
+                console.log(`         D: ${line.debit || 0} | C: ${line.credit || 0}`);
 
                 return [0, 0, {
                     'account_id': accountId,
@@ -474,24 +473,22 @@ exports.createJournalEntry = async (req, res) => {
             })
         );
 
-        console.log(`✅ Mapping terminé: ${lineIds.length} lignes prêtes`);
+        console.log(`✅ Mapping terminé`);
 
-        // =====================================================================
-        // 3️⃣ CRÉATION DE L'ÉCRITURE
-        // =====================================================================
+        // 3️⃣ CRÉATION
         const moveData = {
             'company_id': companyId,
             'journal_id': journalId,
             'date': date,
-            'ref': reference || `Écriture par ${req.user.email}`,
+            'ref': reference || `Écriture ${req.user.email}`,
             'move_type': 'entry',
             'line_ids': lineIds
         };
 
-        console.log('🔵 Création de l\'écriture dans Odoo...');
+        console.log('🔵 Création écriture...');
 
         const moveId = await odooExecuteKw({
-            uid: ADMIN_UID_INT,  // 🔑 CRITIQUE : UID ADMIN
+            uid: ADMIN_UID_INT,
             model: 'account.move',
             method: 'create',
             args: [moveData],
@@ -500,13 +497,11 @@ exports.createJournalEntry = async (req, res) => {
 
         console.log(`✅ Écriture créée: ID=${moveId}`);
 
-        // =====================================================================
-        // 4️⃣ VALIDATION (équivalent du bouton "Valider")
-        // =====================================================================
-        console.log('🔵 Validation de l\'écriture...');
+        // 4️⃣ VALIDATION
+        console.log('🔵 Validation...');
 
         await odooExecuteKw({
-            uid: ADMIN_UID_INT,  // 🔑 UID ADMIN
+            uid: ADMIN_UID_INT,
             model: 'account.move',
             method: 'action_post',
             args: [[moveId]],
@@ -515,11 +510,9 @@ exports.createJournalEntry = async (req, res) => {
 
         console.log('✅ Écriture validée');
 
-        // =====================================================================
-        // 5️⃣ RÉCUPÉRATION DU NOM (ex: BNK1/2026/0001)
-        // =====================================================================
+        // 5️⃣ RÉCUPÉRATION NOM
         const moveRecord = await odooExecuteKw({
-            uid: ADMIN_UID_INT,  // 🔑 UID ADMIN
+            uid: ADMIN_UID_INT,
             model: 'account.move',
             method: 'read',
             args: [[moveId], ['name']],
@@ -528,42 +521,175 @@ exports.createJournalEntry = async (req, res) => {
 
         const moveName = moveRecord && moveRecord[0] ? moveRecord[0].name : `MOVE-${moveId}`;
 
-        console.log(`✅ Nom de l'écriture: ${moveName}`);
+        console.log(`✅ Nom: ${moveName}`);
+        console.log('📝 [createJournalEntry] FIN - SUCCÈS');
         console.log('='.repeat(70));
 
         res.status(201).json({ 
             status: 'success', 
             move_id: moveId,
             move_name: moveName,
-            message: `Écriture ${moveName} créée et validée avec succès.`
+            message: `Écriture ${moveName} créée et validée.`
         });
 
     } catch (error) {
-        console.error('='.repeat(70));
-        console.error('🚨 createJournalEntry Error:', error.message);
-        console.error('🚨 Stack:', error.stack);
-        console.error('='.repeat(70));
+        console.log('='.repeat(70));
+        console.error('🚨 [createJournalEntry] ERREUR:', error.message);
+        console.error('Stack:', error.stack);
+        console.log('='.repeat(70));
         
         res.status(500).json({ 
             status: 'error', 
-            error: `Échec création écriture: ${error.message}`
+            error: `Échec: ${error.message}`
         });
     }
 };
 
 // =============================================================================
-// 5. REPORTING AVANCÉ
+// 5. JOURNAUX ET ÉCRITURES
+// =============================================================================
+
+/**
+ * Liste des journaux
+ * @route GET /api/accounting/journals?companyId=X
+ * @access Private
+ */
+exports.getJournals = async (req, res) => {
+    try {
+        const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
+        
+        console.log(`📖 [getJournals] Company ID: ${companyId}`);
+
+        if (!companyId) {
+            return res.status(400).json({ error: "companyId requis" });
+        }
+
+        const journals = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.journal',
+            method: 'search_read',
+            args: [[['company_id', '=', companyId]]],
+            kwargs: { 
+                fields: ['id', 'name', 'code', 'type'], 
+                context: { allowed_company_ids: [companyId] } 
+            }
+        });
+        
+        console.log(`✅ ${journals.length} journaux récupérés`);
+
+        res.status(200).json({ 
+            status: 'success', 
+            data: journals 
+        });
+
+    } catch (error) {
+        console.error('🚨 getJournals Error:', error.message);
+        res.status(500).json({ 
+            error: "Erreur récupération journaux." 
+        });
+    }
+};
+
+/**
+ * Écritures d'un journal
+ * @route GET /api/accounting/journal?companyId=X&journal_id=Y&date_from=Z&date_to=W
+ * @access Private
+ */
+exports.getJournalEntries = async (req, res) => {
+    try {
+        const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
+        const { journal_id, date_from, date_to } = req.query;
+
+        console.log('📋 [getJournalEntries]');
+        console.log('   Company:', companyId);
+        console.log('   Journal:', journal_id || 'Tous');
+        console.log('   Période:', date_from || 'Début', '→', date_to || 'Fin');
+
+        if (!companyId) {
+            return res.status(400).json({ error: "companyId requis" });
+        }
+
+        let domain = [
+            ['company_id', '=', companyId],
+            ['state', '=', 'posted']
+        ];
+
+        if (journal_id) {
+            domain.push(['journal_id', '=', parseInt(journal_id)]);
+        }
+
+        if (date_from) {
+            domain.push(['date', '>=', date_from]);
+        }
+
+        if (date_to) {
+            domain.push(['date', '<=', date_to]);
+        }
+
+        const moves = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.move',
+            method: 'search_read',
+            args: [domain],
+            kwargs: { 
+                fields: [
+                    'id', 
+                    'name', 
+                    'date', 
+                    'ref', 
+                    'journal_id', 
+                    'amount_total',
+                    'state'
+                ],
+                order: 'date desc, id desc',
+                limit: 100,
+                context: { allowed_company_ids: [companyId] } 
+            }
+        });
+
+        console.log(`✅ ${moves.length} écritures récupérées`);
+
+        const formattedMoves = moves.map(move => ({
+            id: move.id,
+            name: move.name,
+            date: move.date,
+            reference: move.ref || '',
+            journal: move.journal_id ? move.journal_id[1] : 'N/A',
+            journal_id: move.journal_id ? move.journal_id[0] : null,
+            amount: move.amount_total || 0,
+            state: move.state
+        }));
+
+        res.status(200).json({ 
+            status: 'success', 
+            count: formattedMoves.length,
+            data: formattedMoves 
+        });
+
+    } catch (error) {
+        console.error('🚨 getJournalEntries Error:', error.message);
+        res.status(500).json({ 
+            error: "Erreur récupération écritures." 
+        });
+    }
+};
+
+// =============================================================================
+// 6. REPORTING AVANCÉ
 // =============================================================================
 
 /**
  * Balance SYSCOHADA
- * @route GET /api/accounting/syscohada-trial-balance?companyId=X&date_from=Y&date_to=Z
+ * @route GET /api/accounting/trial-balance?companyId=X&date_from=Y&date_to=Z
+ * @access Private
  */
 exports.getSyscohadaTrialBalance = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
         const { date_from, date_to } = req.query;
         
+        console.log(`⚖️ [getSyscohadaTrialBalance] Company: ${companyId}, Période: ${date_from} → ${date_to}`);
+
         if (!companyId || !date_from || !date_to) {
             return res.status(400).json({ 
                 error: "Paramètres manquants (companyId, date_from, date_to)." 
@@ -577,7 +703,12 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             date_to
         );
         
-        res.status(200).json({ status: 'success', data: balanceData });
+        console.log(`✅ Balance générée`);
+
+        res.status(200).json({ 
+            status: 'success', 
+            data: balanceData 
+        });
 
     } catch (error) {
         console.error('🚨 getSyscohadaTrialBalance Error:', error.message);
@@ -587,13 +718,16 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
 
 /**
  * Grand Livre
- * @route GET /api/accounting/general-ledger?companyId=X&date_from=Y&date_to=Z&journal_ids=1,2,3
+ * @route GET /api/accounting/ledger?companyId=X&date_from=Y&date_to=Z&journal_ids=1,2,3
+ * @access Private
  */
 exports.getGeneralLedger = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
         const { date_from, date_to, journal_ids } = req.query;
         
+        console.log(`📗 [getGeneralLedger] Company: ${companyId}, Journaux: ${journal_ids || 'Tous'}`);
+
         const journals = journal_ids ? journal_ids.split(',').map(Number) : [];
         const lines = await accountingService.getGeneralLedgerLines(
             ADMIN_UID_INT, 
@@ -633,6 +767,8 @@ exports.getGeneralLedger = async (req, res) => {
             ledger[code].finalBalance += line.balance;
         });
 
+        console.log(`✅ Grand livre: ${Object.keys(ledger).length} comptes`);
+
         res.status(200).json({ 
             status: 'success', 
             data: Object.values(ledger).sort((a, b) => a.code.localeCompare(b.code)) 
@@ -644,170 +780,42 @@ exports.getGeneralLedger = async (req, res) => {
     }
 };
 
-/**
- * Liste des journaux
- * @route GET /api/accounting/journals?companyId=X
- */
-exports.getJournals = async (req, res) => {
-    try {
-        const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
-        
-        if (!companyId) {
-            return res.status(400).json({ error: "companyId requis" });
-        }
-
-        const journals = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.journal',
-            method: 'search_read',
-            args: [[['company_id', '=', companyId]]],
-            kwargs: { 
-                fields: ['id', 'name', 'code', 'type'], 
-                context: { allowed_company_ids: [companyId] } 
-            }
-        });
-        
-        console.log(`✅ ${journals.length} journaux récupérés pour company_id=${companyId}`);
-        res.status(200).json({ status: 'success', data: journals });
-
-    } catch (error) {
-        console.error('🚨 getJournals Error:', error.message);
-        res.status(500).json({ error: "Erreur récupération journaux." });
-    }
-};
-
 // =============================================================================
-// 6. FONCTIONS À IMPLÉMENTER (STUBS)
+// 7. STUBS (À IMPLÉMENTER)
 // =============================================================================
 
 /**
  * Détails d'une écriture
- * @route GET /api/accounting/entry/:id?companyId=X
+ * @route GET /api/accounting/details/:entryId?companyId=X
+ * @access Private
  */
 exports.getEntryDetails = async (req, res) => {
+    console.log('⚠️ [getEntryDetails] Non implémenté');
     res.status(501).json({ 
-        error: "Fonction non implémentée. Développement en cours." 
+        error: "Fonction non implémentée." 
     });
 };
 
 /**
  * Opérations de caisse
  * @route POST /api/accounting/caisse-entry
+ * @access Private
  */
 exports.handleCaisseEntry = async (req, res) => {
+    console.log('⚠️ [handleCaisseEntry] Non implémenté');
     res.status(501).json({ 
-        error: "Fonction Caisse non implémentée. Développement en cours." 
+        error: "Fonction Caisse non implémentée." 
     });
 };
 
 /**
  * Bilan SYSCOHADA
- * @route GET /api/accounting/balance-sheet?companyId=X&date=Y
+ * @route GET /api/accounting/balance?companyId=X&date=Y
+ * @access Private
  */
 exports.getBalanceSheet = async (req, res) => {
+    console.log('⚠️ [getBalanceSheet] Non implémenté');
     res.status(501).json({ 
-        error: "Bilan non implémenté. Développement en cours." 
+        error: "Bilan non implémenté." 
     });
 };
-
-// =============================================================================
-// AJOUT À LA FIN DE accountingController.js (AVANT LES STUBS)
-// =============================================================================
-
-/**
- * Récupère les écritures d'un journal
- * @route GET /api/accounting/journal?companyId=X&journal_id=Y&date_from=Z&date_to=W
- */
-exports.getJournalEntries = async (req, res) => {
-    try {
-        const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
-        const { journal_id, date_from, date_to } = req.query;
-
-        console.log('📖 Récupération journal des écritures');
-        console.log('   Company ID:', companyId);
-        console.log('   Journal ID:', journal_id);
-        console.log('   Période:', date_from, '→', date_to);
-
-        if (!companyId) {
-            return res.status(400).json({ 
-                error: "companyId requis" 
-            });
-        }
-
-        // Filtre de base : company_id + état validé
-        let domain = [
-            ['company_id', '=', companyId],
-            ['state', '=', 'posted']  // Uniquement les écritures validées
-        ];
-
-        // Filtre optionnel par journal
-        if (journal_id) {
-            domain.push(['journal_id', '=', parseInt(journal_id)]);
-        }
-
-        // Filtre optionnel par période
-        if (date_from) {
-            domain.push(['date', '>=', date_from]);
-        }
-        if (date_to) {
-            domain.push(['date', '<=', date_to]);
-        }
-
-        console.log('🔍 Recherche avec domain:', JSON.stringify(domain));
-
-        // Récupération des écritures
-        const moves = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.move',
-            method: 'search_read',
-            args: [domain],
-            kwargs: { 
-                fields: [
-                    'id', 
-                    'name', 
-                    'date', 
-                    'ref', 
-                    'journal_id', 
-                    'amount_total',
-                    'state'
-                ],
-                order: 'date desc, id desc',  // Plus récent en premier
-                limit: 100,  // Limiter à 100 écritures
-                context: { allowed_company_ids: [companyId] } 
-            }
-        });
-
-        console.log(`✅ ${moves.length} écritures récupérées`);
-
-        // Formatage des résultats
-        const formattedMoves = moves.map(move => ({
-            id: move.id,
-            name: move.name,
-            date: move.date,
-            reference: move.ref || '',
-            journal: move.journal_id ? move.journal_id[1] : 'N/A',
-            journal_id: move.journal_id ? move.journal_id[0] : null,
-            amount: move.amount_total || 0,
-            state: move.state
-        }));
-
-        res.status(200).json({ 
-            status: 'success', 
-            count: formattedMoves.length,
-            data: formattedMoves 
-        });
-
-    } catch (error) {
-        console.error('🚨 getJournalEntries Error:', error.message);
-        res.status(500).json({ 
-            error: "Erreur récupération journal des écritures." 
-        });
-    }
-};
-// =============================================================================
-// 6. STUBS (À IMPLÉMENTER)
-// =============================================================================
-
-exports.getEntryDetails = async (req, res) => res.status(501).json({ error: "Détails non implémentés." });
-exports.handleCaisseEntry = async (req, res) => res.status(501).json({ error: "Caisse non implémentée." });
-exports.getBalanceSheet = async (req, res) => res.status(501).json({ error: "Bilan non implémenté." });
