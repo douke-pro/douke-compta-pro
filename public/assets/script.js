@@ -367,6 +367,7 @@ function getRoleBaseMenus(role) {
     if (role === 'CAISSIER') {
         menus.push({ id: 'caisse-operation', name: 'Opérations de Caisse', icon: 'fas fa-cash-register' });
         menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
+        menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // ✅ AJOUT V15
         return menus;
     }
 
@@ -379,6 +380,8 @@ function getRoleBaseMenus(role) {
     if (role === 'ADMIN') {
         menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
     }
+    
+    menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // ✅ AJOUT V15
     
     return menus;
 }
@@ -403,7 +406,7 @@ async function loadContentArea(contentId, title) {
 
         const companyFilter = `?companyId=${appState.currentCompanyId}`; 
 
-        if (!appState.currentCompanyId && contentId !== 'dashboard') {
+        if (!appState.currentCompanyId && contentId !== 'dashboard' && contentId !== 'settings') {
              contentArea.innerHTML = generateCompanySelectionPromptHTML();
              return;
         }
@@ -440,11 +443,17 @@ async function loadContentArea(contentId, title) {
 
             // 🔧 V14 CORRECTION: Nouveau case 'ledger' avec sélecteur
             case 'ledger':
-                content = generateLedgerBalanceSelectorHTML();
-                break;
+    content = generateLedgerBalanceSelectorHTML();
+    break;
 
-            case 'admin-users':
-            default:
+// ✅ V15: NOUVEAU CASE SETTINGS
+case 'settings':
+    contentArea.innerHTML = generateSettingsHTML();
+    await loadSettingsData();
+    return;
+
+case 'admin-users':
+default:
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
         }
         
