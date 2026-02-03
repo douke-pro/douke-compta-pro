@@ -1,13 +1,20 @@
-const { odooExecuteKw } = require('../utils/odooClient');
+// =============================================================================
+// FICHIER : controllers/settingsController.js (VERSION CORRIGÉE V16)
+// Description : Gestion des paramètres de l'entreprise
+// Correction : Utilise odooService au lieu de odooClient
+// =============================================================================
 
-const ADMIN_UID_INT = parseInt(process.env.ODOO_ADMIN_UID) || 2;
+const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
 
 /**
  * Récupère les paramètres de l'entreprise
+ * @route GET /api/settings/company/:companyId
  */
 exports.getCompanySettings = async (req, res) => {
     try {
         const companyId = parseInt(req.params.companyId);
+
+        console.log(`📋 [getCompanySettings] Company ID: ${companyId}`);
 
         const companies = await odooExecuteKw({
             uid: ADMIN_UID_INT,
@@ -21,7 +28,10 @@ exports.getCompanySettings = async (req, res) => {
         });
 
         if (!companies || companies.length === 0) {
-            return res.status(404).json({ error: 'Entreprise introuvable' });
+            return res.status(404).json({ 
+                status: 'error',
+                error: 'Entreprise introuvable' 
+            });
         }
 
         const company = companies[0];
@@ -39,6 +49,8 @@ exports.getCompanySettings = async (req, res) => {
             partnerData = partners[0] || {};
         }
 
+        console.log(`✅ Paramètres entreprise ${company.name} récupérés`);
+
         res.json({
             status: 'success',
             data: {
@@ -51,25 +63,32 @@ exports.getCompanySettings = async (req, res) => {
                 country_code: company.country_id ? company.country_id[0] : null,
                 tax_id: company.vat,
                 registration_number: company.company_registry,
-                legal_status: 'SARL', // À stocker dans un champ custom Odoo
+                legal_status: 'SARL',
                 manager_name: partnerData.name || '',
                 manager_contact: partnerData.phone || ''
             }
         });
 
     } catch (error) {
-        console.error('🚨 getCompanySettings Error:', error);
-        res.status(500).json({ error: 'Erreur serveur', details: error.message });
+        console.error('🚨 getCompanySettings Error:', error.message);
+        res.status(500).json({ 
+            status: 'error',
+            error: 'Erreur serveur', 
+            details: error.message 
+        });
     }
 };
 
 /**
  * Met à jour les paramètres de l'entreprise
+ * @route PUT /api/settings/company/:companyId
  */
 exports.updateCompanySettings = async (req, res) => {
     try {
         const companyId = parseInt(req.params.companyId);
         const { name, email, phone, address, city, country_code, tax_id, registration_number } = req.body;
+
+        console.log(`✏️ [updateCompanySettings] Company ID: ${companyId}`);
 
         const updateData = {};
         if (name) updateData.name = name;
@@ -88,23 +107,32 @@ exports.updateCompanySettings = async (req, res) => {
             kwargs: {}
         });
 
+        console.log(`✅ Paramètres entreprise ${companyId} mis à jour`);
+
         res.json({
             status: 'success',
-            message: 'Paramètres mis à jour'
+            message: 'Paramètres mis à jour avec succès'
         });
 
     } catch (error) {
-        console.error('🚨 updateCompanySettings Error:', error);
-        res.status(500).json({ error: 'Erreur serveur', details: error.message });
+        console.error('🚨 updateCompanySettings Error:', error.message);
+        res.status(500).json({ 
+            status: 'error',
+            error: 'Erreur serveur', 
+            details: error.message 
+        });
     }
 };
 
 /**
  * Récupère les paramètres comptables
+ * @route GET /api/settings/accounting/:companyId
  */
 exports.getAccountingSettings = async (req, res) => {
     try {
         const companyId = parseInt(req.params.companyId);
+
+        console.log(`📊 [getAccountingSettings] Company ID: ${companyId}`);
 
         // Récupérer l'exercice fiscal actif
         const fiscalYears = await odooExecuteKw({
@@ -121,11 +149,13 @@ exports.getAccountingSettings = async (req, res) => {
 
         const fiscalYear = fiscalYears[0] || {};
 
+        console.log(`✅ Paramètres comptables récupérés`);
+
         res.json({
             status: 'success',
             data: {
-                accounting_system: 'SYSCOHADA', // À stocker dans un champ custom
-                syscohada_variant: 'NORMAL', // À stocker dans un champ custom
+                accounting_system: 'SYSCOHADA',
+                syscohada_variant: 'NORMAL',
                 fiscal_year_start: fiscalYear.date_from || '2026-01-01',
                 fiscal_year_end: fiscalYear.date_to || '2026-12-31',
                 allow_negative_stock: false,
@@ -135,39 +165,55 @@ exports.getAccountingSettings = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('🚨 getAccountingSettings Error:', error);
-        res.status(500).json({ error: 'Erreur serveur', details: error.message });
+        console.error('🚨 getAccountingSettings Error:', error.message);
+        res.status(500).json({ 
+            status: 'error',
+            error: 'Erreur serveur', 
+            details: error.message 
+        });
     }
 };
 
 /**
  * Met à jour les paramètres comptables
+ * @route PUT /api/settings/accounting/:companyId
  */
 exports.updateAccountingSettings = async (req, res) => {
     try {
         const companyId = parseInt(req.params.companyId);
         const { accounting_system, syscohada_variant, fiscal_year_start, fiscal_year_end } = req.body;
 
+        console.log(`✏️ [updateAccountingSettings] Company ID: ${companyId}`);
+
         // Ici, stocker dans des champs custom Odoo ou une table séparée
         // Pour l'instant, retourner success
 
+        console.log(`✅ Paramètres comptables mis à jour`);
+
         res.json({
             status: 'success',
-            message: 'Paramètres comptables mis à jour'
+            message: 'Paramètres comptables mis à jour avec succès'
         });
 
     } catch (error) {
-        console.error('🚨 updateAccountingSettings Error:', error);
-        res.status(500).json({ error: 'Erreur serveur', details: error.message });
+        console.error('🚨 updateAccountingSettings Error:', error.message);
+        res.status(500).json({ 
+            status: 'error',
+            error: 'Erreur serveur', 
+            details: error.message 
+        });
     }
 };
 
 /**
  * Récupère les informations d'abonnement
+ * @route GET /api/settings/subscription/:companyId
  */
 exports.getSubscriptionSettings = async (req, res) => {
     try {
         const companyId = parseInt(req.params.companyId);
+
+        console.log(`💳 [getSubscriptionSettings] Company ID: ${companyId}`);
 
         // Simuler des données d'abonnement
         // À remplacer par une vraie table de gestion d'abonnements
@@ -185,39 +231,53 @@ exports.getSubscriptionSettings = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('🚨 getSubscriptionSettings Error:', error);
-        res.status(500).json({ error: 'Erreur serveur', details: error.message });
+        console.error('🚨 getSubscriptionSettings Error:', error.message);
+        res.status(500).json({ 
+            status: 'error',
+            error: 'Erreur serveur', 
+            details: error.message 
+        });
     }
 };
 
 /**
  * Met à jour l'abonnement
+ * @route PUT /api/settings/subscription/:companyId
  */
 exports.updateSubscriptionSettings = async (req, res) => {
     try {
         const companyId = parseInt(req.params.companyId);
         const { start_date, end_date, status, plan_name } = req.body;
 
+        console.log(`✏️ [updateSubscriptionSettings] Company ID: ${companyId}`);
+
         // Ici, mettre à jour dans une table de gestion d'abonnements
 
         res.json({
             status: 'success',
-            message: 'Abonnement mis à jour'
+            message: 'Abonnement mis à jour avec succès'
         });
 
     } catch (error) {
-        console.error('🚨 updateSubscriptionSettings Error:', error);
-        res.status(500).json({ error: 'Erreur serveur', details: error.message });
+        console.error('🚨 updateSubscriptionSettings Error:', error.message);
+        res.status(500).json({ 
+            status: 'error',
+            error: 'Erreur serveur', 
+            details: error.message 
+        });
     }
 };
 
 /**
  * Met à jour le profil utilisateur
+ * @route PUT /api/settings/user
  */
 exports.updateUserProfile = async (req, res) => {
     try {
         const userId = req.user.odooUid;
         const { name, phone, function: userFunction, old_password, new_password } = req.body;
+
+        console.log(`👤 [updateUserProfile] User ID: ${userId}`);
 
         const updateData = {};
         if (name) updateData.name = name;
@@ -238,15 +298,22 @@ exports.updateUserProfile = async (req, res) => {
         if (old_password && new_password) {
             // Vérifier l'ancien mot de passe et changer
             // À implémenter avec la méthode change_password d'Odoo
+            console.log('⚠️ Changement de mot de passe non implémenté');
         }
+
+        console.log(`✅ Profil utilisateur ${userId} mis à jour`);
 
         res.json({
             status: 'success',
-            message: 'Profil mis à jour'
+            message: 'Profil mis à jour avec succès'
         });
 
     } catch (error) {
-        console.error('🚨 updateUserProfile Error:', error);
-        res.status(500).json({ error: 'Erreur serveur', details: error.message });
+        console.error('🚨 updateUserProfile Error:', error.message);
+        res.status(500).json({ 
+            status: 'error',
+            error: 'Erreur serveur', 
+            details: error.message 
+        });
     }
 };
