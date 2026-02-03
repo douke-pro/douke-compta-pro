@@ -48,3 +48,6 @@ app.listen(PORT, () => {
     console.log("=================================================");
 });
 
+// Routes Paramètres
+const settingsRoutes = require('./routes/settings');
+app.use('/api/settings', settingsRoutes);
