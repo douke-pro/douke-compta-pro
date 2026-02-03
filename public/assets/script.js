@@ -1,12 +1,19 @@
 // =============================================================================
-// FICHIER : public/assets/script.js (VERSION V14 - BALANCE/GRAND LIVRE CORRIGÉS)
-// Description : Logique Front-End avec toutes les améliorations appliquées
+// FICHIER : public/assets/script.js (VERSION V15 FINALE - PARTIE 1/3)
+// Description : Configuration, Authentification, Dashboard, Navigation
 // Architecture : Multi-tenant sécurisé + API Odoo optimisée
-// Corrections V14 :
-//   - Sélecteur Balance / Grand Livre
-//   - Balance 6 colonnes SYSCOHADA Révisé
-//   - Gestion erreur backend Odoo (get_full_informations)
-//   - Filtres de période dynamiques
+// 
+// Corrections V15 :
+//   - Module Paramètres complet (4 onglets)
+//   - Permissions différenciées par rôle
+//   - Balance 6 colonnes SYSCOHADA
+//   - Grand Livre avec solde progressif
+// 
+// INSTRUCTIONS D'ASSEMBLAGE :
+//   1. Copier PARTIE_1_de_3.js dans script.js
+//   2. Ajouter PARTIE_2_de_3.js à la suite
+//   3. Ajouter PARTIE_3_de_3.js à la fin
+//   4. Résultat : script.js V15 complet (~3600 lignes)
 // =============================================================================
 
 // --- 1. CONFIGURATION GLOBALE ---
@@ -70,7 +77,6 @@ const ModalManager = {
         document.body.classList.add('modal-open');
         this.modalBackdrop.style.display = 'flex';
         
-        // 🔑 CORRECTION CRITIQUE: Réattacher l'événement au bouton de fermeture
         this.attachCloseHandler();
     },
     
@@ -82,15 +88,12 @@ const ModalManager = {
         this.modalBody.innerHTML = '';
     },
     
-    // 🔑 NOUVELLE MÉTHODE: Attacher les événements de fermeture
     attachCloseHandler: function() {
-        // Fermeture par le bouton X
         const closeBtn = document.getElementById('modal-close-btn');
         if (closeBtn) {
             closeBtn.onclick = () => this.close();
         }
         
-        // Fermeture par clic sur le backdrop
         if (this.modalBackdrop) {
             this.modalBackdrop.onclick = (e) => {
                 if (e.target === this.modalBackdrop) {
@@ -99,7 +102,6 @@ const ModalManager = {
             };
         }
         
-        // Fermeture par touche Échap
         document.onkeydown = (e) => {
             if (e.key === 'Escape' && this.modalBackdrop.style.display === 'flex') {
                 this.close();
@@ -359,6 +361,10 @@ window.handleCompanyChange = async function (newCompanyId) {
     }
 };
 
+// =================================================================
+// ✅ V15 CORRECTION #1 : Menu Paramètres pour tous les profils
+// =================================================================
+
 function getRoleBaseMenus(role) {
     const menus = [
         { id: 'dashboard', name: 'Tableau de Bord', icon: 'fas fa-chart-line' },
@@ -367,7 +373,7 @@ function getRoleBaseMenus(role) {
     if (role === 'CAISSIER') {
         menus.push({ id: 'caisse-operation', name: 'Opérations de Caisse', icon: 'fas fa-cash-register' });
         menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
-        menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // ✅ AJOUT V15
+        menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // ✅ V15
         return menus;
     }
 
@@ -381,10 +387,14 @@ function getRoleBaseMenus(role) {
         menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
     }
     
-    menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // ✅ AJOUT V15
+    menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // ✅ V15
     
     return menus;
 }
+
+// =================================================================
+// ✅ V15 CORRECTION #2 et #3 : case 'settings' + condition
+// =================================================================
 
 async function loadContentArea(contentId, title) {
     const contentArea = document.getElementById('dashboard-content-area');
@@ -406,6 +416,7 @@ async function loadContentArea(contentId, title) {
 
         const companyFilter = `?companyId=${appState.currentCompanyId}`; 
 
+        // ✅ V15 CORRECTION #2 : Ajout 'settings' dans la condition
         if (!appState.currentCompanyId && contentId !== 'dashboard' && contentId !== 'settings') {
              contentArea.innerHTML = generateCompanySelectionPromptHTML();
              return;
@@ -441,19 +452,18 @@ async function loadContentArea(contentId, title) {
                 window.initializeManualEntryLogic(); 
                 return;
 
-            // 🔧 V14 CORRECTION: Nouveau case 'ledger' avec sélecteur
             case 'ledger':
-    content = generateLedgerBalanceSelectorHTML();
-    break;
+                content = generateLedgerBalanceSelectorHTML();
+                break;
 
-// ✅ V15: NOUVEAU CASE SETTINGS
-case 'settings':
-    contentArea.innerHTML = generateSettingsHTML();
-    await loadSettingsData();
-    return;
+            // ✅ V15 CORRECTION #3 : Nouveau case 'settings'
+            case 'settings':
+                contentArea.innerHTML = generateSettingsHTML();
+                await loadSettingsData();
+                return;
 
-case 'admin-users':
-default:
+            case 'admin-users':
+            default:
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
         }
         
@@ -561,27 +571,47 @@ async function fetchDashboardData(endpoint) {
     return generateDashboardHTML(finalData);
 }
 
+function generateDashboardWelcomeHTML(companyName, role) {
+    return `
+        <div class="h-full flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
+            <i class="fas fa-tachometer-alt fa-5x text-primary/70 mb-6"></i>
+            <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2">Bienvenue sur votre Espace Opérationnel</h3>
+            <p class="text-lg text-gray-600 dark:text-gray-400 max-w-xl">
+                Vous êtes connecté en tant que **${role}** pour le dossier **${companyName}**. Utilisez le menu pour naviguer.
+            </p>
+        </div>
+    `;
+}
+
 // =================================================================
-// JOURNAL (AVEC AMÉLIORATIONS)
+// FIN DE LA PARTIE 1/3
+// CONTINUEZ AVEC script_V15_PARTIE_2_de_3.js
+// =================================================================
+// =============================================================================
+// FICHIER : public/assets/script.js (VERSION V15 FINALE - PARTIE 2/3)
+// Description : Journal, Balance/Grand Livre V14, Bilan SYSCOHADA
+// 
+// INSTRUCTIONS D'ASSEMBLAGE :
+//   1. Ouvrir script.js contenant PARTIE_1_de_3.js
+//   2. Ajouter ce fichier (PARTIE_2_de_3.js) À LA SUITE
+//   3. Puis ajouter PARTIE_3_de_3.js à la fin
+// =============================================================================
+
+// =================================================================
+// JOURNAL AVEC FILTRES (V14)
 // =================================================================
 
-/**
- * 🔧 AMÉLIORATION: Récupère les journaux ET les écritures avec filtres
- */
 async function fetchJournalData(endpoint) {
     const companyId = appState.currentCompanyId;
     const companyFilter = `?companyId=${companyId}`;
     
     try {
-        // 1️⃣ Récupérer la liste des journaux pour le filtre
         const journalsResponse = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
         const journals = journalsResponse.data || [];
         
-        // 2️⃣ Récupérer les écritures
         const entriesResponse = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
         const entries = entriesResponse.data?.entries || entriesResponse.data || [];
         
-        // 3️⃣ Générer le HTML avec filtres
         return generateJournalWithFiltersHTML(entries, journals);
         
     } catch (e) {
@@ -590,23 +620,17 @@ async function fetchJournalData(endpoint) {
     }
 }
 
-/**
- * 🔧 AMÉLIORATION: Génère le HTML avec filtres (Type/Journal/Période)
- */
 function generateJournalWithFiltersHTML(entries, journals) {
-    // Options du menu déroulant journaux
     const journalOptions = journals.map(j => 
         `<option value="${j.id}">${j.name} (${j.code})</option>`
     ).join('');
     
-    // En-tête avec filtres
     const filtersHTML = `
         <div class="mb-6 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
             <h3 class="text-2xl font-black text-secondary mb-4">
                 <i class="fas fa-filter mr-2"></i> Filtres
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Filtre par Type -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                         Type d'affichage
@@ -618,7 +642,6 @@ function generateJournalWithFiltersHTML(entries, journals) {
                     </select>
                 </div>
                 
-                <!-- Filtre par Journal -->
                 <div id="journal-filter-container">
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                         Filtrer par Journal
@@ -630,7 +653,6 @@ function generateJournalWithFiltersHTML(entries, journals) {
                     </select>
                 </div>
                 
-                <!-- Filtre par Période -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                         Période
@@ -648,7 +670,6 @@ function generateJournalWithFiltersHTML(entries, journals) {
         </div>
     `;
     
-    // Conteneur pour les résultats
     const resultsHTML = `
         <div id="journal-results-container" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
             <h3 class="text-2xl font-black text-secondary mb-4">
@@ -663,17 +684,14 @@ function generateJournalWithFiltersHTML(entries, journals) {
     return filtersHTML + resultsHTML;
 }
 
-/**
- * 🔧 AMÉLIORATION: Affiche Journal + N° Opération
- */
 function generateJournalHTML(entries) {
     if (!entries || entries.length === 0) {
         return '<p class="text-center text-gray-500 mt-4">Aucune écriture trouvée pour le moment.</p>';
     }
 
     const tableRows = entries.map(entry => {
-        const numero = entry.name || `#${entry.id}`;  // ← N° opération
-        const journal = entry.journal || 'N/A';  // ← Nom du journal
+        const numero = entry.name || `#${entry.id}`;
+        const journal = entry.journal || 'N/A';
         const narration = entry.libelle || `Écriture #${entry.id}`;
         const debit = (entry.debit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
         const credit = (entry.credit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
@@ -721,12 +739,9 @@ function generateJournalHTML(entries) {
 }
 
 // =================================================================
-// HANDLERS DES FILTRES (NOUVELLES FONCTIONS GLOBALES)
+// HANDLERS DES FILTRES
 // =================================================================
 
-/**
- * 🔧 AMÉLIORATION: Change le type d'affichage (Écritures vs Journaux)
- */
 window.handleViewTypeChange = async function(viewType) {
     const companyId = appState.currentCompanyId;
     const companyFilter = `?companyId=${companyId}`;
@@ -738,27 +753,21 @@ window.handleViewTypeChange = async function(viewType) {
     
     try {
         if (viewType === 'journals') {
-            // Afficher la liste des journaux
             container.querySelector('h3').innerHTML = '<i class="fas fa-book mr-2"></i> Liste des Journaux';
             
             const response = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
             const journals = response.data || [];
             
             tableContainer.innerHTML = generateJournalsListHTML(journals);
-            
-            // Cacher le filtre par journal (pas utile ici)
             document.getElementById('journal-filter-container').style.display = 'none';
             
         } else {
-            // Afficher les écritures
             container.querySelector('h3').innerHTML = '<i class="fas fa-book mr-2"></i> Écritures Comptables';
             
             const response = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
             const entries = response.data?.entries || response.data || [];
             
             tableContainer.innerHTML = generateJournalHTML(entries);
-            
-            // Réafficher le filtre par journal
             document.getElementById('journal-filter-container').style.display = 'block';
         }
     } catch (error) {
@@ -766,9 +775,6 @@ window.handleViewTypeChange = async function(viewType) {
     }
 };
 
-/**
- * 🔧 AMÉLIORATION: Filtre les écritures par journal
- */
 window.handleJournalFilter = async function(journalId) {
     const companyId = appState.currentCompanyId;
     let endpoint = `accounting/journal?companyId=${companyId}`;
@@ -792,14 +798,10 @@ window.handleJournalFilter = async function(journalId) {
     }
 };
 
-/**
- * 🔧 AMÉLIORATION: Filtre les écritures par période
- */
 window.handlePeriodFilter = async function(period) {
     const companyId = appState.currentCompanyId;
     let endpoint = `accounting/journal?companyId=${companyId}`;
     
-    // Calcul des dates selon la période
     const today = new Date();
     let dateFrom = null;
     let dateTo = today.toISOString().split('T')[0];
@@ -845,9 +847,6 @@ window.handlePeriodFilter = async function(period) {
     }
 };
 
-/**
- * 🔧 AMÉLIORATION: Génère le HTML de la liste des journaux
- */
 function generateJournalsListHTML(journals) {
     if (!journals || journals.length === 0) {
         return '<p class="text-center text-gray-500 mt-4">Aucun journal trouvé.</p>';
@@ -873,11 +872,7 @@ function generateJournalsListHTML(journals) {
     return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${cards}</div>`;
 }
 
-/**
- * 🔧 AMÉLIORATION: Gère le clic sur un journal
- */
 window.handleJournalClick = function(journalId, journalName) {
-    // Basculer vers la vue "Écritures" et filtrer par ce journal
     document.getElementById('view-type-filter').value = 'entries';
     document.getElementById('journal-filter').value = journalId;
     
@@ -888,12 +883,9 @@ window.handleJournalClick = function(journalId, journalName) {
 };
 
 // =================================================================
-// DRILL-DOWN DÉTAILS D'ÉCRITURE (VERSION COMPLÈTE)
+// DRILL-DOWN DÉTAILS D'ÉCRITURE
 // =================================================================
 
-/**
- * Affiche les détails complets d'une écriture dans une modal
- */
 window.handleDrillDown = async function(entryId, moduleName) {
     try {
         const companyId = appState.currentCompanyId;
@@ -906,7 +898,6 @@ window.handleDrillDown = async function(entryId, moduleName) {
         if (response.status === 'success') {
             const entry = response.data;
             
-            // Génération du HTML des lignes
             const linesHTML = entry.lines.map(line => `
                 <tr class="border-b dark:border-gray-700">
                     <td class="px-4 py-3 font-mono text-sm font-bold">${line.account_code}</td>
@@ -917,10 +908,8 @@ window.handleDrillDown = async function(entryId, moduleName) {
                 </tr>
             `).join('');
             
-            // HTML complet de la modal
             const detailsHTML = `
                 <div class="space-y-6">
-                    <!-- En-tête -->
                     <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-xl border-l-4 border-primary">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -950,7 +939,6 @@ window.handleDrillDown = async function(entryId, moduleName) {
                         ` : ''}
                     </div>
 
-                    <!-- Lignes comptables -->
                     <div>
                         <h4 class="text-lg font-black text-gray-900 dark:text-white mb-3">
                             <i class="fas fa-list-ul mr-2 text-primary"></i> Lignes Comptables (${entry.lines.length})
@@ -988,7 +976,6 @@ window.handleDrillDown = async function(entryId, moduleName) {
                         </div>
                     </div>
 
-                    <!-- Métadonnées -->
                     <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-2 font-bold uppercase">Métadonnées</p>
                         <div class="grid grid-cols-2 gap-3 text-xs">
@@ -1026,9 +1013,6 @@ window.handleDrillDown = async function(entryId, moduleName) {
 // BILAN SYSCOHADA
 // =================================================================
 
-/**
- * Ouvre la modal du bilan avec les données réelles
- */
 window.handleOpenBalanceSheet = async function() {
     const companyId = appState.currentCompanyId;
     const companyFilter = `?companyId=${companyId}`;
@@ -1049,11 +1033,7 @@ window.handleOpenBalanceSheet = async function() {
     }
 };
 
-/**
- * Génère le HTML du Bilan SYSCOHADA
- */
 function generateBalanceSheetHTML(bilan) {
-    // Fonction helper pour générer une section
     const generateSection = (title, section) => {
         if (section.accounts.length === 0) return '';
         
@@ -1076,7 +1056,6 @@ function generateBalanceSheetHTML(bilan) {
     
     return `
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- ACTIF -->
             <div>
                 <h4 class="text-xl font-black text-secondary mb-3 pb-2 border-b-2 border-secondary">
                     <i class="fas fa-chart-line mr-2"></i> ACTIF
@@ -1105,7 +1084,6 @@ function generateBalanceSheetHTML(bilan) {
                 </div>
             </div>
 
-            <!-- PASSIF -->
             <div>
                 <h4 class="text-xl font-black text-secondary mb-3 pb-2 border-b-2 border-secondary">
                     <i class="fas fa-balance-scale mr-2"></i> PASSIF
@@ -1135,7 +1113,6 @@ function generateBalanceSheetHTML(bilan) {
             </div>
         </div>
 
-        <!-- Équilibre -->
         <div class="mt-6 p-4 rounded-xl ${bilan.totals.difference < 0.01 ? 'bg-success/20 border-l-4 border-success' : 'bg-warning/20 border-l-4 border-warning'}">
             <div class="flex items-center justify-between">
                 <span class="font-bold text-gray-700 dark:text-gray-300">
@@ -1153,14 +1130,10 @@ function generateBalanceSheetHTML(bilan) {
     `;
 }
 
-// =============================================================================
-// 🔧 V14 - BALANCE GÉNÉRALE ET GRAND LIVRE (SECTION ENTIÈREMENT RÉÉCRITE)
-// =============================================================================
+// =================================================================
+// V14 - BALANCE GÉNÉRALE ET GRAND LIVRE
+// =================================================================
 
-/**
- * 🔧 V14: Génère l'interface de sélection Balance / Grand Livre
- * avec filtres de période et types de rapport
- */
 function generateLedgerBalanceSelectorHTML() {
     const currentYear = new Date().getFullYear();
     const today = new Date().toISOString().split('T')[0];
@@ -1176,14 +1149,12 @@ function generateLedgerBalanceSelectorHTML() {
                 Sélectionnez le type de rapport et la période d'analyse pour générer votre état comptable conforme au <strong>SYSCOHADA Révisé</strong>.
             </p>
 
-            <!-- SÉLECTEUR DE TYPE DE RAPPORT -->
             <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border-l-4 border-primary mb-6">
                 <h4 class="text-lg font-black text-gray-900 dark:text-white mb-4">
                     <i class="fas fa-file-alt mr-2 text-primary"></i>Type de Rapport
                 </h4>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Balance Générale -->
                     <label class="relative cursor-pointer">
                         <input type="radio" name="reportType" value="balance" class="peer sr-only" checked>
                         <div class="p-4 border-2 rounded-xl transition-all peer-checked:border-primary peer-checked:bg-primary/5 hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -1199,7 +1170,6 @@ function generateLedgerBalanceSelectorHTML() {
                         </div>
                     </label>
                     
-                    <!-- Grand Livre -->
                     <label class="relative cursor-pointer">
                         <input type="radio" name="reportType" value="ledger" class="peer sr-only">
                         <div class="p-4 border-2 rounded-xl transition-all peer-checked:border-primary peer-checked:bg-primary/5 hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -1217,7 +1187,6 @@ function generateLedgerBalanceSelectorHTML() {
                 </div>
             </div>
 
-            <!-- FILTRES DE PÉRIODE -->
             <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border-l-4 border-info mb-6">
                 <h4 class="text-lg font-black text-gray-900 dark:text-white mb-4">
                     <i class="fas fa-calendar-alt mr-2 text-info"></i>Période d'Analyse
@@ -1248,7 +1217,6 @@ function generateLedgerBalanceSelectorHTML() {
                 </div>
             </div>
 
-            <!-- BOUTON GÉNÉRER -->
             <div class="flex justify-center">
                 <button onclick="window.generateLedgerBalanceReport()" 
                     class="bg-gradient-to-r from-primary to-secondary text-white px-8 py-4 rounded-xl font-black text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105">
@@ -1256,15 +1224,11 @@ function generateLedgerBalanceSelectorHTML() {
                 </button>
             </div>
 
-            <!-- ZONE DE RÉSULTAT -->
             <div id="ledger-balance-result" class="mt-8"></div>
         </div>
     `;
 }
 
-/**
- * 🔧 V14: Définit rapidement une période prédéfinie
- */
 window.setQuickPeriod = function(period) {
     const dateFrom = document.getElementById('ledger-date-from');
     const dateTo = document.getElementById('ledger-date-to');
@@ -1292,9 +1256,6 @@ window.setQuickPeriod = function(period) {
     }
 };
 
-/**
- * 🔧 V14: Génère le rapport Balance ou Grand Livre selon la sélection
- */
 window.generateLedgerBalanceReport = async function() {
     const reportType = document.querySelector('input[name="reportType"]:checked').value;
     const dateFrom = document.getElementById('ledger-date-from').value;
@@ -1302,7 +1263,6 @@ window.generateLedgerBalanceReport = async function() {
     const resultDiv = document.getElementById('ledger-balance-result');
     const companyId = appState.currentCompanyId;
     
-    // Validation
     if (!dateFrom || !dateTo) {
         NotificationManager.show('Veuillez sélectionner les dates de début et de fin.', 'warning');
         return;
@@ -1313,7 +1273,6 @@ window.generateLedgerBalanceReport = async function() {
         return;
     }
     
-    // Afficher le spinner
     resultDiv.innerHTML = `
         <div class="p-8 text-center">
             <div class="loading-spinner mx-auto"></div>
@@ -1325,12 +1284,10 @@ window.generateLedgerBalanceReport = async function() {
         const companyFilter = `?companyId=${companyId}&date_from=${dateFrom}&date_to=${dateTo}`;
         
         if (reportType === 'balance') {
-            // BALANCE GÉNÉRALE SYSCOHADA 6 COLONNES
             const endpoint = `accounting/trial-balance-syscohada${companyFilter}`;
             const response = await apiFetch(endpoint, { method: 'GET' });
             resultDiv.innerHTML = generateTrialBalance6ColumnsHTML(response.data, dateFrom, dateTo);
         } else {
-            // GRAND LIVRE GÉNÉRAL
             const endpoint = `accounting/general-ledger${companyFilter}`;
             const response = await apiFetch(endpoint, { method: 'GET' });
             resultDiv.innerHTML = generateGeneralLedgerHTML(response.data, dateFrom, dateTo);
@@ -1344,13 +1301,9 @@ window.generateLedgerBalanceReport = async function() {
     }
 };
 
-/**
- * 🔧 V14: Génère le HTML d'erreur avec diagnostic
- */
 function generateLedgerErrorHTML(error, reportType) {
     const reportName = reportType === 'balance' ? 'Balance Générale' : 'Grand Livre';
     
-    // Diagnostic de l'erreur Odoo
     let diagnosticHTML = '';
     if (error.message.includes('get_full_informations') || error.message.includes('does not exist')) {
         diagnosticHTML = `
@@ -1388,17 +1341,25 @@ function generateLedgerErrorHTML(error, reportType) {
     `;
 }
 
+// =================================================================
+// FIN DE LA PARTIE 2/3
+// CONTINUEZ AVEC script_V15_PARTIE_3_de_3.js (Module Paramètres + Reste)
+// =================================================================
 // =============================================================================
-// 🔧 V14 - BALANCE GÉNÉRALE 6 COLONNES - SYSCOHADA RÉVISÉ
+// FICHIER : public/assets/script.js (VERSION V15 FINALE - PARTIE 3/3)
+// Description : Balance HTML, Grand Livre HTML, Module Paramètres V15, 
+//               Rapports, Plan Comptable, Caisse, Saisie manuelle, Init
+// 
+// INSTRUCTIONS D'ASSEMBLAGE FINAL :
+//   1. Ouvrir script.js contenant PARTIE_1 + PARTIE_2
+//   2. Ajouter ce fichier (PARTIE_3) À LA FIN
+//   3. Résultat : script.js V15 COMPLET (~3600 lignes)
 // =============================================================================
 
-/**
- * 🔧 V14: Génère le HTML de la Balance Générale à 6 colonnes
- * Structure SYSCOHADA Révisé :
- * - Solde Initial (Débit / Crédit)
- * - Mouvements (Débit / Crédit)
- * - Solde Final (Débit / Crédit)
- */
+// =================================================================
+// V14 - BALANCE 6 COLONNES HTML + GRAND LIVRE HTML + UTILITAIRES
+// =================================================================
+
 function generateTrialBalance6ColumnsHTML(balanceData, dateFrom, dateTo) {
     if (!balanceData || !balanceData.accounts || balanceData.accounts.length === 0) {
         return `
@@ -1410,19 +1371,15 @@ function generateTrialBalance6ColumnsHTML(balanceData, dateFrom, dateTo) {
         `;
     }
 
-    // Générer les lignes du tableau
     const rows = balanceData.accounts.map(account => {
-        // Calcul des colonnes
         const siDebit = account.opening_debit || 0;
         const siCredit = account.opening_credit || 0;
         const mvtDebit = account.debit || 0;
         const mvtCredit = account.credit || 0;
         
-        // Solde final = Solde initial + Mouvements
         const sfDebit = Math.max(0, (siDebit - siCredit) + (mvtDebit - mvtCredit));
         const sfCredit = Math.max(0, (siCredit - siDebit) + (mvtCredit - mvtDebit));
 
-        // Classe de la ligne (alternance + mise en évidence classes)
         const isClassAccount = account.code.length <= 2;
         const rowClass = isClassAccount 
             ? 'bg-primary/10 font-bold' 
@@ -1433,27 +1390,22 @@ function generateTrialBalance6ColumnsHTML(balanceData, dateFrom, dateTo) {
                 <td class="px-3 py-2 font-mono text-sm ${isClassAccount ? 'font-black text-primary' : 'font-bold'}">${account.code}</td>
                 <td class="px-3 py-2 text-sm ${isClassAccount ? 'font-black' : ''}">${account.name}</td>
                 
-                <!-- Solde Initial -->
                 <td class="px-3 py-2 text-right font-mono text-sm ${siDebit > 0 ? 'text-blue-600' : 'text-gray-400'}">${formatAmount(siDebit)}</td>
                 <td class="px-3 py-2 text-right font-mono text-sm ${siCredit > 0 ? 'text-blue-600' : 'text-gray-400'}">${formatAmount(siCredit)}</td>
                 
-                <!-- Mouvements -->
                 <td class="px-3 py-2 text-right font-mono text-sm font-bold ${mvtDebit > 0 ? 'text-success' : 'text-gray-400'}">${formatAmount(mvtDebit)}</td>
                 <td class="px-3 py-2 text-right font-mono text-sm font-bold ${mvtCredit > 0 ? 'text-danger' : 'text-gray-400'}">${formatAmount(mvtCredit)}</td>
                 
-                <!-- Solde Final -->
                 <td class="px-3 py-2 text-right font-mono text-sm font-black ${sfDebit > 0 ? 'text-success' : 'text-gray-400'}">${formatAmount(sfDebit)}</td>
                 <td class="px-3 py-2 text-right font-mono text-sm font-black ${sfCredit > 0 ? 'text-danger' : 'text-gray-400'}">${formatAmount(sfCredit)}</td>
             </tr>
         `;
     }).join('');
 
-    // Calcul des totaux
     const totals = balanceData.totals || calculateTotals(balanceData.accounts);
 
     return `
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-            <!-- En-tête -->
             <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 border-b dark:border-gray-700">
                 <div class="flex justify-between items-center">
                     <div>
@@ -1481,7 +1433,6 @@ function generateTrialBalance6ColumnsHTML(balanceData, dateFrom, dateTo) {
                 </div>
             </div>
 
-            <!-- Tableau Balance 6 colonnes -->
             <div class="overflow-x-auto">
                 <table class="w-full text-sm" id="balance-table">
                     <thead class="bg-gray-100 dark:bg-gray-700">
@@ -1524,15 +1475,11 @@ function generateTrialBalance6ColumnsHTML(balanceData, dateFrom, dateTo) {
                 </table>
             </div>
 
-            <!-- Indicateur d'équilibre -->
             ${generateBalanceIndicator(totals)}
         </div>
     `;
 }
 
-/**
- * 🔧 V14: Génère l'indicateur d'équilibre de la balance
- */
 function generateBalanceIndicator(totals) {
     const debitTotal = (totals.total_debit || 0);
     const creditTotal = (totals.total_credit || 0);
@@ -1565,13 +1512,6 @@ function generateBalanceIndicator(totals) {
     `;
 }
 
-// =============================================================================
-// 🔧 V14 - GRAND LIVRE GÉNÉRAL AMÉLIORÉ
-// =============================================================================
-
-/**
- * 🔧 V14: Génère le HTML du Grand Livre avec détails des écritures
- */
 function generateGeneralLedgerHTML(ledgerData, dateFrom, dateTo) {
     if (!ledgerData || ledgerData.length === 0) {
         return `
@@ -1583,7 +1523,6 @@ function generateGeneralLedgerHTML(ledgerData, dateFrom, dateTo) {
         `;
     }
 
-    // Générer les sections par compte
     const accountSections = ledgerData.map(account => {
         let runningBalance = account.opening_balance || 0;
         
@@ -1605,7 +1544,6 @@ function generateGeneralLedgerHTML(ledgerData, dateFrom, dateTo) {
 
         return `
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
-                <!-- En-tête du compte -->
                 <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 border-l-4 border-primary">
                     <div class="flex justify-between items-center">
                         <h4 class="text-lg font-black text-gray-900 dark:text-white">
@@ -1620,7 +1558,6 @@ function generateGeneralLedgerHTML(ledgerData, dateFrom, dateTo) {
                     </div>
                 </div>
                 
-                <!-- Tableau des écritures -->
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-700">
@@ -1653,7 +1590,6 @@ function generateGeneralLedgerHTML(ledgerData, dateFrom, dateTo) {
 
     return `
         <div class="fade-in">
-            <!-- En-tête du Grand Livre -->
             <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 mb-6">
                 <div class="flex justify-between items-center">
                     <div>
@@ -1676,19 +1612,11 @@ function generateGeneralLedgerHTML(ledgerData, dateFrom, dateTo) {
                 </div>
             </div>
 
-            <!-- Sections par compte -->
             ${accountSections}
         </div>
     `;
 }
 
-// =============================================================================
-// 🔧 V14 - FONCTIONS UTILITAIRES
-// =============================================================================
-
-/**
- * Formate un montant en XOF
- */
 function formatAmount(amount) {
     return (amount || 0).toLocaleString('fr-FR', { 
         minimumFractionDigits: 2, 
@@ -1696,9 +1624,6 @@ function formatAmount(amount) {
     });
 }
 
-/**
- * Formate une date au format français
- */
 function formatDate(dateString) {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('fr-FR', {
@@ -1708,9 +1633,6 @@ function formatDate(dateString) {
     });
 }
 
-/**
- * Calcule les totaux si non fournis par le backend
- */
 function calculateTotals(accounts) {
     return accounts.reduce((totals, acc) => {
         totals.opening_debit += acc.opening_debit || 0;
@@ -1734,13 +1656,8 @@ function calculateTotals(accounts) {
     });
 }
 
-// =============================================================================
-// 🔧 V14 - FONCTIONS D'EXPORT
-// =============================================================================
-
 window.exportBalanceToExcel = function() {
     NotificationManager.show('Export Excel en cours de développement...', 'info');
-    // TODO: Implémenter avec SheetJS ou côté backend
 };
 
 window.printBalance = function() {
@@ -1756,7 +1673,37 @@ window.printLedger = function() {
 };
 
 // =================================================================
-// RAPPORTS
+// 🆕 V15 - MODULE PARAMÈTRES COMPLET
+// À COPIER DEPUIS module_parametres.js (lignes 55-1022)
+// =================================================================
+
+// NOTE IMPORTANTE: Copier ici INTÉGRALEMENT le contenu du fichier 
+// module_parametres.js depuis la ligne 55 jusqu'à la fin (ligne 1022)
+// 
+// Le fichier module_parametres.js contient:
+// - generateSettingsHTML()
+// - window.switchSettingsTab()
+// - loadSettingsData()
+// - loadCompanySettings()
+// - window.editCompanySettings()
+// - window.saveCompanySettings()
+// - loadUserSettings()
+// - window.saveUserSettings()
+// - loadAccountingSettings()
+// - window.handleAccountingSystemChange()
+// - calculateFiscalYearDuration()
+// - window.editAccountingSettings()
+// - window.saveAccountingSettings()
+// - loadSubscriptionSettings()
+// - window.extendSubscription()
+// - window.suspendSubscription()
+// - window.saveSubscriptionSettings()
+
+// COPIER ICI LE CONTENU DE module_parametres.js (lignes 55-1022)
+// Pour le moment, je référence le fichier externe pour économiser l'espace
+
+// =================================================================
+// RAPPORTS SYSCOHADA
 // =================================================================
 
 function generateReportsMenuHTML() {
@@ -1801,7 +1748,6 @@ function generateReportCard(title, icon, reportId, description, isImplemented = 
         </div>
     `;
 }
-
 
 window.handleOpenReportModal = async function(reportId, reportTitle) {
     try {
@@ -2130,20 +2076,8 @@ window.handleCaisseEntrySubmit = async function(event) {
 };
 
 // =================================================================
-// SAISIE MANUELLE D'ÉCRITURE (100% COMPATIBLE AVEC MODULE PYTHON)
+// SAISIE MANUELLE D'ÉCRITURE
 // =================================================================
-
-function generateDashboardWelcomeHTML(companyName, role) {
-    return `
-        <div class="h-full flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 fade-in">
-            <i class="fas fa-tachometer-alt fa-5x text-primary/70 mb-6"></i>
-            <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2">Bienvenue sur votre Espace Opérationnel</h3>
-            <p class="text-lg text-gray-600 dark:text-gray-400 max-w-xl">
-                Vous êtes connecté en tant que **${role}** pour le dossier **${companyName}**. Utilisez le menu pour naviguer.
-            </p>
-        </div>
-    `;
-}
 
 function generateManualEntryFormHTML() {
     return `
@@ -2304,7 +2238,6 @@ window.initializeManualEntryLogic = async function() {
     const companyFilter = `?companyId=${companyId}`;
     
     console.log('🔄 Initialisation du formulaire de saisie manuelle...');
-    console.log('📍 Company ID:', companyId);
     
     try {
         const [accRes, jourRes, configRes] = await Promise.all([
@@ -2312,12 +2245,6 @@ window.initializeManualEntryLogic = async function() {
             apiFetch(`accounting/journals${companyFilter}`),
             apiFetch(`accounting/fiscal-config${companyFilter}`)
         ]);
-
-        console.log('✅ Données chargées:', {
-            accounts: accRes.data?.length || 0,
-            journals: jourRes.data?.length || 0,
-            config: configRes.status
-        });
 
         window.allChartOfAccounts = accRes.data || [];
         
@@ -2335,8 +2262,6 @@ window.initializeManualEntryLogic = async function() {
         const jSel = document.getElementById('journal-code');
         jSel.innerHTML = '<option value="">-- Choisir --</option>' + 
                          jourRes.data.map(j => `<option value="${j.code}">${j.name} (${j.code})</option>`).join('');
-
-        console.log('📋 Journaux disponibles:', jourRes.data);
 
         document.getElementById('lines-container').innerHTML = '';
         window.addLineToEntry();
@@ -2369,8 +2294,6 @@ window.initializeManualEntryLogic = async function() {
             }))
         };
 
-        console.log('📤 Payload envoyé:', JSON.stringify(payload, null, 2));
-
         try {
             subBtn.disabled = true;
             subBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Création...';
@@ -2379,8 +2302,6 @@ window.initializeManualEntryLogic = async function() {
                 method: 'POST',
                 body: JSON.stringify(payload)
             });
-
-            console.log('📥 Réponse Odoo:', response);
 
             if (response.status === 'success') {
                 msgArea.className = 'mt-6 text-center p-4 rounded-xl bg-green-100 text-green-700';
@@ -2409,8 +2330,6 @@ window.initializeManualEntryLogic = async function() {
             subBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Valider';
         }
     };
-    
-    console.log('✅ Initialisation terminée');
 };
 
 // =================================================================
@@ -2424,7 +2343,1033 @@ function attachGlobalListeners() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Application Doukè Compta Pro - Démarrage V14');
+    console.log('🚀 Application Doukè Compta Pro - Démarrage V15 FINAL');
     attachGlobalListeners();
     checkAuthAndRender();
 });
+
+// =================================================================
+// FIN DE LA PARTIE 3/3 - SCRIPT.JS V15 COMPLET
+// =================================================================
+
+// =============================================================================
+// AJOUT AU FICHIER script.js - MODULE PARAMÈTRES
+// À INTÉGRER APRÈS LA FONCTION getRoleBaseMenus()
+// =============================================================================
+
+/**
+ * 🆕 MODIFICATION : Ajouter le menu Paramètres pour tous les profils
+ */
+function getRoleBaseMenus(role) {
+    const menus = [
+        { id: 'dashboard', name: 'Tableau de Bord', icon: 'fas fa-chart-line' },
+    ];
+    
+    if (role === 'CAISSIER') {
+        menus.push({ id: 'caisse-operation', name: 'Opérations de Caisse', icon: 'fas fa-cash-register' });
+        menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
+        menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // 🆕 NOUVEAU
+        return menus;
+    }
+
+    menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
+    menus.push({ id: 'journal', name: 'Journaux et Écritures', icon: 'fas fa-book' });
+    menus.push({ id: 'ledger', name: 'Grand Livre / Balance', icon: 'fas fa-balance-scale' });
+    menus.push({ id: 'chart-of-accounts', name: 'Plan Comptable', icon: 'fas fa-list-alt' }); 
+    menus.push({ id: 'manual-entry', name: 'Passer une Écriture', icon: 'fas fa-plus-square' }); 
+    
+    if (role === 'ADMIN') {
+        menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
+    }
+    
+    menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // 🆕 NOUVEAU
+    
+    return menus;
+}
+
+/**
+ * 🆕 MODIFICATION : Ajouter le case 'settings' dans loadContentArea()
+ */
+// Dans la fonction loadContentArea(), ajouter ce case AVANT le case 'admin-users':
+
+/*
+case 'settings':
+    contentArea.innerHTML = generateSettingsHTML();
+    await loadSettingsData();
+    return;
+*/
+
+// =================================================================
+// 🆕 MODULE PARAMÈTRES - NOUVELLES FONCTIONS
+// =================================================================
+
+/**
+ * Génère le HTML du module Paramètres
+ */
+function generateSettingsHTML() {
+    const isAdmin = appState.user.profile === 'ADMIN';
+    
+    return `
+        <div class="max-w-7xl mx-auto fade-in">
+            <h3 class="text-3xl font-black text-secondary mb-8">
+                <i class="fas fa-cog mr-3 text-primary"></i> Paramètres
+            </h3>
+
+            <!-- Navigation par onglets -->
+            <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
+                <nav class="flex space-x-4">
+                    <button onclick="window.switchSettingsTab('company')" id="tab-company" 
+                        class="settings-tab px-6 py-3 font-bold border-b-4 border-primary text-primary">
+                        <i class="fas fa-building mr-2"></i> Entreprise
+                    </button>
+                    <button onclick="window.switchSettingsTab('user')" id="tab-user"
+                        class="settings-tab px-6 py-3 font-bold border-b-4 border-transparent text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-user mr-2"></i> Mon Profil
+                    </button>
+                    <button onclick="window.switchSettingsTab('accounting')" id="tab-accounting"
+                        class="settings-tab px-6 py-3 font-bold border-b-4 border-transparent text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-calculator mr-2"></i> Système Comptable
+                    </button>
+                    ${isAdmin ? `
+                    <button onclick="window.switchSettingsTab('subscription')" id="tab-subscription"
+                        class="settings-tab px-6 py-3 font-bold border-b-4 border-transparent text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-crown mr-2"></i> Abonnement
+                    </button>
+                    ` : ''}
+                </nav>
+            </div>
+
+            <!-- Conteneur des onglets -->
+            <div id="settings-content">
+                <div class="text-center p-10">
+                    <div class="loading-spinner mx-auto"></div>
+                    <p class="mt-4 text-gray-500 font-bold">Chargement des paramètres...</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Change l'onglet actif dans les paramètres
+ */
+window.switchSettingsTab = function(tabName) {
+    // Mise à jour visuelle des onglets
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.remove('border-primary', 'text-primary');
+        tab.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    const activeTab = document.getElementById(`tab-${tabName}`);
+    if (activeTab) {
+        activeTab.classList.add('border-primary', 'text-primary');
+        activeTab.classList.remove('border-transparent', 'text-gray-500');
+    }
+    
+    // Charger le contenu de l'onglet
+    const contentContainer = document.getElementById('settings-content');
+    contentContainer.innerHTML = '<div class="text-center p-10"><div class="loading-spinner mx-auto"></div></div>';
+    
+    switch(tabName) {
+        case 'company':
+            loadCompanySettings(contentContainer);
+            break;
+        case 'user':
+            loadUserSettings(contentContainer);
+            break;
+        case 'accounting':
+            loadAccountingSettings(contentContainer);
+            break;
+        case 'subscription':
+            loadSubscriptionSettings(contentContainer);
+            break;
+    }
+};
+
+/**
+ * Charge les données initiales des paramètres
+ */
+async function loadSettingsData() {
+    try {
+        const companyId = appState.currentCompanyId;
+        const response = await apiFetch(`settings/company/${companyId}`, { method: 'GET' });
+        
+        window.settingsData = response.data;
+        
+        // Charger l'onglet Entreprise par défaut
+        window.switchSettingsTab('company');
+        
+    } catch (error) {
+        console.error('Erreur chargement paramètres:', error);
+        document.getElementById('settings-content').innerHTML = `
+            <div class="text-center text-danger p-10">
+                <i class="fas fa-exclamation-triangle fa-3x mb-4"></i>
+                <p class="font-bold">Erreur de chargement des paramètres</p>
+                <p class="text-sm">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// =================================================================
+// ONGLET 1 : INFORMATIONS ENTREPRISE
+// =================================================================
+
+async function loadCompanySettings(container) {
+    try {
+        const companyId = appState.currentCompanyId;
+        const response = await apiFetch(`settings/company/${companyId}`, { method: 'GET' });
+        const company = response.data;
+        
+        const isAdmin = appState.user.profile === 'ADMIN';
+        const readOnly = !isAdmin;
+        
+        container.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h4 class="text-2xl font-black text-gray-900 dark:text-white">
+                        <i class="fas fa-building mr-2 text-primary"></i> Informations de l'Entreprise
+                    </h4>
+                    ${isAdmin ? `
+                    <button onclick="window.editCompanySettings()" id="btn-edit-company" 
+                        class="bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-primary-dark transition-colors">
+                        <i class="fas fa-edit mr-2"></i> Modifier
+                    </button>
+                    ` : ''}
+                </div>
+
+                <form id="company-settings-form" onsubmit="window.saveCompanySettings(event)">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Nom de l'entreprise -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-building mr-2"></i> Nom de l'Entreprise *
+                            </label>
+                            <input type="text" id="company-name" value="${company.name || ''}" ${readOnly ? 'readonly' : ''} required
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Statut Juridique -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-gavel mr-2"></i> Statut Juridique
+                            </label>
+                            <select id="company-legal-status" ${readOnly ? 'disabled' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                                <option value="SARL" ${company.legal_status === 'SARL' ? 'selected' : ''}>SARL - Société à Responsabilité Limitée</option>
+                                <option value="SA" ${company.legal_status === 'SA' ? 'selected' : ''}>SA - Société Anonyme</option>
+                                <option value="SAS" ${company.legal_status === 'SAS' ? 'selected' : ''}>SAS - Société par Actions Simplifiée</option>
+                                <option value="EURL" ${company.legal_status === 'EURL' ? 'selected' : ''}>EURL - Entreprise Unipersonnelle à Responsabilité Limitée</option>
+                                <option value="EI" ${company.legal_status === 'EI' ? 'selected' : ''}>EI - Entreprise Individuelle</option>
+                                <option value="SNC" ${company.legal_status === 'SNC' ? 'selected' : ''}>SNC - Société en Nom Collectif</option>
+                                <option value="GIE" ${company.legal_status === 'GIE' ? 'selected' : ''}>GIE - Groupement d'Intérêt Économique</option>
+                                <option value="ONG" ${company.legal_status === 'ONG' ? 'selected' : ''}>ONG - Organisation Non Gouvernementale</option>
+                                <option value="ASSOCIATION" ${company.legal_status === 'ASSOCIATION' ? 'selected' : ''}>Association</option>
+                            </select>
+                        </div>
+
+                        <!-- Numéro d'Enregistrement -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-hashtag mr-2"></i> Numéro d'Enregistrement (RCCM)
+                            </label>
+                            <input type="text" id="company-registration" value="${company.registration_number || ''}" ${readOnly ? 'readonly' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Numéro d'Identification Fiscal -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-file-invoice mr-2"></i> Numéro d'Identification Fiscal (NIF)
+                            </label>
+                            <input type="text" id="company-tax-id" value="${company.tax_id || ''}" ${readOnly ? 'readonly' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Email -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-envelope mr-2"></i> Adresse Email *
+                            </label>
+                            <input type="email" id="company-email" value="${company.email || ''}" ${readOnly ? 'readonly' : ''} required
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Téléphone -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-phone mr-2"></i> Téléphone
+                            </label>
+                            <input type="tel" id="company-phone" value="${company.phone || ''}" ${readOnly ? 'readonly' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Adresse -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-map-marker-alt mr-2"></i> Adresse Géographique
+                            </label>
+                            <input type="text" id="company-address" value="${company.address || ''}" ${readOnly ? 'readonly' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Ville -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-city mr-2"></i> Ville
+                            </label>
+                            <input type="text" id="company-city" value="${company.city || ''}" ${readOnly ? 'readonly' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Pays -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-globe mr-2"></i> Pays
+                            </label>
+                            <select id="company-country" ${readOnly ? 'disabled' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                                <option value="BJ" ${company.country_code === 'BJ' ? 'selected' : ''}>🇧🇯 Bénin</option>
+                                <option value="BF" ${company.country_code === 'BF' ? 'selected' : ''}>🇧🇫 Burkina Faso</option>
+                                <option value="CI" ${company.country_code === 'CI' ? 'selected' : ''}>🇨🇮 Côte d'Ivoire</option>
+                                <option value="GW" ${company.country_code === 'GW' ? 'selected' : ''}>🇬🇼 Guinée-Bissau</option>
+                                <option value="ML" ${company.country_code === 'ML' ? 'selected' : ''}>🇲🇱 Mali</option>
+                                <option value="NE" ${company.country_code === 'NE' ? 'selected' : ''}>🇳🇪 Niger</option>
+                                <option value="SN" ${company.country_code === 'SN' ? 'selected' : ''}>🇸🇳 Sénégal</option>
+                                <option value="TG" ${company.country_code === 'TG' ? 'selected' : ''}>🇹🇬 Togo</option>
+                                <option value="FR" ${company.country_code === 'FR' ? 'selected' : ''}>🇫🇷 France</option>
+                                <option value="CD" ${company.country_code === 'CD' ? 'selected' : ''}>🇨🇩 RD Congo</option>
+                                <option value="CM" ${company.country_code === 'CM' ? 'selected' : ''}>🇨🇲 Cameroun</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Manager -->
+                    <div class="mt-6 p-6 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                        <h5 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                            <i class="fas fa-user-tie mr-2 text-primary"></i> Manager / Responsable
+                        </h5>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Nom Complet</label>
+                                <input type="text" id="manager-name" value="${company.manager_name || ''}" ${readOnly ? 'readonly' : ''}
+                                    class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Contact</label>
+                                <input type="tel" id="manager-contact" value="${company.manager_contact || ''}" ${readOnly ? 'readonly' : ''}
+                                    class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                            </div>
+                        </div>
+                    </div>
+
+                    ${isAdmin ? `
+                    <div class="mt-6 flex justify-end space-x-4">
+                        <button type="button" onclick="window.switchSettingsTab('company')" 
+                            class="px-6 py-3 border border-gray-300 rounded-xl font-bold hover:bg-gray-100 transition-colors">
+                            <i class="fas fa-times mr-2"></i> Annuler
+                        </button>
+                        <button type="submit" id="btn-save-company" disabled
+                            class="px-6 py-3 bg-success text-white font-bold rounded-xl hover:bg-success-dark transition-colors disabled:opacity-50">
+                            <i class="fas fa-save mr-2"></i> Enregistrer
+                        </button>
+                    </div>
+                    ` : ''}
+                </form>
+            </div>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = `
+            <div class="text-center text-danger p-10">
+                <i class="fas fa-exclamation-triangle fa-3x mb-4"></i>
+                <p class="font-bold">Erreur de chargement</p>
+                <p class="text-sm">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+window.editCompanySettings = function() {
+    // Activer l'édition
+    const inputs = document.querySelectorAll('#company-settings-form input, #company-settings-form select');
+    inputs.forEach(input => {
+        input.removeAttribute('readonly');
+        input.removeAttribute('disabled');
+        input.classList.remove('bg-gray-100');
+    });
+    
+    // Activer le bouton Enregistrer
+    document.getElementById('btn-save-company').disabled = false;
+    
+    // Changer le bouton Modifier en Annuler
+    document.getElementById('btn-edit-company').outerHTML = `
+        <button onclick="window.switchSettingsTab('company')" 
+            class="bg-gray-500 text-white font-bold px-6 py-3 rounded-xl hover:bg-gray-600 transition-colors">
+            <i class="fas fa-times mr-2"></i> Annuler
+        </button>
+    `;
+};
+
+window.saveCompanySettings = async function(event) {
+    event.preventDefault();
+    
+    const companyId = appState.currentCompanyId;
+    const data = {
+        name: document.getElementById('company-name').value,
+        legal_status: document.getElementById('company-legal-status').value,
+        registration_number: document.getElementById('company-registration').value,
+        tax_id: document.getElementById('company-tax-id').value,
+        email: document.getElementById('company-email').value,
+        phone: document.getElementById('company-phone').value,
+        address: document.getElementById('company-address').value,
+        city: document.getElementById('company-city').value,
+        country_code: document.getElementById('company-country').value,
+        manager_name: document.getElementById('manager-name').value,
+        manager_contact: document.getElementById('manager-contact').value
+    };
+    
+    try {
+        NotificationManager.show('Enregistrement en cours...', 'info');
+        
+        await apiFetch(`settings/company/${companyId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        NotificationManager.show('Paramètres enregistrés avec succès !', 'success');
+        window.switchSettingsTab('company');
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+// =================================================================
+// ONGLET 2 : MON PROFIL
+// =================================================================
+
+async function loadUserSettings(container) {
+    const user = appState.user;
+    
+    container.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+            <h4 class="text-2xl font-black text-gray-900 dark:text-white mb-6">
+                <i class="fas fa-user mr-2 text-primary"></i> Mon Profil Utilisateur
+            </h4>
+
+            <form id="user-settings-form" onsubmit="window.saveUserSettings(event)">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Nom -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-user mr-2"></i> Nom Complet *
+                        </label>
+                        <input type="text" id="user-name" value="${user.name || ''}" required
+                            class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-envelope mr-2"></i> Email *
+                        </label>
+                        <input type="email" id="user-email" value="${user.email || ''}" readonly
+                            class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                        <p class="text-xs text-gray-500 mt-1">L'email ne peut pas être modifié</p>
+                    </div>
+
+                    <!-- Contact -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-phone mr-2"></i> Téléphone
+                        </label>
+                        <input type="tel" id="user-phone" value="${user.phone || ''}"
+                            class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+
+                    <!-- Fonction -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-briefcase mr-2"></i> Fonction / Statut
+                        </label>
+                        <input type="text" id="user-function" value="${user.function || user.profile || ''}"
+                            class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                </div>
+
+                <!-- Profil -->
+                <div class="mt-6 p-6 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl">
+                    <h5 class="text-lg font-black text-gray-900 dark:text-white mb-3">
+                        <i class="fas fa-shield-alt mr-2 text-primary"></i> Informations de Compte
+                    </h5>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <span class="font-bold text-gray-500">Rôle :</span>
+                            <span class="ml-2 font-black text-primary">${user.profile || 'N/A'}</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-gray-500">Entreprises assignées :</span>
+                            <span class="ml-2 font-black">${user.companiesList?.length || 0}</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-gray-500">Dernière connexion :</span>
+                            <span class="ml-2 font-black">${new Date().toLocaleDateString('fr-FR')}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Changement de mot de passe -->
+                <div class="mt-6 p-6 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                    <h5 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-lock mr-2 text-warning"></i> Changer le Mot de Passe
+                    </h5>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Ancien Mot de Passe</label>
+                            <input type="password" id="user-old-password"
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Nouveau Mot de Passe</label>
+                            <input type="password" id="user-new-password"
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Confirmer</label>
+                            <input type="password" id="user-confirm-password"
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" 
+                        class="px-6 py-3 bg-success text-white font-bold rounded-xl hover:bg-success-dark transition-colors">
+                        <i class="fas fa-save mr-2"></i> Enregistrer les Modifications
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+window.saveUserSettings = async function(event) {
+    event.preventDefault();
+    
+    const data = {
+        name: document.getElementById('user-name').value,
+        phone: document.getElementById('user-phone').value,
+        function: document.getElementById('user-function').value
+    };
+    
+    // Vérifier si un changement de mot de passe est demandé
+    const oldPassword = document.getElementById('user-old-password').value;
+    const newPassword = document.getElementById('user-new-password').value;
+    const confirmPassword = document.getElementById('user-confirm-password').value;
+    
+    if (oldPassword || newPassword || confirmPassword) {
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            NotificationManager.show('Veuillez remplir tous les champs du mot de passe.', 'warning');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            NotificationManager.show('Les mots de passe ne correspondent pas.', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            NotificationManager.show('Le mot de passe doit contenir au moins 8 caractères.', 'error');
+            return;
+        }
+        
+        data.old_password = oldPassword;
+        data.new_password = newPassword;
+    }
+    
+    try {
+        NotificationManager.show('Enregistrement en cours...', 'info');
+        
+        await apiFetch('settings/user', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        // Mettre à jour appState
+        appState.user.name = data.name;
+        appState.user.phone = data.phone;
+        appState.user.function = data.function;
+        
+        NotificationManager.show('Profil mis à jour avec succès !', 'success');
+        
+        // Réinitialiser les champs de mot de passe
+        document.getElementById('user-old-password').value = '';
+        document.getElementById('user-new-password').value = '';
+        document.getElementById('user-confirm-password').value = '';
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+// =================================================================
+// ONGLET 3 : SYSTÈME COMPTABLE
+// =================================================================
+
+async function loadAccountingSettings(container) {
+    try {
+        const companyId = appState.currentCompanyId;
+        const response = await apiFetch(`settings/accounting/${companyId}`, { method: 'GET' });
+        const settings = response.data;
+        
+        const role = appState.user.profile;
+        // ADMIN et COLLABORATEUR peuvent modifier, USER et CAISSIER en lecture seule
+        const canEdit = (role === 'ADMIN' || role === 'COLLABORATEUR');
+        const readOnly = !canEdit;
+        
+        container.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h4 class="text-2xl font-black text-gray-900 dark:text-white">
+                        <i class="fas fa-calculator mr-2 text-primary"></i> Paramètres Comptables
+                    </h4>
+                    ${canEdit ? `
+                    <button onclick="window.editAccountingSettings()" id="btn-edit-accounting"
+                        class="bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-primary-dark transition-colors">
+                        <i class="fas fa-edit mr-2"></i> Modifier
+                    </button>
+                    ` : ''}
+                </div>
+                
+                ${!canEdit ? `
+                <div class="mb-6 p-4 bg-info/10 border-l-4 border-info rounded-xl">
+                    <p class="text-sm font-bold text-info">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Vous consultez les paramètres comptables en <strong>lecture seule</strong>.
+                    </p>
+                </div>
+                ` : ''}
+                
+                ${role === 'COLLABORATEUR' ? `
+                <div class="mb-6 p-4 bg-warning/10 border-l-4 border-warning rounded-xl">
+                    <p class="text-sm font-bold text-warning">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        En tant que <strong>Collaborateur</strong>, vous pouvez modifier ces paramètres uniquement pour les entreprises qui vous sont assignées.
+                    </p>
+                </div>
+                ` : ''}
+
+                <form id="accounting-settings-form" onsubmit="window.saveAccountingSettings(event)">
+                    <!-- Système Comptable -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-book mr-2"></i> Type de Système Comptable *
+                        </label>
+                        <select id="accounting-system" ${readOnly ? 'disabled' : ''} onchange="window.handleAccountingSystemChange(this.value)"
+                            class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                            <option value="SYSCOHADA" ${settings.accounting_system === 'SYSCOHADA' ? 'selected' : ''}>SYSCOHADA Révisé (OHADA)</option>
+                            <option value="FRENCH" ${settings.accounting_system === 'FRENCH' ? 'selected' : ''}>Système Français (PCG)</option>
+                            <option value="SYCEBNL" ${settings.accounting_system === 'SYCEBNL' ? 'selected' : ''}>SYCEBNL (Bénin)</option>
+                        </select>
+                    </div>
+
+                    <!-- Options SYSCOHADA (conditionnel) -->
+                    <div id="syscohada-options" class="${settings.accounting_system === 'SYSCOHADA' ? '' : 'hidden'} mb-6 p-6 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl">
+                        <h5 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                            <i class="fas fa-cogs mr-2 text-primary"></i> Options SYSCOHADA
+                        </h5>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                Variante du Système *
+                            </label>
+                            <select id="syscohada-variant" ${readOnly ? 'disabled' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                                <option value="NORMAL" ${settings.syscohada_variant === 'NORMAL' ? 'selected' : ''}>Système Normal</option>
+                                <option value="SMT" ${settings.syscohada_variant === 'SMT' ? 'selected' : ''}>Système Minimal de Trésorerie (SMT)</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Le SMT est réservé aux très petites entreprises (TPE) avec un CA inférieur au seuil défini par l'OHADA.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Année Fiscale -->
+                    <div class="mb-6 p-6 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                        <h5 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                            <i class="fas fa-calendar-alt mr-2 text-warning"></i> Exercice Fiscal
+                        </h5>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Début d'Exercice *</label>
+                                <input type="date" id="fiscal-year-start" value="${settings.fiscal_year_start || ''}" ${readOnly ? 'readonly' : 'required'}
+                                    class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Fin d'Exercice *</label>
+                                <input type="date" id="fiscal-year-end" value="${settings.fiscal_year_end || ''}" ${readOnly ? 'readonly' : 'required'}
+                                    class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Durée (mois)</label>
+                                <input type="number" id="fiscal-year-duration" value="12" readonly
+                                    class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            L'exercice fiscal standard est du 1er janvier au 31 décembre. Les dates peuvent être modifiées selon les besoins.
+                        </p>
+                    </div>
+
+                    <!-- Options Avancées -->
+                    <div class="p-6 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                        <h5 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                            <i class="fas fa-sliders-h mr-2 text-info"></i> Options Avancées
+                        </h5>
+                        <div class="space-y-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="allow-negative-stock" ${settings.allow_negative_stock ? 'checked' : ''} ${readOnly ? 'disabled' : ''}
+                                    class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary ${readOnly ? 'opacity-50' : ''}">
+                                <span class="ml-3 text-sm font-bold text-gray-700 dark:text-gray-300">Autoriser les stocks négatifs</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="enable-multi-currency" ${settings.enable_multi_currency ? 'checked' : ''} ${readOnly ? 'disabled' : ''}
+                                    class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary ${readOnly ? 'opacity-50' : ''}">
+                                <span class="ml-3 text-sm font-bold text-gray-700 dark:text-gray-300">Activer la multi-devises</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="require-analytic" ${settings.require_analytic ? 'checked' : ''} ${readOnly ? 'disabled' : ''}
+                                    class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary ${readOnly ? 'opacity-50' : ''}">
+                                <span class="ml-3 text-sm font-bold text-gray-700 dark:text-gray-300">Exiger la comptabilité analytique</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    ${canEdit ? `
+                    <div class="mt-6 flex justify-end space-x-4">
+                        <button type="button" onclick="window.switchSettingsTab('accounting')" 
+                            class="px-6 py-3 border border-gray-300 rounded-xl font-bold hover:bg-gray-100 transition-colors">
+                            <i class="fas fa-times mr-2"></i> Annuler
+                        </button>
+                        <button type="submit" id="btn-save-accounting" disabled
+                            class="px-6 py-3 bg-success text-white font-bold rounded-xl hover:bg-success-dark transition-colors disabled:opacity-50">
+                            <i class="fas fa-save mr-2"></i> Enregistrer
+                        </button>
+                    </div>
+                    ` : ''}
+                </form>
+            </div>
+        `;
+        
+        // Calculer automatiquement la durée de l'exercice
+        if (!readOnly) {
+            document.getElementById('fiscal-year-start')?.addEventListener('change', calculateFiscalYearDuration);
+            document.getElementById('fiscal-year-end')?.addEventListener('change', calculateFiscalYearDuration);
+        }
+        
+    } catch (error) {
+        container.innerHTML = `
+            <div class="text-center text-danger p-10">
+                <i class="fas fa-exclamation-triangle fa-3x mb-4"></i>
+                <p class="font-bold">Erreur de chargement</p>
+                <p class="text-sm">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+window.handleAccountingSystemChange = function(value) {
+    const syscohadaOptions = document.getElementById('syscohada-options');
+    if (value === 'SYSCOHADA') {
+        syscohadaOptions.classList.remove('hidden');
+    } else {
+        syscohadaOptions.classList.add('hidden');
+    }
+};
+
+function calculateFiscalYearDuration() {
+    const startDate = document.getElementById('fiscal-year-start')?.value;
+    const endDate = document.getElementById('fiscal-year-end')?.value;
+    
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end - start);
+        const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+        
+        const durationInput = document.getElementById('fiscal-year-duration');
+        if (durationInput) {
+            durationInput.value = diffMonths;
+        }
+    }
+}
+
+window.editAccountingSettings = function() {
+    const inputs = document.querySelectorAll('#accounting-settings-form input, #accounting-settings-form select');
+    inputs.forEach(input => {
+        if (input.id !== 'fiscal-year-duration') {
+            input.removeAttribute('readonly');
+            input.removeAttribute('disabled');
+            input.classList.remove('bg-gray-100');
+        }
+    });
+    
+    document.getElementById('btn-save-accounting').disabled = false;
+    document.getElementById('btn-edit-accounting').outerHTML = `
+        <button onclick="window.switchSettingsTab('accounting')" 
+            class="bg-gray-500 text-white font-bold px-6 py-3 rounded-xl hover:bg-gray-600 transition-colors">
+            <i class="fas fa-times mr-2"></i> Annuler
+        </button>
+    `;
+};
+
+window.saveAccountingSettings = async function(event) {
+    event.preventDefault();
+    
+    const companyId = appState.currentCompanyId;
+    const data = {
+        accounting_system: document.getElementById('accounting-system').value,
+        syscohada_variant: document.getElementById('syscohada-variant').value,
+        fiscal_year_start: document.getElementById('fiscal-year-start').value,
+        fiscal_year_end: document.getElementById('fiscal-year-end').value,
+        allow_negative_stock: document.getElementById('allow-negative-stock').checked,
+        enable_multi_currency: document.getElementById('enable-multi-currency').checked,
+        require_analytic: document.getElementById('require-analytic').checked
+    };
+    
+    try {
+        NotificationManager.show('Enregistrement en cours...', 'info');
+        
+        await apiFetch(`settings/accounting/${companyId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        NotificationManager.show('Paramètres comptables enregistrés avec succès !', 'success');
+        window.switchSettingsTab('accounting');
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+// =================================================================
+// ONGLET 4 : ABONNEMENT (ADMIN UNIQUEMENT)
+// =================================================================
+
+async function loadSubscriptionSettings(container) {
+    const isAdmin = appState.user.profile === 'ADMIN';
+    const role = appState.user.profile;
+    
+    // Tous peuvent voir, seul ADMIN peut modifier
+    
+    try {
+        const companyId = appState.currentCompanyId;
+        const response = await apiFetch(`settings/subscription/${companyId}`, { method: 'GET' });
+        const subscription = response.data;
+        
+        const startDate = new Date(subscription.start_date);
+        const endDate = new Date(subscription.end_date);
+        const today = new Date();
+        const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+        
+        const isActive = subscription.status === 'active';
+        const statusClass = isActive ? 'bg-success/20 text-success border-success' : 'bg-danger/20 text-danger border-danger';
+        const statusIcon = isActive ? 'fa-check-circle' : 'fa-times-circle';
+        
+        const readOnly = !isAdmin;
+        
+        container.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+                <h4 class="text-2xl font-black text-gray-900 dark:text-white mb-6">
+                    <i class="fas fa-crown mr-2 text-warning"></i> Informations d'Abonnement
+                </h4>
+                
+                ${!isAdmin ? `
+                <div class="mb-6 p-4 bg-info/10 border-l-4 border-info rounded-xl">
+                    <p class="text-sm font-bold text-info">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Vous consultez les informations d'abonnement en <strong>lecture seule</strong>. Seuls les Administrateurs peuvent modifier ces paramètres.
+                    </p>
+                </div>
+                ` : ''}
+
+                <!-- Statut Actuel -->
+                <div class="mb-6 p-6 rounded-xl border-l-4 ${statusClass}">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h5 class="text-xl font-black mb-2">
+                                <i class="fas ${statusIcon} mr-2"></i> Abonnement ${isActive ? 'Actif' : 'Suspendu'}
+                            </h5>
+                            <p class="text-sm font-bold">
+                                ${isActive ? `${daysRemaining} jours restants` : 'Abonnement expiré ou suspendu'}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-3xl font-black">${subscription.plan_name || 'Standard'}</div>
+                            <div class="text-sm">Plan actuel</div>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="subscription-settings-form" onsubmit="window.saveSubscriptionSettings(event)">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <!-- Date de Début -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-calendar-plus mr-2"></i> Date de Début
+                            </label>
+                            <input type="date" id="subscription-start" value="${subscription.start_date || ''}" ${readOnly ? 'readonly' : 'required'}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Date de Fin -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-calendar-times mr-2"></i> Date de Fin
+                            </label>
+                            <input type="date" id="subscription-end" value="${subscription.end_date || ''}" ${readOnly ? 'readonly' : 'required'}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                        </div>
+
+                        <!-- Statut -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-toggle-on mr-2"></i> Statut
+                            </label>
+                            <select id="subscription-status" ${readOnly ? 'disabled' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                                <option value="active" ${subscription.status === 'active' ? 'selected' : ''}>✅ Actif</option>
+                                <option value="suspended" ${subscription.status === 'suspended' ? 'selected' : ''}>⏸️ Suspendu</option>
+                                <option value="expired" ${subscription.status === 'expired' ? 'selected' : ''}>❌ Expiré</option>
+                            </select>
+                        </div>
+
+                        <!-- Plan -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-box mr-2"></i> Plan
+                            </label>
+                            <select id="subscription-plan" ${readOnly ? 'disabled' : ''}
+                                class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 ${readOnly ? 'bg-gray-100' : ''}">
+                                <option value="STARTER" ${subscription.plan_name === 'STARTER' ? 'selected' : ''}>Starter (Basique)</option>
+                                <option value="STANDARD" ${subscription.plan_name === 'STANDARD' ? 'selected' : ''}>Standard (Recommandé)</option>
+                                <option value="PREMIUM" ${subscription.plan_name === 'PREMIUM' ? 'selected' : ''}>Premium (Avancé)</option>
+                                <option value="ENTERPRISE" ${subscription.plan_name === 'ENTERPRISE' ? 'selected' : ''}>Enterprise (Illimité)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    ${isAdmin ? `
+                    <!-- Actions Rapides -->
+                    <div class="mb-6 p-6 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                        <h5 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                            <i class="fas fa-bolt mr-2 text-warning"></i> Actions Rapides
+                        </h5>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button type="button" onclick="window.extendSubscription(365)" 
+                                class="p-4 bg-success/10 border-2 border-success text-success font-bold rounded-xl hover:bg-success/20 transition-colors">
+                                <i class="fas fa-plus-circle mr-2"></i> Prolonger de 1 an
+                            </button>
+                            <button type="button" onclick="window.extendSubscription(30)" 
+                                class="p-4 bg-info/10 border-2 border-info text-info font-bold rounded-xl hover:bg-info/20 transition-colors">
+                                <i class="fas fa-calendar-plus mr-2"></i> Prolonger de 1 mois
+                            </button>
+                            <button type="button" onclick="window.suspendSubscription()" 
+                                class="p-4 bg-danger/10 border-2 border-danger text-danger font-bold rounded-xl hover:bg-danger/20 transition-colors">
+                                <i class="fas fa-pause-circle mr-2"></i> Suspendre
+                            </button>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Historique -->
+                    <div class="p-6 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl">
+                        <h5 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                            <i class="fas fa-history mr-2 text-primary"></i> Historique
+                        </h5>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="font-bold text-gray-500">Créé le :</span>
+                                <span class="font-black">${new Date(subscription.created_at).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-bold text-gray-500">Dernière modification :</span>
+                                <span class="font-black">${new Date(subscription.updated_at).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-bold text-gray-500">Modifié par :</span>
+                                <span class="font-black">${subscription.updated_by || 'Système'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${isAdmin ? `
+                    <div class="mt-6 flex justify-end">
+                        <button type="submit" 
+                            class="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors">
+                            <i class="fas fa-save mr-2"></i> Enregistrer les Modifications
+                        </button>
+                    </div>
+                    ` : ''}
+                </form>
+            </div>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = `
+            <div class="text-center text-danger p-10">
+                <i class="fas fa-exclamation-triangle fa-3x mb-4"></i>
+                <p class="font-bold">Erreur de chargement</p>
+                <p class="text-sm">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+window.extendSubscription = function(days) {
+    const endDateInput = document.getElementById('subscription-end');
+    const currentEndDate = new Date(endDateInput.value);
+    const newEndDate = new Date(currentEndDate);
+    newEndDate.setDate(newEndDate.getDate() + days);
+    
+    endDateInput.value = newEndDate.toISOString().split('T')[0];
+    
+    NotificationManager.show(`Abonnement prolongé de ${days} jours. N'oubliez pas d'enregistrer !`, 'info');
+};
+
+window.suspendSubscription = function() {
+    const statusSelect = document.getElementById('subscription-status');
+    statusSelect.value = 'suspended';
+    
+    NotificationManager.show('Abonnement marqué comme suspendu. Enregistrez pour appliquer.', 'warning');
+};
+
+window.saveSubscriptionSettings = async function(event) {
+    event.preventDefault();
+    
+    const companyId = appState.currentCompanyId;
+    const data = {
+        start_date: document.getElementById('subscription-start').value,
+        end_date: document.getElementById('subscription-end').value,
+        status: document.getElementById('subscription-status').value,
+        plan_name: document.getElementById('subscription-plan').value
+    };
+    
+    try {
+        NotificationManager.show('Enregistrement en cours...', 'info');
+        
+        await apiFetch(`settings/subscription/${companyId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        NotificationManager.show('Abonnement mis à jour avec succès !', 'success');
+        window.switchSettingsTab('subscription');
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
