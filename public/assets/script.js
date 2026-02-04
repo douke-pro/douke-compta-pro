@@ -2425,3 +2425,455 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuthAndRender();
 });
 
+// =============================================================================
+// MODULE PARAMÈTRES - VERSION V16 PROFESSIONNELLE
+// Ajouté le : Février 2026
+// Description : Gestion complète des paramètres entreprise/utilisateur/abonnement
+// Permissions : ADMIN (full), COLLABORATEUR (comptable modif), USER (lecture)
+// =============================================================================
+
+/**
+ * Génère le HTML principal de l'interface Paramètres avec onglets
+ */
+function generateSettingsHTML() {
+    const role = appState.user.profile;
+    
+    // Déterminer quels onglets afficher selon le rôle
+    const showAccountingTab = role !== 'CAISSIER';
+    const showSubscriptionTab = true;
+    
+    return `
+        <div class="fade-in max-w-7xl mx-auto">
+            <!-- En-tête -->
+            <div class="mb-8">
+                <h3 class="text-3xl font-black text-secondary mb-2">
+                    <i class="fas fa-cog mr-3 text-primary"></i>Paramètres
+                </h3>
+                <p class="text-gray-600 dark:text-gray-400">
+                    Gérez les informations de votre entreprise, votre profil et vos préférences système
+                </p>
+            </div>
+
+            <!-- Navigation par onglets -->
+            <div class="bg-white dark:bg-gray-800 rounded-t-2xl border-b-2 border-gray-200 dark:border-gray-700">
+                <div class="flex flex-wrap gap-2 p-2">
+                    <button onclick="window.switchSettingsTab('company')" 
+                        id="tab-company"
+                        class="settings-tab px-6 py-3 rounded-xl font-bold transition-all hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i class="fas fa-building mr-2"></i>Entreprise
+                    </button>
+                    <button onclick="window.switchSettingsTab('profile')" 
+                        id="tab-profile"
+                        class="settings-tab px-6 py-3 rounded-xl font-bold transition-all hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i class="fas fa-user mr-2"></i>Mon Profil
+                    </button>
+                    ${showAccountingTab ? `
+                    <button onclick="window.switchSettingsTab('accounting')" 
+                        id="tab-accounting"
+                        class="settings-tab px-6 py-3 rounded-xl font-bold transition-all hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i class="fas fa-calculator mr-2"></i>Système Comptable
+                    </button>
+                    ` : ''}
+                    ${showSubscriptionTab ? `
+                    <button onclick="window.switchSettingsTab('subscription')" 
+                        id="tab-subscription"
+                        class="settings-tab px-6 py-3 rounded-xl font-bold transition-all hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i class="fas fa-crown mr-2"></i>Abonnement
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+
+            <!-- Conteneur des panneaux d'onglets -->
+            <div class="bg-white dark:bg-gray-800 rounded-b-2xl shadow-2xl p-8">
+                <div id="settings-content">
+                    <div class="text-center p-8">
+                        <div class="loading-spinner mx-auto"></div>
+                        <p class="mt-4 text-gray-500 font-bold">Chargement des paramètres...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Charge les données des paramètres depuis l'API
+ */
+async function loadSettingsData() {
+    try {
+        const companyId = appState.currentCompanyId;
+        
+        console.log('📋 Chargement des paramètres pour company_id:', companyId);
+        
+        // Charger toutes les données en parallèle
+        const [companyRes, accountingRes, subscriptionRes] = await Promise.all([
+            apiFetch(`settings/company/${companyId}`, { method: 'GET' }),
+            apiFetch(`settings/accounting/${companyId}`, { method: 'GET' }),
+            apiFetch(`settings/subscription/${companyId}`, { method: 'GET' })
+        ]);
+        
+        // Stocker dans l'état global
+        window.settingsData = {
+            company: companyRes.data || {},
+            accounting: accountingRes.data || {},
+            subscription: subscriptionRes.data || {},
+            user: appState.user
+        };
+        
+        console.log('✅ Paramètres chargés:', window.settingsData);
+        
+        // Afficher le premier onglet par défaut
+        window.switchSettingsTab('company');
+        
+    } catch (error) {
+        console.error('🚨 Erreur chargement paramètres:', error);
+        document.getElementById('settings-content').innerHTML = `
+            <div class="text-center p-8 text-danger">
+                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                <p class="font-bold">Erreur de chargement des paramètres</p>
+                <p class="text-sm">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Change l'onglet actif
+ */
+window.switchSettingsTab = function(tabName) {
+    // Mise à jour visuelle des onglets
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.remove('bg-primary', 'text-white');
+        tab.classList.add('text-gray-600', 'dark:text-gray-300');
+    });
+    
+    const activeTab = document.getElementById(`tab-${tabName}`);
+    if (activeTab) {
+        activeTab.classList.add('bg-primary', 'text-white');
+        activeTab.classList.remove('text-gray-600', 'dark:text-gray-300');
+    }
+    
+    // Générer le contenu selon l'onglet
+    const container = document.getElementById('settings-content');
+    
+    switch(tabName) {
+        case 'company':
+            container.innerHTML = generateCompanySettingsHTML();
+            break;
+        case 'profile':
+            container.innerHTML = generateProfileSettingsHTML();
+            break;
+        case 'accounting':
+            container.innerHTML = generateAccountingSettingsHTML();
+            break;
+        case 'subscription':
+            container.innerHTML = generateSubscriptionSettingsHTML();
+            break;
+    }
+};
+
+/**
+ * Génère le HTML de l'onglet Entreprise
+ */
+function generateCompanySettingsHTML() {
+    const role = appState.user.profile;
+    const isAdmin = role === 'ADMIN';
+    const data = window.settingsData?.company || {};
+    
+    return `
+        <div class="space-y-6">
+            ${!isAdmin ? `
+            <div class="bg-info/10 border-l-4 border-info p-4 rounded-xl">
+                <p class="text-sm text-info">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Vous consultez les informations de l'entreprise en <strong>lecture seule</strong>. 
+                    Seuls les Administrateurs peuvent les modifier.
+                </p>
+            </div>
+            ` : ''}
+            
+            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-building mr-2 text-primary"></i>
+                Informations de l'Entreprise
+            </h4>
+            
+            <form id="company-settings-form" onsubmit="window.handleSaveCompanySettings(event)" class="space-y-6">
+                <!-- Informations Générales -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Nom de l'Entreprise <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" id="company-name" value="${data.name || ''}" 
+                            ${!isAdmin ? 'disabled' : ''}
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Statut Juridique
+                        </label>
+                        <select id="company-legal-status" ${!isAdmin ? 'disabled' : ''}
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}">
+                            <option value="SARL" ${data.legal_status === 'SARL' ? 'selected' : ''}>SARL - Société à Responsabilité Limitée</option>
+                            <option value="SA" ${data.legal_status === 'SA' ? 'selected' : ''}>SA - Société Anonyme</option>
+                            <option value="SAS" ${data.legal_status === 'SAS' ? 'selected' : ''}>SAS - Société par Actions Simplifiée</option>
+                            <option value="EI" ${data.legal_status === 'EI' ? 'selected' : ''}>EI - Entreprise Individuelle</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Identifiants légaux -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Numéro RCCM
+                        </label>
+                        <input type="text" id="company-rccm" value="${data.registration_number || ''}" 
+                            ${!isAdmin ? 'disabled' : ''}
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}" 
+                            placeholder="Ex: RC/CTN/2024/B/123">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            NIF (Numéro d'Identification Fiscale)
+                        </label>
+                        <input type="text" id="company-nif" value="${data.tax_id || ''}" 
+                            ${!isAdmin ? 'disabled' : ''}
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}" 
+                            placeholder="Ex: 3202400123456">
+                    </div>
+                </div>
+
+                <!-- Coordonnées -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Email <span class="text-danger">*</span>
+                        </label>
+                        <input type="email" id="company-email" value="${data.email || ''}" 
+                            ${!isAdmin ? 'disabled' : ''}
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Téléphone
+                        </label>
+                        <input type="tel" id="company-phone" value="${data.phone || ''}" 
+                            ${!isAdmin ? 'disabled' : ''}
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}" 
+                            placeholder="+229 XX XX XX XX">
+                    </div>
+                </div>
+
+                <!-- Adresse -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Adresse
+                        </label>
+                        <input type="text" id="company-address" value="${data.address || ''}" 
+                            ${!isAdmin ? 'disabled' : ''}
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Ville
+                        </label>
+                        <input type="text" id="company-city" value="${data.city || ''}" 
+                            ${!isAdmin ? 'disabled' : ''}
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}">
+                    </div>
+                </div>
+
+                ${isAdmin ? `
+                <div class="flex justify-end pt-6 border-t">
+                    <button type="submit" class="bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary-dark transition-all shadow-lg">
+                        <i class="fas fa-save mr-2"></i>Enregistrer
+                    </button>
+                </div>
+                ` : ''}
+            </form>
+        </div>
+    `;
+}
+
+/**
+ * Génère le HTML de l'onglet Mon Profil
+ */
+function generateProfileSettingsHTML() {
+    const user = appState.user;
+    
+    return `
+        <div class="space-y-6">
+            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-user mr-2 text-primary"></i>
+                Mon Profil
+            </h4>
+            
+            <form id="profile-settings-form" onsubmit="window.handleSaveProfileSettings(event)" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Nom <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" id="user-name" value="${user.name || ''}" 
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Email <span class="text-gray-400">(Non modifiable)</span>
+                        </label>
+                        <input type="email" value="${user.email || ''}" disabled
+                            class="w-full p-3 border rounded-xl bg-gray-100 dark:bg-gray-600">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Téléphone
+                    </label>
+                    <input type="tel" id="user-phone" value="${user.phone || ''}" 
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                </div>
+
+                <div class="flex justify-end pt-6 border-t">
+                    <button type="submit" class="bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary-dark transition-all shadow-lg">
+                        <i class="fas fa-save mr-2"></i>Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+/**
+ * Génère le HTML de l'onglet Système Comptable
+ */
+function generateAccountingSettingsHTML() {
+    const data = window.settingsData?.accounting || {};
+    
+    return `
+        <div class="space-y-6">
+            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-calculator mr-2 text-primary"></i>
+                Configuration Comptable
+            </h4>
+            
+            <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500">Système :</span>
+                        <span class="font-bold ml-2">${data.accounting_system || 'SYSCOHADA'}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Variante :</span>
+                        <span class="font-bold ml-2">${data.syscohada_variant || 'NORMAL'}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Début exercice :</span>
+                        <span class="font-bold ml-2">${data.fiscal_year_start || '2026-01-01'}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Fin exercice :</span>
+                        <span class="font-bold ml-2">${data.fiscal_year_end || '2026-12-31'}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Génère le HTML de l'onglet Abonnement
+ */
+function generateSubscriptionSettingsHTML() {
+    const data = window.settingsData?.subscription || {};
+    
+    return `
+        <div class="space-y-6">
+            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-crown mr-2 text-warning"></i>
+                Abonnement
+            </h4>
+            
+            <div class="bg-gradient-to-r from-warning/10 to-primary/10 p-6 rounded-xl border-l-4 border-warning">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <span class="text-sm text-gray-500">Plan :</span>
+                        <p class="font-bold text-lg">${data.plan_name || 'STANDARD'}</p>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Statut :</span>
+                        <p class="font-bold text-lg text-success">${data.status || 'active'}</p>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Début :</span>
+                        <p class="font-bold">${data.start_date || '2026-01-01'}</p>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Fin :</span>
+                        <p class="font-bold">${data.end_date || '2026-12-31'}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Sauvegarde les paramètres entreprise
+ */
+window.handleSaveCompanySettings = async function(event) {
+    event.preventDefault();
+    
+    const companyId = appState.currentCompanyId;
+    const data = {
+        name: document.getElementById('company-name').value,
+        email: document.getElementById('company-email').value,
+        phone: document.getElementById('company-phone').value,
+        address: document.getElementById('company-address').value,
+        city: document.getElementById('company-city').value,
+        tax_id: document.getElementById('company-nif').value,
+        registration_number: document.getElementById('company-rccm').value
+    };
+    
+    try {
+        await apiFetch(`settings/company/${companyId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        NotificationManager.show('Paramètres entreprise enregistrés !', 'success');
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * Sauvegarde le profil utilisateur
+ */
+window.handleSaveProfileSettings = async function(event) {
+    event.preventDefault();
+    
+    const data = {
+        name: document.getElementById('user-name').value,
+        phone: document.getElementById('user-phone').value
+    };
+    
+    try {
+        await apiFetch('settings/user', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        NotificationManager.show('Profil mis à jour !', 'success');
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
