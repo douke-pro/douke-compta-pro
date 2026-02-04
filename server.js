@@ -1,5 +1,6 @@
 // =============================================================================
-// FICHIER : server.js (VERSION CORRIGÉE ET COMPLÉTÉE)
+// FICHIER : server.js (VERSION V16 - FINALE CORRIGÉE)
+// Description : Serveur Express avec toutes les routes montées AVANT le fallback
 // =============================================================================
 
 const express = require('express');
@@ -7,47 +8,111 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Imports des routes (Vérifiez que ces fichiers existent bien dans /routes)
-const authRoutes = require('./routes/auth');      
-const companyRoutes = require('./routes/company'); 
-const accountingRoutes = require('./routes/accounting'); // ⬅️ NOUVEL IMPORT (Rapports SYSCOHADA)
-const userRoutes = require('./routes/user');        // ⬅️ NOUVEL IMPORT (Session Data/Tableau de Bord)
-
+// =============================================================================
+// IMPORTS DES ROUTES
+// =============================================================================
+const authRoutes = require('./routes/auth');      
+const companyRoutes = require('./routes/company'); 
+const accountingRoutes = require('./routes/accounting');
+const userRoutes = require('./routes/user');
+const settingsRoutes = require('./routes/settings'); // ✅ DÉPLACÉ ICI
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
+// =============================================================================
+// MIDDLEWARES
+// =============================================================================
 app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
 
-// 1. Servir les fichiers statiques en priorité
+// Servir les fichiers statiques
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 2. Routes API (Le montage de toutes les routes)
-app.use('/api/auth', authRoutes); 
+// =============================================================================
+// MONTAGE DES ROUTES API (ORDRE CRITIQUE)
+// Toutes les routes DOIVENT être montées AVANT le middleware de fallback
+// =============================================================================
+
+console.log('🔵 Montage des routes API...');
+
+// Routes publiques
+app.use('/api/auth', authRoutes);
+console.log('✅ Route /api/auth montée');
+
+// Routes protégées
 app.use('/api/companies', companyRoutes);
-app.use('/api/accounting', accountingRoutes); // ⬅️ MONTAGE DES ROUTES COMPTABLES (Fichier 5/6)
-app.use('/api/user', userRoutes);            // ⬅️ MONTAGE DES NOUVELLES ROUTES UTILISATEUR/SESSION
+console.log('✅ Route /api/companies montée');
 
+app.use('/api/accounting', accountingRoutes);
+console.log('✅ Route /api/accounting montée');
 
-// 3. LE FIX RADICAL : Middleware de secours au lieu d'une route '*'
-// Le reste de la logique est conservé
+app.use('/api/user', userRoutes);
+console.log('✅ Route /api/user montée');
+
+app.use('/api/settings', settingsRoutes); // ✅ DÉPLACÉ ICI (AVANT LE FALLBACK)
+console.log('✅ Route /api/settings montée');
+
+console.log('✅ Toutes les routes montées avec succès');
+
+// =============================================================================
+// ROUTE DE SANTÉ (OPTIONNEL - POUR DÉBOGAGE)
+// =============================================================================
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        routes: ['auth', 'companies', 'accounting', 'user', 'settings']
+    });
+});
+
+// =============================================================================
+// MIDDLEWARE DE FALLBACK (DOIT ÊTRE EN DERNIER)
+// Gère les routes non trouvées et le SPA fallback
+// =============================================================================
 app.use((req, res) => {
-    if (!req.url.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    } else {
-        // Retourne un message 404 plus informatif pour les routes API non trouvées
-        res.status(404).json({ error: "Route API non trouvée. Veuillez vérifier les endpoints montés (auth, companies, accounting, user)." });
-    }
+    if (!req.url.startsWith('/api')) {
+        // Routes front-end : retourner index.html (SPA)
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    } else {
+        // Routes API non trouvées : retourner 404
+        console.log(`❌ 404 API: ${req.method} ${req.url}`);
+        res.status(404).json({ 
+            error: "Route API non trouvée",
+            path: req.url,
+            method: req.method,
+            availableRoutes: [
+                '/api/auth',
+                '/api/companies',
+                '/api/accounting',
+                '/api/user',
+                '/api/settings'
+            ]
+        });
+    }
 });
 
+// =============================================================================
+// GESTIONNAIRE D'ERREURS GLOBAL
+// =============================================================================
+app.use((err, req, res, next) => {
+    console.error('🚨 Erreur serveur:', err.message);
+    console.error(err.stack);
+    res.status(500).json({ 
+        error: 'Erreur serveur interne',
+        message: err.message
+    });
+});
+
+// =============================================================================
+// DÉMARRAGE DU SERVEUR
+// =============================================================================
 app.listen(PORT, () => {
-    console.log("=================================================");
-    console.log("🚀 DOUKÈ SYSTEM ONLINE - MODE COMPATIBILITÉ V5");
-    console.log("=================================================");
+    console.log("=".repeat(60));
+    console.log("🚀 DOUKÈ COMPTA PRO - SERVEUR DÉMARRÉ");
+    console.log("=".repeat(60));
+    console.log(`📍 Port: ${PORT}`);
+    console.log(`🌐 URL: http://localhost:${PORT}`);
+    console.log(`📅 Timestamp: ${new Date().toISOString()}`);
+    console.log("=".repeat(60));
 });
-
-// Routes Paramètres
-const settingsRoutes = require('./routes/settings');
-app.use('/api/settings', settingsRoutes);
