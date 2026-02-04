@@ -1,6 +1,7 @@
-// =============================================================================
-// FICHIER : middleware/auth.js (VERSION HYBRIDE SÉCURISÉE 100% - FINAL)
+javascript// =============================================================================
+// FICHIER : middleware/auth.js (VERSION V16 - FINALE ROBUSTE)
 // Description : Protection avec validation temps réel Odoo
+// Correction : Support de req.params.companyId pour les routes settings
 // =============================================================================
 
 const jwt = require('jsonwebtoken');
@@ -29,11 +30,11 @@ const protect = async (req, res, next) => {
                 throw new Error('Jeton mal formé : odooUid manquant.');
             }
             
-            // ⚠️ On NE stocke PAS allowedCompanyIds ici (on ne fait pas confiance au JWT)
             req.user = {
                 odooUid: decoded.odooUid,
                 email: decoded.email,
                 role: decoded.role || 'USER',
+                profile: decoded.profile || decoded.role || 'USER',
                 selectedCompanyId: decoded.selectedCompanyId,
             };
 
@@ -57,15 +58,16 @@ const protect = async (req, res, next) => {
 
 /**
  * MIDDLEWARE 2 : Vérification Accès Entreprise (TEMPS RÉEL ODOO)
- * 🔐 CRITIQUE : Vérifie en temps réel les permissions dans Odoo
+ * 🔧 V16 : Support de req.params.companyId, req.query.companyId et req.body.companyId
  */
 const checkCompanyAccess = async (req, res, next) => {
     const { role, odooUid, email } = req.user;
     
-    // 1️⃣ Extraction du company_id
-    const rawCompanyId = req.query.companyId || req.body.company_id || req.body.companyId;
+    // 1️⃣ Extraction du company_id depuis TOUTES les sources possibles
+    const rawCompanyId = req.params.companyId || req.query.companyId || req.body.company_id || req.body.companyId;
     
     if (!rawCompanyId) {
+        console.error(`❌ checkCompanyAccess: Aucun companyId fourni par ${email}`);
         return res.status(400).json({ 
             status: 'error',
             error: 'L\'ID de compagnie est requis pour cette opération.' 
@@ -93,7 +95,7 @@ const checkCompanyAccess = async (req, res, next) => {
     try {
         console.log(`🔍 [VERIFY] ${email} (UID: ${odooUid}) → Company ${requestedCompanyId}...`);
 
-        // Query Odoo pour récupérer les company_ids autorisés (source de vérité)
+        // Query Odoo pour récupérer les company_ids autorisés
         const userData = await odooExecuteKw({
             uid: ADMIN_UID,
             model: 'res.users',
@@ -131,7 +133,6 @@ const checkCompanyAccess = async (req, res, next) => {
                 - Allowed: ${allowedCompanyIds.join(', ')}
                 - Route: ${req.method} ${req.originalUrl}
                 - IP: ${req.ip}
-                - User-Agent: ${req.headers['user-agent']}
                 - Timestamp: ${new Date().toISOString()}
             `);
 
@@ -148,6 +149,7 @@ const checkCompanyAccess = async (req, res, next) => {
 
     } catch (error) {
         console.error('🚨 checkCompanyAccess Odoo Error:', error.message);
+        console.error('Stack:', error.stack);
         return res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la vérification des permissions. Veuillez réessayer.'
