@@ -367,7 +367,8 @@ function getRoleBaseMenus(role) {
     if (role === 'CAISSIER') {
         menus.push({ id: 'caisse-operation', name: 'Opérations de Caisse', icon: 'fas fa-cash-register' });
         menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
-        return menus;
+        menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // ✅ AJOUTÉ
+    return menus;
     }
 
     menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
@@ -377,10 +378,10 @@ function getRoleBaseMenus(role) {
     menus.push({ id: 'manual-entry', name: 'Passer une Écriture', icon: 'fas fa-plus-square' }); 
     
     if (role === 'ADMIN') {
-        menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
-    }
-    
-    return menus;
+    menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
+}
+
+return menus;
 }
 
 async function loadContentArea(contentId, title) {
