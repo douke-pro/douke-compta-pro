@@ -376,6 +376,8 @@ function getRoleBaseMenus(role) {
     menus.push({ id: 'ledger', name: 'Grand Livre / Balance', icon: 'fas fa-balance-scale' });
     menus.push({ id: 'chart-of-accounts', name: 'Plan Comptable', icon: 'fas fa-list-alt' }); 
     menus.push({ id: 'manual-entry', name: 'Passer une Écriture', icon: 'fas fa-plus-square' }); 
+
+    menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' });
     
     if (role === 'ADMIN') {
     menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
@@ -444,10 +446,12 @@ async function loadContentArea(contentId, title) {
                 content = generateLedgerBalanceSelectorHTML();
                 break;
 
-            case 'settings':
-                contentArea.innerHTML = generateSettingsHTML();
-                await loadSettingsData();
-                return;
+           case 'settings':
+          content = generateSettingsHTML();
+          contentArea.innerHTML = content;
+          await loadSettingsData();
+          return;
+                
             case 'admin-users':
             default:
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
