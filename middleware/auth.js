@@ -1,4 +1,4 @@
-javascript// =============================================================================
+// =============================================================================
 // FICHIER : middleware/auth.js (VERSION V16 - FINALE ROBUSTE)
 // Description : Protection avec validation temps réel Odoo
 // Correction : Support de req.params.companyId pour les routes settings
