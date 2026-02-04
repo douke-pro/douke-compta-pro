@@ -2761,34 +2761,104 @@ function generateProfileSettingsHTML() {
  */
 function generateAccountingSettingsHTML() {
     const data = window.settingsData?.accounting || {};
+    const role = appState.user.profile;
+    
+    // ✅ CORRECTION : USER peut aussi modifier
+    const canEdit = (role === 'ADMIN' || role === 'COLLABORATEUR' || role === 'USER');
+    const isEditing = false;
     
     return `
         <div class="space-y-6">
-            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-4">
-                <i class="fas fa-calculator mr-2 text-primary"></i>
-                Configuration Comptable
-            </h4>
+            ${!canEdit ? `
+            <div class="bg-info/10 border-l-4 border-info p-4 rounded-xl">
+                <p class="text-sm text-info">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Vous consultez les paramètres comptables en <strong>lecture seule</strong>.
+                </p>
+            </div>
+            ` : ''}
             
-            <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl">
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span class="text-gray-500">Système :</span>
-                        <span class="font-bold ml-2">${data.accounting_system || 'SYSCOHADA'}</span>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Variante :</span>
-                        <span class="font-bold ml-2">${data.syscohada_variant || 'NORMAL'}</span>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Début exercice :</span>
-                        <span class="font-bold ml-2">${data.fiscal_year_start || '2026-01-01'}</span>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Fin exercice :</span>
-                        <span class="font-bold ml-2">${data.fiscal_year_end || '2026-12-31'}</span>
+            ${role === 'COLLABORATEUR' ? `
+            <div class="bg-warning/10 border-l-4 border-warning p-4 rounded-xl">
+                <p class="text-sm text-warning">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    En tant que <strong>Collaborateur</strong>, vous pouvez modifier ces paramètres uniquement pour les entreprises qui vous sont assignées.
+                </p>
+            </div>
+            ` : ''}
+            
+            <div class="flex justify-between items-center mb-4">
+                <h4 class="text-xl font-black text-gray-900 dark:text-white">
+                    <i class="fas fa-calculator mr-2 text-primary"></i>
+                    Configuration Comptable
+                </h4>
+                
+                ${canEdit ? `
+                <button onclick="window.handleEditAccountingSettings()" id="btn-edit-accounting"
+                    class="bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-primary-dark transition-all shadow-lg">
+                    <i class="fas fa-edit mr-2"></i>Modifier
+                </button>
+                ` : ''}
+            </div>
+            
+            <form id="accounting-settings-form" onsubmit="window.handleSaveAccountingSettings(event)" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Type de Système Comptable <span class="text-danger">*</span>
+                    </label>
+                    <select id="accounting-system" disabled
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                        <option value="SYSCOHADA" ${data.accounting_system === 'SYSCOHADA' ? 'selected' : ''}>SYSCOHADA Révisé (OHADA)</option>
+                        <option value="FRENCH" ${data.accounting_system === 'FRENCH' ? 'selected' : ''}>Système Français (PCG)</option>
+                        <option value="SYCEBNL" ${data.accounting_system === 'SYCEBNL' ? 'selected' : ''}>SYCEBNL (Bénin)</option>
+                    </select>
+                </div>
+
+                <div id="syscohada-options" class="${data.accounting_system === 'SYSCOHADA' ? '' : 'hidden'}">
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Variante SYSCOHADA
+                    </label>
+                    <select id="syscohada-variant" disabled
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                        <option value="NORMAL" ${data.syscohada_variant === 'NORMAL' ? 'selected' : ''}>Système Normal</option>
+                        <option value="SMT" ${data.syscohada_variant === 'SMT' ? 'selected' : ''}>Système Minimal de Trésorerie (SMT)</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Le SMT est réservé aux très petites entreprises (TPE).
+                    </p>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl">
+                    <h5 class="font-bold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-calendar-alt mr-2 text-info"></i>Exercice Fiscal
+                    </h5>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                Date de Début
+                            </label>
+                            <input type="date" id="fiscal-year-start" value="${data.fiscal_year_start || '2026-01-01'}" disabled
+                                class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                Date de Fin
+                            </label>
+                            <input type="date" id="fiscal-year-end" value="${data.fiscal_year_end || '2026-12-31'}" disabled
+                                class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                        </div>
                     </div>
                 </div>
-            </div>
+
+                ${canEdit ? `
+                <div class="flex justify-end pt-6 border-t" style="display: none;" id="accounting-save-container">
+                    <button type="submit" class="bg-success text-white font-bold px-8 py-3 rounded-xl hover:bg-success-dark transition-all shadow-lg">
+                        <i class="fas fa-save mr-2"></i>Enregistrer les Modifications
+                    </button>
+                </div>
+                ` : ''}
+            </form>
         </div>
     `;
 }
