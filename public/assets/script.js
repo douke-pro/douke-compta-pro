@@ -2868,37 +2868,279 @@ function generateAccountingSettingsHTML() {
  */
 function generateSubscriptionSettingsHTML() {
     const data = window.settingsData?.subscription || {};
+    const isAdmin = appState.user.profile === 'ADMIN';
+    
+    // Calcul des jours restants
+    const today = new Date();
+    const endDate = new Date(data.end_date || '2026-12-31');
+    const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
     
     return `
         <div class="space-y-6">
-            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-4">
-                <i class="fas fa-crown mr-2 text-warning"></i>
-                Abonnement
-            </h4>
+            ${!isAdmin ? `
+            <div class="bg-info/10 border-l-4 border-info p-4 rounded-xl">
+                <p class="text-sm text-info">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Vous consultez les informations d'abonnement en <strong>lecture seule</strong>. Seuls les Administrateurs peuvent les modifier.
+                </p>
+            </div>
+            ` : ''}
             
+            <div class="flex justify-between items-center mb-4">
+                <h4 class="text-xl font-black text-gray-900 dark:text-white">
+                    <i class="fas fa-crown mr-2 text-warning"></i>
+                    Abonnement
+                </h4>
+                
+                ${isAdmin ? `
+                <button onclick="window.handleEditSubscriptionSettings()" id="btn-edit-subscription"
+                    class="bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-primary-dark transition-all shadow-lg">
+                    <i class="fas fa-edit mr-2"></i>Modifier
+                </button>
+                ` : ''}
+            </div>
+            
+            <!-- Résumé visuel -->
             <div class="bg-gradient-to-r from-warning/10 to-primary/10 p-6 rounded-xl border-l-4 border-warning">
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
                     <div>
-                        <span class="text-sm text-gray-500">Plan :</span>
-                        <p class="font-bold text-lg">${data.plan_name || 'STANDARD'}</p>
+                        <div class="text-4xl font-black ${data.status === 'active' ? 'text-success' : 'text-danger'} mb-2">
+                            ${data.status === 'active' ? '✅' : '❌'}
+                        </div>
+                        <div class="text-sm text-gray-500">Statut</div>
+                        <div class="text-xl font-black ${data.status === 'active' ? 'text-success' : 'text-danger'}">
+                            ${data.status === 'active' ? 'Actif' : data.status === 'suspended' ? 'Suspendu' : 'Expiré'}
+                        </div>
                     </div>
                     <div>
-                        <span class="text-sm text-gray-500">Statut :</span>
-                        <p class="font-bold text-lg text-success">${data.status || 'active'}</p>
+                        <div class="text-4xl font-black text-primary mb-2">${daysRemaining}</div>
+                        <div class="text-sm text-gray-500">Jours Restants</div>
+                        <div class="text-xl font-black text-primary">Jusqu'au ${endDate.toLocaleDateString('fr-FR')}</div>
                     </div>
                     <div>
-                        <span class="text-sm text-gray-500">Début :</span>
-                        <p class="font-bold">${data.start_date || '2026-01-01'}</p>
-                    </div>
-                    <div>
-                        <span class="text-sm text-gray-500">Fin :</span>
-                        <p class="font-bold">${data.end_date || '2026-12-31'}</p>
+                        <div class="text-4xl font-black text-warning mb-2">👑</div>
+                        <div class="text-sm text-gray-500">Plan</div>
+                        <div class="text-xl font-black text-warning">${data.plan_name || 'STANDARD'}</div>
                     </div>
                 </div>
             </div>
+
+            <form id="subscription-settings-form" onsubmit="window.handleSaveSubscriptionSettings(event)" class="space-y-6">
+                <!-- Détails de l'abonnement -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Plan</label>
+                        <select id="subscription-plan" disabled
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                            <option value="STARTER" ${data.plan_name === 'STARTER' ? 'selected' : ''}>Starter</option>
+                            <option value="STANDARD" ${data.plan_name === 'STANDARD' ? 'selected' : ''}>Standard</option>
+                            <option value="PREMIUM" ${data.plan_name === 'PREMIUM' ? 'selected' : ''}>Premium</option>
+                            <option value="ENTERPRISE" ${data.plan_name === 'ENTERPRISE' ? 'selected' : ''}>Enterprise</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Statut</label>
+                        <select id="subscription-status" disabled
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                            <option value="active" ${data.status === 'active' ? 'selected' : ''}>✅ Actif</option>
+                            <option value="suspended" ${data.status === 'suspended' ? 'selected' : ''}>⏸️ Suspendu</option>
+                            <option value="expired" ${data.status === 'expired' ? 'selected' : ''}>❌ Expiré</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Date de Début</label>
+                        <input type="date" id="subscription-start" value="${data.start_date || '2026-01-01'}" disabled
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Date de Fin</label>
+                        <input type="date" id="subscription-end" value="${data.end_date || '2026-12-31'}" disabled
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                    </div>
+                </div>
+
+                ${isAdmin ? `
+                <!-- Actions Rapides (ADMIN uniquement) -->
+                <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl" style="display: none;" id="subscription-actions-container">
+                    <h5 class="font-bold text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-bolt mr-2 text-warning"></i>Actions Rapides
+                    </h5>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button type="button" onclick="window.extendSubscription(365)" 
+                            class="p-4 bg-success/10 border-2 border-success text-success font-bold rounded-xl hover:bg-success/20 transition-colors">
+                            <i class="fas fa-plus-circle mr-2"></i>Prolonger de 1 an
+                        </button>
+                        <button type="button" onclick="window.extendSubscription(30)" 
+                            class="p-4 bg-info/10 border-2 border-info text-info font-bold rounded-xl hover:bg-info/20 transition-colors">
+                            <i class="fas fa-calendar-plus mr-2"></i>Prolonger de 1 mois
+                        </button>
+                        <button type="button" onclick="window.suspendSubscription()" 
+                            class="p-4 bg-danger/10 border-2 border-danger text-danger font-bold rounded-xl hover:bg-danger/20 transition-colors">
+                            <i class="fas fa-pause-circle mr-2"></i>Suspendre
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-6 border-t" style="display: none;" id="subscription-save-container">
+                    <button type="submit" class="bg-success text-white font-bold px-8 py-3 rounded-xl hover:bg-success-dark transition-all shadow-lg">
+                        <i class="fas fa-save mr-2"></i>Enregistrer les Modifications
+                    </button>
+                </div>
+                ` : ''}
+            </form>
         </div>
     `;
 }
+
+// =============================================================================
+// 🆕 NOUVELLES FONCTIONS À AJOUTER APRÈS generateSubscriptionSettingsHTML()
+// (Ligne ~3020 dans ton script.js)
+// =============================================================================
+
+/**
+ * 🆕 Active le mode édition pour l'onglet Système Comptable
+ */
+window.handleEditAccountingSettings = function() {
+    // Activer les champs
+    document.getElementById('accounting-system').removeAttribute('disabled');
+    document.getElementById('syscohada-variant').removeAttribute('disabled');
+    document.getElementById('fiscal-year-start').removeAttribute('disabled');
+    document.getElementById('fiscal-year-end').removeAttribute('disabled');
+    
+    // Retirer bg-gray-100
+    document.querySelectorAll('#accounting-settings-form select, #accounting-settings-form input').forEach(el => {
+        el.classList.remove('bg-gray-100');
+    });
+    
+    // Afficher le bouton Enregistrer
+    document.getElementById('accounting-save-container').style.display = 'flex';
+    
+    // Changer le bouton Modifier en Annuler
+    document.getElementById('btn-edit-accounting').outerHTML = `
+        <button onclick="window.switchSettingsTab('accounting')" 
+            class="bg-gray-500 text-white font-bold px-6 py-3 rounded-xl hover:bg-gray-600 transition-all shadow-lg">
+            <i class="fas fa-times mr-2"></i>Annuler
+        </button>
+    `;
+};
+
+/**
+ * 🆕 Sauvegarde les paramètres comptables
+ */
+window.handleSaveAccountingSettings = async function(event) {
+    event.preventDefault();
+    
+    const companyId = appState.currentCompanyId;
+    const data = {
+        accounting_system: document.getElementById('accounting-system').value,
+        syscohada_variant: document.getElementById('syscohada-variant').value,
+        fiscal_year_start: document.getElementById('fiscal-year-start').value,
+        fiscal_year_end: document.getElementById('fiscal-year-end').value
+    };
+    
+    try {
+        NotificationManager.show('Enregistrement en cours...', 'info');
+        
+        await apiFetch(`settings/accounting/${companyId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        NotificationManager.show('Paramètres comptables enregistrés avec succès !', 'success');
+        
+        // Recharger l'onglet
+        await loadSettingsData();
+        window.switchSettingsTab('accounting');
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * 🆕 Active le mode édition pour l'onglet Abonnement
+ */
+window.handleEditSubscriptionSettings = function() {
+    // Activer les champs
+    document.getElementById('subscription-plan').removeAttribute('disabled');
+    document.getElementById('subscription-status').removeAttribute('disabled');
+    document.getElementById('subscription-start').removeAttribute('disabled');
+    document.getElementById('subscription-end').removeAttribute('disabled');
+    
+    // Retirer bg-gray-100
+    document.querySelectorAll('#subscription-settings-form select, #subscription-settings-form input').forEach(el => {
+        el.classList.remove('bg-gray-100');
+    });
+    
+    // Afficher les actions rapides et le bouton Enregistrer
+    document.getElementById('subscription-actions-container').style.display = 'block';
+    document.getElementById('subscription-save-container').style.display = 'flex';
+    
+    // Changer le bouton Modifier en Annuler
+    document.getElementById('btn-edit-subscription').outerHTML = `
+        <button onclick="window.switchSettingsTab('subscription')" 
+            class="bg-gray-500 text-white font-bold px-6 py-3 rounded-xl hover:bg-gray-600 transition-all shadow-lg">
+            <i class="fas fa-times mr-2"></i>Annuler
+        </button>
+    `;
+};
+
+/**
+ * 🆕 Prolonge l'abonnement de X jours
+ */
+window.extendSubscription = function(days) {
+    const endDateInput = document.getElementById('subscription-end');
+    const currentEndDate = new Date(endDateInput.value);
+    const newEndDate = new Date(currentEndDate);
+    newEndDate.setDate(newEndDate.getDate() + days);
+    
+    endDateInput.value = newEndDate.toISOString().split('T')[0];
+    
+    NotificationManager.show(`Abonnement prolongé de ${days} jours. N'oubliez pas d'enregistrer !`, 'info');
+};
+
+/**
+ * 🆕 Marque l'abonnement comme suspendu
+ */
+window.suspendSubscription = function() {
+    const statusSelect = document.getElementById('subscription-status');
+    statusSelect.value = 'suspended';
+    
+    NotificationManager.show('Abonnement marqué comme suspendu. Enregistrez pour appliquer.', 'warning');
+};
+
+/**
+ * 🆕 Sauvegarde les paramètres d'abonnement
+ */
+window.handleSaveSubscriptionSettings = async function(event) {
+    event.preventDefault();
+    
+    const companyId = appState.currentCompanyId;
+    const data = {
+        plan_name: document.getElementById('subscription-plan').value,
+        status: document.getElementById('subscription-status').value,
+        start_date: document.getElementById('subscription-start').value,
+        end_date: document.getElementById('subscription-end').value
+    };
+    
+    try {
+        NotificationManager.show('Enregistrement en cours...', 'info');
+        
+        await apiFetch(`settings/subscription/${companyId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        NotificationManager.show('Abonnement mis à jour avec succès !', 'success');
+        
+        // Recharger l'onglet
+        await loadSettingsData();
+        window.switchSettingsTab('subscription');
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
 
 /**
  * Sauvegarde les paramètres entreprise
