@@ -404,7 +404,7 @@ async function loadContentArea(contentId, title) {
 
         const companyFilter = `?companyId=${appState.currentCompanyId}`; 
 
-        if (!appState.currentCompanyId && contentId !== 'dashboard') {
+        if (!appState.currentCompanyId && contentId !== 'dashboard' && contentId !== 'settings') {
              contentArea.innerHTML = generateCompanySelectionPromptHTML();
              return;
         }
@@ -444,6 +444,10 @@ async function loadContentArea(contentId, title) {
                 content = generateLedgerBalanceSelectorHTML();
                 break;
 
+            case 'settings':
+                contentArea.innerHTML = generateSettingsHTML();
+                await loadSettingsData();
+                return;
             case 'admin-users':
             default:
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
@@ -2420,3 +2424,4 @@ document.addEventListener('DOMContentLoaded', () => {
     attachGlobalListeners();
     checkAuthAndRender();
 });
+
