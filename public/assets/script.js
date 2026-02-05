@@ -452,10 +452,13 @@ async function loadContentArea(contentId, title) {
           await loadSettingsData();
           return;
                 
-            case 'admin-users':
-            default:
-                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
-        }
+           case 'admin-users':
+              content = await generateAdminUsersHTML();
+              contentArea.innerHTML = content;
+              return;
+
+           default:
+                 content = generateDashboardWelcomeHTML(...);
         
         if (content) {
             contentArea.innerHTML = content;
