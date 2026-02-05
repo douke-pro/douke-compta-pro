@@ -141,7 +141,7 @@ exports.getUserById = async (req, res) => {
             uid: ADMIN_UID_INT,
             model: 'res.groups',
             method: 'search_read',
-            args: [[['users', 'in', [userId]]]],
+            args: [[['user_ids', 'in', [userId]]]],
             kwargs: {
                 fields: ['name'],
                 limit: 10
