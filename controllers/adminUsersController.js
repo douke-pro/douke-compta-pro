@@ -45,7 +45,7 @@ exports.getAllUsers = async (req, res) => {
                 uid: ADMIN_UID_INT,
                 model: 'res.groups',
                 method: 'search_read',
-                args: [[['users', 'in', [user.id]]]],
+                args: [[['user_ids', 'in', [user.id]]]],
                 kwargs: {
                     fields: ['name', 'category_id'],
                     limit: 10
