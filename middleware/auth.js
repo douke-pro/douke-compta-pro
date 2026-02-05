@@ -205,4 +205,13 @@ const restrictTo = (...roles) => {
     };
 };
 
-module.exports = { protect, checkCompanyAccess, checkWritePermission, restrictTo };
+// =============================================================================
+// EXPORT DE TOUS LES MIDDLEWARES
+// =============================================================================
+
+module.exports = {
+    protect,
+    checkCompanyAccess,
+    checkWritePermission,
+    restrictTo
+};
