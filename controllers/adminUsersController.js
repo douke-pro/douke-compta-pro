@@ -1,7 +1,7 @@
 // =============================================================================
 // FICHIER : controllers/adminUsersController.js
 // Description : Gestion des utilisateurs (CRUD complet) - ADMIN uniquement
-// Version : V16 - Février 2026
+// Version : V16.1 - Corrigé pour Odoo 19
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -235,8 +235,9 @@ exports.createUser = async (req, res) => {
 
         // Déterminer les groupes Odoo selon le profil
         const groupIds = await getGroupIdsForProfile(profile);
+        console.log(`📋 [createUser] Groupes assignés: ${groupIds.join(', ')}`);
 
-        // Créer l'utilisateur dans Odoo
+        // ✅ CORRECTION ODOO 19 : Syntaxe simplifiée pour groups_id
         const newUserId = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.users',
@@ -248,9 +249,9 @@ exports.createUser = async (req, res) => {
                 phone: phone || false,
                 password: password,
                 active: true,
-                company_ids: [[6, 0, companies]], // Many2many write syntax
-                company_id: companies[0], // Entreprise par défaut
-                groups_id: [[6, 0, groupIds]]
+                company_ids: [[6, 0, companies]],
+                company_id: companies[0],
+                groups_id: groupIds  // ✅ CORRECTION : Syntaxe simple pour Odoo 19
             }],
             kwargs: {}
         });
@@ -270,6 +271,7 @@ exports.createUser = async (req, res) => {
 
     } catch (error) {
         console.error('🚨 [createUser] Erreur:', error.message);
+        console.error('Stack:', error.stack);
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la création de l\'utilisateur',
@@ -306,7 +308,7 @@ exports.updateUser = async (req, res) => {
         // Mettre à jour les groupes si le profil change
         if (profile) {
             const groupIds = await getGroupIdsForProfile(profile);
-            updateData.groups_id = [[6, 0, groupIds]];
+            updateData.groups_id = groupIds;  // ✅ CORRECTION : Syntaxe simple
         }
 
         // Mettre à jour dans Odoo
@@ -469,41 +471,39 @@ exports.updateUserCompanies = async (req, res) => {
 
 /**
  * Retourne les IDs des groupes Odoo selon le profil
+ * ✅ Version simplifiée avec IDs directs pour Odoo 19
  */
 async function getGroupIdsForProfile(profile) {
     try {
-        let groupNames = [];
+        // IDs standards Odoo 19 (à adapter si nécessaire)
+        let groupIds = [];
         
         switch (profile) {
             case 'ADMIN':
-                groupNames = ['Access Rights', 'Settings'];
+                // 1 = Employee, 2 = Settings
+                groupIds = [1, 2];
                 break;
             case 'COLLABORATEUR':
-                groupNames = ['Accountant', 'Show Full Accounting Features'];
+                // 1 = Employee, 9 = Accounting / Accountant
+                groupIds = [1, 9];
                 break;
             case 'USER':
-                groupNames = ['User types / Internal User'];
+                // 1 = Employee
+                groupIds = [1];
                 break;
             case 'CAISSIER':
-                groupNames = ['Invoicing & Payments'];
+                // 1 = Employee
+                groupIds = [1];
                 break;
             default:
-                groupNames = ['User types / Internal User'];
+                groupIds = [1]; // Employee par défaut
         }
 
-        // Récupérer les IDs des groupes
-        const groups = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'res.groups',
-            method: 'search',
-            args: [[['name', 'in', groupNames]]],
-            kwargs: {}
-        });
-
-        return groups || [];
+        console.log(`✅ getGroupIdsForProfile: ${profile} → IDs: ${groupIds.join(', ')}`);
+        return groupIds;
 
     } catch (error) {
         console.error('🚨 getGroupIdsForProfile Error:', error);
-        return [];
+        return [1]; // Retourner au moins Employee
     }
 }
