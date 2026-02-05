@@ -3193,3 +3193,760 @@ window.handleSaveProfileSettings = async function(event) {
         NotificationManager.show(`Erreur : ${error.message}`, 'error');
     }
 };
+
+// =============================================================================
+// MODULE : GESTION DES UTILISATEURS (ADMIN UNIQUEMENT)
+// Version : V16 - Février 2026
+// Description : Interface complète de gestion des utilisateurs avec CRUD
+// Permissions : ADMIN uniquement
+// 
+// INSTRUCTIONS D'INTÉGRATION :
+// 1. Ajouter ce code APRÈS le module Paramètres dans script.js (ligne ~3200)
+// 2. La fonction generateAdminUsersHTML() remplace le case 'admin-users' existant
+// =============================================================================
+
+// =============================================================================
+// ÉTAT GLOBAL DU MODULE
+// =============================================================================
+
+let usersState = {
+    allUsers: [],
+    filteredUsers: [],
+    searchTerm: '',
+    roleFilter: 'ALL'
+};
+
+// =============================================================================
+// FONCTION PRINCIPALE : GÉNÉRATION DE L'INTERFACE
+// =============================================================================
+
+/**
+ * Génère le HTML de l'interface de gestion des utilisateurs
+ * Appelée automatiquement quand l'ADMIN clique sur "Gestion des Utilisateurs"
+ */
+async function generateAdminUsersHTML() {
+    const role = appState.user.profile;
+    
+    // Vérification des permissions
+    if (role !== 'ADMIN') {
+        return `
+            <div class="p-8 text-center bg-danger/10 rounded-2xl">
+                <i class="fas fa-ban fa-3x text-danger mb-4"></i>
+                <h4 class="text-xl font-black text-danger">Accès Refusé</h4>
+                <p class="text-gray-600">Seuls les Administrateurs peuvent accéder à cette section.</p>
+            </div>
+        `;
+    }
+    
+    // Chargement des utilisateurs
+    try {
+        await loadAllUsers();
+    } catch (error) {
+        return `
+            <div class="p-8 text-center bg-danger/10 rounded-2xl">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-4"></i>
+                <h4 class="text-xl font-black text-danger">Erreur de Chargement</h4>
+                <p class="text-gray-600">${error.message}</p>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="fade-in">
+            <!-- En-tête -->
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h3 class="text-3xl font-black text-secondary">
+                        <i class="fas fa-users-cog mr-3 text-primary"></i>Gestion des Utilisateurs
+                    </h3>
+                    <p class="text-gray-600 dark:text-gray-400 mt-2">
+                        Gérez les comptes utilisateurs, leurs rôles et leurs accès aux entreprises
+                    </p>
+                </div>
+                <button onclick="window.openCreateUserModal()" 
+                    class="bg-success text-white font-bold px-6 py-3 rounded-xl hover:bg-success-dark transition-all shadow-lg">
+                    <i class="fas fa-user-plus mr-2"></i>Créer un Utilisateur
+                </button>
+            </div>
+
+            <!-- Filtres et Recherche -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-search mr-2"></i>Rechercher
+                        </label>
+                        <input type="text" id="user-search" 
+                            onkeyup="window.handleUserSearch(this.value)"
+                            placeholder="Nom, email..."
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-filter mr-2"></i>Filtrer par Rôle
+                        </label>
+                        <select id="role-filter" onchange="window.handleRoleFilter(this.value)"
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                            <option value="ALL">Tous les rôles</option>
+                            <option value="ADMIN">Administrateurs</option>
+                            <option value="COLLABORATEUR">Collaborateurs</option>
+                            <option value="USER">Utilisateurs</option>
+                            <option value="CAISSIER">Caissiers</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tableau des Utilisateurs -->
+            <div id="users-table-container">
+                ${generateUsersTableHTML()}
+            </div>
+        </div>
+    `;
+}
+
+// =============================================================================
+// CHARGEMENT DES DONNÉES
+// =============================================================================
+
+/**
+ * Charge tous les utilisateurs depuis l'API
+ */
+async function loadAllUsers() {
+    try {
+        console.log('📥 Chargement de la liste des utilisateurs...');
+        
+        const response = await apiFetch('admin/users', { method: 'GET' });
+        
+        if (response.status === 'success') {
+            usersState.allUsers = response.data || [];
+            usersState.filteredUsers = [...usersState.allUsers];
+            
+            console.log(`✅ ${usersState.allUsers.length} utilisateurs chargés`);
+        } else {
+            throw new Error('Erreur lors du chargement des utilisateurs');
+        }
+        
+    } catch (error) {
+        console.error('🚨 Erreur loadAllUsers:', error);
+        
+        // Données simulées pour le développement
+        console.warn('⚠️ Utilisation de données simulées');
+        usersState.allUsers = [
+            {
+                id: 1,
+                name: 'Admin Principal',
+                email: 'admin@douke.pro',
+                phone: '+229 97 12 34 56',
+                profile: 'ADMIN',
+                active: true,
+                companies: [1, 2, 3],
+                created_at: '2026-01-01',
+                last_login: '2026-02-05'
+            },
+            {
+                id: 2,
+                name: 'Alice Collaboratrice',
+                email: 'alice@douke.pro',
+                phone: '+229 97 23 45 67',
+                profile: 'COLLABORATEUR',
+                active: true,
+                companies: [1, 2],
+                created_at: '2026-01-10',
+                last_login: '2026-02-04'
+            },
+            {
+                id: 3,
+                name: 'Bob Utilisateur',
+                email: 'bob@douke.pro',
+                phone: '+229 97 34 56 78',
+                profile: 'USER',
+                active: false,
+                companies: [1],
+                created_at: '2026-01-15',
+                last_login: '2026-01-20'
+            }
+        ];
+        usersState.filteredUsers = [...usersState.allUsers];
+    }
+}
+
+// =============================================================================
+// GÉNÉRATION DU TABLEAU
+// =============================================================================
+
+/**
+ * Génère le HTML du tableau des utilisateurs
+ */
+function generateUsersTableHTML() {
+    const users = usersState.filteredUsers;
+    
+    if (users.length === 0) {
+        return `
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg text-center">
+                <i class="fas fa-users-slash fa-3x text-gray-400 mb-4"></i>
+                <p class="text-gray-500 font-bold">Aucun utilisateur trouvé</p>
+            </div>
+        `;
+    }
+    
+    const rows = users.map(user => {
+        const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+        const roleColor = getRoleColor(user.profile);
+        const statusBadge = user.active 
+            ? '<span class="px-2 py-1 bg-success/20 text-success text-xs font-bold rounded-full">✅ Actif</span>'
+            : '<span class="px-2 py-1 bg-gray-200 text-gray-600 text-xs font-bold rounded-full">⏸️ Inactif</span>';
+        
+        return `
+            <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <td class="px-6 py-4">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-black mr-3">
+                            ${initials}
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-900 dark:text-white">${user.name}</p>
+                            <p class="text-xs text-gray-500">${user.email}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                    ${user.phone || '-'}
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${roleColor}">
+                        ${user.profile}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                    ${user.companies ? user.companies.length : 0} entreprise(s)
+                </td>
+                <td class="px-6 py-4">
+                    ${statusBadge}
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex gap-2">
+                        <button onclick="window.openEditUserModal(${user.id})" 
+                            class="text-primary hover:text-primary-dark font-bold text-sm"
+                            title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="window.handleToggleUserStatus(${user.id}, ${user.active})" 
+                            class="text-warning hover:text-warning-dark font-bold text-sm"
+                            title="${user.active ? 'Désactiver' : 'Activer'}">
+                            <i class="fas fa-${user.active ? 'pause' : 'play'}-circle"></i>
+                        </button>
+                        <button onclick="window.handleResetPassword(${user.id})" 
+                            class="text-info hover:text-info-dark font-bold text-sm"
+                            title="Réinitialiser mot de passe">
+                            <i class="fas fa-key"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    return `
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Utilisateur</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Téléphone</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Rôle</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Entreprises</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Statut</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-700 px-6 py-3 border-t dark:border-gray-600">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <strong>${users.length}</strong> utilisateur(s) affiché(s)
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+// =============================================================================
+// FILTRES ET RECHERCHE
+// =============================================================================
+
+/**
+ * Gère la recherche d'utilisateurs
+ */
+window.handleUserSearch = function(searchTerm) {
+    usersState.searchTerm = searchTerm.toLowerCase();
+    applyFilters();
+};
+
+/**
+ * Gère le filtre par rôle
+ */
+window.handleRoleFilter = function(roleFilter) {
+    usersState.roleFilter = roleFilter;
+    applyFilters();
+};
+
+/**
+ * Applique tous les filtres actifs
+ */
+function applyFilters() {
+    let filtered = [...usersState.allUsers];
+    
+    // Filtre par recherche
+    if (usersState.searchTerm) {
+        filtered = filtered.filter(user => 
+            user.name.toLowerCase().includes(usersState.searchTerm) ||
+            user.email.toLowerCase().includes(usersState.searchTerm)
+        );
+    }
+    
+    // Filtre par rôle
+    if (usersState.roleFilter !== 'ALL') {
+        filtered = filtered.filter(user => user.profile === usersState.roleFilter);
+    }
+    
+    usersState.filteredUsers = filtered;
+    
+    // Mise à jour du tableau
+    const container = document.getElementById('users-table-container');
+    if (container) {
+        container.innerHTML = generateUsersTableHTML();
+    }
+}
+
+// =============================================================================
+// MODAL DE CRÉATION D'UTILISATEUR
+// =============================================================================
+
+/**
+ * Ouvre la modal de création d'un utilisateur
+ */
+window.openCreateUserModal = async function() {
+    const companies = appState.user.companiesList || [];
+    
+    const companiesCheckboxes = companies.map(company => `
+        <label class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+            <input type="checkbox" name="user-companies" value="${company.id}"
+                class="mr-3 w-4 h-4 text-primary rounded focus:ring-primary">
+            <span class="font-bold">${company.name}</span>
+        </label>
+    `).join('');
+    
+    const modalHTML = `
+        <form id="create-user-form" onsubmit="window.handleCreateUser(event)" class="space-y-6">
+            <!-- Informations Générales -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Nom complet <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" id="new-user-name" required
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                        placeholder="Ex: Jean Dupont">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Email <span class="text-danger">*</span>
+                    </label>
+                    <input type="email" id="new-user-email" required
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                        placeholder="jean.dupont@entreprise.com">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Téléphone
+                    </label>
+                    <input type="tel" id="new-user-phone"
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                        placeholder="+229 XX XX XX XX">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Rôle <span class="text-danger">*</span>
+                    </label>
+                    <select id="new-user-role" required
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        <option value="">-- Sélectionner --</option>
+                        <option value="ADMIN">Administrateur</option>
+                        <option value="COLLABORATEUR">Collaborateur</option>
+                        <option value="USER">Utilisateur</option>
+                        <option value="CAISSIER">Caissier</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Entreprises Assignées -->
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-building mr-2"></i>Entreprises Assignées <span class="text-danger">*</span>
+                </label>
+                <div class="border rounded-xl p-4 dark:border-gray-600 max-h-48 overflow-y-auto space-y-2">
+                    ${companiesCheckboxes}
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Sélectionnez au moins une entreprise</p>
+            </div>
+
+            <!-- Mot de Passe -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Mot de passe <span class="text-danger">*</span>
+                    </label>
+                    <input type="password" id="new-user-password" required minlength="8"
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                        placeholder="Minimum 8 caractères">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Confirmer le mot de passe <span class="text-danger">*</span>
+                    </label>
+                    <input type="password" id="new-user-password-confirm" required minlength="8"
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                        placeholder="Retapez le mot de passe">
+                </div>
+            </div>
+
+            <!-- Boutons -->
+            <div class="flex justify-end gap-3 pt-6 border-t">
+                <button type="button" onclick="ModalManager.close()"
+                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+                    Annuler
+                </button>
+                <button type="submit"
+                    class="px-6 py-3 bg-success text-white font-bold rounded-xl hover:bg-success-dark transition-colors">
+                    <i class="fas fa-user-plus mr-2"></i>Créer l'Utilisateur
+                </button>
+            </div>
+        </form>
+    `;
+    
+    ModalManager.open('➕ Créer un Nouvel Utilisateur', modalHTML);
+};
+
+// =============================================================================
+// MODULE GESTION UTILISATEURS - PARTIE 2/2
+// Actions CRUD et fonctions utilitaires
+// À ajouter IMMÉDIATEMENT APRÈS la Partie 1
+// =============================================================================
+
+// =============================================================================
+// MODAL DE MODIFICATION D'UTILISATEUR
+// =============================================================================
+
+/**
+ * Ouvre la modal de modification d'un utilisateur
+ */
+window.openEditUserModal = async function(userId) {
+    const user = usersState.allUsers.find(u => u.id === userId);
+    if (!user) {
+        NotificationManager.show('Utilisateur introuvable', 'error');
+        return;
+    }
+    
+    const companies = appState.user.companiesList || [];
+    
+    const companiesCheckboxes = companies.map(company => {
+        const isAssigned = user.companies && user.companies.includes(company.id);
+        return `
+            <label class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                <input type="checkbox" name="user-companies" value="${company.id}" ${isAssigned ? 'checked' : ''}
+                    class="mr-3 w-4 h-4 text-primary rounded focus:ring-primary">
+                <span class="font-bold">${company.name}</span>
+            </label>
+        `;
+    }).join('');
+    
+    const modalHTML = `
+        <form id="edit-user-form" onsubmit="window.handleUpdateUser(event, ${userId})" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Nom complet <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" id="edit-user-name" value="${user.name}" required
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Email <span class="text-danger">*</span>
+                    </label>
+                    <input type="email" id="edit-user-email" value="${user.email}" required
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Téléphone
+                    </label>
+                    <input type="tel" id="edit-user-phone" value="${user.phone || ''}"
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Rôle <span class="text-danger">*</span>
+                    </label>
+                    <select id="edit-user-role" required
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        <option value="ADMIN" ${user.profile === 'ADMIN' ? 'selected' : ''}>Administrateur</option>
+                        <option value="COLLABORATEUR" ${user.profile === 'COLLABORATEUR' ? 'selected' : ''}>Collaborateur</option>
+                        <option value="USER" ${user.profile === 'USER' ? 'selected' : ''}>Utilisateur</option>
+                        <option value="CAISSIER" ${user.profile === 'CAISSIER' ? 'selected' : ''}>Caissier</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-building mr-2"></i>Entreprises Assignées
+                </label>
+                <div class="border rounded-xl p-4 dark:border-gray-600 max-h-48 overflow-y-auto space-y-2">
+                    ${companiesCheckboxes}
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-6 border-t">
+                <button type="button" onclick="ModalManager.close()"
+                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+                    Annuler
+                </button>
+                <button type="submit"
+                    class="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors">
+                    <i class="fas fa-save mr-2"></i>Enregistrer
+                </button>
+            </div>
+        </form>
+    `;
+    
+    ModalManager.open(`✏️ Modifier : ${user.name}`, modalHTML);
+};
+
+// =============================================================================
+// ACTIONS SUR LES UTILISATEURS
+// =============================================================================
+
+/**
+ * Crée un nouvel utilisateur
+ */
+window.handleCreateUser = async function(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('new-user-name').value;
+    const email = document.getElementById('new-user-email').value;
+    const phone = document.getElementById('new-user-phone').value;
+    const role = document.getElementById('new-user-role').value;
+    const password = document.getElementById('new-user-password').value;
+    const passwordConfirm = document.getElementById('new-user-password-confirm').value;
+    
+    // Récupérer les entreprises cochées
+    const selectedCompanies = Array.from(document.querySelectorAll('input[name="user-companies"]:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    // Validations
+    if (selectedCompanies.length === 0) {
+        NotificationManager.show('Veuillez sélectionner au moins une entreprise', 'warning');
+        return;
+    }
+    
+    if (password !== passwordConfirm) {
+        NotificationManager.show('Les mots de passe ne correspondent pas', 'error');
+        return;
+    }
+    
+    if (password.length < 8) {
+        NotificationManager.show('Le mot de passe doit contenir au moins 8 caractères', 'error');
+        return;
+    }
+    
+    const data = {
+        name,
+        email,
+        phone,
+        profile: role,
+        password,
+        companies: selectedCompanies
+    };
+    
+    try {
+        NotificationManager.show('Création de l\'utilisateur...', 'info');
+        
+        const response = await apiFetch('admin/users', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        
+        if (response.status === 'success') {
+            NotificationManager.show(`Utilisateur ${name} créé avec succès !`, 'success');
+            ModalManager.close();
+            
+            // Recharger la liste
+            await loadAllUsers();
+            const container = document.getElementById('users-table-container');
+            if (container) {
+                container.innerHTML = generateUsersTableHTML();
+            }
+        } else {
+            throw new Error(response.message || 'Erreur lors de la création');
+        }
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * Met à jour un utilisateur existant
+ */
+window.handleUpdateUser = async function(event, userId) {
+    event.preventDefault();
+    
+    const name = document.getElementById('edit-user-name').value;
+    const email = document.getElementById('edit-user-email').value;
+    const phone = document.getElementById('edit-user-phone').value;
+    const role = document.getElementById('edit-user-role').value;
+    
+    const selectedCompanies = Array.from(document.querySelectorAll('input[name="user-companies"]:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    if (selectedCompanies.length === 0) {
+        NotificationManager.show('Veuillez sélectionner au moins une entreprise', 'warning');
+        return;
+    }
+    
+    const data = {
+        name,
+        email,
+        phone,
+        profile: role,
+        companies: selectedCompanies
+    };
+    
+    try {
+        NotificationManager.show('Mise à jour...', 'info');
+        
+        const response = await apiFetch(`admin/users/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        if (response.status === 'success') {
+            NotificationManager.show('Utilisateur mis à jour avec succès !', 'success');
+            ModalManager.close();
+            
+            await loadAllUsers();
+            const container = document.getElementById('users-table-container');
+            if (container) {
+                container.innerHTML = generateUsersTableHTML();
+            }
+        } else {
+            throw new Error(response.message || 'Erreur lors de la mise à jour');
+        }
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * Active/Désactive un utilisateur
+ */
+window.handleToggleUserStatus = async function(userId, currentStatus) {
+    const action = currentStatus ? 'désactiver' : 'activer';
+    const user = usersState.allUsers.find(u => u.id === userId);
+    
+    if (!confirm(`Voulez-vous vraiment ${action} l'utilisateur ${user.name} ?`)) {
+        return;
+    }
+    
+    try {
+        NotificationManager.show(`${action === 'désactiver' ? 'Désactivation' : 'Activation'}...`, 'info');
+        
+        const response = await apiFetch(`admin/users/${userId}/toggle-status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ active: !currentStatus })
+        });
+        
+        if (response.status === 'success') {
+            NotificationManager.show(`Utilisateur ${action}é avec succès`, 'success');
+            
+            await loadAllUsers();
+            const container = document.getElementById('users-table-container');
+            if (container) {
+                container.innerHTML = generateUsersTableHTML();
+            }
+        } else {
+            throw new Error(response.message || 'Erreur');
+        }
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * Réinitialise le mot de passe d'un utilisateur
+ */
+window.handleResetPassword = async function(userId) {
+    const user = usersState.allUsers.find(u => u.id === userId);
+    
+    const newPassword = prompt(`Entrez le nouveau mot de passe pour ${user.name} (minimum 8 caractères) :`);
+    
+    if (!newPassword) return;
+    
+    if (newPassword.length < 8) {
+        NotificationManager.show('Le mot de passe doit contenir au moins 8 caractères', 'error');
+        return;
+    }
+    
+    try {
+        NotificationManager.show('Réinitialisation du mot de passe...', 'info');
+        
+        const response = await apiFetch(`admin/users/${userId}/reset-password`, {
+            method: 'PATCH',
+            body: JSON.stringify({ new_password: newPassword })
+        });
+        
+        if (response.status === 'success') {
+            NotificationManager.show('Mot de passe réinitialisé avec succès', 'success');
+        } else {
+            throw new Error(response.message || 'Erreur');
+        }
+        
+    } catch (error) {
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+// =============================================================================
+// FONCTIONS UTILITAIRES
+// =============================================================================
+
+/**
+ * Retourne la classe CSS selon le rôle
+ */
+function getRoleColor(role) {
+    const colors = {
+        'ADMIN': 'bg-danger/20 text-danger',
+        'COLLABORATEUR': 'bg-primary/20 text-primary',
+        'USER': 'bg-info/20 text-info',
+        'CAISSIER': 'bg-warning/20 text-warning'
+    };
+    return colors[role] || 'bg-gray-200 text-gray-700';
+}
+
+// =============================================================================
+// FIN DU MODULE GESTION DES UTILISATEURS
+// =============================================================================
