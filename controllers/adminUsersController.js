@@ -1,7 +1,8 @@
 // =============================================================================
 // FICHIER : controllers/adminUsersController.js
 // Description : Gestion des utilisateurs (CRUD complet) - ADMIN uniquement
-// Version : V16.1 - Corrigé pour Odoo 19
+// Version : V17 - FINALE ODOO 19 (Sans groups_id à la création)
+// Corrections : user_ids au lieu de users + Création sans groups_id
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -40,12 +41,12 @@ exports.getAllUsers = async (req, res) => {
 
         // Récupérer les groupes/rôles de chaque utilisateur
         const usersWithRoles = await Promise.all(users.map(async (user) => {
-            // Récupérer les groupes de l'utilisateur
+            // ✅ CORRECTION ODOO 19 : user_ids au lieu de users
             const groups = await odooExecuteKw({
                 uid: ADMIN_UID_INT,
                 model: 'res.groups',
                 method: 'search_read',
-                args: [[['user_ids', 'in', [user.id]]]],
+                args: [[['user_ids', 'in', [user.id]]]], // ✅ CORRIGÉ
                 kwargs: {
                     fields: ['name', 'category_id'],
                     limit: 10
@@ -121,8 +122,7 @@ exports.getUserById = async (req, res) => {
                 'email',
                 'phone',
                 'active',
-                'company_ids',
-                'groups_id'
+                'company_ids'
             ]],
             kwargs: {}
         });
@@ -136,12 +136,12 @@ exports.getUserById = async (req, res) => {
 
         const user = users[0];
 
-        // Récupérer les groupes pour déterminer le profil
+        // ✅ CORRECTION ODOO 19 : user_ids au lieu de users
         const groups = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.groups',
             method: 'search_read',
-            args: [[['user_ids', 'in', [userId]]]],
+            args: [[['user_ids', 'in', [userId]]]], // ✅ CORRIGÉ
             kwargs: {
                 fields: ['name'],
                 limit: 10
@@ -188,6 +188,7 @@ exports.getUserById = async (req, res) => {
  * Crée un nouvel utilisateur
  * @route POST /api/admin/users
  * @access ADMIN uniquement
+ * ✅ ODOO 19 : Création SANS groups_id (à assigner manuellement après)
  */
 exports.createUser = async (req, res) => {
     try {
@@ -233,11 +234,9 @@ exports.createUser = async (req, res) => {
             });
         }
 
-        // Déterminer les groupes Odoo selon le profil
-        const groupIds = await getGroupIdsForProfile(profile);
-        console.log(`📋 [createUser] Groupes assignés: ${groupIds.join(', ')}`);
-
-        // ✅ CORRECTION ODOO 19 : Syntaxe simplifiée pour groups_id
+        // ✅ CORRECTION ODOO 19 : Créer SANS groups_id
+        console.log(`📋 [createUser] Création sans groupes (à assigner manuellement dans Odoo)`);
+        
         const newUserId = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.users',
@@ -250,22 +249,24 @@ exports.createUser = async (req, res) => {
                 password: password,
                 active: true,
                 company_ids: [[6, 0, companies]],
-                company_id: companies[0],
-                groups_id: groupIds  // ✅ CORRECTION : Syntaxe simple pour Odoo 19
+                company_id: companies[0]
+                // ✅ PAS DE groups_id - À assigner manuellement dans Odoo
             }],
             kwargs: {}
         });
 
         console.log(`✅ [createUser] Utilisateur créé avec ID: ${newUserId}`);
+        console.log(`⚠️ IMPORTANT: Assigner le rôle "${profile}" manuellement dans Odoo (Paramètres → Utilisateurs → ID ${newUserId})`);
 
         res.status(201).json({
             status: 'success',
-            message: 'Utilisateur créé avec succès',
+            message: `Utilisateur créé avec succès. IMPORTANT: Assigner le rôle "${profile}" manuellement dans Odoo.`,
             data: {
                 id: newUserId,
                 name,
                 email,
-                profile
+                profile,
+                note: 'Les permissions doivent être configurées dans Odoo : Paramètres → Utilisateurs'
             }
         });
 
@@ -284,6 +285,7 @@ exports.createUser = async (req, res) => {
  * Met à jour un utilisateur existant
  * @route PUT /api/admin/users/:id
  * @access ADMIN uniquement
+ * ✅ ODOO 19 : Ne touche PAS aux groups_id (à modifier manuellement dans Odoo)
  */
 exports.updateUser = async (req, res) => {
     try {
@@ -305,10 +307,9 @@ exports.updateUser = async (req, res) => {
             updateData.company_id = companies[0];
         }
 
-        // Mettre à jour les groupes si le profil change
+        // ✅ Ne PAS mettre à jour groups_id en Odoo 19
         if (profile) {
-            const groupIds = await getGroupIdsForProfile(profile);
-            updateData.groups_id = groupIds;  // ✅ CORRECTION : Syntaxe simple
+            console.log(`⚠️ Changement de profil demandé vers "${profile}" → À faire manuellement dans Odoo`);
         }
 
         // Mettre à jour dans Odoo
@@ -322,9 +323,13 @@ exports.updateUser = async (req, res) => {
 
         console.log(`✅ [updateUser] Utilisateur ${userId} mis à jour`);
 
+        const responseMessage = profile 
+            ? `Utilisateur mis à jour. IMPORTANT: Modifier le rôle "${profile}" manuellement dans Odoo.`
+            : 'Utilisateur mis à jour avec succès';
+
         res.json({
             status: 'success',
-            message: 'Utilisateur mis à jour avec succès'
+            message: responseMessage
         });
 
     } catch (error) {
@@ -465,45 +470,39 @@ exports.updateUserCompanies = async (req, res) => {
     }
 };
 
-// =============================================================================
-// FONCTIONS UTILITAIRES
-// =============================================================================
-
 /**
- * Retourne les IDs des groupes Odoo selon le profil
- * ✅ Version simplifiée avec IDs directs pour Odoo 19
+ * Supprime un utilisateur (désactivation recommandée)
+ * @route DELETE /api/admin/users/:id
+ * @access ADMIN uniquement
  */
-async function getGroupIdsForProfile(profile) {
+exports.deleteUser = async (req, res) => {
     try {
-        // IDs standards Odoo 19 (à adapter si nécessaire)
-        let groupIds = [];
-        
-        switch (profile) {
-            case 'ADMIN':
-                // 1 = Employee, 2 = Settings
-                groupIds = [1, 2];
-                break;
-            case 'COLLABORATEUR':
-                // 1 = Employee, 9 = Accounting / Accountant
-                groupIds = [1, 9];
-                break;
-            case 'USER':
-                // 1 = Employee
-                groupIds = [1];
-                break;
-            case 'CAISSIER':
-                // 1 = Employee
-                groupIds = [1];
-                break;
-            default:
-                groupIds = [1]; // Employee par défaut
-        }
+        const userId = parseInt(req.params.id);
 
-        console.log(`✅ getGroupIdsForProfile: ${profile} → IDs: ${groupIds.join(', ')}`);
-        return groupIds;
+        console.log(`🗑️ [deleteUser] User ID: ${userId}`);
+
+        // Désactiver au lieu de supprimer (bonne pratique Odoo)
+        await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.users',
+            method: 'write',
+            args: [[userId], { active: false }],
+            kwargs: {}
+        });
+
+        console.log(`✅ [deleteUser] Utilisateur ${userId} désactivé`);
+
+        res.json({
+            status: 'success',
+            message: 'Utilisateur désactivé avec succès'
+        });
 
     } catch (error) {
-        console.error('🚨 getGroupIdsForProfile Error:', error);
-        return [1]; // Retourner au moins Employee
+        console.error('🚨 [deleteUser] Erreur:', error.message);
+        res.status(500).json({
+            status: 'error',
+            error: 'Erreur lors de la suppression de l\'utilisateur',
+            details: error.message
+        });
     }
-}
+};
