@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : server.js (VERSION V16 - FINALE CORRIGÉE)
+// FICHIER : server.js (VERSION V16 - AVEC ROUTE ADMIN)
 // Description : Serveur Express avec toutes les routes montées AVANT le fallback
 // =============================================================================
 
@@ -15,7 +15,8 @@ const authRoutes = require('./routes/auth');
 const companyRoutes = require('./routes/company'); 
 const accountingRoutes = require('./routes/accounting');
 const userRoutes = require('./routes/user');
-const settingsRoutes = require('./routes/settings'); // ✅ DÉPLACÉ ICI
+const settingsRoutes = require('./routes/settings');
+const adminUsersRoutes = require('./routes/adminUsers'); // ✅ AJOUTÉ
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,8 +51,11 @@ console.log('✅ Route /api/accounting montée');
 app.use('/api/user', userRoutes);
 console.log('✅ Route /api/user montée');
 
-app.use('/api/settings', settingsRoutes); // ✅ DÉPLACÉ ICI (AVANT LE FALLBACK)
+app.use('/api/settings', settingsRoutes);
 console.log('✅ Route /api/settings montée');
+
+app.use('/api/admin', adminUsersRoutes); // ✅ AJOUTÉ
+console.log('✅ Route /api/admin montée');
 
 console.log('✅ Toutes les routes montées avec succès');
 
@@ -62,7 +66,7 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK',
         timestamp: new Date().toISOString(),
-        routes: ['auth', 'companies', 'accounting', 'user', 'settings']
+        routes: ['auth', 'companies', 'accounting', 'user', 'settings', 'admin'] // ✅ AJOUTÉ
     });
 });
 
@@ -86,7 +90,8 @@ app.use((req, res) => {
                 '/api/companies',
                 '/api/accounting',
                 '/api/user',
-                '/api/settings'
+                '/api/settings',
+                '/api/admin' // ✅ AJOUTÉ
             ]
         });
     }
