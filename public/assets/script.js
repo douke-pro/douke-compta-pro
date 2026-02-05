@@ -441,24 +441,27 @@ async function loadContentArea(contentId, title) {
                 window.initializeManualEntryLogic(); 
                 return;
 
-            // 🔧 V14 CORRECTION: Nouveau case 'ledger' avec sélecteur
             case 'ledger':
                 content = generateLedgerBalanceSelectorHTML();
                 break;
 
-           case 'settings':
-          content = generateSettingsHTML();
-          contentArea.innerHTML = content;
-          await loadSettingsData();
-          return;
+            case 'settings':
+                content = generateSettingsHTML();
+                contentArea.innerHTML = content;
+                await loadSettingsData();
+                return;
                 
-           case 'admin-users':
-              content = await generateAdminUsersHTML();
-              contentArea.innerHTML = content;
-              return;
-
-           default:
-                 content = generateDashboardWelcomeHTML(...);
+            case 'admin-users':
+                content = await generateAdminUsersHTML();
+                contentArea.innerHTML = content;
+                return;
+            
+            // ✅ CORRECTION #1 : Ajouter "default:" qui manquait
+            default:
+                content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
+        }
+        
+        // ✅ CORRECTION #2 : Ajouter l'accolade fermante du switch qui manquait
         
         if (content) {
             contentArea.innerHTML = content;
@@ -468,7 +471,6 @@ async function loadContentArea(contentId, title) {
         contentArea.innerHTML = `<div class="p-8 text-center text-danger"><i class="fas fa-exclamation-triangle fa-2x mb-3"></i><p class="font-bold">Erreur de chargement des données pour ${title}.</p><p class="text-sm">${error.message}</p></div>`;
     }
 }
-
 // =================================================================
 // DASHBOARD ET KPIS
 // =================================================================
