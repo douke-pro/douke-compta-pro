@@ -40,14 +40,14 @@ exports.getAllUsers = async (req, res) => {
 
         // Récupérer les groupes/rôles de chaque utilisateur
         const usersWithRoles = await Promise.all(users.map(async (user) => {
-            // ✅ DOUBLE CORRECTION ODOO 19 : user_ids ET categ_id
+            // ✅ CORRECTION : category_id au lieu de categ_id
             const groups = await odooExecuteKw({
                 uid: ADMIN_UID_INT,
                 model: 'res.groups',
                 method: 'search_read',
-                args: [[['user_ids', 'in', [user.id]]]], // ✅ user_ids
+                args: [[['user_ids', 'in', [user.id]]]],
                 kwargs: {
-                    fields: ['name', 'categ_id'], // ✅ categ_id (pas category_id)
+                    fields: ['name', 'category_id'],  // ✅ CORRECT
                     limit: 10
                 }
             });
@@ -98,7 +98,6 @@ exports.getAllUsers = async (req, res) => {
         });
     }
 };
-
 /**
  * Récupère les détails d'un utilisateur spécifique
  * @route GET /api/admin/users/:id
