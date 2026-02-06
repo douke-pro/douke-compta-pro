@@ -165,11 +165,16 @@ exports.getFinancialReport = async (req, res) => {
  * @route GET /api/accounting/dashboard/kpis?companyId=X
  * @access Private
  */
+/**
+ * Récupère les KPI du tableau de bord
+ * @route GET /api/accounting/dashboard/kpis?companyId=X
+ * @access Private
+ */
 exports.getDashboardData = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
         
-        console.log(`📈 [getDashboardData] Company ID: ${companyId}`);  // ✅ CORRIGÉ
+        console.log(`📈 [getDashboardData] Company ID: ${companyId}`);
 
         if (!companyId || !ADMIN_UID_INT) {
             return res.status(400).json({ 
@@ -178,8 +183,8 @@ exports.getDashboardData = async (req, res) => {
             });
         }
 
-        // ✅ MÉTHODE OPTIMISÉE : Récupérer directement les comptes avec leurs soldes
-        console.log('🔍 Récupération des comptes et calcul des KPIs...');
+        // 1️⃣ RÉCUPÉRATION DES COMPTES POUR LES KPIs
+        console.log('🔍 Récupération des comptes...');
         
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID_INT,
@@ -197,11 +202,11 @@ exports.getDashboardData = async (req, res) => {
 
         console.log(`✅ ${accounts.length} comptes récupérés`);
 
-        // Calcul des KPIs
-        let cashBalance = 0;      // Trésorerie (5xxx)
-        let totalIncome = 0;      // Produits (7xxx)
-        let totalExpenses = 0;    // Charges (6xxx)
-        let shortTermDebt = 0;    // Dettes (4xxx)
+        // 2️⃣ CALCUL DES KPIs
+        let cashBalance = 0;
+        let totalIncome = 0;
+        let totalExpenses = 0;
+        let shortTermDebt = 0;
 
         accounts.forEach(account => {
             const code = account.code || '';
@@ -226,17 +231,29 @@ exports.getDashboardData = async (req, res) => {
         console.log(`💳 Dettes CT: ${shortTermDebt.toFixed(2)} XOF`);
         console.log(`📈 Marge: ${grossMargin.toFixed(2)} %`);
 
-        // Récupération des dernières écritures
-        const recentMoves = await odooExecuteKw({
+        // 3️⃣ ✅ CORRECTION : RÉCUPÉRATION DES LIGNES AVEC DÉTAILS
+        console.log('🔍 Récupération des écritures récentes...');
+        
+        const recentLines = await odooExecuteKw({
             uid: ADMIN_UID_INT,
-            model: 'account.move',
+            model: 'account.move.line',
             method: 'search_read',
             args: [[
                 ['company_id', '=', companyId],
-                ['state', '=', 'posted']
+                ['parent_state', '=', 'posted'],
+                ['display_type', '=', false]  // ✅ Exclure les lignes de section
             ]],
             kwargs: { 
-                fields: ['id', 'name', 'date', 'ref', 'amount_total'],
+                fields: [
+                    'id',
+                    'date',
+                    'name',
+                    'ref',
+                    'move_id',
+                    'journal_id',
+                    'debit',
+                    'credit'
+                ],
                 order: 'date DESC, id DESC',
                 limit: 6,
                 context: { 
@@ -246,21 +263,24 @@ exports.getDashboardData = async (req, res) => {
             }
         });
 
-        const recentEntries = recentMoves.map(move => {
-            const amount = Math.abs(move.amount_total || 0);
+        console.log(`✅ ${recentLines.length} lignes récupérées`);
+
+        // 4️⃣ ✅ FORMATAGE CORRECT AVEC JOURNAL ET DÉBIT/CRÉDIT
+        const recentEntries = recentLines.map(line => {
             return {
-                id: move.id,
-                date: move.date,
-                libelle: move.ref || move.name || `Écriture #${move.id}`,
-                debit: amount > 0 ? amount : 0,
-                credit: amount < 0 ? amount : 0,
+                id: line.id,
+                date: line.date,
+                libelle: line.name || line.ref || `Ligne #${line.id}`,
+                journal: line.journal_id ? line.journal_id[1] : 'N/A',  // ✅ CORRECTION
+                debit: line.debit || 0,   // ✅ CORRECTION : valeur directe
+                credit: line.credit || 0, // ✅ CORRECTION : valeur directe
                 status: 'Validé'
             };
         });
 
-        console.log(`✅ Dashboard: ${accounts.length} comptes analysés, ${recentEntries.length} écritures récentes`);  // ✅ CORRIGÉ
+        console.log(`✅ Dashboard: ${accounts.length} comptes analysés, ${recentEntries.length} écritures récentes`);
 
-        // ✅ FORMAT ATTENDU PAR LE FRONTEND
+        // 5️⃣ RÉPONSE FINALE
         const data = {
             cashBalance: Math.round(cashBalance),
             netProfit: Math.round(netProfit),
@@ -295,8 +315,8 @@ exports.getDashboardData = async (req, res) => {
                 debtTrend: null,
                 marginTrend: null,
                 recentEntries: [
-                    { id: 1, date: '2026-02-05', libelle: 'Vente produits', debit: 150000, credit: 0, status: 'Validé' },
-                    { id: 2, date: '2026-02-04', libelle: 'Achat fournitures', debit: 0, credit: 50000, status: 'Validé' }
+                    { id: 1, date: '2026-02-05', libelle: 'Vente produits', journal: 'VTE', debit: 150000, credit: 0, status: 'Validé' },
+                    { id: 2, date: '2026-02-04', libelle: 'Achat fournitures', journal: 'ACH', debit: 0, credit: 50000, status: 'Validé' }
                 ]
             }
         });
