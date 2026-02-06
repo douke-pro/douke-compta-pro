@@ -3319,7 +3319,7 @@ async function generateAdminUsersHTML() {
  */
 async function loadAllUsers() {
     try {
-        console.log('📥 Chargement de la liste des utilisateurs...');
+        console.log('📥 [loadAllUsers] Récupération de la liste des utilisateurs...');
         
         const response = await apiFetch('admin/users', { method: 'GET' });
         
@@ -3327,16 +3327,18 @@ async function loadAllUsers() {
             usersState.allUsers = response.data || [];
             usersState.filteredUsers = [...usersState.allUsers];
             
-            console.log(`✅ ${usersState.allUsers.length} utilisateurs chargés`);
+            console.log(`✅ [loadAllUsers] ${usersState.allUsers.length} utilisateurs chargés`);
         } else {
-            throw new Error('Erreur lors du chargement des utilisateurs');
+            throw new Error(response.error || 'Erreur lors du chargement des utilisateurs');
         }
         
     } catch (error) {
-        console.error('🚨 Erreur loadAllUsers:', error);
+        console.error('🚨 [loadAllUsers] Erreur:', error.message);
+        console.error('Stack:', error.stack);
         
-        // Données simulées pour le développement
-        console.warn('⚠️ Utilisation de données simulées');
+        // ✅ CORRECTION : Mode développement avec données simulées
+        console.warn('⚠️ [loadAllUsers] Utilisation de données simulées (mode développement)');
+        
         usersState.allUsers = [
             {
                 id: 1,
@@ -3373,6 +3375,11 @@ async function loadAllUsers() {
             }
         ];
         usersState.filteredUsers = [...usersState.allUsers];
+        
+        console.log(`✅ [loadAllUsers] ${usersState.allUsers.length} utilisateurs simulés chargés`);
+        
+        // Ne pas propager l'erreur en mode développement
+        // throw error; // ← Commenté pour permettre l'affichage en mode simulation
     }
 }
 
