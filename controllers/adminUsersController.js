@@ -1,8 +1,7 @@
 // =============================================================================
 // FICHIER : controllers/adminUsersController.js
 // Description : Gestion des utilisateurs (CRUD complet) - ADMIN uniquement
-// Version : V17 - FINALE ODOO 19 (Sans groups_id à la création)
-// Corrections : user_ids au lieu de users + Création sans groups_id
+// Version : V18 - FINALE ODOO 19 (categ_id au lieu de category_id)
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -41,14 +40,14 @@ exports.getAllUsers = async (req, res) => {
 
         // Récupérer les groupes/rôles de chaque utilisateur
         const usersWithRoles = await Promise.all(users.map(async (user) => {
-            // ✅ CORRECTION ODOO 19 : user_ids au lieu de users
+            // ✅ DOUBLE CORRECTION ODOO 19 : user_ids ET categ_id
             const groups = await odooExecuteKw({
                 uid: ADMIN_UID_INT,
                 model: 'res.groups',
                 method: 'search_read',
-                args: [[['user_ids', 'in', [user.id]]]], // ✅ CORRIGÉ
+                args: [[['user_ids', 'in', [user.id]]]], // ✅ user_ids
                 kwargs: {
-                    fields: ['name', 'category_id'],
+                    fields: ['name', 'categ_id'], // ✅ categ_id (pas category_id)
                     limit: 10
                 }
             });
@@ -141,9 +140,9 @@ exports.getUserById = async (req, res) => {
             uid: ADMIN_UID_INT,
             model: 'res.groups',
             method: 'search_read',
-            args: [[['user_ids', 'in', [userId]]]], // ✅ CORRIGÉ
+            args: [[['user_ids', 'in', [userId]]]], // ✅ user_ids
             kwargs: {
-                fields: ['name'],
+                fields: ['name'], // Pas besoin de categ_id ici
                 limit: 10
             }
         });
