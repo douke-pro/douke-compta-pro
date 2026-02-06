@@ -1,9 +1,10 @@
 // =============================================================================
-// FICHIER : controllers/accountingController.js (VERSION V16 - FINALE ROBUSTE)
+// FICHIER : controllers/accountingController.js (VERSION V17 - DASHBOARD CORRIGÉ)
 // Description : Gestion Comptable SYSCOHADA Multi-Tenant Sécurisée
 // Architecture : UID Admin Unique + Isolation stricte par company_id
 // Auteur : Doukè Compta Pro Team
 // Date : Février 2026
+// Corrections V17 : getDashboardData avec récupération correcte des écritures
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService'); 
@@ -160,23 +161,26 @@ exports.getFinancialReport = async (req, res) => {
     }
 };
 
+// =============================================================================
+// ✅ FONCTION CORRIGÉE : TABLEAU DE BORD AVEC KPIs ET ÉCRITURES
+// =============================================================================
+
 /**
  * Récupère les KPI du tableau de bord
  * @route GET /api/accounting/dashboard/kpis?companyId=X
  * @access Private
- */
-/**
- * Récupère les KPI du tableau de bord
- * @route GET /api/accounting/dashboard/kpis?companyId=X
- * @access Private
+ * ✅ VERSION V17 : Corrigée pour afficher les écritures récentes
  */
 exports.getDashboardData = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
         
-        console.log(`📈 [getDashboardData] Company ID: ${companyId}`);
+        console.log('📈 [getDashboardData] DÉBUT');
+        console.log(`   Company ID: ${companyId}`);
+        console.log(`   User: ${req.user ? req.user.email : 'N/A'}`);
 
         if (!companyId || !ADMIN_UID_INT) {
+            console.error('❌ Paramètres manquants');
             return res.status(400).json({ 
                 status: 'error',
                 error: 'companyId requis.' 
@@ -226,59 +230,84 @@ exports.getDashboardData = async (req, res) => {
         const netProfit = totalIncome - totalExpenses;
         const grossMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100) : 0;
 
-        console.log(`💰 Trésorerie: ${cashBalance.toFixed(2)} XOF`);
-        console.log(`📊 Résultat Net: ${netProfit.toFixed(2)} XOF`);
-        console.log(`💳 Dettes CT: ${shortTermDebt.toFixed(2)} XOF`);
-        console.log(`📈 Marge: ${grossMargin.toFixed(2)} %`);
+        console.log('📊 KPIs calculés :');
+        console.log(`   💰 Trésorerie: ${cashBalance.toFixed(2)} XOF`);
+        console.log(`   📈 Résultat Net: ${netProfit.toFixed(2)} XOF`);
+        console.log(`   💳 Dettes CT: ${shortTermDebt.toFixed(2)} XOF`);
+        console.log(`   📊 Marge: ${grossMargin.toFixed(2)} %`);
 
-        // 3️⃣ ✅ CORRECTION : RÉCUPÉRATION DES LIGNES AVEC DÉTAILS
+        // 3️⃣ ✅ RÉCUPÉRATION DES ÉCRITURES RÉCENTES (CORRIGÉE)
         console.log('🔍 Récupération des écritures récentes...');
         
-        const recentLines = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.move.line',
-            method: 'search_read',
-            args: [[
-                ['company_id', '=', companyId],
-                ['parent_state', '=', 'posted'],
-                ['display_type', '=', false]  // ✅ Exclure les lignes de section
-            ]],
-            kwargs: { 
-                fields: [
-                    'id',
-                    'date',
-                    'name',
-                    'ref',
-                    'move_id',
-                    'journal_id',
-                    'debit',
-                    'credit'
-                ],
-                order: 'date DESC, id DESC',
-                limit: 6,
-                context: { 
-                    company_id: companyId, 
-                    allowed_company_ids: [companyId] 
-                } 
+        let recentLines = [];
+        
+        try {
+            recentLines = await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'account.move.line',
+                method: 'search_read',
+                args: [[
+                    ['company_id', '=', companyId],
+                    ['parent_state', '=', 'posted'],
+                    ['account_id', '!=', false],
+                    '|',
+                    ['debit', '>', 0],
+                    ['credit', '>', 0]
+                ]],
+                kwargs: { 
+                    fields: [
+                        'id',
+                        'date',
+                        'name',
+                        'ref',
+                        'move_id',
+                        'journal_id',
+                        'debit',
+                        'credit'
+                    ],
+                    order: 'date DESC, id DESC',
+                    limit: 6,
+                    context: { 
+                        company_id: companyId, 
+                        allowed_company_ids: [companyId] 
+                    } 
+                }
+            });
+            
+            console.log(`✅ ${recentLines.length} lignes récupérées`);
+            
+            if (recentLines.length > 0) {
+                console.log('📋 Exemple ligne:', {
+                    date: recentLines[0].date,
+                    name: recentLines[0].name,
+                    journal: recentLines[0].journal_id ? recentLines[0].journal_id[1] : 'N/A',
+                    debit: recentLines[0].debit,
+                    credit: recentLines[0].credit
+                });
+            } else {
+                console.warn('⚠️ Aucune ligne trouvée');
             }
-        });
+            
+        } catch (lineError) {
+            console.error('⚠️ Erreur récupération lignes:', lineError.message);
+            recentLines = [];
+        }
 
-        console.log(`✅ ${recentLines.length} lignes récupérées`);
-
-        // 4️⃣ ✅ FORMATAGE CORRECT AVEC JOURNAL ET DÉBIT/CRÉDIT
+        // 4️⃣ FORMATAGE DES ÉCRITURES
         const recentEntries = recentLines.map(line => {
             return {
                 id: line.id,
                 date: line.date,
                 libelle: line.name || line.ref || `Ligne #${line.id}`,
-                journal: line.journal_id ? line.journal_id[1] : 'N/A',  // ✅ CORRECTION
-                debit: line.debit || 0,   // ✅ CORRECTION : valeur directe
-                credit: line.credit || 0, // ✅ CORRECTION : valeur directe
+                journal: line.journal_id ? line.journal_id[1] : 'N/A',
+                debit: line.debit || 0,
+                credit: line.credit || 0,
                 status: 'Validé'
             };
         });
 
-        console.log(`✅ Dashboard: ${accounts.length} comptes analysés, ${recentEntries.length} écritures récentes`);
+        console.log(`✅ Dashboard: ${accounts.length} comptes, ${recentEntries.length} écritures`);
+        console.log('✅ [getDashboardData] FIN - SUCCÈS');
 
         // 5️⃣ RÉPONSE FINALE
         const data = {
@@ -299,25 +328,23 @@ exports.getDashboardData = async (req, res) => {
         });
 
     } catch (err) {
-        console.error('🚨 getDashboardData Error:', err.message);
+        console.error('🚨 [getDashboardData] ERREUR:', err.message);
         console.error('Stack:', err.stack);
         
-        // Fallback avec données simulées
-        res.status(200).json({ 
-            status: 'success',
+        // ⚠️ Fallback en cas d'erreur totale
+        res.status(500).json({ 
+            status: 'error',
+            error: err.message,
             data: {
-                cashBalance: 8500000,
-                netProfit: 1200000,
-                shortTermDebt: 350000,
-                grossMargin: 45,
+                cashBalance: 0,
+                netProfit: 0,
+                shortTermDebt: 0,
+                grossMargin: 0,
                 cashTrend: null,
                 profitTrend: null,
                 debtTrend: null,
                 marginTrend: null,
-                recentEntries: [
-                    { id: 1, date: '2026-02-05', libelle: 'Vente produits', journal: 'VTE', debit: 150000, credit: 0, status: 'Validé' },
-                    { id: 2, date: '2026-02-04', libelle: 'Achat fournitures', journal: 'ACH', debit: 0, credit: 50000, status: 'Validé' }
-                ]
+                recentEntries: []
             }
         });
     }
@@ -492,7 +519,7 @@ exports.createJournalEntry = async (req, res) => {
 
         console.log('='.repeat(70));
         console.log('📝 [createJournalEntry] DÉBUT');
-        console.log('   User:', req.user.email, `(${req.user.role})`);
+        console.log('   User:', req.user ? req.user.email : 'N/A', req.user ? `(${req.user.role})` : '');
         console.log('   Company ID:', companyId);
         console.log('   Journal:', journal_code);
         console.log('   Date:', date);
@@ -582,7 +609,7 @@ exports.createJournalEntry = async (req, res) => {
             'company_id': companyId,
             'journal_id': journalId,
             'date': date,
-            'ref': reference || `Écriture ${req.user.email}`,
+            'ref': reference || `Écriture ${req.user ? req.user.email : 'API'}`,
             'move_type': 'entry',
             'line_ids': lineIds
         };
@@ -786,12 +813,11 @@ exports.getJournalEntries = async (req, res) => {
 };
 
 // =============================================================================
-// 6. BALANCE SYSCOHADA 6 COLONNES (VERSION CORRIGÉE)
+// 6. BALANCE SYSCOHADA 6 COLONNES
 // =============================================================================
 
 /**
  * Balance SYSCOHADA 6 colonnes
- * Conforme au référentiel SYSCOHADA Révisé
  * @route GET /api/accounting/trial-balance-syscohada?companyId=X&date_from=Y&date_to=Z
  * @access Private
  */
@@ -811,7 +837,6 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             });
         }
 
-        // 1️⃣ Récupération de tous les comptes
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
@@ -825,7 +850,6 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
 
         console.log(`📋 ${accounts.length} comptes trouvés`);
 
-        // 2️⃣ Lignes d'ouverture (avant date_from)
         const openingLines = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move.line',
@@ -843,7 +867,6 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
 
         console.log(`📋 ${openingLines.length} lignes d'ouverture`);
 
-        // 3️⃣ Lignes de la période
         const periodLines = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move.line',
@@ -862,10 +885,8 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
 
         console.log(`📋 ${periodLines.length} lignes de période`);
 
-        // 4️⃣ Calcul des soldes par compte
         const accountsData = {};
 
-        // Initialisation
         accounts.forEach(account => {
             accountsData[account.id] = {
                 code: account.code,
@@ -878,7 +899,6 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             };
         });
 
-        // Soldes d'ouverture
         openingLines.forEach(line => {
             const accountId = line.account_id ? line.account_id[0] : null;
             if (!accountId || !accountsData[accountId]) return;
@@ -887,7 +907,6 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             accountsData[accountId].opening_credit += line.credit || 0;
         });
 
-        // Mouvements de la période
         periodLines.forEach(line => {
             const accountId = line.account_id ? line.account_id[0] : null;
             if (!accountId || !accountsData[accountId]) return;
@@ -896,7 +915,6 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             accountsData[accountId].credit += line.credit || 0;
         });
 
-        // 5️⃣ Filtrer les comptes ayant des mouvements
         const balanceAccounts = Object.values(accountsData)
             .filter(acc => 
                 acc.opening_debit > 0 || 
@@ -906,7 +924,6 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             )
             .sort((a, b) => a.code.localeCompare(b.code));
 
-        // 6️⃣ Calcul des totaux
         const totals = {
             opening_debit: 0,
             opening_credit: 0,
@@ -923,15 +940,11 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             totals.total_credit += acc.credit;
         });
 
-        // Calcul des soldes finaux
         const closingBalance = (totals.opening_debit + totals.total_debit) - (totals.opening_credit + totals.total_credit);
         totals.closing_debit = closingBalance > 0 ? closingBalance : 0;
         totals.closing_credit = closingBalance < 0 ? Math.abs(closingBalance) : 0;
 
         console.log(`✅ Balance générée: ${balanceAccounts.length} comptes`);
-        console.log(`   Soldes Ouverture: ${totals.opening_debit.toLocaleString()} D / ${totals.opening_credit.toLocaleString()} C`);
-        console.log(`   Mouvements: ${totals.total_debit.toLocaleString()} D / ${totals.total_credit.toLocaleString()} C`);
-        console.log(`   Soldes Clôture: ${totals.closing_debit.toLocaleString()} D / ${totals.closing_credit.toLocaleString()} C`);
 
         res.status(200).json({ 
             status: 'success',
@@ -945,7 +958,6 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
 
     } catch (error) {
         console.error('🚨 getSyscohadaTrialBalance Error:', error.message);
-        console.error('Stack:', error.stack);
         res.status(500).json({ 
             status: 'error',
             error: `Erreur génération balance : ${error.message}` 
@@ -954,11 +966,11 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
 };
 
 // =============================================================================
-// 7. GRAND LIVRE (VERSION CORRIGÉE)
+// 7. GRAND LIVRE
 // =============================================================================
 
 /**
- * Grand Livre avec code et type de compte
+ * Grand Livre
  * @route GET /api/accounting/general-ledger?companyId=X&date_from=Y&date_to=Z
  * @access Private
  */
@@ -970,7 +982,6 @@ exports.getGeneralLedger = async (req, res) => {
         console.log('📗 [getGeneralLedger]');
         console.log(`   Company: ${companyId}`);
         console.log(`   Période: ${date_from || 'Début'} → ${date_to || 'Fin'}`);
-        console.log(`   Journaux: ${journal_ids || 'Tous'}`);
 
         if (!companyId) {
             return res.status(400).json({ 
@@ -979,7 +990,6 @@ exports.getGeneralLedger = async (req, res) => {
             });
         }
 
-        // Construction du domaine
         let domain = [
             ['company_id', '=', companyId],
             ['parent_state', '=', 'posted']
@@ -998,7 +1008,6 @@ exports.getGeneralLedger = async (req, res) => {
             domain.push(['journal_id', 'in', journalIdsList]);
         }
 
-        // Récupération des lignes
         const lines = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move.line',
@@ -1024,7 +1033,6 @@ exports.getGeneralLedger = async (req, res) => {
 
         console.log(`📋 ${lines.length} lignes récupérées`);
 
-        // Récupération des informations des comptes
         const accountIds = [...new Set(lines.map(l => l.account_id ? l.account_id[0] : null).filter(Boolean))];
         
         const accountsInfo = await odooExecuteKw({
@@ -1044,7 +1052,6 @@ exports.getGeneralLedger = async (req, res) => {
             };
         });
 
-        // Récupération des noms des mouvements
         const moveIds = [...new Set(lines.map(l => l.move_id ? l.move_id[0] : null).filter(Boolean))];
         
         const movesInfo = await odooExecuteKw({
@@ -1060,7 +1067,6 @@ exports.getGeneralLedger = async (req, res) => {
             movesMap[move.id] = move.name;
         });
 
-        // Groupement par compte
         const ledger = {};
 
         lines.forEach(line => {
@@ -1113,7 +1119,6 @@ exports.getGeneralLedger = async (req, res) => {
 
     } catch (error) {
         console.error('🚨 getGeneralLedger Error:', error.message);
-        console.error('Stack:', error.stack);
         res.status(500).json({ 
             status: 'error',
             error: `Erreur génération Grand Livre : ${error.message}` 
@@ -1122,11 +1127,11 @@ exports.getGeneralLedger = async (req, res) => {
 };
 
 // =============================================================================
-// 8. DÉTAILS D'UNE ÉCRITURE COMPTABLE
+// 8. DÉTAILS D'UNE ÉCRITURE
 // =============================================================================
 
 /**
- * Récupère les détails complets d'une écriture avec ses lignes
+ * Détails d'une écriture
  * @route GET /api/accounting/entry/:id?companyId=X
  */
 exports.getEntryDetails = async (req, res) => {
@@ -1134,7 +1139,7 @@ exports.getEntryDetails = async (req, res) => {
         const { id } = req.params;
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
 
-        console.log(`📄 Récupération détails écriture ID=${id} pour company_id=${companyId}`);
+        console.log(`📄 Détails écriture ID=${id} pour company_id=${companyId}`);
 
         if (!id || !companyId) {
             return res.status(400).json({ 
@@ -1144,7 +1149,6 @@ exports.getEntryDetails = async (req, res) => {
 
         const moveId = parseInt(id);
 
-        // Vérification de sécurité
         const moveCheck = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
@@ -1158,13 +1162,11 @@ exports.getEntryDetails = async (req, res) => {
         });
 
         if (!moveCheck || moveCheck.length === 0) {
-            console.error(`🚨 TENTATIVE CROSS-COMPANY : Écriture ${moveId} n'appartient pas à company_id=${companyId}`);
             return res.status(403).json({ 
-                error: "Accès refusé. Cette écriture n'appartient pas à votre entreprise." 
+                error: "Accès refusé." 
             });
         }
 
-        // Récupération des informations principales
         const moveData = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
@@ -1192,8 +1194,6 @@ exports.getEntryDetails = async (req, res) => {
         }
 
         const move = moveData[0];
-
-        // Récupération des lignes
         const lineIds = move.line_ids || [];
         
         let lines = [];
@@ -1216,7 +1216,6 @@ exports.getEntryDetails = async (req, res) => {
             });
         }
 
-        // Formatage des lignes
         const formattedLines = lines.map(line => ({
             id: line.id,
             account_code: line.account_id ? line.account_id[1].split(' ')[0] : 'N/A',
@@ -1228,12 +1227,10 @@ exports.getEntryDetails = async (req, res) => {
             partner: line.partner_id ? line.partner_id[1] : null
         }));
 
-        // Calcul des totaux
         const totalDebit = formattedLines.reduce((sum, l) => sum + l.debit, 0);
         const totalCredit = formattedLines.reduce((sum, l) => sum + l.credit, 0);
 
-        // Réponse finale
-        const response = {
+        res.status(200).json({
             status: 'success',
             data: {
                 id: move.id,
@@ -1243,7 +1240,7 @@ exports.getEntryDetails = async (req, res) => {
                 journal: move.journal_id ? move.journal_id[1] : 'N/A',
                 journal_id: move.journal_id ? move.journal_id[0] : null,
                 state: move.state,
-                state_label: move.state === 'posted' ? 'Validé' : move.state === 'draft' ? 'Brouillon' : 'Autre',
+                state_label: move.state === 'posted' ? 'Validé' : 'Brouillon',
                 amount_total: move.amount_total || 0,
                 lines: formattedLines,
                 totals: {
@@ -1258,26 +1255,22 @@ exports.getEntryDetails = async (req, res) => {
                     updated_by: move.write_uid ? move.write_uid[1] : 'N/A'
                 }
             }
-        };
-
-        console.log(`✅ Écriture ${move.name} récupérée avec ${formattedLines.length} lignes`);
-
-        res.status(200).json(response);
+        });
 
     } catch (error) {
         console.error('🚨 getEntryDetails Error:', error.message);
         res.status(500).json({ 
-            error: `Erreur récupération détails : ${error.message}` 
+            error: `Erreur : ${error.message}` 
         });
     }
 };
 
 // =============================================================================
-// 9. OPÉRATION DE CAISSE (RECETTE/DÉPENSE)
+// 9. OPÉRATION DE CAISSE
 // =============================================================================
 
 /**
- * Enregistre une opération de caisse simplifiée
+ * Opération de caisse
  * @route POST /api/accounting/caisse-entry
  */
 exports.handleCaisseEntry = async (req, res) => {
@@ -1287,7 +1280,6 @@ exports.handleCaisseEntry = async (req, res) => {
 
         console.log('💰 Opération de caisse:', { type, contraAccountCode, libelle, amount, companyId });
 
-        // Validation
         if (!companyId || !type || !contraAccountCode || !libelle || !amount) {
             return res.status(400).json({ 
                 status: 'error',
@@ -1298,7 +1290,7 @@ exports.handleCaisseEntry = async (req, res) => {
         if (!['RECETTE', 'DEPENSE'].includes(type)) {
             return res.status(400).json({ 
                 status: 'error',
-                error: 'Type invalide. Doit être RECETTE ou DEPENSE.' 
+                error: 'Type invalide.' 
             });
         }
 
@@ -1309,7 +1301,6 @@ exports.handleCaisseEntry = async (req, res) => {
             });
         }
 
-        // Mapping compte contrepartie
         const contraAccountSearch = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
@@ -1331,7 +1322,6 @@ exports.handleCaisseEntry = async (req, res) => {
 
         const contraAccountId = contraAccountSearch[0].id;
 
-        // Compte de caisse
         const caisseAccountSearch = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
@@ -1353,7 +1343,6 @@ exports.handleCaisseEntry = async (req, res) => {
 
         const caisseAccountId = caisseAccountSearch[0].id;
 
-        // Journal de caisse
         const journalSearch = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.journal',
@@ -1375,7 +1364,6 @@ exports.handleCaisseEntry = async (req, res) => {
 
         const journalId = journalSearch[0].id;
 
-        // Construction des lignes
         let lineIds;
 
         if (type === 'RECETTE') {
@@ -1390,7 +1378,6 @@ exports.handleCaisseEntry = async (req, res) => {
             ];
         }
 
-        // Création
         const moveData = {
             company_id: companyId,
             journal_id: journalId,
@@ -1408,7 +1395,6 @@ exports.handleCaisseEntry = async (req, res) => {
             kwargs: { context: { allowed_company_ids: [companyId] } }
         });
 
-        // Validation
         await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
@@ -1417,7 +1403,6 @@ exports.handleCaisseEntry = async (req, res) => {
             kwargs: { context: { allowed_company_ids: [companyId] } }
         });
 
-        // Récupération du nom
         const moveRecord = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
@@ -1428,7 +1413,7 @@ exports.handleCaisseEntry = async (req, res) => {
 
         const moveName = moveRecord && moveRecord[0] ? moveRecord[0].name : `CAISSE-${moveId}`;
 
-        console.log(`✅ Opération caisse enregistrée : ${moveName}`);
+        console.log(`✅ Opération caisse : ${moveName}`);
 
         res.status(201).json({ 
             status: 'success', 
@@ -1443,7 +1428,7 @@ exports.handleCaisseEntry = async (req, res) => {
         console.error('🚨 handleCaisseEntry Error:', error.message);
         res.status(500).json({ 
             status: 'error', 
-            error: `Échec opération caisse : ${error.message}` 
+            error: `Échec : ${error.message}` 
         });
     }
 };
@@ -1453,7 +1438,7 @@ exports.handleCaisseEntry = async (req, res) => {
 // =============================================================================
 
 /**
- * Génère le bilan comptable SYSCOHADA
+ * Bilan SYSCOHADA
  * @route GET /api/accounting/balance-sheet?companyId=X&date=Y
  */
 exports.getBalanceSheet = async (req, res) => {
@@ -1461,7 +1446,7 @@ exports.getBalanceSheet = async (req, res) => {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
         const { date } = req.query;
 
-        console.log(`📊 Génération du Bilan pour company_id=${companyId}`);
+        console.log(`📊 Bilan pour company_id=${companyId}`);
 
         if (!companyId) {
             return res.status(400).json({ error: "companyId requis." });
@@ -1469,7 +1454,6 @@ exports.getBalanceSheet = async (req, res) => {
 
         const balanceDate = date || new Date().toISOString().split('T')[0];
 
-        // Récupération des comptes
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
@@ -1481,7 +1465,6 @@ exports.getBalanceSheet = async (req, res) => {
             }
         });
 
-        // Récupération des lignes
         const moveLines = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move.line',
@@ -1497,7 +1480,6 @@ exports.getBalanceSheet = async (req, res) => {
             }
         });
 
-        // Calcul des soldes
         const accountBalances = {};
 
         moveLines.forEach(line => {
@@ -1513,7 +1495,6 @@ exports.getBalanceSheet = async (req, res) => {
             accountBalances[accountId].balance += line.balance || 0;
         });
 
-        // Classification SYSCOHADA
         const bilan = {
             actif: {
                 immobilise: { label: 'ACTIF IMMOBILISÉ', accounts: [], total: 0 },
@@ -1562,7 +1543,7 @@ exports.getBalanceSheet = async (req, res) => {
         const totalActif = bilan.actif.immobilise.total + bilan.actif.circulant.total + bilan.actif.tresorerie.total;
         const totalPassif = bilan.passif.capitaux.total + bilan.passif.dettes.total + bilan.passif.tresorerie.total;
 
-        console.log(`✅ Bilan généré - Actif: ${totalActif.toLocaleString()} | Passif: ${totalPassif.toLocaleString()}`);
+        console.log(`✅ Bilan généré`);
 
         res.status(200).json({ 
             status: 'success',
@@ -1581,7 +1562,7 @@ exports.getBalanceSheet = async (req, res) => {
     } catch (error) {
         console.error('🚨 getBalanceSheet Error:', error.message);
         res.status(500).json({ 
-            error: `Erreur génération bilan : ${error.message}` 
+            error: `Erreur : ${error.message}` 
         });
     }
 };
