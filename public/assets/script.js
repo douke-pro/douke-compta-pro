@@ -198,9 +198,106 @@ async function handleLogin(event) {
     }
 }
 
+/**
+ * Gère la soumission du formulaire d'inscription
+ * ✅ VERSION FONCTIONNELLE COMPLÈTE
+ */
 async function handleRegister(event) {
     event.preventDefault();
-    NotificationManager.show('Fonction d\'inscription en cours de finalisation.', 'info');
+    
+    console.log('📝 [handleRegister] Début inscription');
+    
+    // Récupération des valeurs du formulaire
+    const name = document.getElementById('reg-name')?.value.trim();
+    const email = document.getElementById('reg-email')?.value.trim();
+    const password = document.getElementById('reg-password')?.value;
+    const companyName = document.getElementById('reg-company')?.value.trim();
+    
+    console.log('📋 Données:', { name, email, companyName, passwordLength: password?.length });
+    
+    // ✅ VALIDATION CÔTÉ CLIENT
+    if (!name || !email || !password || !companyName) {
+        console.error('❌ Champs manquants');
+        NotificationManager.show('Tous les champs sont requis', 'error');
+        return;
+    }
+    
+    if (password.length < 8) {
+        console.error('❌ Mot de passe trop court');
+        NotificationManager.show('Le mot de passe doit contenir au moins 8 caractères', 'error');
+        return;
+    }
+    
+    // Validation email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        console.error('❌ Email invalide');
+        NotificationManager.show('Format d\'email invalide', 'error');
+        return;
+    }
+    
+    // ✅ DÉSACTIVATION DU BOUTON ET AFFICHAGE LOADER
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    const originalButtonHTML = submitButton.innerHTML;
+    
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-3"></i> CRÉATION EN COURS...';
+    
+    try {
+        console.log('🚀 Appel API /auth/register...');
+        
+        // ✅ APPEL API D'INSCRIPTION
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name,
+                email,
+                password,
+                companyName
+            }),
+        });
+        
+        const data = await response.json();
+        console.log('📦 Réponse API:', data);
+        
+        // ✅ GESTION DES ERREURS
+        if (!response.ok) {
+            throw new Error(data.error || 'Erreur lors de la création du compte');
+        }
+        
+        // ✅ SUCCÈS : Afficher notification
+        console.log('✅ Inscription réussie');
+        NotificationManager.show(
+            data.message || '🎉 Instance créée avec succès ! Connexion automatique...', 
+            'success'
+        );
+        
+        // ✅ SAUVEGARDER LE TOKEN ET LES DONNÉES
+        if (data.data && data.data.token) {
+            localStorage.setItem('token', data.data.token);
+            localStorage.setItem('userData', JSON.stringify(data.data));
+            console.log('💾 Token et données sauvegardés');
+        }
+        
+        // ✅ REDIRECTION VERS LE DASHBOARD
+        console.log('🔄 Redirection vers le dashboard...');
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+        
+    } catch (error) {
+        console.error('🚨 Erreur inscription:', error);
+        
+        // Afficher l'erreur à l'utilisateur
+        NotificationManager.show(error.message, 'error');
+        
+        // Réactiver le bouton
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonHTML;
+    }
 }
 
 function handleLogout(isAutoLogout = false) {
