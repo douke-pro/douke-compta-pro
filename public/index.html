@@ -257,5 +257,37 @@
 
 <script src="assets/script.js"></script>
 
+<script>
+// ============================================================================
+// GESTIONNAIRES D'ÉVÉNEMENTS NÉCESSAIRES AU FONCTIONNEMENT
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 [HTML] Attachement des gestionnaires d\'événements UI...');
+    
+    // Bouton "Créer un compte"
+    const showRegisterBtn = document.getElementById('show-register-btn');
+    if (showRegisterBtn) {
+        showRegisterBtn.addEventListener('click', function() {
+            document.getElementById('login-form-container').classList.add('hidden');
+            document.getElementById('register-view').classList.remove('hidden');
+        });
+        console.log('✅ [HTML] Bouton "Créer un compte" configuré');
+    }
+    
+    // Bouton "Retour à la connexion"
+    const showLoginBtn = document.getElementById('show-login-btn');
+    if (showLoginBtn) {
+        showLoginBtn.addEventListener('click', function() {
+            document.getElementById('register-view').classList.add('hidden');
+            document.getElementById('login-form-container').classList.remove('hidden');
+        });
+        console.log('✅ [HTML] Bouton "Retour à la connexion" configuré');
+    }
+    
+    console.log('✅ [HTML] Tous les gestionnaires d\'événements UI sont prêts');
+});
+</script>
+
 </body>
 </html>
