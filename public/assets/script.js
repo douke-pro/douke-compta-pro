@@ -2516,17 +2516,64 @@ window.initializeManualEntryLogic = async function() {
 // =================================================================
 
 function attachGlobalListeners() {
-    document.getElementById('login-form')?.addEventListener('submit', handleLogin);
-    document.getElementById('register-form')?.addEventListener('submit', handleRegister); // ✅ AJOUT
-    document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
-    document.getElementById('modal-close-btn')?.addEventListener('click', ModalManager.close);
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const logoutBtn = document.getElementById('logout-btn');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    
+    if (loginForm) {
+        console.log('✅ Formulaire login trouvé, attachement événement');
+        loginForm.addEventListener('submit', handleLogin);
+    } else {
+        console.warn('⚠️ Formulaire login NON trouvé');
+    }
+    
+    if (registerForm) {
+        console.log('✅ Formulaire register trouvé, attachement événement');
+        registerForm.addEventListener('submit', handleRegister);
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+    
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', ModalManager.close);
+    }
 }
 
+// ✅ CORRECTION CRITIQUE : Vérifier le token AVANT d'initialiser
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Application Doukè Compta Pro - Démarrage V14');
+    console.log('📍 Vérification du token...');
+    
+    const token = localStorage.getItem('douke_auth_token');
+    console.log('🔑 Token présent ?', token ? 'OUI' : 'NON');
+    
+    if (token) {
+        console.log('✅ Token détecté, chargement du dashboard...');
+    } else {
+        console.log('❌ Pas de token, affichage de la connexion');
+    }
+    
     attachGlobalListeners();
     checkAuthAndRender();
 });
+
+// ✅ AJOUT : Logs dans checkAuthAndRender pour debug
+const originalCheckAuthAndRender = checkAuthAndRender;
+checkAuthAndRender = async function() {
+    console.log('🔄 [checkAuthAndRender] Début...');
+    const token = localStorage.getItem('douke_auth_token');
+    console.log('🔑 [checkAuthAndRender] Token:', token ? token.substring(0, 20) + '...' : 'ABSENT');
+    
+    try {
+        await originalCheckAuthAndRender();
+        console.log('✅ [checkAuthAndRender] Terminé avec succès');
+    } catch (error) {
+        console.error('❌ [checkAuthAndRender] Erreur:', error);
+    }
+};
 
 // =============================================================================
 // MODULE PARAMÈTRES - VERSION V16 PROFESSIONNELLE
