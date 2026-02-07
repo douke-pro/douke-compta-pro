@@ -288,8 +288,12 @@ exports.registerUser = async (req, res) => {
         console.log('✅ [registerUser] FIN - SUCCÈS');
         console.log('='.repeat(70));
 
-        // ✅ 6️⃣ ENVOI EMAIL DE BIENVENUE (asynchrone, ne bloque pas la réponse)
-        sendWelcomeEmail(email, name, companyName)
+        // ✅ 6️⃣ ENVOI EMAIL DE BIENVENUE (désactivé temporairement)
+        console.log('⚠️ Email désactivé temporairement');
+        
+        // TODO: Réactiver après configuration SMTP
+        /*
+        sendWelcomeEmail(email, name, password)
             .then(result => {
                 if (result.success) {
                     console.log(`📧 Email de bienvenue envoyé à ${email}`);
@@ -300,6 +304,7 @@ exports.registerUser = async (req, res) => {
             .catch(err => {
                 console.error('❌ Erreur email:', err.message);
             });
+        */
 
         // ✅ 7️⃣ RÉPONSE SUCCÈS
         res.status(201).json({
