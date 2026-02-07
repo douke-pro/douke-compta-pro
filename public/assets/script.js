@@ -2614,13 +2614,16 @@ function generateSettingsHTML() {
 /**
  * Charge les données des paramètres depuis l'API
  */
+/**
+ * Charge les données des paramètres depuis l'API
+ */
 async function loadSettingsData() {
     try {
         const companyId = appState.currentCompanyId;
         
         console.log('📋 Chargement des paramètres pour company_id:', companyId);
         
-        // Charger toutes les données en parallèle
+        // ✅ CORRECTION : Parenthèses normales pour apiFetch
         const [companyRes, accountingRes, subscriptionRes] = await Promise.all([
             apiFetch(`settings/company/${companyId}`, { method: 'GET' }),
             apiFetch(`settings/accounting/${companyId}`, { method: 'GET' }),
@@ -2662,6 +2665,7 @@ window.switchSettingsTab = function(tabName) {
         tab.classList.add('text-gray-600', 'dark:text-gray-300');
     });
     
+    // ✅ CORRECTION : Parenthèses normales pour getElementById
     const activeTab = document.getElementById(`tab-${tabName}`);
     if (activeTab) {
         activeTab.classList.add('bg-primary', 'text-white');
