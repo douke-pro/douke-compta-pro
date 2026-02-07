@@ -2612,6 +2612,7 @@ function generateSettingsHTML() {
 // =============================================================================
 
 /**
+ /**
  * Bascule entre les onglets des paramètres
  */
 window.switchSettingsTab = function(tabName) {
@@ -2624,9 +2625,12 @@ window.switchSettingsTab = function(tabName) {
     });
     
     const activeTab = document.getElementById(`tab-${tabName}`);
+    //                                       ↑ CORRECTION ICI
     if (activeTab) {
         activeTab.classList.add('bg-primary', 'text-white');
         activeTab.classList.remove('text-gray-600', 'dark:text-gray-300');
+    } else {
+        console.warn('⚠️ [switchSettingsTab] Onglet introuvable:', `tab-${tabName}`);
     }
     
     // Générer le contenu selon l'onglet
@@ -2636,24 +2640,48 @@ window.switchSettingsTab = function(tabName) {
         return;
     }
     
-    switch(tabName) {
-        case 'company':
-            container.innerHTML = generateCompanySettingsHTML();
-            break;
-        case 'profile':
-            container.innerHTML = generateProfileSettingsHTML();
-            break;
-        case 'accounting':
-            container.innerHTML = generateAccountingSettingsHTML();
-            break;
-        case 'subscription':
-            container.innerHTML = generateSubscriptionSettingsHTML();
-            break;
-        default:
-            console.warn('⚠️ [switchSettingsTab] Onglet inconnu:', tabName);
+    try {
+        switch(tabName) {
+            case 'company':
+                container.innerHTML = generateCompanySettingsHTML();
+                console.log('✅ Onglet Entreprise chargé');
+                break;
+            
+            case 'profile':
+                container.innerHTML = generateProfileSettingsHTML();
+                console.log('✅ Onglet Profil chargé');
+                break;
+            
+            case 'accounting':
+                container.innerHTML = generateAccountingSettingsHTML();
+                console.log('✅ Onglet Comptable chargé');
+                break;
+            
+            case 'subscription':
+                container.innerHTML = generateSubscriptionSettingsHTML();
+                console.log('✅ Onglet Abonnement chargé');
+                break;
+            
+            default:
+                console.warn('⚠️ [switchSettingsTab] Onglet inconnu:', tabName);
+                container.innerHTML = `
+                    <div class="text-center p-8 text-warning">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                        <p class="font-bold">Onglet inconnu : ${tabName}</p>
+                    </div>
+                `;
+        }
+    } catch (error) {
+        console.error('❌ [switchSettingsTab] Erreur:', error);
+        container.innerHTML = `
+            <div class="text-center p-8 text-danger">
+                <i class="fas fa-times-circle fa-2x mb-3"></i>
+                <p class="font-bold">Erreur de chargement</p>
+                <p class="text-sm">${error.message}</p>
+            </div>
+        `;
     }
 };
-
 // =============================================================================
 // CHARGEMENT DES DONNÉES
 // =============================================================================
