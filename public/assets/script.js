@@ -2612,7 +2612,6 @@ function generateSettingsHTML() {
 // =============================================================================
 
 /**
- /**
  * Bascule entre les onglets des paramètres
  */
 window.switchSettingsTab = function(tabName) {
