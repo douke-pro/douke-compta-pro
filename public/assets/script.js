@@ -207,7 +207,6 @@ async function handleRegister(event) {
     
     console.log('📝 [handleRegister] Début inscription');
     
-    // Récupération des valeurs du formulaire
     const name = document.getElementById('reg-name')?.value.trim();
     const email = document.getElementById('reg-email')?.value.trim();
     const password = document.getElementById('reg-password')?.value;
@@ -215,7 +214,7 @@ async function handleRegister(event) {
     
     console.log('📋 Données:', { name, email, companyName, passwordLength: password?.length });
     
-    // ✅ VALIDATION CÔTÉ CLIENT
+    // Validation côté client
     if (!name || !email || !password || !companyName) {
         console.error('❌ Champs manquants');
         NotificationManager.show('Tous les champs sont requis', 'error');
@@ -228,7 +227,6 @@ async function handleRegister(event) {
         return;
     }
     
-    // Validation email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
         console.error('❌ Email invalide');
@@ -236,7 +234,6 @@ async function handleRegister(event) {
         return;
     }
     
-    // ✅ DÉSACTIVATION DU BOUTON ET AFFICHAGE LOADER
     const submitButton = event.target.querySelector('button[type="submit"]');
     const originalButtonHTML = submitButton.innerHTML;
     
@@ -246,8 +243,8 @@ async function handleRegister(event) {
     try {
         console.log('🚀 Appel API /auth/register...');
         
-        // ✅ APPEL API D'INSCRIPTION
-        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        // ✅ CORRECTION : URL avec /api/
+        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -263,26 +260,22 @@ async function handleRegister(event) {
         const data = await response.json();
         console.log('📦 Réponse API:', data);
         
-        // ✅ GESTION DES ERREURS
         if (!response.ok) {
             throw new Error(data.error || 'Erreur lors de la création du compte');
         }
         
-        // ✅ SUCCÈS : Afficher notification
         console.log('✅ Inscription réussie');
         NotificationManager.show(
             data.message || '🎉 Instance créée avec succès ! Connexion automatique...', 
             'success'
         );
         
-        // ✅ SAUVEGARDER LE TOKEN ET LES DONNÉES
+        // ✅ CORRECTION : Clé localStorage correcte
         if (data.data && data.data.token) {
-            localStorage.setItem('token', data.data.token);
-            localStorage.setItem('userData', JSON.stringify(data.data));
-            console.log('💾 Token et données sauvegardés');
+            localStorage.setItem('douke_auth_token', data.data.token);
+            console.log('💾 Token sauvegardé');
         }
         
-        // ✅ REDIRECTION VERS LE DASHBOARD
         console.log('🔄 Redirection vers le dashboard...');
         setTimeout(() => {
             window.location.reload();
@@ -290,11 +283,7 @@ async function handleRegister(event) {
         
     } catch (error) {
         console.error('🚨 Erreur inscription:', error);
-        
-        // Afficher l'erreur à l'utilisateur
         NotificationManager.show(error.message, 'error');
-        
-        // Réactiver le bouton
         submitButton.disabled = false;
         submitButton.innerHTML = originalButtonHTML;
     }
