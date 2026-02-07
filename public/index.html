@@ -93,7 +93,6 @@
     .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
 </style>
 
-<!-- ✅ SCRIPT DE CONNEXION FORCÉ (AVANT LE CHARGEMENT DE script.js) -->
 <script>
 window.forceLogin = async function(event) {
     event.preventDefault();
@@ -129,13 +128,11 @@ window.forceLogin = async function(event) {
         if (data.data && data.data.token) {
             localStorage.setItem('douke_auth_token', data.data.token);
             
-            // Message de succès
             const msg = document.getElementById('login-message');
             msg.className = 'p-4 rounded-xl text-center text-sm font-bold bg-success/20 text-success';
             msg.textContent = '✅ Connexion réussie ! Redirection...';
             msg.classList.remove('hidden');
             
-            // Redirection après 1 seconde
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
@@ -156,13 +153,11 @@ window.forceLogin = async function(event) {
     }
 };
 
-// Basculer vers inscription
 window.showRegister = function() {
     document.getElementById('login-form-container').classList.add('hidden');
     document.getElementById('register-view').classList.remove('hidden');
 };
 
-// Basculer vers connexion
 window.showLogin = function() {
     document.getElementById('register-view').classList.add('hidden');
     document.getElementById('login-form-container').classList.remove('hidden');
@@ -209,7 +204,6 @@ window.showLogin = function() {
 
         <div id="login-message" class="hidden p-4 rounded-xl text-center text-sm font-bold"></div>
 
-        <!-- ✅ FORMULAIRE AVEC CONNEXION FORCÉE -->
         <form id="login-form" class="space-y-5" onsubmit="window.forceLogin(event); return false;">
             <div class="space-y-2">
                 <label for="email" class="text-xs font-black uppercase text-gray-500 dark:text-gray-400 ml-1">Identifiant Email</label>
@@ -333,6 +327,54 @@ window.showLogin = function() {
 </div>
 
 <script src="assets/script.js"></script>
+
+<!-- ✅ FORCE L'AFFICHAGE DU DASHBOARD SI TOKEN PRÉSENT -->
+<script>
+(function() {
+    console.log('🔧 [FORCE CHECK] Vérification post-chargement...');
+    
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            const token = localStorage.getItem('douke_auth_token');
+            console.log('🔑 [FORCE CHECK] Token présent ?', token ? 'OUI' : 'NON');
+            
+            if (token) {
+                const authView = document.getElementById('auth-view');
+                const dashboardView = document.getElementById('dashboard-view');
+                
+                if (authView && !authView.classList.contains('hidden')) {
+                    console.log('⚠️ [FORCE CHECK] Token présent mais connexion affichée !');
+                    console.log('🔧 [FORCE CHECK] Correction en cours...');
+                    
+                    authView.classList.add('hidden');
+                    dashboardView.classList.remove('hidden');
+                    
+                    if (window.checkAuthAndRender) {
+                        console.log('🔄 [FORCE CHECK] Appel de checkAuthAndRender()...');
+                        window.checkAuthAndRender().then(function() {
+                            console.log('✅ [FORCE CHECK] Dashboard chargé avec succès');
+                        }).catch(function(err) {
+                            console.error('❌ [FORCE CHECK] Erreur:', err);
+                            localStorage.removeItem('douke_auth_token');
+                            authView.classList.remove('hidden');
+                            dashboardView.classList.add('hidden');
+                        });
+                    } else if (window.loadDashboard) {
+                        console.log('🔄 [FORCE CHECK] Appel de loadDashboard()...');
+                        window.loadDashboard();
+                    } else {
+                        console.error('❌ [FORCE CHECK] Fonctions de chargement introuvables');
+                    }
+                } else {
+                    console.log('✅ [FORCE CHECK] Dashboard déjà affiché correctement');
+                }
+            } else {
+                console.log('ℹ️ [FORCE CHECK] Pas de token, page de connexion normale');
+            }
+        }, 800);
+    });
+})();
+</script>
 
 </body>
 </html>
