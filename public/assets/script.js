@@ -2700,7 +2700,6 @@ async function loadSettingsData() {
     }
 }
 
-// ... (Reste du code : generateCompanySettingsHTML, generateProfileSettingsHTML, etc.)
 
 /**
  * Génère le HTML de l'onglet Entreprise
