@@ -2528,6 +2528,7 @@ window.initializeManualEntryLogic = async function() {
 
 function attachGlobalListeners() {
     document.getElementById('login-form')?.addEventListener('submit', handleLogin);
+    document.getElementById('register-form')?.addEventListener('submit', handleRegister); // ✅ AJOUT
     document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
     document.getElementById('modal-close-btn')?.addEventListener('click', ModalManager.close);
 }
