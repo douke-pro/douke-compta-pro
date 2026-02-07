@@ -1,3 +1,9 @@
+// =============================================================================
+// FICHIER : routes/authRoutes.js
+// Description : Routes d'authentification et gestion des utilisateurs
+// Architecture : JWT + XML-RPC Odoo + Multi-tenant
+// =============================================================================
+
 const express = require('express');
 const router = express.Router();
 const { protect, restrictTo } = require('../middleware/auth');
@@ -6,28 +12,53 @@ const {
     loginUser, 
     assignCompany, 
     forceLogout,
-    getMe // <-- Déplacer le commentaire ou s'assurer qu'il est après la virgule
-} = require('../controllers/authController'); 
-// OU MIEUX, supprimer le commentaire pour cette ligne si le déploiement est sensible au formatage
-// Vous pouvez aussi simplement l'écrire ainsi :
-/*
-const { 
-    registerUser, 
-    loginUser, 
-    assignCompany, 
-    forceLogout,
     getMe
 } = require('../controllers/authController');
-*/
-// Inscription : Création Utilisateur + Partenaire + Coffre Analytique
+
+// =============================================================================
+// ROUTES PUBLIQUES (Sans authentification)
+// =============================================================================
+
+/**
+ * POST /api/auth/register
+ * Inscription : Création Utilisateur + Entreprise + Instance Odoo
+ */
 router.post('/register', registerUser);
-// Connexion : Authentification XML-RPC
+
+/**
+ * POST /api/auth/login
+ * Connexion : Authentification JWT + Validation Odoo XML-RPC
+ */
 router.post('/login', loginUser);
-// 🚀 NOUVELLE ROUTE CRITIQUE : Récupération du profil utilisateur via JWT
-router.get('/me', protect, getMe); // La ligne d'ajout de la route est correcte
-// Gouvernance (Sécurisée) : Seul un ADMIN peut réaffecter des droits
-router.post('/assign-company', protect, restrictTo('ADMIN'), assignCompany);
-// Sécurité : Déconnexion forcée
+
+// =============================================================================
+// ROUTES PROTÉGÉES (Authentification JWT requise)
+// =============================================================================
+
+/**
+ * GET /api/auth/me
+ * Récupération du profil utilisateur authentifié
+ * ✅ CRITIQUE : Utilisé par checkAuthAndRender() côté frontend
+ */
+router.get('/me', protect, getMe);
+
+/**
+ * POST /api/auth/force-logout
+ * Déconnexion forcée (invalidation du token côté serveur si implémenté)
+ */
 router.post('/force-logout', protect, forceLogout);
+
+// =============================================================================
+// ROUTES ADMIN (Permissions élevées)
+// =============================================================================
+
+/**
+ * POST /api/auth/assign-company
+ * Réaffectation d'un utilisateur à une autre entreprise
+ * Permissions : ADMIN uniquement
+ */
+router.post('/assign-company', protect, restrictTo('ADMIN'), assignCompany);
+
 module.exports = router;
+
 
