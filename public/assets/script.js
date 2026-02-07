@@ -2552,13 +2552,11 @@ checkAuthAndRender = async function() {
 function generateSettingsHTML() {
     const role = appState.user.profile;
     
-    // Déterminer quels onglets afficher selon le rôle
     const showAccountingTab = role !== 'CAISSIER';
     const showSubscriptionTab = true;
     
     return `
         <div class="fade-in max-w-7xl mx-auto">
-            <!-- En-tête -->
             <div class="mb-8">
                 <h3 class="text-3xl font-black text-secondary mb-2">
                     <i class="fas fa-cog mr-3 text-primary"></i>Paramètres
@@ -2568,7 +2566,6 @@ function generateSettingsHTML() {
                 </p>
             </div>
 
-            <!-- Navigation par onglets -->
             <div class="bg-white dark:bg-gray-800 rounded-t-2xl border-b-2 border-gray-200 dark:border-gray-700">
                 <div class="flex flex-wrap gap-2 p-2">
                     <button onclick="window.switchSettingsTab('company')" 
@@ -2598,7 +2595,6 @@ function generateSettingsHTML() {
                 </div>
             </div>
 
-            <!-- Conteneur des panneaux d'onglets -->
             <div class="bg-white dark:bg-gray-800 rounded-b-2xl shadow-2xl p-8">
                 <div id="settings-content">
                     <div class="text-center p-8">
@@ -2611,13 +2607,16 @@ function generateSettingsHTML() {
     `;
 }
 
+// =============================================================================
+// 🔧 CORRECTION CRITIQUE : DÉCLARER window.switchSettingsTab ICI
+// =============================================================================
+
 /**
- * Charge les données des paramètres depuis l'API
- */
-/**
- * Charge les données des paramètres depuis l'API
+ * Bascule entre les onglets des paramètres
  */
 window.switchSettingsTab = function(tabName) {
+    console.log('🔄 [switchSettingsTab] Basculement vers onglet:', tabName);
+    
     // Mise à jour visuelle des onglets
     document.querySelectorAll('.settings-tab').forEach(tab => {
         tab.classList.remove('bg-primary', 'text-white');
@@ -2632,6 +2631,10 @@ window.switchSettingsTab = function(tabName) {
     
     // Générer le contenu selon l'onglet
     const container = document.getElementById('settings-content');
+    if (!container) {
+        console.error('❌ [switchSettingsTab] Conteneur settings-content introuvable !');
+        return;
+    }
     
     switch(tabName) {
         case 'company':
@@ -2646,27 +2649,30 @@ window.switchSettingsTab = function(tabName) {
         case 'subscription':
             container.innerHTML = generateSubscriptionSettingsHTML();
             break;
+        default:
+            console.warn('⚠️ [switchSettingsTab] Onglet inconnu:', tabName);
     }
 };
 
+// =============================================================================
+// CHARGEMENT DES DONNÉES
+// =============================================================================
+
 /**
  * Charge les données des paramètres depuis l'API
- * ⚠️ CETTE FONCTION DOIT ÊTRE APRÈS window.switchSettingsTab
  */
 async function loadSettingsData() {
     try {
         const companyId = appState.currentCompanyId;
         
-        console.log('📋 Chargement des paramètres pour company_id:', companyId);
+        console.log('📋 [loadSettingsData] Chargement pour company_id:', companyId);
         
-        // ✅ CORRECTION : Parenthèses normales pour apiFetch
         const [companyRes, accountingRes, subscriptionRes] = await Promise.all([
             apiFetch(`settings/company/${companyId}`, { method: 'GET' }),
             apiFetch(`settings/accounting/${companyId}`, { method: 'GET' }),
             apiFetch(`settings/subscription/${companyId}`, { method: 'GET' })
         ]);
         
-        // Stocker dans l'état global
         window.settingsData = {
             company: companyRes.data || {},
             accounting: accountingRes.data || {},
@@ -2674,22 +2680,27 @@ async function loadSettingsData() {
             user: appState.user
         };
         
-        console.log('✅ Paramètres chargés:', window.settingsData);
+        console.log('✅ [loadSettingsData] Données chargées:', window.settingsData);
         
-        // ✅ Maintenant cette fonction existe déjà !
+        // ✅ Maintenant cette fonction existe !
         window.switchSettingsTab('company');
         
     } catch (error) {
-        console.error('🚨 Erreur chargement paramètres:', error);
-        document.getElementById('settings-content').innerHTML = `
-            <div class="text-center p-8 text-danger">
-                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-                <p class="font-bold">Erreur de chargement des paramètres</p>
-                <p class="text-sm">${error.message}</p>
-            </div>
-        `;
+        console.error('🚨 [loadSettingsData] Erreur:', error);
+        const container = document.getElementById('settings-content');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center p-8 text-danger">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                    <p class="font-bold">Erreur de chargement des paramètres</p>
+                    <p class="text-sm">${error.message}</p>
+                </div>
+            `;
+        }
     }
 }
+
+// ... (Reste du code : generateCompanySettingsHTML, generateProfileSettingsHTML, etc.)
 
 /**
  * Génère le HTML de l'onglet Entreprise
