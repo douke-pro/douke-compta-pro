@@ -93,77 +93,6 @@
     .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
 </style>
 
-<script>
-window.forceLogin = async function(event) {
-    event.preventDefault();
-    
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const btn = document.getElementById('login-submit-btn');
-    
-    if (!email || !password) {
-        alert('Veuillez remplir tous les champs');
-        return;
-    }
-    
-    const originalHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<div class="loading-spinner mx-auto border-white border-top-white/20"></div>';
-    
-    try {
-        const response = await fetch('https://douke-compta-pro.onrender.com/api/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || 'Erreur de connexion');
-        }
-        
-        if (data.data && data.data.token) {
-            localStorage.setItem('douke_auth_token', data.data.token);
-            
-            const msg = document.getElementById('login-message');
-            msg.className = 'p-4 rounded-xl text-center text-sm font-bold bg-success/20 text-success';
-            msg.textContent = '✅ Connexion réussie ! Redirection...';
-            msg.classList.remove('hidden');
-            
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        } else {
-            throw new Error('Token non reçu');
-        }
-        
-    } catch (error) {
-        const msg = document.getElementById('login-message');
-        msg.className = 'p-4 rounded-xl text-center text-sm font-bold bg-danger/20 text-danger';
-        msg.textContent = '❌ ' + error.message;
-        msg.classList.remove('hidden');
-        
-        btn.disabled = false;
-        btn.innerHTML = originalHTML;
-        
-        document.getElementById('password').value = '';
-    }
-};
-
-window.showRegister = function() {
-    document.getElementById('login-form-container').classList.add('hidden');
-    document.getElementById('register-view').classList.remove('hidden');
-};
-
-window.showLogin = function() {
-    document.getElementById('register-view').classList.add('hidden');
-    document.getElementById('login-form-container').classList.remove('hidden');
-};
-</script>
-
 </head>
 
 <body class="min-h-full">
@@ -204,7 +133,7 @@ window.showLogin = function() {
 
         <div id="login-message" class="hidden p-4 rounded-xl text-center text-sm font-bold"></div>
 
-        <form id="login-form" class="space-y-5" onsubmit="window.forceLogin(event); return false;">
+        <form id="login-form" class="space-y-5">
             <div class="space-y-2">
                 <label for="email" class="text-xs font-black uppercase text-gray-500 dark:text-gray-400 ml-1">Identifiant Email</label>
                 <div class="relative">
@@ -227,7 +156,7 @@ window.showLogin = function() {
 
         <div class="pt-6 border-t border-gray-100 dark:border-gray-700 text-center">
             <p class="text-sm text-gray-500">Pas encore partenaire ? 
-                <button type="button" onclick="window.showRegister()" class="font-black text-secondary hover:underline ml-1">Créer un compte</button>
+                <button type="button" id="show-register-btn" class="font-black text-secondary hover:underline ml-1">Créer un compte</button>
             </p>
         </div>
     </div>
@@ -255,7 +184,7 @@ window.showLogin = function() {
             </button>
         </form>
 
-        <button onclick="window.showLogin()" class="w-full text-center text-sm font-bold text-gray-500 hover:text-primary transition-colors">
+        <button id="show-login-btn" class="w-full text-center text-sm font-bold text-gray-500 hover:text-primary transition-colors">
             <i class="fas fa-chevron-left mr-2"></i> Retour à la connexion
         </button>
     </div>
@@ -327,54 +256,6 @@ window.showLogin = function() {
 </div>
 
 <script src="assets/script.js"></script>
-
-<!-- ✅ FORCE L'AFFICHAGE DU DASHBOARD SI TOKEN PRÉSENT -->
-<script>
-(function() {
-    console.log('🔧 [FORCE CHECK] Vérification post-chargement...');
-    
-    window.addEventListener('load', function() {
-        setTimeout(function() {
-            const token = localStorage.getItem('douke_auth_token');
-            console.log('🔑 [FORCE CHECK] Token présent ?', token ? 'OUI' : 'NON');
-            
-            if (token) {
-                const authView = document.getElementById('auth-view');
-                const dashboardView = document.getElementById('dashboard-view');
-                
-                if (authView && !authView.classList.contains('hidden')) {
-                    console.log('⚠️ [FORCE CHECK] Token présent mais connexion affichée !');
-                    console.log('🔧 [FORCE CHECK] Correction en cours...');
-                    
-                    authView.classList.add('hidden');
-                    dashboardView.classList.remove('hidden');
-                    
-                    if (window.checkAuthAndRender) {
-                        console.log('🔄 [FORCE CHECK] Appel de checkAuthAndRender()...');
-                        window.checkAuthAndRender().then(function() {
-                            console.log('✅ [FORCE CHECK] Dashboard chargé avec succès');
-                        }).catch(function(err) {
-                            console.error('❌ [FORCE CHECK] Erreur:', err);
-                            localStorage.removeItem('douke_auth_token');
-                            authView.classList.remove('hidden');
-                            dashboardView.classList.add('hidden');
-                        });
-                    } else if (window.loadDashboard) {
-                        console.log('🔄 [FORCE CHECK] Appel de loadDashboard()...');
-                        window.loadDashboard();
-                    } else {
-                        console.error('❌ [FORCE CHECK] Fonctions de chargement introuvables');
-                    }
-                } else {
-                    console.log('✅ [FORCE CHECK] Dashboard déjà affiché correctement');
-                }
-            } else {
-                console.log('ℹ️ [FORCE CHECK] Pas de token, page de connexion normale');
-            }
-        }, 800);
-    });
-})();
-</script>
 
 </body>
 </html>
