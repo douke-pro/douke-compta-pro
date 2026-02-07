@@ -247,7 +247,10 @@ async function handleRegister(event) {
         console.log('🚀 Appel API /auth/register...');
         
         // ✅ APPEL API D'INSCRIPTION
-        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+            // CORRECTION #1 : ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            // - Parenthèse au lieu d'accent grave
+            // - /api/ ajouté dans le path
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -277,9 +280,9 @@ async function handleRegister(event) {
         
         // ✅ SAUVEGARDER LE TOKEN ET LES DONNÉES
         if (data.data && data.data.token) {
-            localStorage.setItem('token', data.data.token);
-            localStorage.setItem('userData', JSON.stringify(data.data));
-            console.log('💾 Token et données sauvegardés');
+            localStorage.setItem('douke_auth_token', data.data.token);
+            // CORRECTION #2 : ^^^^^^^^^^^^^^^^^^^ Clé correcte
+            console.log('💾 Token sauvegardé');
         }
         
         // ✅ REDIRECTION VERS LE DASHBOARD
