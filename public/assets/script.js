@@ -2617,47 +2617,6 @@ function generateSettingsHTML() {
 /**
  * Charge les données des paramètres depuis l'API
  */
-async function loadSettingsData() {
-    try {
-        const companyId = appState.currentCompanyId;
-        
-        console.log('📋 Chargement des paramètres pour company_id:', companyId);
-        
-        // ✅ CORRECTION : Parenthèses normales pour apiFetch
-        const [companyRes, accountingRes, subscriptionRes] = await Promise.all([
-            apiFetch(`settings/company/${companyId}`, { method: 'GET' }),
-            apiFetch(`settings/accounting/${companyId}`, { method: 'GET' }),
-            apiFetch(`settings/subscription/${companyId}`, { method: 'GET' })
-        ]);
-        
-        // Stocker dans l'état global
-        window.settingsData = {
-            company: companyRes.data || {},
-            accounting: accountingRes.data || {},
-            subscription: subscriptionRes.data || {},
-            user: appState.user
-        };
-        
-        console.log('✅ Paramètres chargés:', window.settingsData);
-        
-        // Afficher le premier onglet par défaut
-        window.switchSettingsTab('company');
-        
-    } catch (error) {
-        console.error('🚨 Erreur chargement paramètres:', error);
-        document.getElementById('settings-content').innerHTML = `
-            <div class="text-center p-8 text-danger">
-                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-                <p class="font-bold">Erreur de chargement des paramètres</p>
-                <p class="text-sm">${error.message}</p>
-            </div>
-        `;
-    }
-}
-
-/**
- * Change l'onglet actif
- */
 window.switchSettingsTab = function(tabName) {
     // Mise à jour visuelle des onglets
     document.querySelectorAll('.settings-tab').forEach(tab => {
@@ -2665,7 +2624,6 @@ window.switchSettingsTab = function(tabName) {
         tab.classList.add('text-gray-600', 'dark:text-gray-300');
     });
     
-    // ✅ CORRECTION : Parenthèses normales pour getElementById
     const activeTab = document.getElementById(`tab-${tabName}`);
     if (activeTab) {
         activeTab.classList.add('bg-primary', 'text-white');
@@ -2690,6 +2648,48 @@ window.switchSettingsTab = function(tabName) {
             break;
     }
 };
+
+/**
+ * Charge les données des paramètres depuis l'API
+ * ⚠️ CETTE FONCTION DOIT ÊTRE APRÈS window.switchSettingsTab
+ */
+async function loadSettingsData() {
+    try {
+        const companyId = appState.currentCompanyId;
+        
+        console.log('📋 Chargement des paramètres pour company_id:', companyId);
+        
+        // ✅ CORRECTION : Parenthèses normales pour apiFetch
+        const [companyRes, accountingRes, subscriptionRes] = await Promise.all([
+            apiFetch(`settings/company/${companyId}`, { method: 'GET' }),
+            apiFetch(`settings/accounting/${companyId}`, { method: 'GET' }),
+            apiFetch(`settings/subscription/${companyId}`, { method: 'GET' })
+        ]);
+        
+        // Stocker dans l'état global
+        window.settingsData = {
+            company: companyRes.data || {},
+            accounting: accountingRes.data || {},
+            subscription: subscriptionRes.data || {},
+            user: appState.user
+        };
+        
+        console.log('✅ Paramètres chargés:', window.settingsData);
+        
+        // ✅ Maintenant cette fonction existe déjà !
+        window.switchSettingsTab('company');
+        
+    } catch (error) {
+        console.error('🚨 Erreur chargement paramètres:', error);
+        document.getElementById('settings-content').innerHTML = `
+            <div class="text-center p-8 text-danger">
+                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                <p class="font-bold">Erreur de chargement des paramètres</p>
+                <p class="text-sm">${error.message}</p>
+            </div>
+        `;
+    }
+}
 
 /**
  * Génère le HTML de l'onglet Entreprise
@@ -2819,7 +2819,6 @@ function generateCompanySettingsHTML() {
         </div>
     `;
 }
-
 /**
  * Génère le HTML de l'onglet Mon Profil
  */
