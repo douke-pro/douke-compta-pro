@@ -21,7 +21,10 @@ const protect = async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
 
             if (!token) {
-                return res.status(401).json({ error: 'Format du jeton invalide.' });
+                return res.status(401).json({ 
+                    status: 'error',
+                    error: 'Format du jeton invalide.' 
+                });
             }
 
             const decoded = jwt.verify(token, JWT_SECRET);
@@ -47,10 +50,14 @@ const protect = async (req, res, next) => {
             }
             
             console.error('[JWT AUTH ERROR]', error.message);
-            return res.status(401).json({ error: message });
+            return res.status(401).json({ 
+                status: 'error',
+                error: message 
+            });
         }
     } else {
         return res.status(401).json({ 
+            status: 'error',
             error: 'Accès refusé. Token de sécurité manquant.' 
         });
     }
@@ -63,8 +70,8 @@ const protect = async (req, res, next) => {
 const checkCompanyAccess = async (req, res, next) => {
     const { role, odooUid, email } = req.user;
     
-    // 1️⃣ Extraction du company_id depuis TOUTES les sources possibles
-    const rawCompanyId = req.params.companyId || req.query.companyId || req.body.company_id || req.body.companyId;
+    // ✅ CORRECTION : Prioriser query (utilisé par le frontend)
+    const rawCompanyId = req.query.companyId || req.params.companyId || req.body.companyId || req.body.company_id;
     
     if (!rawCompanyId) {
         console.error(`❌ checkCompanyAccess: Aucun companyId fourni par ${email}`);
@@ -198,6 +205,7 @@ const restrictTo = (...roles) => {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {
             return res.status(403).json({ 
+                status: 'error',
                 error: 'Accès refusé. Permissions insuffisantes.' 
             });
         }
