@@ -300,6 +300,13 @@ async function handleRegister(event) {
     }
 }
 
+🔧 INTÉGRATION DANS LE FICHIER
+Localise cette ligne dans script.js :
+javascriptasync function handleRegister(event) {
+    event.preventDefault();
+    NotificationManager.show('Fonction d\'inscription en cours de finalisation.', 'info');
+}
+
 function handleLogout(isAutoLogout = false) {
     localStorage.removeItem('douke_auth_token');
     appState = {
