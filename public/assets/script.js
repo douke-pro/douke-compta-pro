@@ -202,6 +202,9 @@ async function handleLogin(event) {
  * Gère la soumission du formulaire d'inscription
  * ✅ VERSION FONCTIONNELLE COMPLÈTE
  */
+/**
+ * Gère la soumission du formulaire d'inscription
+ */
 async function handleRegister(event) {
     event.preventDefault();
     
@@ -243,7 +246,6 @@ async function handleRegister(event) {
     try {
         console.log('🚀 Appel API /auth/register...');
         
-        // ✅ CORRECTION : URL avec /api/
         const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
             method: 'POST',
             headers: {
@@ -270,7 +272,6 @@ async function handleRegister(event) {
             'success'
         );
         
-        // ✅ CORRECTION : Clé localStorage correcte
         if (data.data && data.data.token) {
             localStorage.setItem('douke_auth_token', data.data.token);
             console.log('💾 Token sauvegardé');
@@ -289,13 +290,6 @@ async function handleRegister(event) {
     }
 }
 
-🔧 INTÉGRATION DANS LE FICHIER
-Localise cette ligne dans script.js :
-javascriptasync function handleRegister(event) {
-    event.preventDefault();
-    NotificationManager.show('Fonction d\'inscription en cours de finalisation.', 'info');
-}
-
 function handleLogout(isAutoLogout = false) {
     localStorage.removeItem('douke_auth_token');
     appState = {
@@ -312,36 +306,6 @@ function handleLogout(isAutoLogout = false) {
     
     renderAppView();
     window.location.hash = '';
-}
-
-async function checkAuthAndRender() {
-    const token = localStorage.getItem('douke_auth_token');
-    
-    if (!token) {
-        appState.isAuthenticated = false;
-        return renderAppView();
-    }
-    
-    appState.token = token;
-    
-    try {
-        const response = await apiFetch('auth/me', { method: 'GET' }); 
-        
-        appState.user = response.data;
-        appState.isAuthenticated = true;
-
-        const selectedId = response.data.selectedCompanyId || (response.data.companiesList[0]?.id || null);
-        
-        appState.currentCompanyId = selectedId;
-        appState.currentCompanyName = response.data.companiesList.find(c => c.id === selectedId)?.name || 'Dossier Inconnu';
-        
-    } catch (error) {
-        console.warn('Token invalide ou expiré. Reconnexion requise.');
-        handleLogout(true);
-        return;
-    }
-    
-    renderAppView();
 }
 
 // =================================================================
