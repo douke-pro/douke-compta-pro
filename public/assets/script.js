@@ -247,10 +247,7 @@ async function handleRegister(event) {
         console.log('🚀 Appel API /auth/register...');
         
         // ✅ APPEL API D'INSCRIPTION
-        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-            // CORRECTION #1 : ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            // - Parenthèse au lieu d'accent grave
-            // - /api/ ajouté dans le path
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -280,9 +277,9 @@ async function handleRegister(event) {
         
         // ✅ SAUVEGARDER LE TOKEN ET LES DONNÉES
         if (data.data && data.data.token) {
-            localStorage.setItem('douke_auth_token', data.data.token);
-            // CORRECTION #2 : ^^^^^^^^^^^^^^^^^^^ Clé correcte
-            console.log('💾 Token sauvegardé');
+            localStorage.setItem('token', data.data.token);
+            localStorage.setItem('userData', JSON.stringify(data.data));
+            console.log('💾 Token et données sauvegardés');
         }
         
         // ✅ REDIRECTION VERS LE DASHBOARD
@@ -2531,7 +2528,6 @@ window.initializeManualEntryLogic = async function() {
 
 function attachGlobalListeners() {
     document.getElementById('login-form')?.addEventListener('submit', handleLogin);
-    document.getElementById('register-form')?.addEventListener('submit', handleRegister); // ✅ AJOUT
     document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
     document.getElementById('modal-close-btn')?.addEventListener('click', ModalManager.close);
 }
