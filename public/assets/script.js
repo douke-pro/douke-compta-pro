@@ -4454,3 +4454,450 @@ function getRoleColor(role) {
 // =============================================================================
 // FIN DU MODULE GESTION DES UTILISATEURS
 // =============================================================================
+
+// =============================================================================
+// 🆕 NOUVEAUX ÉLÉMENTS DASHBOARD - FÉVRIER 2026
+// À AJOUTER À LA FIN DE script.js (après la ligne ~4000)
+// =============================================================================
+
+// =============================================================================
+// 1. GESTION DES NOTIFICATIONS EMAIL
+// =============================================================================
+
+/**
+ * Toggle l'affichage du dropdown notifications
+ */
+window.toggleNotifications = function() {
+    console.log('🔔 [toggleNotifications] Toggle dropdown notifications');
+    const dropdown = document.getElementById('notificationDropdown');
+    
+    if (!dropdown) {
+        console.error('❌ [toggleNotifications] Dropdown introuvable');
+        return;
+    }
+    
+    if (dropdown.classList.contains('hidden')) {
+        // Charger les notifications avant d'afficher
+        loadNotifications();
+        dropdown.classList.remove('hidden');
+    } else {
+        dropdown.classList.add('hidden');
+    }
+};
+
+/**
+ * Charge les notifications depuis l'API (ou données simulées)
+ */
+async function loadNotifications() {
+    console.log('📧 [loadNotifications] Chargement des notifications...');
+    
+    const listContainer = document.getElementById('notification-list');
+    if (!listContainer) return;
+    
+    // Afficher un spinner
+    listContainer.innerHTML = `
+        <div class="p-8 text-center">
+            <div class="loading-spinner mx-auto"></div>
+            <p class="mt-3 text-xs text-gray-500">Chargement...</p>
+        </div>
+    `;
+    
+    try {
+        // TODO: Remplacer par un vrai appel API
+        // const response = await apiFetch('notifications/emails', { method: 'GET' });
+        // const notifications = response.data || [];
+        
+        // ✅ DONNÉES SIMULÉES (à remplacer par API réelle)
+        const notifications = [
+            {
+                id: 1,
+                type: 'invoice',
+                title: 'Facture envoyée à Client ABC',
+                message: 'Email: Facture #FAC-2026-001 - Montant: 500,000 XOF',
+                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // Il y a 2 heures
+                read: false
+            },
+            {
+                id: 2,
+                type: 'reminder',
+                title: 'Rappel envoyé à Fournisseur XYZ',
+                message: 'Email: Relance paiement échéance 15/02/2026',
+                timestamp: new Date(Date.now() - 26 * 60 * 60 * 1000), // Hier
+                read: false
+            },
+            {
+                id: 3,
+                type: 'report',
+                title: 'Bilan mensuel envoyé',
+                message: 'Email: Bilan Janvier 2026 - Direction Générale',
+                timestamp: new Date('2026-02-05'),
+                read: true
+            }
+        ];
+        
+        // Générer le HTML des notifications
+        const notificationsHTML = notifications.map(notif => {
+            const icon = getNotificationIcon(notif.type);
+            const timeAgo = formatTimeAgo(notif.timestamp);
+            const unreadClass = notif.read ? '' : 'unread';
+            
+            return `
+                <div class="notification-item ${unreadClass}" style="padding: 16px; border-bottom: 1px solid #E5E7EB; cursor: pointer;" onclick="markAsRead(${notif.id})">
+                    <div style="display: flex; align-items: start; gap: 12px;">
+                        <i class="${icon}" style="color: ${notif.read ? '#9CA3AF' : '#10B981'}; font-size: 18px; margin-top: 2px;"></i>
+                        <div style="flex: 1;">
+                            <p style="font-weight: bold; font-size: 13px; color: ${notif.read ? '#6B7280' : '#111827'}; margin-bottom: 4px;">${notif.title}</p>
+                            <p style="font-size: 11px; color: #6B7280; margin-bottom: 8px;">${notif.message}</p>
+                            <p style="font-size: 10px; color: #9CA3AF;">
+                                <i class="fas fa-clock" style="margin-right: 4px;"></i>${timeAgo}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        listContainer.innerHTML = notificationsHTML || `
+            <div class="p-8 text-center text-gray-500">
+                <i class="fas fa-inbox fa-2x mb-3"></i>
+                <p class="text-sm">Aucune notification</p>
+            </div>
+        `;
+        
+        // Mettre à jour le badge count
+        const unreadCount = notifications.filter(n => !n.read).length;
+        updateNotificationCount(unreadCount);
+        
+        console.log(`✅ [loadNotifications] ${notifications.length} notifications chargées`);
+        
+    } catch (error) {
+        console.error('🚨 [loadNotifications] Erreur:', error);
+        listContainer.innerHTML = `
+            <div class="p-8 text-center text-danger">
+                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                <p class="text-sm">Erreur de chargement</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Retourne l'icône appropriée selon le type de notification
+ */
+function getNotificationIcon(type) {
+    const icons = {
+        'invoice': 'fas fa-envelope-open-text',
+        'reminder': 'fas fa-file-invoice',
+        'report': 'fas fa-check-circle',
+        'alert': 'fas fa-exclamation-triangle'
+    };
+    return icons[type] || 'fas fa-envelope';
+}
+
+/**
+ * Formate le temps écoulé (ex: "Il y a 2 heures")
+ */
+function formatTimeAgo(timestamp) {
+    const now = new Date();
+    const diff = now - new Date(timestamp);
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (seconds < 60) return 'À l\'instant';
+    if (minutes < 60) return `Il y a ${minutes} min`;
+    if (hours < 24) return `Il y a ${hours}h`;
+    if (days < 7) return `Il y a ${days}j`;
+    
+    return new Date(timestamp).toLocaleDateString('fr-FR');
+}
+
+/**
+ * Met à jour le compteur de notifications non lues
+ */
+function updateNotificationCount(count) {
+    const badge = document.getElementById('notification-count');
+    if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+}
+
+/**
+ * Marque une notification comme lue
+ */
+window.markAsRead = function(notificationId) {
+    console.log('✅ [markAsRead] Notification', notificationId, 'marquée comme lue');
+    // TODO: Appel API pour marquer comme lu
+    // await apiFetch(`notifications/${notificationId}/read`, { method: 'PATCH' });
+    
+    // Recharger les notifications
+    loadNotifications();
+};
+
+// Fermer le dropdown si clic extérieur
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('notificationDropdown');
+    const notificationBtn = event.target.closest('button[onclick="toggleNotifications()"]');
+    
+    if (dropdown && !dropdown.contains(event.target) && !notificationBtn) {
+        dropdown.classList.add('hidden');
+    }
+});
+
+// =============================================================================
+// 2. GESTION ANNÉE FISCALE (MODIFIABLE)
+// =============================================================================
+
+/**
+ * Ouvre la modal de modification de l'année fiscale
+ */
+window.openFiscalYearModal = function() {
+    console.log('📅 [openFiscalYearModal] Ouverture modal année fiscale');
+    
+    const currentYear = document.getElementById('fiscal-year-text')?.textContent || '2026';
+    
+    const modalHTML = `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    Année Fiscale <span class="text-danger">*</span>
+                </label>
+                <input type="number" id="fiscal-year-input" value="${currentYear}" min="2020" max="2099"
+                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-center text-2xl font-black">
+                <p class="text-xs text-gray-500 mt-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Cette année sera utilisée pour tous les rapports et écritures comptables
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-6 border-t">
+                <button onclick="ModalManager.close()"
+                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+                    Annuler
+                </button>
+                <button onclick="saveFiscalYear()"
+                    class="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors">
+                    <i class="fas fa-save mr-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    `;
+    
+    ModalManager.open('📅 Modifier l\'Année Fiscale', modalHTML);
+};
+
+/**
+ * Sauvegarde la nouvelle année fiscale
+ */
+window.saveFiscalYear = async function() {
+    const newYear = document.getElementById('fiscal-year-input').value;
+    
+    if (!newYear || newYear < 2020 || newYear > 2099) {
+        NotificationManager.show('Année invalide', 'error');
+        return;
+    }
+    
+    try {
+        console.log('💾 [saveFiscalYear] Sauvegarde de l\'année', newYear);
+        
+        // TODO: Appel API pour sauvegarder
+        const companyId = appState.currentCompanyId;
+        // await apiFetch(`settings/fiscal-year/${companyId}`, {
+        //     method: 'PATCH',
+        //     body: JSON.stringify({ fiscal_year: newYear })
+        // });
+        
+        // Mettre à jour l'affichage
+        document.getElementById('fiscal-year-text').textContent = newYear;
+        
+        NotificationManager.show(`Année fiscale mise à jour : ${newYear}`, 'success');
+        ModalManager.close();
+        
+    } catch (error) {
+        console.error('🚨 [saveFiscalYear] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+// =============================================================================
+// 3. GESTION SYSTÈME COMPTABLE (MODIFIABLE)
+// =============================================================================
+
+/**
+ * Ouvre la modal de modification du système comptable
+ */
+window.openAccountingSystemModal = function() {
+    console.log('📊 [openAccountingSystemModal] Ouverture modal système comptable');
+    
+    const currentSystem = document.getElementById('accounting-system-text')?.textContent || 'SYSCOHADA';
+    
+    const modalHTML = `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    Système Comptable <span class="text-danger">*</span>
+                </label>
+                <select id="accounting-system-input" 
+                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-lg font-bold">
+                    <option value="SYSCOHADA" ${currentSystem === 'SYSCOHADA' ? 'selected' : ''}>SYSCOHADA Révisé (OHADA)</option>
+                    <option value="SYCEBNL" ${currentSystem === 'SYCEBNL' ? 'selected' : ''}>SYCEBNL (Bénin)</option>
+                    <option value="PCG" ${currentSystem === 'PCG' ? 'selected' : ''}>Plan Comptable Général (France)</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Le changement de système comptable affectera la structure du plan comptable
+                </p>
+            </div>
+
+            <div class="bg-warning/10 border-l-4 border-warning p-4 rounded-xl">
+                <p class="text-sm text-warning font-bold">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Attention : Ce changement nécessite une validation comptable
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-6 border-t">
+                <button onclick="ModalManager.close()"
+                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+                    Annuler
+                </button>
+                <button onclick="saveAccountingSystem()"
+                    class="px-6 py-3 bg-success text-white font-bold rounded-xl hover:bg-green-600 transition-colors">
+                    <i class="fas fa-save mr-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    `;
+    
+    ModalManager.open('📊 Modifier le Système Comptable', modalHTML);
+};
+
+/**
+ * Sauvegarde le nouveau système comptable
+ */
+window.saveAccountingSystem = async function() {
+    const newSystem = document.getElementById('accounting-system-input').value;
+    
+    if (!newSystem) {
+        NotificationManager.show('Veuillez sélectionner un système', 'error');
+        return;
+    }
+    
+    try {
+        console.log('💾 [saveAccountingSystem] Sauvegarde du système', newSystem);
+        
+        // TODO: Appel API pour sauvegarder
+        const companyId = appState.currentCompanyId;
+        // await apiFetch(`settings/accounting/${companyId}`, {
+        //     method: 'PATCH',
+        //     body: JSON.stringify({ accounting_system: newSystem })
+        // });
+        
+        // Mettre à jour l'affichage
+        document.getElementById('accounting-system-text').textContent = newSystem;
+        
+        NotificationManager.show(`Système comptable mis à jour : ${newSystem}`, 'success');
+        ModalManager.close();
+        
+    } catch (error) {
+        console.error('🚨 [saveAccountingSystem] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+// =============================================================================
+// 4. CHARGEMENT RCCM + TÉLÉPHONE (SIDEBAR)
+// =============================================================================
+
+/**
+ * Charge et affiche les informations RCCM et Téléphone de l'entreprise active
+ */
+async function loadCompanyDetailsEnriched() {
+    if (!appState.currentCompanyId) {
+        console.log('⏭️ [loadCompanyDetailsEnriched] Pas d\'entreprise active, skip');
+        return;
+    }
+    
+    console.log('🏢 [loadCompanyDetailsEnriched] Chargement RCCM/Téléphone pour company_id:', appState.currentCompanyId);
+    
+    try {
+        // Récupérer les données depuis l'API Paramètres
+        const response = await apiFetch(`settings/company/${appState.currentCompanyId}`, { method: 'GET' });
+        
+        const companyData = response.data || {};
+        const rccm = companyData.registration_number || '-';
+        const phone = companyData.phone || '-';
+        
+        // Mettre à jour l'affichage
+        const rccmElement = document.getElementById('company-rccm');
+        const phoneElement = document.getElementById('company-phone');
+        
+        if (rccmElement) {
+            rccmElement.textContent = rccm;
+        }
+        
+        if (phoneElement) {
+            phoneElement.textContent = phone;
+        }
+        
+        console.log('✅ [loadCompanyDetailsEnriched] RCCM:', rccm, '| Téléphone:', phone);
+        
+    } catch (error) {
+        console.error('🚨 [loadCompanyDetailsEnriched] Erreur:', error);
+        // En cas d'erreur, afficher des valeurs par défaut
+        document.getElementById('company-rccm').textContent = '-';
+        document.getElementById('company-phone').textContent = '-';
+    }
+}
+
+// =============================================================================
+// 5. INITIALISATION AU CHARGEMENT DU DASHBOARD
+// =============================================================================
+
+/**
+ * Hook dans la fonction loadDashboard() existante
+ * Appelée automatiquement quand le dashboard se charge
+ */
+const originalLoadDashboard = window.loadDashboard || loadDashboard;
+window.loadDashboard = function() {
+    console.log('🔄 [loadDashboard] Hook - Chargement des nouveaux éléments...');
+    
+    // Appeler la fonction originale
+    if (typeof originalLoadDashboard === 'function') {
+        originalLoadDashboard();
+    }
+    
+    // Charger les données enrichies
+    loadCompanyDetailsEnriched();
+    
+    // Charger les notifications (en arrière-plan)
+    loadNotifications();
+};
+
+// =============================================================================
+// 6. HOOK DANS handleCompanyChange()
+// =============================================================================
+
+/**
+ * Recharger RCCM/Téléphone quand l'utilisateur change d'entreprise
+ */
+const originalHandleCompanyChange = window.handleCompanyChange;
+window.handleCompanyChange = async function(newCompanyId) {
+    console.log('🔄 [handleCompanyChange] Hook - Rechargement RCCM/Téléphone...');
+    
+    // Appeler la fonction originale
+    if (typeof originalHandleCompanyChange === 'function') {
+        await originalHandleCompanyChange(newCompanyId);
+    }
+    
+    // Recharger les données enrichies
+    await loadCompanyDetailsEnriched();
+};
+
+// =============================================================================
+// FIN DES NOUVEAUX ÉLÉMENTS
+// =============================================================================
+
+console.log('✅ [NOUVEAUX ÉLÉMENTS] Toutes les fonctions ont été chargées avec succès');
