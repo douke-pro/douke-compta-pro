@@ -91,6 +91,26 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
     .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+    
+    /* ✅ NOUVEAUX STYLES pour les éléments ajoutés */
+    .editable-badge {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .editable-badge:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .notification-item {
+        border-left: 4px solid #10B981;
+        transition: background-color 0.2s;
+    }
+    .notification-item:hover {
+        background-color: #F9FAFB;
+    }
+    .notification-item.unread {
+        background-color: #F0FDF4;
+    }
 </style>
 
 </head>
@@ -195,9 +215,8 @@
         
         <aside class="w-full lg:w-72 bg-white dark:bg-gray-800 shadow-2xl lg:h-screen p-8 border-r border-gray-100 dark:border-gray-700 flex flex-col">
             <div class="text-center mb-10">
-                <div class="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-3 text-white shadow-lg shadow-primary/40">
-                    <i class="fas fa-chart-pie fa-lg"></i>
-                </div>
+                <!-- ✅ NOUVEAU : Logo Doukè remplace l'icône -->
+                <img src="assets/LOGO_DOUKE.png" alt="Doukè Logo" class="w-20 h-20 mx-auto mb-3 object-contain">
                 <h1 class="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">DOUKÈ PRO</h1>
             </div>
             
@@ -214,6 +233,19 @@
                 </div>
                 <div class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
                     Dossier Actif : <span class="text-secondary dark:text-primary-light" id="current-company-name">-- GLOBAL --</span>
+                </div>
+                
+                <!-- ✅ NOUVEAU : RCCM + Téléphone -->
+                <div id="company-details-enriched" class="mt-3 space-y-1.5 text-xs">
+                    <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                        <i class="fas fa-file-contract w-4 text-primary"></i>
+                        <span class="font-bold">RCCM:</span>
+                        <span id="company-rccm" class="text-gray-700 dark:text-gray-300">-</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                        <i class="fas fa-phone w-4 text-success"></i>
+                        <span id="company-phone" class="text-gray-700 dark:text-gray-300">-</span>
+                    </div>
                 </div>
             </div>
 
@@ -238,6 +270,47 @@
                     </h2>
                 </div>
                 <div class="flex items-center space-x-3" id="quick-actions">
+                    
+                    <!-- ✅ NOUVEAU : Badge Année Fiscale (Modifiable) -->
+                    <div class="editable-badge" id="fiscal-year-badge" onclick="openFiscalYearModal()" 
+                         style="cursor: pointer; padding: 8px 12px; background: #EFF6FF; border-radius: 8px; border: 2px solid #BFDBFE; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-calendar-alt" style="color: #2563EB; font-size: 14px;"></i>
+                        <span style="font-weight: bold; color: #2563EB; font-size: 13px;" id="fiscal-year-text">2026</span>
+                        <i class="fas fa-pencil-alt" style="color: #93C5FD; font-size: 10px;"></i>
+                    </div>
+
+                    <!-- ✅ NOUVEAU : Badge Système Comptable (Modifiable) -->
+                    <div class="editable-badge" id="accounting-system-badge" onclick="openAccountingSystemModal()"
+                         style="cursor: pointer; padding: 8px 12px; background: #F0FDF4; border-radius: 8px; border: 2px solid #BBF7D0; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-calculator" style="color: #059669; font-size: 14px;"></i>
+                        <span style="font-weight: bold; color: #059669; font-size: 13px;" id="accounting-system-text">SYSCOHADA</span>
+                        <i class="fas fa-pencil-alt" style="color: #6EE7B7; font-size: 10px;"></i>
+                    </div>
+
+                    <!-- ✅ NOUVEAU : Bouton Notifications -->
+                    <div style="position: relative;">
+                        <button onclick="toggleNotifications()" 
+                                style="width: 40px; height: 40px; padding: 0; background: #FEF3C7; border-radius: 8px; border: 2px solid #FDE68A; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer;">
+                            <i class="fas fa-bell" style="color: #D97706; font-size: 16px;"></i>
+                            <span id="notification-count" style="position: absolute; top: -6px; right: -6px; background: #EF4444; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center;">3</span>
+                        </button>
+                        
+                        <!-- Dropdown Notifications -->
+                        <div id="notificationDropdown" class="hidden" style="position: absolute; right: 0; top: 50px; width: 380px; background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); border: 2px solid #E5E7EB; z-index: 1000;">
+                            <div style="padding: 16px; border-bottom: 1px solid #E5E7EB; background: linear-gradient(to right, #FEF3C7, #FED7AA);">
+                                <h4 style="font-weight: 800; color: #111827; margin-bottom: 4px;">📧 Notifications Email</h4>
+                                <p style="font-size: 11px; color: #6B7280;">3 emails envoyés récemment</p>
+                            </div>
+                            <div id="notification-list" style="max-height: 320px; overflow-y: auto;">
+                                <!-- Les notifications seront chargées dynamiquement -->
+                            </div>
+                            <div style="padding: 12px; background: #F9FAFB; text-align: center; border-top: 1px solid #E5E7EB;">
+                                <a href="#" style="font-size: 12px; font-weight: bold; color: #2563EB; text-decoration: none;">Voir tous les emails →</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ✅ EXISTANT : Bouton Mode Sombre (ne pas toucher) -->
                     <button onclick="document.documentElement.classList.toggle('dark')" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400">
                         <i class="fas fa-moon"></i>
                     </button>
@@ -255,7 +328,7 @@
     </div>
 </div>
 
-<script src="assets/script.js?v=17"></script>
+<script src="assets/script.js?v=18"></script>
 
 <script>
 // ============================================================================
