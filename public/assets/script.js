@@ -2524,20 +2524,6 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuthAndRender();
 });
 
-// ✅ AJOUT : Logs dans checkAuthAndRender pour debug
-const originalCheckAuthAndRender = checkAuthAndRender;
-checkAuthAndRender = async function() {
-    console.log('🔄 [checkAuthAndRender] Début...');
-    const token = localStorage.getItem('douke_auth_token');
-    console.log('🔑 [checkAuthAndRender] Token:', token ? token.substring(0, 20) + '...' : 'ABSENT');
-    
-    try {
-        await originalCheckAuthAndRender();
-        console.log('✅ [checkAuthAndRender] Terminé avec succès');
-    } catch (error) {
-        console.error('❌ [checkAuthAndRender] Erreur:', error);
-    }
-};
 
 // =============================================================================
 // MODULE PARAMÈTRES - VERSION V16 PROFESSIONNELLE
