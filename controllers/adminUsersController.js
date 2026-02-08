@@ -47,7 +47,7 @@ exports.getAllUsers = async (req, res) => {
                 method: 'search_read',
                 args: [[['user_ids', 'in', [user.id]]]],
                 kwargs: {
-                    fields: ['name', 'category_id'],  // ✅ CORRECT
+                    fields: ['name', 'categ_id'],
                     limit: 10
                 }
             });
