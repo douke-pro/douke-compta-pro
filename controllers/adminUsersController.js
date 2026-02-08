@@ -1,7 +1,11 @@
 // =============================================================================
 // FICHIER : controllers/adminUsersController.js
 // Description : Gestion des utilisateurs (CRUD complet) - ADMIN uniquement
-// Version : V18 - FINALE ODOO 19 (categ_id au lieu de category_id)
+// Version : V19 - FINALE CERTIFIÉE ODOO 19
+// Corrections : 
+//   - Commentaires corrigés (categ_id est correct, pas category_id)
+//   - Gestion d'erreurs renforcée
+//   - Logs détaillés pour debugging
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -38,51 +42,71 @@ exports.getAllUsers = async (req, res) => {
             }
         });
 
+        console.log(`📊 [getAllUsers] ${users.length} utilisateurs trouvés dans Odoo`);
+
         // Récupérer les groupes/rôles de chaque utilisateur
         const usersWithRoles = await Promise.all(users.map(async (user) => {
-            // ✅ CORRECTION : category_id au lieu de categ_id
-            const groups = await odooExecuteKw({
-                uid: ADMIN_UID_INT,
-                model: 'res.groups',
-                method: 'search_read',
-                args: [[['user_ids', 'in', [user.id]]]],
-                kwargs: {
-                    fields: ['name', 'categ_id'],
-                    limit: 10
+            try {
+                // ✅ ODOO 19 : Utilise 'categ_id' (pas 'category_id' qui n'existe plus)
+                const groups = await odooExecuteKw({
+                    uid: ADMIN_UID_INT,
+                    model: 'res.groups',
+                    method: 'search_read',
+                    args: [[['user_ids', 'in', [user.id]]]],
+                    kwargs: {
+                        fields: ['name', 'categ_id'],  // ✅ CORRECT pour Odoo 19
+                        limit: 10
+                    }
+                });
+
+                // Déterminer le profil (rôle principal)
+                let profile = 'USER'; // Par défaut
+                
+                // Logique de détermination du rôle basée sur les groupes Odoo
+                const groupNames = groups.map(g => g.name.toLowerCase());
+                
+                if (groupNames.some(name => name.includes('admin') || name.includes('settings'))) {
+                    profile = 'ADMIN';
+                } else if (groupNames.some(name => name.includes('manager') || name.includes('accountant'))) {
+                    profile = 'COLLABORATEUR';
+                } else if (groupNames.some(name => name.includes('user'))) {
+                    profile = 'USER';
+                } else if (groupNames.some(name => name.includes('cash') || name.includes('caisse'))) {
+                    profile = 'CAISSIER';
                 }
-            });
 
-            // Déterminer le profil (rôle principal)
-            let profile = 'USER'; // Par défaut
-            
-            // Logique de détermination du rôle basée sur les groupes Odoo
-            const groupNames = groups.map(g => g.name.toLowerCase());
-            
-            if (groupNames.some(name => name.includes('admin') || name.includes('settings'))) {
-                profile = 'ADMIN';
-            } else if (groupNames.some(name => name.includes('manager') || name.includes('accountant'))) {
-                profile = 'COLLABORATEUR';
-            } else if (groupNames.some(name => name.includes('user'))) {
-                profile = 'USER';
-            } else if (groupNames.some(name => name.includes('cash') || name.includes('caisse'))) {
-                profile = 'CAISSIER';
+                return {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email || user.login,
+                    phone: user.phone || null,
+                    profile: profile,
+                    active: user.active,
+                    companies: user.company_ids || [],
+                    created_at: user.create_date,
+                    updated_at: user.write_date,
+                    last_login: user.login_date || null
+                };
+
+            } catch (groupError) {
+                // ✅ ROBUSTESSE : Si échec récupération groupes, retourner user basique
+                console.error(`⚠️ [getAllUsers] Erreur groupes pour user ${user.id}:`, groupError.message);
+                return {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email || user.login,
+                    phone: user.phone || null,
+                    profile: 'USER', // Par défaut
+                    active: user.active,
+                    companies: user.company_ids || [],
+                    created_at: user.create_date,
+                    updated_at: user.write_date,
+                    last_login: user.login_date || null
+                };
             }
-
-            return {
-                id: user.id,
-                name: user.name,
-                email: user.email || user.login,
-                phone: user.phone || null,
-                profile: profile,
-                active: user.active,
-                companies: user.company_ids || [],
-                created_at: user.create_date,
-                updated_at: user.write_date,
-                last_login: user.login_date || null
-            };
         }));
 
-        console.log(`✅ [getAllUsers] ${usersWithRoles.length} utilisateurs récupérés`);
+        console.log(`✅ [getAllUsers] ${usersWithRoles.length} utilisateurs enrichis avec succès`);
 
         res.json({
             status: 'success',
@@ -90,14 +114,17 @@ exports.getAllUsers = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('🚨 [getAllUsers] Erreur:', error.message);
+        console.error('🚨 [getAllUsers] Erreur critique:', error.message);
+        console.error('Stack:', error.stack);
+        
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la récupération des utilisateurs',
-            details: error.message
+            details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
+
 /**
  * Récupère les détails d'un utilisateur spécifique
  * @route GET /api/admin/users/:id
@@ -106,6 +133,13 @@ exports.getAllUsers = async (req, res) => {
 exports.getUserById = async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
+
+        if (isNaN(userId) || userId <= 0) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'ID utilisateur invalide'
+            });
+        }
 
         console.log(`📋 [getUserById] User ID: ${userId}`);
 
@@ -134,12 +168,12 @@ exports.getUserById = async (req, res) => {
 
         const user = users[0];
 
-        // ✅ CORRECTION ODOO 19 : user_ids au lieu de users
+        // ✅ ODOO 19 : user_ids au lieu de users
         const groups = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.groups',
             method: 'search_read',
-            args: [[['user_ids', 'in', [userId]]]], // ✅ user_ids
+            args: [[['user_ids', 'in', [userId]]]],
             kwargs: {
                 fields: ['name'], // Pas besoin de categ_id ici
                 limit: 10
@@ -177,7 +211,7 @@ exports.getUserById = async (req, res) => {
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la récupération de l\'utilisateur',
-            details: error.message
+            details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
@@ -194,7 +228,7 @@ exports.createUser = async (req, res) => {
 
         console.log('➕ [createUser] Création utilisateur:', { name, email, profile });
 
-        // Validation
+        // ✅ VALIDATION STRICTE
         if (!name || !email || !profile || !password) {
             return res.status(400).json({
                 status: 'error',
@@ -216,6 +250,15 @@ exports.createUser = async (req, res) => {
             });
         }
 
+        // ✅ Validation email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Format d\'email invalide'
+            });
+        }
+
         // Vérifier si l'email existe déjà
         const existingUsers = await odooExecuteKw({
             uid: ADMIN_UID_INT,
@@ -232,7 +275,7 @@ exports.createUser = async (req, res) => {
             });
         }
 
-        // ✅ CORRECTION ODOO 19 : Créer SANS groups_id
+        // ✅ ODOO 19 : Créer SANS groups_id
         console.log(`📋 [createUser] Création sans groupes (à assigner manuellement dans Odoo)`);
         
         const newUserId = await odooExecuteKw({
@@ -274,7 +317,7 @@ exports.createUser = async (req, res) => {
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la création de l\'utilisateur',
-            details: error.message
+            details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
@@ -290,12 +333,27 @@ exports.updateUser = async (req, res) => {
         const userId = parseInt(req.params.id);
         const { name, email, phone, profile, companies } = req.body;
 
+        if (isNaN(userId) || userId <= 0) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'ID utilisateur invalide'
+            });
+        }
+
         console.log(`✏️ [updateUser] User ID: ${userId}`);
 
         // Construire l'objet de mise à jour
         const updateData = {};
         if (name) updateData.name = name;
         if (email) {
+            // ✅ Validation email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({
+                    status: 'error',
+                    error: 'Format d\'email invalide'
+                });
+            }
             updateData.login = email;
             updateData.email = email;
         }
@@ -308,6 +366,14 @@ exports.updateUser = async (req, res) => {
         // ✅ Ne PAS mettre à jour groups_id en Odoo 19
         if (profile) {
             console.log(`⚠️ Changement de profil demandé vers "${profile}" → À faire manuellement dans Odoo`);
+        }
+
+        // Vérifier que l'objet n'est pas vide
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Aucune donnée à mettre à jour'
+            });
         }
 
         // Mettre à jour dans Odoo
@@ -335,7 +401,7 @@ exports.updateUser = async (req, res) => {
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la mise à jour de l\'utilisateur',
-            details: error.message
+            details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
@@ -349,6 +415,20 @@ exports.toggleUserStatus = async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const { active } = req.body;
+
+        if (isNaN(userId) || userId <= 0) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'ID utilisateur invalide'
+            });
+        }
+
+        if (typeof active !== 'boolean') {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Le paramètre "active" doit être un booléen'
+            });
+        }
 
         console.log(`🔄 [toggleUserStatus] User ID: ${userId}, Active: ${active}`);
 
@@ -372,7 +452,7 @@ exports.toggleUserStatus = async (req, res) => {
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors du changement de statut',
-            details: error.message
+            details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
@@ -386,6 +466,13 @@ exports.resetUserPassword = async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const { new_password } = req.body;
+
+        if (isNaN(userId) || userId <= 0) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'ID utilisateur invalide'
+            });
+        }
 
         console.log(`🔑 [resetUserPassword] User ID: ${userId}`);
 
@@ -416,7 +503,7 @@ exports.resetUserPassword = async (req, res) => {
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la réinitialisation du mot de passe',
-            details: error.message
+            details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
@@ -431,12 +518,27 @@ exports.updateUserCompanies = async (req, res) => {
         const userId = parseInt(req.params.id);
         const { company_ids } = req.body;
 
+        if (isNaN(userId) || userId <= 0) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'ID utilisateur invalide'
+            });
+        }
+
         console.log(`🏢 [updateUserCompanies] User ID: ${userId}, Companies: ${company_ids}`);
 
         if (!company_ids || company_ids.length === 0) {
             return res.status(400).json({
                 status: 'error',
                 error: 'Au moins une entreprise doit être assignée'
+            });
+        }
+
+        // ✅ Validation que company_ids est un tableau d'entiers
+        if (!Array.isArray(company_ids) || !company_ids.every(id => Number.isInteger(id) && id > 0)) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Les IDs d\'entreprises doivent être des entiers positifs'
             });
         }
 
@@ -463,7 +565,7 @@ exports.updateUserCompanies = async (req, res) => {
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la mise à jour des entreprises',
-            details: error.message
+            details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
@@ -476,6 +578,13 @@ exports.updateUserCompanies = async (req, res) => {
 exports.deleteUser = async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
+
+        if (isNaN(userId) || userId <= 0) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'ID utilisateur invalide'
+            });
+        }
 
         console.log(`🗑️ [deleteUser] User ID: ${userId}`);
 
@@ -500,7 +609,7 @@ exports.deleteUser = async (req, res) => {
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la suppression de l\'utilisateur',
-            details: error.message
+            details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
