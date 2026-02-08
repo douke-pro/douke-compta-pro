@@ -557,6 +557,9 @@ function generateStatCard(title, value, unit, icon, colorClass, trend = null, tr
     `;
 }
 
+/**
+ * Génère le HTML du Dashboard avec KPIs et Actions Rapides améliorées
+ */
 function generateDashboardHTML(data) {
     if (!data) return generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
 
@@ -567,6 +570,8 @@ function generateDashboardHTML(data) {
 
     return `
         <h3 class="text-3xl font-black text-secondary mb-8 fade-in">Tableau de Bord Comptable pour ${appState.currentCompanyName}</h3>
+        
+        <!-- KPIs -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             ${kpi1}
             ${kpi2}
@@ -574,31 +579,108 @@ function generateDashboardHTML(data) {
             ${kpi4}
         </div>
         
+        <!-- 🔥 SECTION ACTIONS RAPIDES AVEC NUMÉRISATION -->
+        <div class="mb-8">
+            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-bolt mr-2 text-warning"></i>Actions Rapides
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <!-- 📷 NUMÉRISER FACTURE -->
+                <div class="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-2xl border-2 border-primary/20 hover:border-primary hover:shadow-xl transition-all cursor-pointer group"
+                     onclick="window.openInvoiceScanner()">
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-scanner fa-2x text-primary"></i>
+                        </div>
+                        <h5 class="font-black text-gray-900 dark:text-white mb-2">Numériser Facture</h5>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Glissez un document ou cliquez</p>
+                        <span class="text-sm font-bold text-primary group-hover:underline">Scanner →</span>
+                    </div>
+                </div>
+                
+                <!-- ✏️ SAISIE MANUELLE -->
+                <div class="bg-gradient-to-br from-success/10 to-success/5 p-6 rounded-2xl border-2 border-success/20 hover:border-success hover:shadow-xl transition-all cursor-pointer group"
+                     onclick="loadContentArea('manual-entry', 'Passer une Écriture')">
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-pen-to-square fa-2x text-success"></i>
+                        </div>
+                        <h5 class="font-black text-gray-900 dark:text-white mb-2">Nouvelle Écriture</h5>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Saisie manuelle complète</p>
+                        <span class="text-sm font-bold text-success group-hover:underline">Créer →</span>
+                    </div>
+                </div>
+                
+                <!-- 📊 VOIR BILAN -->
+                <div class="bg-gradient-to-br from-info/10 to-info/5 p-6 rounded-2xl border-2 border-info/20 hover:border-info hover:shadow-xl transition-all cursor-pointer group"
+                     onclick="window.handleOpenBalanceSheet()">
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-info/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-chart-pie fa-2x text-info"></i>
+                        </div>
+                        <h5 class="font-black text-gray-900 dark:text-white mb-2">Voir Bilan</h5>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Consulter bilan SYSCOHADA</p>
+                        <span class="text-sm font-bold text-info group-hover:underline">Afficher →</span>
+                    </div>
+                </div>
+                
+                <!-- 📁 PLAN COMPTABLE -->
+                <div class="bg-gradient-to-br from-warning/10 to-warning/5 p-6 rounded-2xl border-2 border-warning/20 hover:border-warning hover:shadow-xl transition-all cursor-pointer group"
+                     onclick="loadContentArea('chart-of-accounts', 'Plan Comptable')">
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-list-alt fa-2x text-warning"></i>
+                        </div>
+                        <h5 class="font-black text-gray-900 dark:text-white mb-2">Plan Comptable</h5>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Gérer les comptes</p>
+                        <span class="text-sm font-bold text-warning group-hover:underline">Ouvrir →</span>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+        <!-- SYNTHÈSE D'ACTIVITÉ -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl">
-                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Synthèse d'Activité (Dernières Écritures)</h4>
+                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-clock-rotate-left mr-2 text-primary"></i>
+                    Synthèse d'Activité (Dernières Écritures)
+                </h4>
                 ${generateJournalHTML(data.recentEntries || [])}
             </div>
             <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl">
-                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Actions Rapides</h4>
+                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-chart-simple mr-2 text-success"></i>
+                    Statistiques Rapides
+                </h4>
                 <div class="space-y-4">
-                    <button onclick="loadContentArea('manual-entry', 'Passer une Écriture')" class="w-full bg-primary/10 text-primary font-bold p-3 rounded-xl hover:bg-primary/20 transition-colors">
-                        <i class="fas fa-plus-square mr-2"></i> Nouvelle Écriture
-                    </button>
-                    <button onclick="window.handleOpenReportModal('bilan', 'Bilan Actuel')" class="w-full bg-info/10 text-info font-bold p-3 rounded-xl hover:bg-info/20 transition-colors">
-                        <i class="fas fa-chart-pie mr-2"></i> Afficher Bilan (Modal)
-                    </button>
-                    <button onclick="loadContentArea('chart-of-accounts', 'Plan Comptable')" class="w-full bg-warning/10 text-warning font-bold p-3 rounded-xl hover:bg-warning/20 transition-colors">
-                        <i class="fas fa-list-alt mr-2"></i> Gérer Plan Comptable
-                    </button>
+                    <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                        <span class="text-sm font-bold text-gray-600 dark:text-gray-400">Écritures ce mois</span>
+                        <span class="text-2xl font-black text-primary">${data.recentEntries?.length || 0}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                        <span class="text-sm font-bold text-gray-600 dark:text-gray-400">Docs numérisés</span>
+                        <span class="text-2xl font-black text-success">--</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                        <span class="text-sm font-bold text-gray-600 dark:text-gray-400">Taux d'automatisation</span>
+                        <span class="text-2xl font-black text-info">--%</span>
+                    </div>
                 </div>
             </div>
         </div>
     `;
 }
 
+/**
+ * Charge les données du Dashboard depuis l'API
+ */
 async function fetchDashboardData(endpoint) {
     const response = await apiFetch(endpoint, { method: 'GET' });
+    
+    // Données simulées pour démo (à remplacer par réponse API réelle)
     const simulatedData = {
         cashBalance: 8500000,
         netProfit: 1200000,
@@ -622,6 +704,285 @@ async function fetchDashboardData(endpoint) {
 
     return generateDashboardHTML(finalData);
 }
+
+// =============================================================================
+// 📷 MODULE DE NUMÉRISATION - FONCTIONS PRINCIPALES
+// =============================================================================
+
+/**
+ * 📷 Ouvre la modal de numérisation de facture
+ */
+window.openInvoiceScanner = function() {
+    console.log('📷 [openInvoiceScanner] Ouverture du scanner de factures...');
+    
+    const scannerHTML = `
+        <div class="space-y-6">
+            <!-- Zone de Drop avec style amélioré -->
+            <div id="invoice-dropzone" 
+                 class="border-4 border-dashed border-primary/40 rounded-2xl p-16 text-center bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/15 transition-all cursor-pointer group"
+                 onclick="document.getElementById('invoice-file-input').click()"
+                 ondragover="event.preventDefault(); this.classList.add('border-primary', 'bg-primary/20');"
+                 ondragleave="this.classList.remove('border-primary', 'bg-primary/20');"
+                 ondrop="window.handleInvoiceDrop(event)">
+                <i class="fas fa-cloud-upload-alt fa-5x text-primary/50 mb-6 group-hover:scale-110 transition-transform"></i>
+                <h4 class="text-2xl font-black text-gray-900 dark:text-white mb-3">Glissez votre facture ici</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">ou cliquez pour parcourir vos fichiers</p>
+                <div class="inline-flex items-center gap-3 text-xs text-gray-500">
+                    <span class="px-3 py-1 bg-white dark:bg-gray-700 rounded-full font-bold">📄 PDF</span>
+                    <span class="px-3 py-1 bg-white dark:bg-gray-700 rounded-full font-bold">🖼️ JPG</span>
+                    <span class="px-3 py-1 bg-white dark:bg-gray-700 rounded-full font-bold">🖼️ PNG</span>
+                    <span class="px-3 py-1 bg-white dark:bg-gray-700 rounded-full font-bold">⚖️ Max 10 MB</span>
+                </div>
+                <input type="file" id="invoice-file-input" accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="window.handleInvoiceUpload(event)">
+            </div>
+            
+            <!-- Zone de résultat OCR (masquée au départ) -->
+            <div id="ocr-result-zone" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Aperçu du document -->
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                        <h5 class="font-bold text-gray-900 dark:text-white mb-3 flex items-center">
+                            <i class="fas fa-file-image mr-2 text-primary"></i>
+                            Document Scanné
+                        </h5>
+                        <div id="document-preview" class="bg-white dark:bg-gray-800 rounded-lg p-2 min-h-[400px] flex items-center justify-center border-2 border-gray-200 dark:border-gray-600">
+                            <span class="text-gray-400">Aperçu du document</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Formulaire de validation -->
+                    <div>
+                        <h5 class="font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                            <i class="fas fa-edit mr-2 text-success"></i>
+                            Données Extraites
+                            <span class="ml-auto text-xs font-normal text-gray-500">Vérifiez et corrigez si nécessaire</span>
+                        </h5>
+                        <form id="ocr-validation-form" onsubmit="window.handleOCRValidation(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                    Date <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" id="ocr-date" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                    N° Facture <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="ocr-invoice-number" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                    Fournisseur <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="ocr-supplier" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">HT</label>
+                                    <input type="number" step="0.01" id="ocr-amount-ht" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">TVA</label>
+                                    <input type="number" step="0.01" id="ocr-tva" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">TTC</label>
+                                    <input type="number" step="0.01" id="ocr-amount-ttc" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-black">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                    Compte Débit <span class="text-danger">*</span>
+                                </label>
+                                <select id="ocr-account-debit" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="">-- Choisir un compte --</option>
+                                    <option value="601100">601100 - Achats de marchandises</option>
+                                    <option value="601200">601200 - Achats de matières premières</option>
+                                    <option value="605000">605000 - Autres achats</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                    Compte Crédit <span class="text-danger">*</span>
+                                </label>
+                                <select id="ocr-account-credit" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="">-- Choisir un compte --</option>
+                                    <option value="401000">401000 - Fournisseurs</option>
+                                    <option value="404000">404000 - Fournisseurs d'immobilisations</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-3 pt-6 border-t">
+                                <button type="submit" class="flex-1 bg-success text-white font-bold py-4 rounded-xl hover:bg-success-dark transition-all shadow-lg hover:shadow-xl active:scale-95">
+                                    <i class="fas fa-check-circle mr-2"></i>Valider et Créer l'Écriture
+                                </button>
+                                <button type="button" onclick="ModalManager.close()" class="px-6 bg-gray-500 text-white font-bold py-4 rounded-xl hover:bg-gray-600 transition-all">
+                                    <i class="fas fa-times mr-2"></i>Annuler
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Zone de chargement -->
+            <div id="ocr-loading-zone" class="hidden text-center p-12">
+                <div class="loading-spinner mx-auto mb-6"></div>
+                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Analyse du document en cours...</h4>
+                <p class="text-sm text-gray-500">Extraction des données avec OCR • Patientez quelques secondes</p>
+                <div class="mt-6 flex justify-center gap-2">
+                    <span class="w-2 h-2 bg-primary rounded-full animate-bounce" style="animation-delay: 0s"></span>
+                    <span class="w-2 h-2 bg-primary rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                    <span class="w-2 h-2 bg-primary rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    ModalManager.open('📷 Numérisation de Facture', scannerHTML);
+};
+
+/**
+ * 🖱️ Gère le drop de fichier (drag & drop)
+ */
+window.handleInvoiceDrop = function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const dropzone = document.getElementById('invoice-dropzone');
+    dropzone.classList.remove('border-primary', 'bg-primary/20');
+    
+    const file = event.dataTransfer.files[0];
+    if (file) {
+        processInvoiceFile(file);
+    }
+};
+
+/**
+ * 📤 Gère l'upload du fichier via input
+ */
+window.handleInvoiceUpload = function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        processInvoiceFile(file);
+    }
+};
+
+/**
+ * ⚙️ Traite le fichier uploadé (validation + envoi OCR)
+ */
+async function processInvoiceFile(file) {
+    console.log('📤 [processInvoiceFile] Fichier:', file.name, '|', (file.size / 1024 / 1024).toFixed(2), 'MB');
+    
+    // Validation taille
+    if (file.size > 10 * 1024 * 1024) {
+        NotificationManager.show('❌ Le fichier ne doit pas dépasser 10 MB', 'error');
+        return;
+    }
+    
+    // Validation type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+        NotificationManager.show('❌ Type de fichier non autorisé. Utilisez PDF, JPG ou PNG.', 'error');
+        return;
+    }
+    
+    // Afficher la zone de chargement
+    document.getElementById('invoice-dropzone').classList.add('hidden');
+    document.getElementById('ocr-loading-zone').classList.remove('hidden');
+    
+    try {
+        // Créer FormData
+        const formData = new FormData();
+        formData.append('invoice', file);
+        formData.append('companyId', appState.currentCompanyId);
+        
+        console.log('🚀 [processInvoiceFile] Envoi au serveur pour OCR...');
+        
+        // Appel API OCR
+        const response = await fetch(`${API_BASE_URL}/api/ocr/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${appState.token}`
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            console.log('✅ [OCR] Données extraites:', data.data.parsed);
+            
+            // Pré-remplir le formulaire
+            document.getElementById('ocr-date').value = data.data.parsed.date || new Date().toISOString().split('T')[0];
+            document.getElementById('ocr-invoice-number').value = data.data.parsed.invoiceNumber || '';
+            document.getElementById('ocr-supplier').value = data.data.parsed.supplier || '';
+            document.getElementById('ocr-amount-ht').value = data.data.parsed.amountHT || 0;
+            document.getElementById('ocr-tva').value = data.data.parsed.tva || 0;
+            document.getElementById('ocr-amount-ttc').value = data.data.parsed.amountTTC || 0;
+            
+            // Afficher le résultat
+            document.getElementById('ocr-loading-zone').classList.add('hidden');
+            document.getElementById('ocr-result-zone').classList.remove('hidden');
+            
+            NotificationManager.show('✅ Document analysé ! Vérifiez les données extraites.', 'success');
+            
+        } else {
+            throw new Error(data.error || 'Erreur OCR');
+        }
+        
+    } catch (error) {
+        console.error('🚨 [processInvoiceFile] Erreur:', error);
+        NotificationManager.show(`❌ Erreur : ${error.message}`, 'error');
+        
+        // Réafficher la dropzone
+        document.getElementById('ocr-loading-zone').classList.add('hidden');
+        document.getElementById('invoice-dropzone').classList.remove('hidden');
+    }
+}
+
+/**
+ * ✅ Valide et crée l'écriture comptable depuis les données OCR
+ */
+window.handleOCRValidation = async function(event) {
+    event.preventDefault();
+    
+    const data = {
+        companyId: appState.currentCompanyId,
+        date: document.getElementById('ocr-date').value,
+        invoiceNumber: document.getElementById('ocr-invoice-number').value,
+        supplier: document.getElementById('ocr-supplier').value,
+        amountHT: parseFloat(document.getElementById('ocr-amount-ht').value),
+        tva: parseFloat(document.getElementById('ocr-tva').value),
+        amountTTC: parseFloat(document.getElementById('ocr-amount-ttc').value),
+        accountDebit: parseInt(document.getElementById('ocr-account-debit').value),
+        accountCredit: parseInt(document.getElementById('ocr-account-credit').value)
+    };
+    
+    console.log('✅ [handleOCRValidation] Validation et création:', data);
+    
+    try {
+        NotificationManager.show('⏳ Création de l\'écriture comptable...', 'info');
+        
+        const response = await apiFetch('ocr/validate', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        
+        if (response.status === 'success') {
+            NotificationManager.show('🎉 Facture enregistrée avec succès !', 'success');
+            ModalManager.close();
+            
+            // Recharger le dashboard pour voir la nouvelle écriture
+            loadContentArea('dashboard', 'Tableau de Bord');
+        } else {
+            throw new Error(response.error || 'Erreur lors de la création');
+        }
+        
+    } catch (error) {
+        console.error('🚨 [handleOCRValidation] Erreur:', error);
+        NotificationManager.show(`❌ Erreur : ${error.message}`, 'error');
+    }
+};
 
 // =================================================================
 // JOURNAL (AVEC AMÉLIORATIONS)
