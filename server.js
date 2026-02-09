@@ -17,7 +17,7 @@ const accountingRoutes = require('./routes/accounting');
 const userRoutes = require('./routes/user');
 const settingsRoutes = require('./routes/settings');
 const adminUsersRoutes = require('./routes/adminUsers');
-const companiesRoutes = require('./routes/companies');        // 🆕 AJOUTÉ
+const companiesRoutes = require('./routes/company');        // 🆕 AJOUTÉ
 const notificationsRoutes = require('./routes/notifications'); // 🆕 AJOUTÉ
 const ocrRoutes = require('./routes/ocr');                    // 🆕 AJOUTÉ
 
@@ -61,7 +61,7 @@ app.use('/api/admin', adminUsersRoutes);
 console.log('✅ Route /api/admin montée');
 
 // 🆕 NOUVELLES ROUTES
-app.use('/api/companies', companiesRoutes);
+app.use('/api/companies', companyRoutes);
 console.log('✅ Route /api/companies (liste) montée');
 
 app.use('/api/notifications', notificationsRoutes);
