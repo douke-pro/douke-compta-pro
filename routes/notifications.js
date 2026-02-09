@@ -1,11 +1,3 @@
-router.post(
-    '/send',
-    protect,
-    checkCompanyAccess,
-    restrictTo('ADMIN', 'COLLABORATEUR'), // Middleware de restriction
-    notificationsController.sendNotification
-);
-
 const express = require('express');
 const router = express.Router();
 const { protect, checkCompanyAccess } = require('../middleware/auth');
