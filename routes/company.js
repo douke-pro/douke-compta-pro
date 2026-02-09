@@ -1,28 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
-const { 
-    createCompanyWithIsolation, 
-    listUserCompanies 
-} = require('../controllers/companyController');
+const { protect } = require('../middleware/authMiddleware');
 
-// Vérification du module
-router.get('/status', (req, res) => {
-    res.json({ 
-        status: "success", 
-        message: "Module Company opérationnel",
-        logic: "Analytic Isolation (Partner-based)"
-    });
-});
+// 🔧 IMPORTER LE CONTRÔLEUR
+const companyController = require('../controllers/companyController');
 
-// Créer une nouvelle entreprise (Partenaire + Compte Analytique dédié)
-router.post('/create', protect, createCompanyWithIsolation);
+// Routes existantes
+router.post('/create', protect, companyController.createCompanyWithIsolation);
+router.get('/list', protect, companyController.listUserCompanies);
 
-// Lister les entreprises (Partenaires) liées au compte de l'utilisateur
-router.get('/list', protect, listUserCompanies);
-
-module.exports = router;
-
+// 🆕 NOUVELLE ROUTE (pour la liste des entreprises)
 router.get('/', protect, companyController.getCompanies);
 
 module.exports = router;
