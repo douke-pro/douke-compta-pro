@@ -5083,6 +5083,9 @@ window.toggleNotifications = function() {
 /**
  * Charge les notifications depuis l'API (ou données simulées)
  */
+/**
+ * Charge les notifications depuis l'API (DONNÉES RÉELLES)
+ */
 async function loadNotifications() {
     console.log('📧 [loadNotifications] Chargement des notifications...');
     
@@ -5098,51 +5101,33 @@ async function loadNotifications() {
     `;
     
     try {
-        // TODO: Remplacer par un vrai appel API
-        // const response = await apiFetch('notifications/emails', { method: 'GET' });
-        // const notifications = response.data || [];
+        // ✅ APPEL API RÉEL
+        const response = await apiFetch(`notifications?companyId=${appState.currentCompanyId}`, { 
+            method: 'GET' 
+        });
         
-        // ✅ DONNÉES SIMULÉES (à remplacer par API réelle)
-        const notifications = [
-            {
-                id: 1,
-                type: 'invoice',
-                title: 'Facture envoyée à Client ABC',
-                message: 'Email: Facture #FAC-2026-001 - Montant: 500,000 XOF',
-                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // Il y a 2 heures
-                read: false
-            },
-            {
-                id: 2,
-                type: 'reminder',
-                title: 'Rappel envoyé à Fournisseur XYZ',
-                message: 'Email: Relance paiement échéance 15/02/2026',
-                timestamp: new Date(Date.now() - 26 * 60 * 60 * 1000), // Hier
-                read: false
-            },
-            {
-                id: 3,
-                type: 'report',
-                title: 'Bilan mensuel envoyé',
-                message: 'Email: Bilan Janvier 2026 - Direction Générale',
-                timestamp: new Date('2026-02-05'),
-                read: true
-            }
-        ];
+        const notifications = response.data || [];
         
         // Générer le HTML des notifications
         const notificationsHTML = notifications.map(notif => {
             const icon = getNotificationIcon(notif.type);
-            const timeAgo = formatTimeAgo(notif.timestamp);
+            const timeAgo = formatTimeAgo(notif.created_at);
             const unreadClass = notif.read ? '' : 'unread';
             
             return `
-                <div class="notification-item ${unreadClass}" style="padding: 16px; border-bottom: 1px solid #E5E7EB; cursor: pointer;" onclick="markAsRead(${notif.id})">
+                <div class="notification-item ${unreadClass}" 
+                     style="padding: 16px; border-bottom: 1px solid #E5E7EB; cursor: pointer;" 
+                     onclick="markAsRead(${notif.id})">
                     <div style="display: flex; align-items: start; gap: 12px;">
-                        <i class="${icon}" style="color: ${notif.read ? '#9CA3AF' : '#10B981'}; font-size: 18px; margin-top: 2px;"></i>
+                        <i class="${icon}" 
+                           style="color: ${notif.read ? '#9CA3AF' : '#10B981'}; font-size: 18px; margin-top: 2px;"></i>
                         <div style="flex: 1;">
-                            <p style="font-weight: bold; font-size: 13px; color: ${notif.read ? '#6B7280' : '#111827'}; margin-bottom: 4px;">${notif.title}</p>
-                            <p style="font-size: 11px; color: #6B7280; margin-bottom: 8px;">${notif.message}</p>
+                            <p style="font-weight: bold; font-size: 13px; color: ${notif.read ? '#6B7280' : '#111827'}; margin-bottom: 4px;">
+                                ${notif.title}
+                            </p>
+                            <p style="font-size: 11px; color: #6B7280; margin-bottom: 8px;">
+                                ${notif.message}
+                            </p>
                             <p style="font-size: 10px; color: #9CA3AF;">
                                 <i class="fas fa-clock" style="margin-right: 4px;"></i>${timeAgo}
                             </p>
