@@ -4397,10 +4397,18 @@ window.handleSendNotification = async function(event) {
 };
 
 /**
- * 🆕 Affiche la synthèse des notifications envoyées
+ * 🆕 Affiche la synthèse des notifications envoyées (CORRIGÉE)
  */
 function showNotificationSummary(data, title, message, type) {
     console.log('📊 [showNotificationSummary] Affichage synthèse', data);
+    
+    // ✅ VALIDATION DES DONNÉES
+    if (!data || !data.recipients) {
+        console.error('❌ [showNotificationSummary] Données invalides:', data);
+        NotificationManager.show('✅ Notifications envoyées (synthèse indisponible)', 'success');
+        window.switchUsersTab('list');
+        return;
+    }
     
     const sentDate = new Date().toLocaleString('fr-FR', {
         day: '2-digit',
@@ -4411,7 +4419,7 @@ function showNotificationSummary(data, title, message, type) {
     });
     
     // Générer la liste des destinataires
-    const recipientsList = (data.recipients || []).map(recipient => {
+    const recipientsList = data.recipients.map(recipient => {
         const channelIcon = recipient.channel === 'email' 
             ? '<i class="fas fa-envelope text-primary"></i>' 
             : '<i class="fas fa-bell text-warning"></i>';
@@ -4423,11 +4431,11 @@ function showNotificationSummary(data, title, message, type) {
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xs font-bold">
-                            ${recipient.name.substring(0, 2).toUpperCase()}
+                            ${(recipient.name || 'U').substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                            <p class="font-bold text-sm text-gray-900 dark:text-white">${recipient.name}</p>
-                            <p class="text-xs text-gray-500">${recipient.email}</p>
+                            <p class="font-bold text-sm text-gray-900 dark:text-white">${recipient.name || 'Utilisateur'}</p>
+                            <p class="text-xs text-gray-500">${recipient.email || '-'}</p>
                         </div>
                     </div>
                 </td>
@@ -4453,6 +4461,11 @@ function showNotificationSummary(data, title, message, type) {
         `;
     }).join('');
     
+    // Calculer les statistiques avec valeurs par défaut
+    const sentCount = data.sent_count || 0;
+    const failedCount = data.failed_count || 0;
+    const totalRecipients = data.total_recipients || data.recipients.length;
+    
     const modalHTML = `
         <div class="space-y-6">
             <!-- En-tête de succès -->
@@ -4464,7 +4477,7 @@ function showNotificationSummary(data, title, message, type) {
                     <div>
                         <h4 class="text-xl font-black text-success mb-1">Notification envoyée avec succès !</h4>
                         <p class="text-sm text-gray-600 dark:text-gray-400">
-                            ${data.sent_count} destinataire(s) sur ${data.total_recipients}
+                            ${sentCount} destinataire(s) sur ${totalRecipients}
                         </p>
                     </div>
                 </div>
@@ -4526,15 +4539,15 @@ function showNotificationSummary(data, title, message, type) {
             <!-- Statistiques -->
             <div class="grid grid-cols-3 gap-4">
                 <div class="bg-success/10 p-4 rounded-xl text-center">
-                    <p class="text-3xl font-black text-success mb-1">${data.sent_count}</p>
+                    <p class="text-3xl font-black text-success mb-1">${sentCount}</p>
                     <p class="text-xs text-gray-600 dark:text-gray-400">Envoyés</p>
                 </div>
                 <div class="bg-danger/10 p-4 rounded-xl text-center">
-                    <p class="text-3xl font-black text-danger mb-1">${data.failed_count || 0}</p>
+                    <p class="text-3xl font-black text-danger mb-1">${failedCount}</p>
                     <p class="text-xs text-gray-600 dark:text-gray-400">Échecs</p>
                 </div>
                 <div class="bg-primary/10 p-4 rounded-xl text-center">
-                    <p class="text-3xl font-black text-primary mb-1">${data.total_recipients}</p>
+                    <p class="text-3xl font-black text-primary mb-1">${totalRecipients}</p>
                     <p class="text-xs text-gray-600 dark:text-gray-400">Total</p>
                 </div>
             </div>
