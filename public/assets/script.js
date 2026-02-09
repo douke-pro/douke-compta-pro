@@ -3718,8 +3718,11 @@ let usersState = {
 // =============================================================================
 
 /**
- * Génère le HTML de l'interface de gestion des utilisateurs
- * Appelée automatiquement quand l'ADMIN clique sur "Gestion des Utilisateurs"
+ * ✅ VERSION AMÉLIORÉE avec système d'onglets
+ * Génère le module Gestion des Utilisateurs avec 3 onglets :
+ * 1. Liste des Utilisateurs
+ * 2. Créer un Utilisateur
+ * 3. Envoyer Notification
  */
 async function generateAdminUsersHTML() {
     const role = appState.user.profile;
@@ -3749,51 +3752,81 @@ async function generateAdminUsersHTML() {
     }
     
     return `
-        <div class="fade-in">
+        <div class="fade-in max-w-7xl mx-auto">
             <!-- En-tête -->
-            <div class="flex justify-between items-center mb-8">
-                <div>
-                    <h3 class="text-3xl font-black text-secondary">
-                        <i class="fas fa-users-cog mr-3 text-primary"></i>Gestion des Utilisateurs
-                    </h3>
-                    <p class="text-gray-600 dark:text-gray-400 mt-2">
-                        Gérez les comptes utilisateurs, leurs rôles et leurs accès aux entreprises
-                    </p>
-                </div>
-                <button onclick="window.openCreateUserModal()" 
-                    class="bg-success text-white font-bold px-6 py-3 rounded-xl hover:bg-success-dark transition-all shadow-lg">
-                    <i class="fas fa-user-plus mr-2"></i>Créer un Utilisateur
-                </button>
+            <div class="mb-8">
+                <h3 class="text-3xl font-black text-secondary mb-2">
+                    <i class="fas fa-users-cog mr-3 text-primary"></i>Gestion des Utilisateurs
+                </h3>
+                <p class="text-gray-600 dark:text-gray-400">
+                    Gérez les comptes, permissions et envoyez des notifications
+                </p>
             </div>
 
+            <!-- 🆕 ONGLETS DE NAVIGATION -->
+            <div class="bg-white dark:bg-gray-800 rounded-t-2xl border-b-2 border-gray-200 dark:border-gray-700">
+                <div class="flex flex-wrap gap-2 p-2">
+                    <button onclick="window.switchUsersTab('list')" 
+                        id="users-tab-list"
+                        class="users-tab px-6 py-3 rounded-xl font-bold transition-all hover:bg-gray-100 dark:hover:bg-gray-700 bg-primary text-white">
+                        <i class="fas fa-list mr-2"></i>Liste des Utilisateurs
+                    </button>
+                    <button onclick="window.switchUsersTab('create')" 
+                        id="users-tab-create"
+                        class="users-tab px-6 py-3 rounded-xl font-bold transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        <i class="fas fa-user-plus mr-2"></i>Créer un Utilisateur
+                    </button>
+                    <button onclick="window.switchUsersTab('notifications')" 
+                        id="users-tab-notifications"
+                        class="users-tab px-6 py-3 rounded-xl font-bold transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        <i class="fas fa-paper-plane mr-2"></i>Envoyer Notification
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTENEUR DES ONGLETS -->
+            <div class="bg-white dark:bg-gray-800 rounded-b-2xl shadow-2xl p-8">
+                <div id="users-tab-content">
+                    <!-- Le contenu de l'onglet sera injecté ici -->
+                    ${generateUsersListTabHTML()}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 🆕 Génère le contenu de l'onglet "Liste des Utilisateurs"
+ */
+function generateUsersListTabHTML() {
+    return `
+        <div class="space-y-6">
             <!-- Filtres et Recherche -->
-            <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg mb-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                            <i class="fas fa-search mr-2"></i>Rechercher
-                        </label>
-                        <input type="text" id="user-search" 
-                            onkeyup="window.handleUserSearch(this.value)"
-                            placeholder="Nom, email..."
-                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                            <i class="fas fa-filter mr-2"></i>Filtrer par Rôle
-                        </label>
-                        <select id="role-filter" onchange="window.handleRoleFilter(this.value)"
-                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                            <option value="ALL">Tous les rôles</option>
-                            <option value="ADMIN">Administrateurs</option>
-                            <option value="COLLABORATEUR">Collaborateurs</option>
-                            <option value="USER">Utilisateurs</option>
-                            <option value="CAISSIER">Caissiers</option>
-                        </select>
-                    </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-search mr-2"></i>Rechercher
+                    </label>
+                    <input type="text" id="user-search" 
+                        onkeyup="window.handleUserSearch(this.value)"
+                        placeholder="Nom, email..."
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-filter mr-2"></i>Filtrer par Rôle
+                    </label>
+                    <select id="role-filter" onchange="window.handleRoleFilter(this.value)"
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                        <option value="ALL">Tous les rôles</option>
+                        <option value="ADMIN">Administrateurs</option>
+                        <option value="COLLABORATEUR">Collaborateurs</option>
+                        <option value="USER">Utilisateurs</option>
+                        <option value="CAISSIER">Caissiers</option>
+                    </select>
                 </div>
             </div>
-
+            
             <!-- Tableau des Utilisateurs -->
             <div id="users-table-container">
                 ${generateUsersTableHTML()}
@@ -3801,6 +3834,568 @@ async function generateAdminUsersHTML() {
         </div>
     `;
 }
+
+/**
+ * 🆕 Génère le contenu de l'onglet "Créer un Utilisateur"
+ */
+function generateCreateUserTabHTML() {
+    return `
+        <div class="space-y-6">
+            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-6">
+                <i class="fas fa-user-plus mr-2 text-success"></i>
+                Créer un Nouvel Utilisateur
+            </h4>
+            
+            <form id="create-user-form" onsubmit="window.handleCreateUser(event)" class="space-y-6">
+                <!-- Informations de base -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Nom complet <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" id="user-name" required 
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success"
+                            placeholder="Ex: Jean Dupont">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Email <span class="text-danger">*</span>
+                        </label>
+                        <input type="email" id="user-email" required 
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success"
+                            placeholder="jean.dupont@example.com">
+                    </div>
+                </div>
+                
+                <!-- Téléphone -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Téléphone
+                    </label>
+                    <input type="tel" id="user-phone" 
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success"
+                        placeholder="+229 97 12 34 56">
+                </div>
+                
+                <!-- Mot de passe -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Mot de passe <span class="text-danger">*</span>
+                    </label>
+                    <input type="password" id="user-password" minlength="8" required 
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success"
+                        placeholder="Minimum 8 caractères">
+                    <p class="text-xs text-gray-500 mt-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Le mot de passe doit contenir au moins 8 caractères
+                    </p>
+                </div>
+                
+                <!-- Rôle -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Rôle <span class="text-danger">*</span>
+                    </label>
+                    <select id="user-role" required 
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success">
+                        <option value="">-- Sélectionner un rôle --</option>
+                        <option value="ADMIN">👑 Administrateur - Accès total au système</option>
+                        <option value="COLLABORATEUR">👔 Collaborateur - Gestion comptable avancée</option>
+                        <option value="USER">👤 Utilisateur - Consultation et saisie basique</option>
+                        <option value="CAISSIER">💰 Caissier - Gestion de caisse uniquement</option>
+                    </select>
+                </div>
+                
+                <!-- Entreprises -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Entreprises <span class="text-danger">*</span>
+                    </label>
+                    <select id="user-companies" multiple size="4" required 
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success">
+                        <!-- Chargé dynamiquement -->
+                    </select>
+                    <p class="text-xs text-gray-500 mt-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Maintenez Ctrl (Cmd sur Mac) pour sélectionner plusieurs entreprises
+                    </p>
+                </div>
+                
+                <!-- Message d'information -->
+                <div class="bg-info/10 border-l-4 border-info p-4 rounded-xl">
+                    <p class="text-sm text-info font-bold">
+                        <i class="fas fa-lightbulb mr-2"></i>
+                        L'utilisateur recevra un email avec ses identifiants de connexion
+                    </p>
+                </div>
+                
+                <!-- Boutons -->
+                <div class="flex gap-3 pt-6 border-t">
+                    <button type="submit" 
+                        class="flex-1 bg-success text-white font-bold py-4 rounded-xl hover:bg-green-600 transition-all shadow-lg">
+                        <i class="fas fa-save mr-2"></i>Créer l'Utilisateur
+                    </button>
+                    <button type="button" onclick="window.switchUsersTab('list')" 
+                        class="px-6 bg-gray-500 text-white font-bold py-4 rounded-xl hover:bg-gray-600 transition-all">
+                        <i class="fas fa-times mr-2"></i>Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+/**
+ * 🆕 Génère le contenu de l'onglet "Envoyer Notification"
+ */
+function generateSendNotificationTabHTML() {
+    return `
+        <div class="space-y-6">
+            <h4 class="text-xl font-black text-gray-900 dark:text-white mb-6">
+                <i class="fas fa-paper-plane mr-2 text-primary"></i>
+                Envoyer une Notification
+            </h4>
+            
+            <form id="send-notification-form" onsubmit="window.handleSendNotification(event)" class="space-y-6">
+                
+                <!-- Destinataires -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">
+                        Destinataires <span class="text-danger">*</span>
+                    </label>
+                    <div class="space-y-3">
+                        <!-- Option : Tous les utilisateurs -->
+                        <label class="flex items-center p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-all has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                            <input type="radio" name="recipient-type" value="all" class="mr-3" checked>
+                            <div class="flex-1">
+                                <p class="font-bold text-gray-900 dark:text-white">
+                                    <i class="fas fa-users mr-2 text-primary"></i>
+                                    Tous les utilisateurs
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">Notification envoyée à tous les membres de l'entreprise</p>
+                            </div>
+                        </label>
+                        
+                        <!-- Option : Par rôle -->
+                        <label class="flex items-center p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-all has-[:checked]:border-info has-[:checked]:bg-info/5">
+                            <input type="radio" name="recipient-type" value="role" class="mr-3">
+                            <div class="flex-1">
+                                <p class="font-bold text-gray-900 dark:text-white">
+                                    <i class="fas fa-user-tag mr-2 text-info"></i>
+                                    Par rôle
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">Sélectionner un rôle spécifique</p>
+                            </div>
+                        </label>
+                        
+                        <!-- Option : Utilisateurs spécifiques -->
+                        <label class="flex items-center p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-all has-[:checked]:border-success has-[:checked]:bg-success/5">
+                            <input type="radio" name="recipient-type" value="specific" class="mr-3">
+                            <div class="flex-1">
+                                <p class="font-bold text-gray-900 dark:text-white">
+                                    <i class="fas fa-user-check mr-2 text-success"></i>
+                                    Utilisateurs spécifiques
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">Choisir des utilisateurs individuels</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Sélecteur de rôle (masqué par défaut) -->
+                <div id="role-selector" class="hidden">
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Sélectionner le rôle
+                    </label>
+                    <select id="notif-role" class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-info">
+                        <option value="ADMIN">👑 Administrateurs</option>
+                        <option value="COLLABORATEUR">👔 Collaborateurs</option>
+                        <option value="USER">👤 Utilisateurs</option>
+                        <option value="CAISSIER">💰 Caissiers</option>
+                    </select>
+                </div>
+                
+                <!-- Sélecteur d'utilisateurs spécifiques (masqué par défaut) -->
+                <div id="users-selector" class="hidden">
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Sélectionner les utilisateurs
+                    </label>
+                    <select id="notif-users" multiple size="5" 
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success">
+                        <!-- Chargé dynamiquement -->
+                    </select>
+                    <p class="text-xs text-gray-500 mt-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Maintenez Ctrl (Cmd sur Mac) pour sélectionner plusieurs utilisateurs
+                    </p>
+                </div>
+                
+                <!-- Type et Priorité -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Type <span class="text-danger">*</span>
+                        </label>
+                        <select id="notif-type" required 
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                            <option value="info">ℹ️ Information</option>
+                            <option value="alert">⚠️ Alerte</option>
+                            <option value="reminder">📅 Rappel</option>
+                            <option value="invoice">📄 Facture</option>
+                            <option value="report">📊 Rapport</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            Priorité <span class="text-danger">*</span>
+                        </label>
+                        <select id="notif-priority" required 
+                            class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                            <option value="low">🟢 Basse</option>
+                            <option value="normal" selected>🔵 Normale</option>
+                            <option value="high">🟠 Haute</option>
+                            <option value="urgent">🔴 Urgente</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Titre -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Titre <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" id="notif-title" maxlength="100" required 
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary" 
+                        placeholder="Ex: Réunion demain à 10h">
+                    <p class="text-xs text-gray-500 mt-2">
+                        <span id="title-char-count">0</span> / 100 caractères
+                    </p>
+                </div>
+                
+                <!-- Message -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Message <span class="text-danger">*</span>
+                    </label>
+                    <textarea id="notif-message" rows="6" maxlength="500" required
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary" 
+                        placeholder="Contenu de la notification..."></textarea>
+                    <p class="text-xs text-gray-500 mt-2">
+                        <span id="message-char-count">0</span> / 500 caractères
+                    </p>
+                </div>
+                
+                <!-- Aperçu -->
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-6 rounded-xl border-2 border-gray-200 dark:border-gray-600">
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">
+                        <i class="fas fa-eye mr-2 text-primary"></i>Aperçu de la notification
+                    </p>
+                    <div class="bg-white dark:bg-gray-900 p-4 rounded-lg border-l-4 border-primary shadow-lg">
+                        <p class="font-bold text-gray-900 dark:text-white mb-2" id="preview-title">
+                            Titre de la notification
+                        </p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400" id="preview-message">
+                            Message de la notification
+                        </p>
+                        <p class="text-xs text-gray-400 mt-3 flex items-center gap-2">
+                            <i class="fas fa-clock"></i>
+                            <span>À l'instant</span>
+                            <span>•</span>
+                            <span id="preview-type">ℹ️ Information</span>
+                            <span>•</span>
+                            <span id="preview-priority">🔵 Normale</span>
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Boutons -->
+                <div class="flex gap-3 pt-6 border-t">
+                    <button type="submit" 
+                        class="flex-1 bg-primary text-white font-bold py-4 rounded-xl hover:bg-primary-dark transition-all shadow-lg">
+                        <i class="fas fa-paper-plane mr-2"></i>Envoyer la Notification
+                    </button>
+                    <button type="button" onclick="window.switchUsersTab('list')" 
+                        class="px-6 bg-gray-500 text-white font-bold py-4 rounded-xl hover:bg-gray-600 transition-all">
+                        <i class="fas fa-times mr-2"></i>Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+/**
+ * 🆕 Bascule entre les onglets du module Gestion des Utilisateurs
+ */
+window.switchUsersTab = function(tabName) {
+    console.log('🔄 [switchUsersTab] Basculement vers onglet:', tabName);
+    
+    // Mise à jour visuelle des onglets
+    document.querySelectorAll('.users-tab').forEach(tab => {
+        tab.classList.remove('bg-primary', 'text-white');
+        tab.classList.add('text-gray-600', 'dark:text-gray-300');
+    });
+    
+    const activeTab = document.getElementById(`users-tab-${tabName}`);
+    if (activeTab) {
+        activeTab.classList.add('bg-primary', 'text-white');
+        activeTab.classList.remove('text-gray-600', 'dark:text-gray-300');
+    }
+    
+    // Générer le contenu selon l'onglet
+    const container = document.getElementById('users-tab-content');
+    if (!container) {
+        console.error('❌ [switchUsersTab] Conteneur introuvable');
+        return;
+    }
+    
+    try {
+        switch(tabName) {
+            case 'list':
+                container.innerHTML = generateUsersListTabHTML();
+                console.log('✅ [switchUsersTab] Onglet Liste chargé');
+                break;
+            
+            case 'create':
+                container.innerHTML = generateCreateUserTabHTML();
+                loadCompaniesForUserForm(); // Charger les entreprises
+                console.log('✅ [switchUsersTab] Onglet Création chargé');
+                break;
+            
+            case 'notifications':
+                container.innerHTML = generateSendNotificationTabHTML();
+                loadUsersForNotification(); // Charger les utilisateurs
+                console.log('✅ [switchUsersTab] Onglet Notifications chargé');
+                break;
+            
+            default:
+                console.warn('⚠️ [switchUsersTab] Onglet inconnu:', tabName);
+                container.innerHTML = `
+                    <div class="text-center p-8 text-warning">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                        <p class="font-bold">Onglet "${tabName}" non trouvé</p>
+                    </div>
+                `;
+        }
+    } catch (error) {
+        console.error('❌ [switchUsersTab] Erreur:', error);
+        container.innerHTML = `
+            <div class="text-center p-8 text-danger">
+                <i class="fas fa-times-circle fa-2x mb-3"></i>
+                <p class="font-bold">Erreur de chargement</p>
+                <p class="text-sm mt-2">${error.message}</p>
+            </div>
+        `;
+    }
+};
+
+/**
+ * 🆕 Charge les utilisateurs pour l'envoi de notifications
+ */
+async function loadUsersForNotification() {
+    console.log('📋 [loadUsersForNotification] Chargement des utilisateurs...');
+    
+    try {
+        const users = usersState.allUsers || [];
+        
+        // Remplir le select des utilisateurs spécifiques
+        const usersSelect = document.getElementById('notif-users');
+        if (usersSelect && users.length > 0) {
+            usersSelect.innerHTML = users.map(user => `
+                <option value="${user.id}">
+                    ${user.name} (${user.email}) - ${user.profile}
+                </option>
+            `).join('');
+        }
+        
+        console.log(`✅ [loadUsersForNotification] ${users.length} utilisateurs chargés`);
+        
+    } catch (error) {
+        console.error('🚨 [loadUsersForNotification] Erreur:', error);
+    }
+}
+
+/**
+ * 🆕 Charge les entreprises pour le formulaire de création
+ */
+async function loadCompaniesForUserForm() {
+    console.log('🏢 [loadCompaniesForUserForm] Chargement des entreprises...');
+    
+    try {
+        const response = await apiFetch('companies', { method: 'GET' });
+        const companies = response.data || [];
+        
+        const companiesSelect = document.getElementById('user-companies');
+        if (companiesSelect && companies.length > 0) {
+            companiesSelect.innerHTML = companies.map(company => `
+                <option value="${company.id}">
+                    ${company.name}
+                </option>
+            `).join('');
+        }
+        
+        console.log(`✅ [loadCompaniesForUserForm] ${companies.length} entreprises chargées`);
+        
+    } catch (error) {
+        console.error('🚨 [loadCompaniesForUserForm] Erreur:', error);
+    }
+}
+
+/**
+ * 🆕 Gestion du changement de type de destinataire
+ */
+document.addEventListener('change', function(event) {
+    if (event.target.name === 'recipient-type') {
+        const recipientType = event.target.value;
+        
+        const roleSelector = document.getElementById('role-selector');
+        const usersSelector = document.getElementById('users-selector');
+        
+        if (!roleSelector || !usersSelector) return;
+        
+        // Masquer tous les sélecteurs
+        roleSelector.classList.add('hidden');
+        usersSelector.classList.add('hidden');
+        
+        // Afficher le sélecteur approprié
+        if (recipientType === 'role') {
+            roleSelector.classList.remove('hidden');
+        } else if (recipientType === 'specific') {
+            usersSelector.classList.remove('hidden');
+        }
+    }
+});
+
+/**
+ * 🆕 Mise à jour en temps réel de l'aperçu de la notification
+ */
+document.addEventListener('input', function(event) {
+    // Compteur de caractères Titre
+    if (event.target.id === 'notif-title') {
+        const charCount = event.target.value.length;
+        const counter = document.getElementById('title-char-count');
+        if (counter) counter.textContent = charCount;
+        
+        // Mise à jour aperçu
+        const previewTitle = document.getElementById('preview-title');
+        if (previewTitle) {
+            previewTitle.textContent = event.target.value || 'Titre de la notification';
+        }
+    }
+    
+    // Compteur de caractères Message
+    if (event.target.id === 'notif-message') {
+        const charCount = event.target.value.length;
+        const counter = document.getElementById('message-char-count');
+        if (counter) counter.textContent = charCount;
+        
+        // Mise à jour aperçu
+        const previewMessage = document.getElementById('preview-message');
+        if (previewMessage) {
+            previewMessage.textContent = event.target.value || 'Message de la notification';
+        }
+    }
+    
+    // Mise à jour type dans aperçu
+    if (event.target.id === 'notif-type') {
+        const previewType = document.getElementById('preview-type');
+        if (previewType) {
+            const typeLabels = {
+                'info': 'ℹ️ Information',
+                'alert': '⚠️ Alerte',
+                'reminder': '📅 Rappel',
+                'invoice': '📄 Facture',
+                'report': '📊 Rapport'
+            };
+            previewType.textContent = typeLabels[event.target.value] || 'ℹ️ Information';
+        }
+    }
+    
+    // Mise à jour priorité dans aperçu
+    if (event.target.id === 'notif-priority') {
+        const previewPriority = document.getElementById('preview-priority');
+        if (previewPriority) {
+            const priorityLabels = {
+                'low': '🟢 Basse',
+                'normal': '🔵 Normale',
+                'high': '🟠 Haute',
+                'urgent': '🔴 Urgente'
+            };
+            previewPriority.textContent = priorityLabels[event.target.value] || '🔵 Normale';
+        }
+    }
+});
+
+/**
+ * 🆕 Gestion de l'envoi de notification
+ */
+window.handleSendNotification = async function(event) {
+    event.preventDefault();
+    
+    const recipientType = document.querySelector('input[name="recipient-type"]:checked')?.value;
+    const type = document.getElementById('notif-type').value;
+    const priority = document.getElementById('notif-priority').value;
+    const title = document.getElementById('notif-title').value;
+    const message = document.getElementById('notif-message').value;
+    
+    // Déterminer les destinataires
+    let recipients = [];
+    
+    if (recipientType === 'all') {
+        recipients = ['all'];
+    } else if (recipientType === 'role') {
+        const role = document.getElementById('notif-role')?.value;
+        if (role) recipients = [role];
+    } else if (recipientType === 'specific') {
+        const usersSelect = document.getElementById('notif-users');
+        if (usersSelect) {
+            recipients = Array.from(usersSelect.selectedOptions).map(opt => opt.value);
+        }
+        
+        if (recipients.length === 0) {
+            NotificationManager.show('⚠️ Veuillez sélectionner au moins un utilisateur', 'warning');
+            return;
+        }
+    }
+    
+    try {
+        NotificationManager.show('⏳ Envoi en cours...', 'info');
+        
+        const response = await apiFetch('notifications/send', {
+            method: 'POST',
+            body: JSON.stringify({
+                companyId: appState.currentCompanyId,
+                recipients: recipients,
+                recipientType: recipientType,
+                type: type,
+                priority: priority,
+                title: title,
+                message: message
+            })
+        });
+        
+        if (response.status === 'success') {
+            NotificationManager.show(
+                `✅ Notification envoyée à ${response.data.sent_count} utilisateur(s)`, 
+                'success'
+            );
+            
+            // Réinitialiser le formulaire
+            document.getElementById('send-notification-form').reset();
+            
+            // Retourner à la liste
+            window.switchUsersTab('list');
+        } else {
+            throw new Error(response.error || 'Erreur d\'envoi');
+        }
+        
+    } catch (error) {
+        console.error('🚨 [handleSendNotification] Erreur:', error);
+        NotificationManager.show(`❌ Erreur : ${error.message}`, 'error');
+    }
+};
 
 // =============================================================================
 // CHARGEMENT DES DONNÉES
