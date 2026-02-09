@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : server.js (VERSION V17 - AVEC TOUTES LES ROUTES)
+// FICHIER : server.js (VERSION V18 - CORRIGÉE)
 // Description : Serveur Express avec toutes les routes montées AVANT le fallback
 // =============================================================================
 
@@ -17,9 +17,8 @@ const accountingRoutes = require('./routes/accounting');
 const userRoutes = require('./routes/user');
 const settingsRoutes = require('./routes/settings');
 const adminUsersRoutes = require('./routes/adminUsers');
-const companiesRoutes = require('./routes/company');        // 🆕 AJOUTÉ
-const notificationsRoutes = require('./routes/notifications'); // 🆕 AJOUTÉ
-const ocrRoutes = require('./routes/ocr');                    // 🆕 AJOUTÉ
+const notificationsRoutes = require('./routes/notifications');
+const ocrRoutes = require('./routes/ocr');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,7 +45,7 @@ console.log('✅ Route /api/auth montée');
 
 // Routes protégées
 app.use('/api/companies', companyRoutes);
-console.log('✅ Route /api/companies (original) montée');
+console.log('✅ Route /api/companies montée');
 
 app.use('/api/accounting', accountingRoutes);
 console.log('✅ Route /api/accounting montée');
@@ -59,10 +58,6 @@ console.log('✅ Route /api/settings montée');
 
 app.use('/api/admin', adminUsersRoutes);
 console.log('✅ Route /api/admin montée');
-
-// 🆕 NOUVELLES ROUTES
-app.use('/api/companies', companyRoutes);
-console.log('✅ Route /api/companies (liste) montée');
 
 app.use('/api/notifications', notificationsRoutes);
 console.log('✅ Route /api/notifications montée');
@@ -81,12 +76,11 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         routes: [
             'auth', 
-            'companies (original)',
+            'companies',
             'accounting', 
             'user', 
             'settings', 
             'admin',
-            'companies (liste)',
             'notifications',
             'ocr'
         ]
@@ -115,8 +109,8 @@ app.use((req, res) => {
                 '/api/user',
                 '/api/settings',
                 '/api/admin',
-                '/api/notifications', // 🆕
-                '/api/ocr'           // 🆕
+                '/api/notifications',
+                '/api/ocr'
             ]
         });
     }
