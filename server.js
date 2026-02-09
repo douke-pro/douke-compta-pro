@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : server.js (VERSION V16 - AVEC ROUTE ADMIN)
+// FICHIER : server.js (VERSION V17 - AVEC TOUTES LES ROUTES)
 // Description : Serveur Express avec toutes les routes montées AVANT le fallback
 // =============================================================================
 
@@ -16,7 +16,10 @@ const companyRoutes = require('./routes/company');
 const accountingRoutes = require('./routes/accounting');
 const userRoutes = require('./routes/user');
 const settingsRoutes = require('./routes/settings');
-const adminUsersRoutes = require('./routes/adminUsers'); // ✅ AJOUTÉ
+const adminUsersRoutes = require('./routes/adminUsers');
+const companiesRoutes = require('./routes/companies');        // 🆕 AJOUTÉ
+const notificationsRoutes = require('./routes/notifications'); // 🆕 AJOUTÉ
+const ocrRoutes = require('./routes/ocr');                    // 🆕 AJOUTÉ
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,7 +46,7 @@ console.log('✅ Route /api/auth montée');
 
 // Routes protégées
 app.use('/api/companies', companyRoutes);
-console.log('✅ Route /api/companies montée');
+console.log('✅ Route /api/companies (original) montée');
 
 app.use('/api/accounting', accountingRoutes);
 console.log('✅ Route /api/accounting montée');
@@ -54,8 +57,18 @@ console.log('✅ Route /api/user montée');
 app.use('/api/settings', settingsRoutes);
 console.log('✅ Route /api/settings montée');
 
-app.use('/api/admin', adminUsersRoutes); // ✅ AJOUTÉ
+app.use('/api/admin', adminUsersRoutes);
 console.log('✅ Route /api/admin montée');
+
+// 🆕 NOUVELLES ROUTES
+app.use('/api/companies', companiesRoutes);
+console.log('✅ Route /api/companies (liste) montée');
+
+app.use('/api/notifications', notificationsRoutes);
+console.log('✅ Route /api/notifications montée');
+
+app.use('/api/ocr', ocrRoutes);
+console.log('✅ Route /api/ocr montée');
 
 console.log('✅ Toutes les routes montées avec succès');
 
@@ -66,7 +79,17 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK',
         timestamp: new Date().toISOString(),
-        routes: ['auth', 'companies', 'accounting', 'user', 'settings', 'admin'] // ✅ AJOUTÉ
+        routes: [
+            'auth', 
+            'companies (original)',
+            'accounting', 
+            'user', 
+            'settings', 
+            'admin',
+            'companies (liste)',
+            'notifications',
+            'ocr'
+        ]
     });
 });
 
@@ -91,7 +114,9 @@ app.use((req, res) => {
                 '/api/accounting',
                 '/api/user',
                 '/api/settings',
-                '/api/admin' // ✅ AJOUTÉ
+                '/api/admin',
+                '/api/notifications', // 🆕
+                '/api/ocr'           // 🆕
             ]
         });
     }
