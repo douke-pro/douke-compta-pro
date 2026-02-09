@@ -54,7 +54,7 @@ exports.getAllUsers = async (req, res) => {
                     method: 'search_read',
                     args: [[['user_ids', 'in', [user.id]]]],
                     kwargs: {
-                        fields: ['name', 'categ_id'],  // ✅ CORRECT pour Odoo 19
+                        fields: ['id', 'name'],  // ✅ CORRECT pour Odoo 19
                         limit: 10
                     }
                 });
