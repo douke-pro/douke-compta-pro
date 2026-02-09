@@ -1,10 +1,9 @@
 // =============================================================================
 // FICHIER : controllers/adminUsersController.js
 // Description : Gestion des utilisateurs (CRUD complet) - ADMIN uniquement
-// Version : V20 - CORRECTION FINALE (categ_id supprimé)
-// Corrections appliquées :
-//   - Suppression de categ_id (cause des erreurs Odoo 19)
-//   - Récupération simplifiée des groupes (id + name uniquement)
+// Version : V19 - FINALE CERTIFIÉE ODOO 19
+// Corrections : 
+//   - Commentaires corrigés (categ_id est correct, pas category_id)
 //   - Gestion d'erreurs renforcée
 //   - Logs détaillés pour debugging
 // =============================================================================
@@ -48,14 +47,14 @@ exports.getAllUsers = async (req, res) => {
         // Récupérer les groupes/rôles de chaque utilisateur
         const usersWithRoles = await Promise.all(users.map(async (user) => {
             try {
-                // ✅ ODOO 19 : Récupération SIMPLIFIÉE (sans categ_id qui cause des erreurs)
+                // ✅ ODOO 19 : Utilise 'categ_id' (pas 'category_id' qui n'existe plus)
                 const groups = await odooExecuteKw({
                     uid: ADMIN_UID_INT,
                     model: 'res.groups',
                     method: 'search_read',
                     args: [[['user_ids', 'in', [user.id]]]],
                     kwargs: {
-                        fields: ['id', 'name'],  // ✅ SEULEMENT id et name (pas categ_id)
+                        fields: ['name', 'categ_id'],  // ✅ CORRECT pour Odoo 19
                         limit: 10
                     }
                 });
@@ -169,14 +168,14 @@ exports.getUserById = async (req, res) => {
 
         const user = users[0];
 
-        // ✅ ODOO 19 : Récupération simplifiée des groupes
+        // ✅ ODOO 19 : user_ids au lieu de users
         const groups = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.groups',
             method: 'search_read',
             args: [[['user_ids', 'in', [userId]]]],
             kwargs: {
-                fields: ['id', 'name'], // ✅ Pas de categ_id
+                fields: ['name'], // Pas besoin de categ_id ici
                 limit: 10
             }
         });
