@@ -4329,9 +4329,6 @@ document.addEventListener('input', function(event) {
 });
 
 /**
- * 🆕 Gestion de l'envoi de notification
- */
-/**
  * 🆕 Gestion de l'envoi de notification AVEC SYNTHÈSE
  */
 window.handleSendNotification = async function(event) {
@@ -4383,8 +4380,14 @@ window.handleSendNotification = async function(event) {
             // ✅ AFFICHER LA SYNTHÈSE
             showNotificationSummary(response.data, title, message, type);
             
-            // Réinitialiser le formulaire
-            document.getElementById('send-notification-form').reset();
+            // ✅ CORRECTION : Vérifier que le formulaire existe AVANT de le reset
+            const form = document.getElementById('send-notification-form');
+            if (form) {
+                form.reset();
+                console.log('✅ Formulaire réinitialisé');
+            } else {
+                console.warn('⚠️ Formulaire send-notification-form introuvable');
+            }
             
         } else {
             throw new Error(response.error || 'Erreur d\'envoi');
@@ -4392,6 +4395,7 @@ window.handleSendNotification = async function(event) {
         
     } catch (error) {
         console.error('🚨 [handleSendNotification] Erreur:', error);
+        // ✅ CORRECTION LIGNE 66 : Mauvaise syntaxe (backtick au lieu de parenthèse)
         NotificationManager.show(`❌ Erreur : ${error.message}`, 'error');
     }
 };
