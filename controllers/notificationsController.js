@@ -45,74 +45,106 @@ exports.getNotifications = async (req, res) => {
  * @route POST /api/notifications/send
  * @access ADMIN + COLLABORATEUR uniquement
  */
-async function sendNotification(req, res) {
+exports.sendNotification = async (req, res) => {
     try {
-        const { companyId, recipients, recipientType, type, priority, title, message } = req.body;
-        const senderUserId = req.user.odooUid;
-        const senderEmail = req.user.email;
-        
-        console.log('📤 [sendNotification] Envoi par:', senderEmail, '| Type:', type);
-        
-        // Déterminer les IDs des destinataires
-        let recipientUserIds = [];
-        
-        if (recipientType === 'all' || (recipients && recipients[0] === 'all')) {
+        const { recipients, recipientType, type, priority, title, message } = req.body;
+        const senderId = req.user.odooUid;
+        const senderRole = req.user.profile;
+        const companyId = req.validatedCompanyId;
+
+        console.log('📤 [sendNotification] Envoi par:', req.user.email, '| Type:', type);
+
+        // ✅ VÉRIFICATION PERMISSIONS
+        if (senderRole !== 'ADMIN' && senderRole !== 'COLLABORATEUR') {
+            return res.status(403).json({
+                status: 'error',
+                error: 'Seuls les Administrateurs et Collaborateurs peuvent envoyer des notifications'
+            });
+        }
+
+        // Validation
+        if (!title || !message) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Titre et message requis'
+            });
+        }
+
+        // Récupérer les IDs des utilisateurs destinataires
+        let userIds = [];
+
+        if (recipientType === 'all' || (recipients && recipients.includes('all'))) {
             // Tous les utilisateurs de l'entreprise
-            const allUsers = await odooService.execute_kw(
-                'res.users',
-                'search_read',
-                [[['company_ids', 'in', [companyId]]]],
-                { fields: ['id', 'name', 'email'] }
-            );
-            recipientUserIds = allUsers.map(u => u.id);
-        } else if (recipientType === 'role') {
-            // Par rôle (à implémenter selon ta logique)
-            // ...
+            const users = await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'res.users',
+                method: 'search_read',
+                args: [[['company_ids', 'in', [companyId]]]],
+                kwargs: { fields: ['id'] }
+            });
+            userIds = users.map(u => u.id);
         } else if (recipientType === 'specific') {
-            recipientUserIds = recipients.map(id => parseInt(id));
+            // IDs spécifiques fournis
+            userIds = recipients.map(id => parseInt(id));
         }
-        
-        console.log('📬 [sendNotification] Envoi à', recipientUserIds.length, 'utilisateur(s)');
-        
-        // Créer les notifications dans la DB
-        const notifications = [];
-        for (const userId of recipientUserIds) {
-            const notif = await pool.query(
-                `INSERT INTO notifications (user_id, company_id, type, priority, title, message, sender_id, created_at, read)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), false)
-                 RETURNING id, user_id`,
-                [userId, companyId, type, priority, title, message, senderUserId]
-            );
-            notifications.push(notif.rows[0]);
+
+        console.log(`📬 [sendNotification] Envoi à ${userIds.length} utilisateur(s)`);
+
+        if (userIds.length === 0) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Aucun destinataire trouvé'
+            });
         }
-        
-        console.log('✅ [sendNotification]', notifications.length, 'notifications créées');
-        
-        // ✅ RÉCUPÉRER LES INFOS DES DESTINATAIRES
-        const recipientsDetails = await odooService.execute_kw(
-            'res.users',
-            'search_read',
-            [[['id', 'in', recipientUserIds]]],
-            { fields: ['id', 'name', 'email'] }
-        );
-        
+
+        // Créer une notification pour chaque destinataire
+        const notificationIds = [];
+
+        for (const userId of userIds) {
+            try {
+                const messageId = await odooExecuteKw({
+                    uid: ADMIN_UID_INT,
+                    model: 'mail.message',
+                    method: 'create',
+                    args: [{
+                        message_type: 'notification',
+                        subtype_id: 1,
+                        body: `<p><strong>${title}</strong></p><p>${message}</p>`,
+                        subject: title,
+                        author_id: senderId,
+                        partner_ids: [[6, 0, [userId]]],
+                        needaction: true
+                    }],
+                    kwargs: {}
+                });
+
+                notificationIds.push(messageId);
+            } catch (userError) {
+                console.warn(`⚠️ Erreur envoi à user ${userId}:`, userError.message);
+            }
+        }
+
+        console.log(`✅ [sendNotification] ${notificationIds.length} notifications créées`);
+
         res.json({
             status: 'success',
-            message: `Notification envoyée à ${notifications.length} utilisateur(s)`,
+            message: 'Notifications envoyées avec succès',
             data: {
-                count: notifications.length,
-                recipients: recipientsDetails  // ✅ AJOUT ICI
+                sent_count: notificationIds.length,
+                notification_ids: notificationIds
             }
         });
-        
+
     } catch (error) {
-        console.error('🚨 [sendNotification] Erreur:', error);
+        console.error('🚨 [sendNotification] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
-            error: 'Erreur lors de l\'envoi de la notification'
+            error: 'Erreur lors de l\'envoi des notifications',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
-}
+};
+
 
 /**
  * Marque une notification comme lue
