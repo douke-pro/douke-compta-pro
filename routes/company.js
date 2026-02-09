@@ -23,7 +23,6 @@ router.get('/list', protect, listUserCompanies);
 
 module.exports = router;
 
-🆕 AJOUTER CETTE ROUTE
 router.get('/', protect, companyController.getCompanies);
 
 module.exports = router;
