@@ -4331,6 +4331,9 @@ document.addEventListener('input', function(event) {
 /**
  * 🆕 Gestion de l'envoi de notification
  */
+/**
+ * 🆕 Gestion de l'envoi de notification AVEC SYNTHÈSE
+ */
 window.handleSendNotification = async function(event) {
     event.preventDefault();
     
@@ -4377,16 +4380,12 @@ window.handleSendNotification = async function(event) {
         });
         
         if (response.status === 'success') {
-            NotificationManager.show(
-                `✅ Notification envoyée à ${response.data.sent_count} utilisateur(s)`, 
-                'success'
-            );
+            // ✅ AFFICHER LA SYNTHÈSE
+            showNotificationSummary(response.data, title, message, type);
             
             // Réinitialiser le formulaire
             document.getElementById('send-notification-form').reset();
             
-            // Retourner à la liste
-            window.switchUsersTab('list');
         } else {
             throw new Error(response.error || 'Erreur d\'envoi');
         }
@@ -4396,6 +4395,180 @@ window.handleSendNotification = async function(event) {
         NotificationManager.show(`❌ Erreur : ${error.message}`, 'error');
     }
 };
+
+/**
+ * 🆕 Affiche la synthèse des notifications envoyées
+ */
+function showNotificationSummary(data, title, message, type) {
+    console.log('📊 [showNotificationSummary] Affichage synthèse', data);
+    
+    const sentDate = new Date().toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    // Générer la liste des destinataires
+    const recipientsList = (data.recipients || []).map(recipient => {
+        const channelIcon = recipient.channel === 'email' 
+            ? '<i class="fas fa-envelope text-primary"></i>' 
+            : '<i class="fas fa-bell text-warning"></i>';
+        
+        const channelLabel = recipient.channel === 'email' ? 'Email' : 'Notification';
+        
+        return `
+            <tr class="border-b dark:border-gray-700">
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xs font-bold">
+                            ${recipient.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                            <p class="font-bold text-sm text-gray-900 dark:text-white">${recipient.name}</p>
+                            <p class="text-xs text-gray-500">${recipient.email}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${
+                        recipient.channel === 'email' 
+                            ? 'bg-primary/20 text-primary' 
+                            : 'bg-warning/20 text-warning'
+                    }">
+                        ${channelIcon} ${channelLabel}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${
+                        recipient.status === 'sent' 
+                            ? 'bg-success/20 text-success' 
+                            : 'bg-danger/20 text-danger'
+                    }">
+                        ${recipient.status === 'sent' ? '✅ Envoyé' : '❌ Échec'}
+                    </span>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    const modalHTML = `
+        <div class="space-y-6">
+            <!-- En-tête de succès -->
+            <div class="bg-gradient-to-r from-success/20 to-success/10 border-l-4 border-success p-6 rounded-xl">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 bg-success rounded-full flex items-center justify-center">
+                        <i class="fas fa-check-circle fa-2x text-white"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-black text-success mb-1">Notification envoyée avec succès !</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                            ${data.sent_count} destinataire(s) sur ${data.total_recipients}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Informations de la notification -->
+            <div class="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-xs font-bold text-gray-500 uppercase mb-1">Objet</p>
+                        <p class="font-bold text-gray-900 dark:text-white">${title}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-gray-500 uppercase mb-1">Date d'envoi</p>
+                        <p class="font-bold text-gray-900 dark:text-white">
+                            <i class="fas fa-calendar-alt mr-2 text-primary"></i>${sentDate}
+                        </p>
+                    </div>
+                </div>
+                
+                <div>
+                    <p class="text-xs font-bold text-gray-500 uppercase mb-1">Message</p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300">${message}</p>
+                </div>
+                
+                <div>
+                    <p class="text-xs font-bold text-gray-500 uppercase mb-1">Type</p>
+                    <span class="inline-block px-3 py-1 bg-primary/20 text-primary rounded-full text-xs font-bold">
+                        ${getNotificationTypeLabel(type)}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Tableau des destinataires -->
+            <div>
+                <h5 class="text-lg font-black text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-users mr-2 text-primary"></i>
+                    Liste des destinataires (${data.recipients.length})
+                </h5>
+                
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Destinataire</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Canal</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${recipientsList}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistiques -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="bg-success/10 p-4 rounded-xl text-center">
+                    <p class="text-3xl font-black text-success mb-1">${data.sent_count}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">Envoyés</p>
+                </div>
+                <div class="bg-danger/10 p-4 rounded-xl text-center">
+                    <p class="text-3xl font-black text-danger mb-1">${data.failed_count || 0}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">Échecs</p>
+                </div>
+                <div class="bg-primary/10 p-4 rounded-xl text-center">
+                    <p class="text-3xl font-black text-primary mb-1">${data.total_recipients}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">Total</p>
+                </div>
+            </div>
+            
+            <!-- Boutons d'action -->
+            <div class="flex gap-3 pt-6 border-t">
+                <button onclick="window.switchUsersTab('list'); ModalManager.close();" 
+                    class="flex-1 bg-primary text-white font-bold py-4 rounded-xl hover:bg-primary-dark transition-all">
+                    <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
+                </button>
+                <button onclick="window.switchUsersTab('notifications'); ModalManager.close();" 
+                    class="flex-1 bg-success text-white font-bold py-4 rounded-xl hover:bg-green-600 transition-all">
+                    <i class="fas fa-paper-plane mr-2"></i>Envoyer une autre
+                </button>
+            </div>
+        </div>
+    `;
+    
+    ModalManager.open('📊 Synthèse de l\'Envoi', modalHTML, 'max-w-4xl');
+}
+
+/**
+ * Utilitaire : Label du type de notification
+ */
+function getNotificationTypeLabel(type) {
+    const labels = {
+        'info': 'ℹ️ Information',
+        'alert': '⚠️ Alerte',
+        'reminder': '📅 Rappel',
+        'invoice': '📄 Facture',
+        'report': '📊 Rapport'
+    };
+    return labels[type] || type;
+}
 
 // =============================================================================
 // CHARGEMENT DES DONNÉES
