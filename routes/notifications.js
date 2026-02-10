@@ -2,12 +2,47 @@ const express = require('express');
 const router = express.Router();
 const { protect, checkCompanyAccess } = require('../middleware/auth');
 const notificationsController = require('../controllers/notificationsController');
-const { authenticateToken } = require('../middleware/auth');
 
-router.get('/', protect, checkCompanyAccess, notificationsController.getNotifications);
-router.post('/send', protect, checkCompanyAccess, notificationsController.sendNotification);
-router.patch('/:id/read', protect, notificationsController.markAsRead);
-router.delete('/:id', protect, notificationsController.deleteNotification);
-router.patch('/:id/read', authenticateToken, notificationsController.markNotificationAsRead);
+/**
+ * GET /api/notifications?companyId=X
+ * Récupère les notifications de l'entreprise
+ */
+router.get(
+    '/',
+    protect,
+    checkCompanyAccess,
+    notificationsController.getNotifications
+);
+
+/**
+ * POST /api/notifications/send
+ * Envoie une notification à des utilisateurs
+ */
+router.post(
+    '/send',
+    protect,
+    checkCompanyAccess,
+    notificationsController.sendNotification
+);
+
+/**
+ * PATCH /api/notifications/:id/read
+ * Marque une notification comme lue
+ */
+router.patch(
+    '/:id/read',
+    protect,
+    notificationsController.markAsRead
+);
+
+/**
+ * DELETE /api/notifications/:id
+ * Supprime une notification
+ */
+router.delete(
+    '/:id',
+    protect,
+    notificationsController.deleteNotification
+);
 
 module.exports = router;
