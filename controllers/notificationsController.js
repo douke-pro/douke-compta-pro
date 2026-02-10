@@ -1,15 +1,18 @@
 // =============================================================================
 // FICHIER : controllers/notificationsController.js
 // Description : Gestion des notifications (envoi, récupération, lecture)
-// Version : V21 - FINALE AVEC SYNTHÈSE DESTINATAIRES
+// Version : V22 - FINALE ROBUSTE ET COMPLÈTE
 // Corrections appliquées :
+//   - Import de 'pool' ajouté
 //   - Retour des détails complets des destinataires (nom, email, canal, statut)
 //   - Support de tous les types de destinataires (all, role, specific)
 //   - Gestion robuste des erreurs
 //   - Logs détaillés pour debugging
+//   - Fonction stripHtmlTags sécurisée
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+const pool = require('../config/db'); // ✅ IMPORT CRUCIAL
 
 /**
  * Récupère les notifications de l'utilisateur connecté
@@ -235,15 +238,25 @@ exports.sendNotification = async (req, res) => {
             });
         }
 
-        // ✅ CRÉER LES NOTIFICATIONS DANS ODOO
+        // ✅ CRÉER LES NOTIFICATIONS DANS POSTGRESQL ET ODOO
         const notificationIds = [];
         const successfulRecipients = [];
         const failedRecipients = [];
 
         for (const user of targetUsers) {
             try {
-                // Créer un message mail dans Odoo
-                const messageId = await odooExecuteKw({
+                // 1️⃣ Créer dans PostgreSQL (base de données de ton app)
+                const pgResult = await pool.query(
+                    `INSERT INTO notifications (user_id, company_id, type, priority, title, message, sender_id, created_at, read)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), false)
+                     RETURNING id`,
+                    [user.id, companyId, type, priority, title, message, senderId]
+                );
+
+                const pgNotificationId = pgResult.rows[0].id;
+                
+                // 2️⃣ Créer dans Odoo (pour intégration système)
+                const odooMessageId = await odooExecuteKw({
                     uid: ADMIN_UID_INT,
                     model: 'mail.message',
                     method: 'create',
@@ -268,13 +281,13 @@ exports.sendNotification = async (req, res) => {
                     kwargs: {}
                 });
 
-                notificationIds.push(messageId);
+                notificationIds.push({ pg: pgNotificationId, odoo: odooMessageId });
                 
                 successfulRecipients.push({
                     id: user.id,
                     name: user.name,
                     email: user.email || user.login,
-                    channel: 'notification', // Pour l'instant, pas d'email
+                    channel: 'notification',
                     status: 'sent'
                 });
 
@@ -298,10 +311,11 @@ exports.sendNotification = async (req, res) => {
             status: 'success',
             message: `Notifications envoyées à ${successfulRecipients.length} utilisateur(s)`,
             data: {
+                count: successfulRecipients.length, // ✅ IMPORTANT : Renommé 'sent_count' en 'count' pour compatibilité frontend
                 sent_count: successfulRecipients.length,
                 failed_count: failedRecipients.length,
                 total_recipients: targetUsers.length,
-                recipients: [...successfulRecipients, ...failedRecipients], // ✅ DÉTAILS COMPLETS
+                recipients: [...successfulRecipients, ...failedRecipients],
                 notification_ids: notificationIds
             }
         });
@@ -325,26 +339,32 @@ exports.sendNotification = async (req, res) => {
  */
 exports.markAsRead = async (req, res) => {
     try {
-        const notificationId = parseInt(req.params.id);
+        const notificationId = req.params.id;
         const userId = req.user.odooUid;
-
-        if (isNaN(notificationId) || notificationId <= 0) {
-            return res.status(400).json({
-                status: 'error',
-                error: 'ID de notification invalide'
-            });
-        }
 
         console.log(`✅ [markAsRead] Notification ${notificationId} pour user ${userId}`);
 
-        // Marquer comme lu dans Odoo
-        await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'mail.message',
-            method: 'write',
-            args: [[notificationId], { needaction: false }],
-            kwargs: {}
-        });
+        // Vérifier si c'est une notification Odoo (préfixe "odoo-")
+        if (String(notificationId).startsWith('odoo-')) {
+            const realId = parseInt(notificationId.replace('odoo-', ''));
+            
+            // Marquer comme lu dans Odoo
+            await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'mail.message',
+                method: 'write',
+                args: [[realId], { needaction: false }],
+                kwargs: {}
+            });
+        } else {
+            // Marquer comme lu dans PostgreSQL
+            await pool.query(
+                `UPDATE notifications 
+                 SET read = true 
+                 WHERE id = $1 AND user_id = $2`,
+                [parseInt(notificationId), userId]
+            );
+        }
 
         res.json({
             status: 'success',
@@ -367,26 +387,31 @@ exports.markAsRead = async (req, res) => {
  */
 exports.deleteNotification = async (req, res) => {
     try {
-        const notificationId = parseInt(req.params.id);
+        const notificationId = req.params.id;
         const userId = req.user.odooUid;
-
-        if (isNaN(notificationId) || notificationId <= 0) {
-            return res.status(400).json({
-                status: 'error',
-                error: 'ID de notification invalide'
-            });
-        }
 
         console.log(`🗑️ [deleteNotification] Notification ${notificationId} pour user ${userId}`);
 
-        // Supprimer dans Odoo
-        await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'mail.message',
-            method: 'unlink',
-            args: [[notificationId]],
-            kwargs: {}
-        });
+        // Vérifier si c'est une notification Odoo
+        if (String(notificationId).startsWith('odoo-')) {
+            const realId = parseInt(notificationId.replace('odoo-', ''));
+            
+            // Supprimer dans Odoo
+            await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'mail.message',
+                method: 'unlink',
+                args: [[realId]],
+                kwargs: {}
+            });
+        } else {
+            // Supprimer dans PostgreSQL
+            await pool.query(
+                `DELETE FROM notifications 
+                 WHERE id = $1 AND user_id = $2`,
+                [parseInt(notificationId), userId]
+            );
+        }
 
         res.json({
             status: 'success',
@@ -419,6 +444,7 @@ function getThirtyDaysAgo() {
  * Supprime les balises HTML d'une chaîne
  */
 function stripHtmlTags(html) {
+    if (!html) return '';
     return html.replace(/<[^>]*>/g, '').trim();
 }
 
