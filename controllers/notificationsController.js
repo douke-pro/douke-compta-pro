@@ -20,43 +20,81 @@ exports.getNotifications = async (req, res) => {
     try {
         const userId = req.user.odooUid;
         const companyId = req.query.companyId || req.user.selectedCompanyId;
-
+        
         console.log('🔔 [getNotifications] User:', userId, '| Company:', companyId);
-
-        // Récupérer les messages Odoo pour cet utilisateur
-        const notifications = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'mail.message',
-            method: 'search_read',
-            args: [[
-                ['message_type', '=', 'notification'],
-                ['date', '>=', getThirtyDaysAgo()]
-            ]],
-            kwargs: {
-                fields: ['id', 'subject', 'body', 'date', 'needaction', 'author_id'],
-                order: 'date DESC',
-                limit: 50
-            }
-        });
-
-        console.log(`✅ [getNotifications] ${notifications.length} notifications trouvées`);
-
-        // Formater les notifications pour le frontend
-        const formattedNotifications = notifications.map(n => ({
-            id: n.id,
-            type: 'info', // Type par défaut (peut être amélioré)
-            title: n.subject || 'Notification',
-            message: stripHtmlTags(n.body || '').substring(0, 200),
-            created_at: n.date,
-            read: !n.needaction, // needaction = false signifie "déjà lu"
-            sender: n.author_id ? n.author_id[1] : 'Système'
-        }));
-
+        
+        // ✅ CHARGER DEPUIS POSTGRESQL (notifications de ton app)
+        const result = await pool.query(
+            `SELECT 
+                id, 
+                type, 
+                priority, 
+                title, 
+                message, 
+                created_at, 
+                read,
+                sender_id
+             FROM notifications
+             WHERE user_id = $1 AND company_id = $2
+             ORDER BY created_at DESC
+             LIMIT 50`,
+            [userId, companyId]
+        );
+        
+        const appNotifications = result.rows;
+        
+        console.log(`✅ [getNotifications] ${appNotifications.length} notifications app trouvées`);
+        
+        // 🔄 OPTIONNEL : Charger aussi les notifications Odoo
+        let odooNotifications = [];
+        
+        try {
+            const odooMessages = await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'mail.message',
+                method: 'search_read',
+                args: [[
+                    ['message_type', '=', 'notification'],
+                    ['date', '>=', getThirtyDaysAgo()]
+                ]],
+                kwargs: {
+                    fields: ['id', 'subject', 'body', 'date', 'needaction', 'author_id'],
+                    order: 'date DESC',
+                    limit: 20
+                }
+            });
+            
+            // Formater les notifications Odoo
+            odooNotifications = odooMessages.map(n => ({
+                id: `odoo-${n.id}`, // Préfixe pour éviter les conflits
+                type: 'odoo',
+                priority: 'normal',
+                title: n.subject || 'Notification Odoo',
+                message: stripHtmlTags(n.body || '').substring(0, 200),
+                created_at: n.date,
+                read: !n.needaction,
+                sender_id: n.author_id ? n.author_id[1] : 'Système Odoo'
+            }));
+            
+            console.log(`✅ [getNotifications] ${odooNotifications.length} notifications Odoo trouvées`);
+            
+        } catch (odooError) {
+            console.warn('⚠️ [getNotifications] Erreur Odoo (ignorée):', odooError.message);
+        }
+        
+        // ✅ COMBINER LES DEUX SOURCES (app en priorité)
+        const allNotifications = [
+            ...appNotifications,
+            ...odooNotifications
+        ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        console.log(`📊 [getNotifications] TOTAL: ${allNotifications.length} notifications`);
+        
         res.json({
             status: 'success',
-            data: formattedNotifications
+            data: allNotifications
         });
-
+        
     } catch (error) {
         console.error('🚨 [getNotifications] Erreur:', error.message);
         res.status(500).json({
