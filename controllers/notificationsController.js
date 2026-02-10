@@ -12,7 +12,6 @@
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
-const pool = require('../config/db'); // ✅ IMPORT CRUCIAL
 
 /**
  * Récupère les notifications de l'utilisateur connecté
