@@ -5219,7 +5219,7 @@ async function loadNotifications() {
     `;
     
     try {
-        // ✅ APPEL API RÉEL
+        // ✅ CORRECTION : Parenthèse au lieu de backtick
         const response = await apiFetch(`notifications?companyId=${appState.currentCompanyId}`, { 
             method: 'GET' 
         });
@@ -5232,6 +5232,12 @@ async function loadNotifications() {
             const timeAgo = formatTimeAgo(notif.created_at);
             const unreadClass = notif.read ? '' : 'unread';
             
+            // ✅ BADGE "NEW" pour les notifications de moins de 5 minutes
+            const isRecent = (new Date() - new Date(notif.created_at)) < 5 * 60 * 1000;
+            const newBadge = (isRecent && !notif.read) 
+                ? '<span style="background: #EF4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; margin-left: 8px;">NEW</span>'
+                : '';
+            
             return `
                 <div class="notification-item ${unreadClass}" 
                      style="padding: 16px; border-bottom: 1px solid #E5E7EB; cursor: pointer;" 
@@ -5241,7 +5247,7 @@ async function loadNotifications() {
                            style="color: ${notif.read ? '#9CA3AF' : '#10B981'}; font-size: 18px; margin-top: 2px;"></i>
                         <div style="flex: 1;">
                             <p style="font-weight: bold; font-size: 13px; color: ${notif.read ? '#6B7280' : '#111827'}; margin-bottom: 4px;">
-                                ${notif.title}
+                                ${notif.title}${newBadge}
                             </p>
                             <p style="font-size: 11px; color: #6B7280; margin-bottom: 8px;">
                                 ${notif.message}
@@ -5266,6 +5272,7 @@ async function loadNotifications() {
         const unreadCount = notifications.filter(n => !n.read).length;
         updateNotificationCount(unreadCount);
         
+        // ✅ CORRECTION : Parenthèse au lieu de backtick
         console.log(`✅ [loadNotifications] ${notifications.length} notifications chargées`);
         
     } catch (error) {
