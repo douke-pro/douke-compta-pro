@@ -291,6 +291,9 @@ async function handleRegister(event) {
 }
 
 function handleLogout(isAutoLogout = false) {
+    // ✅ ARRÊTER LE POLLING DES NOTIFICATIONS
+    stopNotificationPolling();
+    
     localStorage.removeItem('douke_auth_token');
     appState = {
         isAuthenticated: false,
