@@ -5551,10 +5551,6 @@ async function loadCompanyDetailsEnriched() {
 // 5. INITIALISATION AU CHARGEMENT DU DASHBOARD
 // =============================================================================
 
-/**
- * Hook dans la fonction loadDashboard() existante
- * Appelée automatiquement quand le dashboard se charge
- */
 const originalLoadDashboard = window.loadDashboard || loadDashboard;
 window.loadDashboard = function() {
     console.log('🔄 [loadDashboard] Hook - Chargement des nouveaux éléments...');
@@ -5567,8 +5563,8 @@ window.loadDashboard = function() {
     // Charger les données enrichies
     loadCompanyDetailsEnriched();
     
-    // Charger les notifications (en arrière-plan)
-    loadNotifications();
+    // ✅ DÉMARRER LE POLLING AUTOMATIQUE
+    startNotificationPolling();
 };
 
 // =============================================================================
@@ -5594,5 +5590,44 @@ window.handleCompanyChange = async function(newCompanyId) {
 // =============================================================================
 // FIN DES NOUVEAUX ÉLÉMENTS
 // =============================================================================
-
 console.log('✅ [NOUVEAUX ÉLÉMENTS] Toutes les fonctions ont été chargées avec succès');
+
+// =============================================================================
+// 🔄 POLLING AUTOMATIQUE DES NOTIFICATIONS (TOUTES LES 30 SECONDES)
+// =============================================================================
+
+let notificationPollingInterval = null;
+
+/**
+ * Démarre le polling automatique des notifications
+ */
+function startNotificationPolling() {
+    // Arrêter le polling précédent s'il existe
+    if (notificationPollingInterval) {
+        clearInterval(notificationPollingInterval);
+    }
+    
+    console.log('🔄 [startNotificationPolling] Démarrage du polling (30s)');
+    
+    // Charger immédiatement
+    loadNotifications();
+    
+    // Recharger toutes les 30 secondes
+    notificationPollingInterval = setInterval(() => {
+        if (appState.currentCompanyId) {
+            console.log('🔄 [Polling] Rechargement automatique des notifications...');
+            loadNotifications();
+        }
+    }, 30000); // 30 secondes
+}
+
+/**
+ * Arrête le polling automatique
+ */
+function stopNotificationPolling() {
+    if (notificationPollingInterval) {
+        clearInterval(notificationPollingInterval);
+        notificationPollingInterval = null;
+        console.log('⏹️ [stopNotificationPolling] Polling arrêté');
+    }
+}
