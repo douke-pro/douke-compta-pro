@@ -988,9 +988,465 @@ window.handleOCRValidation = async function(event) {
 };
 
 // =================================================================
-// DOUKÈ COMPTA PRO - SCRIPT.JS COMPLET
-// Version Finale avec Module Rapports Financiers Intégré
+// JOURNAL (AVEC AMÉLIORATIONS)
 // =================================================================
+
+/**
+ * 🔧 AMÉLIORATION: Récupère les journaux ET les écritures avec filtres
+ */
+async function fetchJournalData(endpoint) {
+    const companyId = appState.currentCompanyId;
+    const companyFilter = `?companyId=${companyId}`;
+    
+    try {
+        // 1️⃣ Récupérer la liste des journaux pour le filtre
+        const journalsResponse = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
+        const journals = journalsResponse.data || [];
+        
+        // 2️⃣ Récupérer les écritures
+        const entriesResponse = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
+        const entries = entriesResponse.data?.entries || entriesResponse.data || [];
+        
+        // 3️⃣ Générer le HTML avec filtres
+        return generateJournalWithFiltersHTML(entries, journals);
+        
+    } catch (e) {
+        console.error("Erreur fetchJournalData:", e);
+        return '<p class="text-center text-danger mt-4">Erreur de chargement des données.</p>';
+    }
+}
+
+/**
+ * 🔧 AMÉLIORATION: Génère le HTML avec filtres (Type/Journal/Période)
+ */
+function generateJournalWithFiltersHTML(entries, journals) {
+    // Options du menu déroulant journaux
+    const journalOptions = journals.map(j => 
+        `<option value="${j.id}">${j.name} (${j.code})</option>`
+    ).join('');
+    
+    // En-tête avec filtres
+    const filtersHTML = `
+        <div class="mb-6 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
+            <h3 class="text-2xl font-black text-secondary mb-4">
+                <i class="fas fa-filter mr-2"></i> Filtres
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Filtre par Type -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Type d'affichage
+                    </label>
+                    <select id="view-type-filter" onchange="window.handleViewTypeChange(this.value)" 
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        <option value="entries">📋 Écritures Comptables</option>
+                        <option value="journals">📖 Liste des Journaux</option>
+                    </select>
+                </div>
+                
+                <!-- Filtre par Journal -->
+                <div id="journal-filter-container">
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Filtrer par Journal
+                    </label>
+                    <select id="journal-filter" onchange="window.handleJournalFilter(this.value)" 
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        <option value="">Tous les journaux</option>
+                        ${journalOptions}
+                    </select>
+                </div>
+                
+                <!-- Filtre par Période -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Période
+                    </label>
+                    <select id="period-filter" onchange="window.handlePeriodFilter(this.value)" 
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                        <option value="all">Toutes les périodes</option>
+                        <option value="today">Aujourd'hui</option>
+                        <option value="week">Cette semaine</option>
+                        <option value="month">Ce mois</option>
+                        <option value="year">Cette année</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Conteneur pour les résultats
+    const resultsHTML = `
+        <div id="journal-results-container" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-2xl font-black text-secondary mb-4">
+                <i class="fas fa-book mr-2"></i> Écritures Comptables
+            </h3>
+            <div id="journal-table-container">
+                ${generateJournalHTML(entries)}
+            </div>
+        </div>
+    `;
+    
+    return filtersHTML + resultsHTML;
+}
+
+/**
+ * 🔧 AMÉLIORATION: Affiche Journal + N° Opération
+ */
+function generateJournalHTML(entries) {
+    if (!entries || entries.length === 0) {
+        return '<p class="text-center text-gray-500 mt-4">Aucune écriture trouvée pour le moment.</p>';
+    }
+
+    const tableRows = entries.map(entry => {
+        const numero = entry.name || `#${entry.id}`;  // ← N° opération
+        const journal = entry.journal || 'N/A';  // ← Nom du journal
+        const narration = entry.libelle || `Écriture #${entry.id}`;
+        const debit = (entry.debit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
+        const credit = (entry.credit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
+        
+        let statusClass = 'text-gray-500';
+        if (entry.status === 'Validé') {
+            statusClass = 'text-success';
+        } else if (entry.status === 'Brouillon') {
+            statusClass = 'text-warning';
+        }
+
+        return `
+            <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer" onclick="window.handleDrillDown(${entry.id}, 'Journal')">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-gray-100">${numero}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${entry.date}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">${journal}</td>
+                <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${narration}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-success">${debit}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-danger">${credit}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm ${statusClass}">${entry.status || 'Inconnu'}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Opération</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Journal</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Libellé</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Débit</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Crédit</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    ${tableRows}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+// =================================================================
+// HANDLERS DES FILTRES (NOUVELLES FONCTIONS GLOBALES)
+// =================================================================
+
+/**
+ * 🔧 AMÉLIORATION: Change le type d'affichage (Écritures vs Journaux)
+ */
+window.handleViewTypeChange = async function(viewType) {
+    const companyId = appState.currentCompanyId;
+    const companyFilter = `?companyId=${companyId}`;
+    
+    const container = document.getElementById('journal-results-container');
+    const tableContainer = document.getElementById('journal-table-container');
+    
+    if (!container || !tableContainer) return;
+    
+    try {
+        if (viewType === 'journals') {
+            // Afficher la liste des journaux
+            container.querySelector('h3').innerHTML = '<i class="fas fa-book mr-2"></i> Liste des Journaux';
+            
+            const response = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
+            const journals = response.data || [];
+            
+            tableContainer.innerHTML = generateJournalsListHTML(journals);
+            
+            // Cacher le filtre par journal (pas utile ici)
+            document.getElementById('journal-filter-container').style.display = 'none';
+            
+        } else {
+            // Afficher les écritures
+            container.querySelector('h3').innerHTML = '<i class="fas fa-book mr-2"></i> Écritures Comptables';
+            
+            const response = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
+            const entries = response.data?.entries || response.data || [];
+            
+            tableContainer.innerHTML = generateJournalHTML(entries);
+            
+            // Réafficher le filtre par journal
+            document.getElementById('journal-filter-container').style.display = 'block';
+        }
+    } catch (error) {
+        NotificationManager.show('Erreur lors du changement de vue.', 'error');
+    }
+};
+
+/**
+ * 🔧 AMÉLIORATION: Filtre les écritures par journal
+ */
+window.handleJournalFilter = async function(journalId) {
+    const companyId = appState.currentCompanyId;
+    let endpoint = `accounting/journal?companyId=${companyId}`;
+    
+    if (journalId) {
+        endpoint += `&journal_id=${journalId}`;
+    }
+    
+    try {
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        const entries = response.data?.entries || response.data || [];
+        
+        const tableContainer = document.getElementById('journal-table-container');
+        if (tableContainer) {
+            tableContainer.innerHTML = generateJournalHTML(entries);
+        }
+        
+        NotificationManager.show(`Filtré: ${entries.length} écriture(s)`, 'info');
+    } catch (error) {
+        NotificationManager.show('Erreur lors du filtrage.', 'error');
+    }
+};
+
+/**
+ * 🔧 AMÉLIORATION: Filtre les écritures par période
+ */
+window.handlePeriodFilter = async function(period) {
+    const companyId = appState.currentCompanyId;
+    let endpoint = `accounting/journal?companyId=${companyId}`;
+    
+    // Calcul des dates selon la période
+    const today = new Date();
+    let dateFrom = null;
+    let dateTo = today.toISOString().split('T')[0];
+    
+    switch(period) {
+        case 'today':
+            dateFrom = dateTo;
+            break;
+        case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(today.getDate() - 7);
+            dateFrom = weekAgo.toISOString().split('T')[0];
+            break;
+        case 'month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(today.getMonth() - 1);
+            dateFrom = monthAgo.toISOString().split('T')[0];
+            break;
+        case 'year':
+            dateFrom = `${today.getFullYear()}-01-01`;
+            break;
+        default:
+            dateFrom = null;
+            dateTo = null;
+    }
+    
+    if (dateFrom) {
+        endpoint += `&date_from=${dateFrom}&date_to=${dateTo}`;
+    }
+    
+    try {
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        const entries = response.data?.entries || response.data || [];
+        
+        const tableContainer = document.getElementById('journal-table-container');
+        if (tableContainer) {
+            tableContainer.innerHTML = generateJournalHTML(entries);
+        }
+        
+        NotificationManager.show(`${entries.length} écriture(s) trouvée(s)`, 'info');
+    } catch (error) {
+        NotificationManager.show('Erreur lors du filtrage par période.', 'error');
+    }
+};
+
+/**
+ * 🔧 AMÉLIORATION: Génère le HTML de la liste des journaux
+ */
+function generateJournalsListHTML(journals) {
+    if (!journals || journals.length === 0) {
+        return '<p class="text-center text-gray-500 mt-4">Aucun journal trouvé.</p>';
+    }
+    
+    const cards = journals.map(journal => `
+        <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-primary hover:shadow-lg transition-shadow cursor-pointer"
+             onclick="window.handleJournalClick('${journal.id}', '${journal.name}')">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white">${journal.name}</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Code: ${journal.code}</p>
+                </div>
+                <div class="text-right">
+                    <span class="inline-block px-3 py-1 text-xs font-bold rounded-full bg-primary/10 text-primary">
+                        ${journal.type || 'N/A'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${cards}</div>`;
+}
+
+/**
+ * 🔧 AMÉLIORATION: Gère le clic sur un journal
+ */
+window.handleJournalClick = function(journalId, journalName) {
+    // Basculer vers la vue "Écritures" et filtrer par ce journal
+    document.getElementById('view-type-filter').value = 'entries';
+    document.getElementById('journal-filter').value = journalId;
+    
+    window.handleViewTypeChange('entries').then(() => {
+        window.handleJournalFilter(journalId);
+        NotificationManager.show(`Affichage des écritures du journal: ${journalName}`, 'info');
+    });
+};
+
+// =================================================================
+// DRILL-DOWN DÉTAILS D'ÉCRITURE (VERSION COMPLÈTE)
+// =================================================================
+
+/**
+ * Affiche les détails complets d'une écriture dans une modal
+ */
+window.handleDrillDown = async function(entryId, moduleName) {
+    try {
+        const companyId = appState.currentCompanyId;
+        const endpoint = `accounting/entry/${entryId}?companyId=${companyId}`;
+        
+        NotificationManager.show(`Récupération des détails de l'écriture ${entryId}...`, 'info');
+        
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        
+        if (response.status === 'success') {
+            const entry = response.data;
+            
+            // Génération du HTML des lignes
+            const linesHTML = entry.lines.map(line => `
+                <tr class="border-b dark:border-gray-700">
+                    <td class="px-4 py-3 font-mono text-sm font-bold">${line.account_code}</td>
+                    <td class="px-4 py-3 text-sm">${line.account_name}</td>
+                    <td class="px-4 py-3 text-sm">${line.label}</td>
+                    <td class="px-4 py-3 text-right font-bold text-success">${line.debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                    <td class="px-4 py-3 text-right font-bold text-danger">${line.credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                </tr>
+            `).join('');
+            
+            // HTML complet de la modal
+            const detailsHTML = `
+                <div class="space-y-6">
+                    <!-- En-tête -->
+                    <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-xl border-l-4 border-primary">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold">N° Pièce</p>
+                                <p class="text-xl font-black text-gray-900 dark:text-white">${entry.name}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold">Date</p>
+                                <p class="text-lg font-bold text-gray-700 dark:text-gray-300">${new Date(entry.date).toLocaleDateString('fr-FR')}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold">Journal</p>
+                                <p class="text-lg font-bold text-primary">${entry.journal}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold">Statut</p>
+                                <span class="inline-block px-3 py-1 text-sm font-bold rounded-full ${entry.state === 'posted' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">
+                                    ${entry.state_label}
+                                </span>
+                            </div>
+                        </div>
+                        ${entry.reference ? `
+                        <div class="mt-4">
+                            <p class="text-xs text-gray-500 uppercase font-bold">Référence</p>
+                            <p class="text-sm text-gray-700 dark:text-gray-300">${entry.reference}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Lignes comptables -->
+                    <div>
+                        <h4 class="text-lg font-black text-gray-900 dark:text-white mb-3">
+                            <i class="fas fa-list-ul mr-2 text-primary"></i> Lignes Comptables (${entry.lines.length})
+                        </h4>
+                        <div class="overflow-x-auto border rounded-xl">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Compte</th>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Libellé Compte</th>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Libellé</th>
+                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Débit (XOF)</th>
+                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Crédit (XOF)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    ${linesHTML}
+                                </tbody>
+                                <tfoot class="bg-gray-100 dark:bg-gray-700">
+                                    <tr class="font-black">
+                                        <td colspan="3" class="px-4 py-3 text-right uppercase text-sm">TOTAUX</td>
+                                        <td class="px-4 py-3 text-right text-success text-lg">${entry.totals.debit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                        <td class="px-4 py-3 text-right text-danger text-lg">${entry.totals.credit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                    </tr>
+                                    ${entry.totals.difference > 0.01 ? `
+                                    <tr class="bg-red-50 dark:bg-red-900/20">
+                                        <td colspan="5" class="px-4 py-3 text-center text-danger font-bold">
+                                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                                            ATTENTION : Écart de ${entry.totals.difference.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} XOF
+                                        </td>
+                                    </tr>
+                                    ` : ''}
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Métadonnées -->
+                    <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2 font-bold uppercase">Métadonnées</p>
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <span class="text-gray-500">Créé le :</span>
+                                <span class="font-bold ml-2">${new Date(entry.metadata.created_at).toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Par :</span>
+                                <span class="font-bold ml-2">${entry.metadata.created_by}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Modifié le :</span>
+                                <span class="font-bold ml-2">${new Date(entry.metadata.updated_at).toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Par :</span>
+                                <span class="font-bold ml-2">${entry.metadata.updated_by}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            ModalManager.open(`📄 Détails de l'Écriture #${entry.name}`, detailsHTML);
+        }
+
+    } catch (error) {
+        console.error('🚨 handleDrillDown Error:', error);
+        NotificationManager.show(`Erreur lors du chargement : ${error.message}`, 'error');
+    }
+};
 
 // =================================================================
 // MODULE 1 : RAPPORTS FINANCIERS OFFICIELS (NOUVEAU)
