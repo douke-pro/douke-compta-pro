@@ -101,9 +101,9 @@ router.post(
 );
 
 /**
- * 🔧 NOUVEAU : GET /api/reports/:id/preview
- * Aperçu des données extraites pour édition
- * Permet au collaborateur/admin de voir les données avant modification
+ * GET /api/reports/:id/preview
+ * Aperçu des données extraites avant génération PDF
+ * Permet au collaborateur/admin de voir les données pour édition
  * Permissions : COLLABORATEUR, ADMIN
  */
 router.get(
