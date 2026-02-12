@@ -2181,36 +2181,197 @@ window.printLedger = function() {
     window.print();
 };
 
-// =================================================================
-// RAPPORTS
-// =================================================================
-
+/**
+ * ============================================
+ * MENU PRINCIPAL DES RAPPORTS FINANCIERS
+ * ============================================
+ */
 function generateReportsMenuHTML() {
+    const userRole = appState.user?.role || 'user';
+    
     return `
-        <h3 class="text-3xl font-black text-secondary mb-8 fade-in">Rapports Financiers SYSCOHADA</h3>
-        <p class="text-lg text-gray-600 dark:text-gray-400 mb-6">
-            Sélectionnez un rapport pour afficher sa version interactive ou l'exporter.
-        </p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-            ${generateReportCard('Bilan', 'fas fa-balance-scale', 'balance-sheet', 'Aperçu des actifs, passifs et capitaux propres à une date donnée.', true)}
-            ${generateReportCard('Compte de Résultat', 'fas fa-money-bill-transfer', 'pnl', 'Performance financière (revenus et dépenses) sur une période.')}
-            ${generateReportCard('Tableau des Flux', 'fas fa-arrows-split-up-and-down', 'cash-flow', 'Analyse des mouvements de trésorerie sur la période.')}
-            ${generateReportCard('Balance Générale', 'fas fa-list-ol', 'balance', 'Liste de tous les comptes avec leurs soldes débiteurs et créditeurs.')}
+        <div class="fade-in">
+            <h3 class="text-3xl font-black text-secondary mb-4">📊 Rapports Financiers</h3>
+            <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">
+                Générez et consultez vos états financiers conformes aux normes SYSCOHADA, SYCEBNL et PCG.
+            </p>
+
+            <!-- Statistiques rapides -->
+            ${userRole === 'admin' || userRole === 'collaborateur' ? generateReportsStatsCards() : ''}
+
+            <!-- Sections selon le rôle -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Section 1 : Demande d'états financiers (tous les utilisateurs) -->
+                <div>
+                    <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-file-invoice text-info mr-3"></i>
+                        Demander des États Financiers
+                    </h4>
+                    ${generateRequestReportsCard()}
+                </div>
+
+                <!-- Section 2 : Mes demandes (tous les utilisateurs) -->
+                <div>
+                    <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-history text-primary mr-3"></i>
+                        Mes Demandes
+                    </h4>
+                    ${generateMyRequestsCard()}
+                </div>
+            </div>
+
+            <!-- Section 3 : Dashboard Collaborateur/Admin -->
+            ${userRole === 'admin' || userRole === 'collaborateur' ? `
+                <div class="mt-8">
+                    <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-tasks text-warning mr-3"></i>
+                        Demandes en Attente de Traitement
+                    </h4>
+                    ${generatePendingRequestsCard()}
+                </div>
+            ` : ''}
+
+            <!-- Section 4 : Rapports interactifs classiques -->
+            <div class="mt-8">
+                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <i class="fas fa-chart-line text-success mr-3"></i>
+                    Rapports Interactifs
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${generateClassicReportCard('Bilan Interactif', 'fas fa-balance-scale', 'balance-sheet', 'Visualisation interactive du bilan.', true)}
+                    ${generateClassicReportCard('Compte de Résultat', 'fas fa-money-bill-transfer', 'pnl', 'Performance financière interactive.')}
+                    ${generateClassicReportCard('Tableau des Flux', 'fas fa-arrows-split-up-and-down', 'cash-flow', 'Analyse des flux de trésorerie.')}
+                    ${generateClassicReportCard('Balance Générale', 'fas fa-list-ol', 'balance', 'Liste de tous les comptes.')}
+                </div>
+            </div>
         </div>
     `;
 }
 
-function generateReportCard(title, icon, reportId, description, isImplemented = false) {
+/**
+ * Statistiques rapides pour Admin/Collaborateur
+ */
+function generateReportsStatsCards() {
+    return `
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">En attente</p>
+                        <p class="text-3xl font-black mt-1" id="stats-pending">-</p>
+                    </div>
+                    <i class="fas fa-clock fa-2x opacity-70"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-5 rounded-2xl shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">En traitement</p>
+                        <p class="text-3xl font-black mt-1" id="stats-processing">-</p>
+                    </div>
+                    <i class="fas fa-spinner fa-2x opacity-70"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">Validés</p>
+                        <p class="text-3xl font-black mt-1" id="stats-validated">-</p>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x opacity-70"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">Envoyés</p>
+                        <p class="text-3xl font-black mt-1" id="stats-sent">-</p>
+                    </div>
+                    <i class="fas fa-paper-plane fa-2x opacity-70"></i>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Card pour demander des états financiers
+ */
+function generateRequestReportsCard() {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-info">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Créez une demande pour recevoir vos états financiers officiels (Bilan, Compte de Résultat, TFT, Annexes).
+            </p>
+            <button onclick="window.openRequestFinancialReportsModal()" 
+                class="w-full bg-info text-white py-3 px-4 rounded-xl font-bold hover:bg-info/90 transition-colors flex items-center justify-center">
+                <i class="fas fa-plus-circle mr-2"></i>
+                Nouvelle Demande d'États Financiers
+            </button>
+        </div>
+    `;
+}
+
+/**
+ * Card pour afficher mes demandes
+ */
+function generateMyRequestsCard() {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-primary">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Consultez l'historique et le statut de vos demandes d'états financiers.
+            </p>
+            <button onclick="window.loadMyFinancialReports()" 
+                class="w-full bg-primary text-white py-3 px-4 rounded-xl font-bold hover:bg-primary-dark transition-colors flex items-center justify-center">
+                <i class="fas fa-list mr-2"></i>
+                Voir Mes Demandes
+            </button>
+            
+            <!-- Liste des dernières demandes (chargée dynamiquement) -->
+            <div id="my-requests-preview" class="mt-4 space-y-2">
+                <!-- Sera rempli par loadMyFinancialReportsPreview() -->
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Card pour les demandes en attente (Collaborateur/Admin)
+ */
+function generatePendingRequestsCard() {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-warning">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Gérez les demandes d'états financiers des clients.
+            </p>
+            <button onclick="window.loadPendingFinancialReports()" 
+                class="w-full bg-warning text-white py-3 px-4 rounded-xl font-bold hover:bg-warning/90 transition-colors flex items-center justify-center">
+                <i class="fas fa-tasks mr-2"></i>
+                Voir Toutes les Demandes en Attente
+            </button>
+            
+            <!-- Liste des demandes urgentes (chargée dynamiquement) -->
+            <div id="pending-requests-preview" class="mt-4 space-y-2">
+                <!-- Sera rempli par loadPendingFinancialReportsPreview() -->
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Card pour les rapports interactifs classiques (conservé de l'ancien système)
+ */
+function generateClassicReportCard(title, icon, reportId, description, isImplemented = false) {
     const viewAction = isImplemented 
         ? `onclick="window.handleOpenBalanceSheet()"` 
         : `onclick="window.handleOpenReportModal('${reportId}', '${title}')"`;
     
     return `
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-info transition duration-200 hover:shadow-lg">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 transition duration-200 hover:shadow-lg">
             <div class="flex items-start">
                 <i class="${icon} fa-2x text-info/80 mr-4"></i>
                 <div>
-                    <h4 class="text-xl font-bold text-gray-900 dark:text-white">${title}</h4>
+                    <h5 class="text-lg font-bold text-gray-900 dark:text-white">${title}</h5>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${description}</p>
                 </div>
             </div>
@@ -2228,64 +2389,496 @@ function generateReportCard(title, icon, reportId, description, isImplemented = 
     `;
 }
 
+/**
+ * ============================================
+ * INITIALISATION DU MODULE RAPPORTS FINANCIERS
+ * ============================================
+ */
 
-window.handleOpenReportModal = async function(reportId, reportTitle) {
+/**
+ * Charger les statistiques (Admin/Collab)
+ */
+window.loadReportsStats = async function() {
     try {
-        const companyFilter = `?companyId=${appState.currentCompanyId}`;
-        const endpoint = `accounting/report/${reportId}${companyFilter}`;
+        const response = await apiFetch('api/reports/stats/summary', { method: 'GET' });
         
-        NotificationManager.show(`Génération du rapport '${reportTitle}' en cours...`, 'info', 10000);
-        
-        const response = await apiFetch(endpoint, { method: 'GET' });
-        
-        const reportContent = response.data || { 
-            title: reportTitle, 
-            date: new Date().toLocaleDateString('fr-FR'),
-            entries: [
-                { line: 'Actif Immobilisé', amount: 5000000, type: 'asset' },
-                { line: 'Passif Court Terme', amount: -350000, type: 'liability' },
-                { line: 'Capitaux Propres', amount: 4650000, type: 'equity' },
-            ]
-        };
-
-        const modalHtml = generateReportHTML(reportContent);
-        ModalManager.open(`Aperçu: ${reportTitle} (${appState.currentCompanyName})`, modalHtml);
-
+        if (response.success) {
+            const stats = response.data;
+            document.getElementById('stats-pending').textContent = stats.pending_count || 0;
+            document.getElementById('stats-processing').textContent = stats.processing_count || 0;
+            document.getElementById('stats-validated').textContent = stats.validated_count || 0;
+            document.getElementById('stats-sent').textContent = stats.sent_count || 0;
+        }
     } catch (error) {
-        NotificationManager.show(`Impossible d'ouvrir le rapport ${reportTitle}: ${error.message}`, 'error', 10000);
+        console.error('Erreur chargement stats:', error);
     }
 };
 
-function generateReportHTML(reportData) {
-    const rows = (reportData.entries || []).map(item => `
-        <tr class="border-b dark:border-gray-700 ${item.type === 'equity' ? 'bg-gray-100 dark:bg-gray-700 font-bold' : ''}">
-            <td class="px-4 py-2">${item.line}</td>
-            <td class="px-4 py-2 text-right">${item.amount.toLocaleString('fr-FR')}</td>
-        </tr>
-    `).join('');
+/**
+ * Charger un aperçu des dernières demandes de l'utilisateur
+ */
+window.loadMyFinancialReportsPreview = async function() {
+    try {
+        const response = await apiFetch('api/reports/my-requests?limit=3', { method: 'GET' });
+        
+        if (response.success && response.data.length > 0) {
+            const html = response.data.map(req => generateRequestPreviewItem(req)).join('');
+            document.getElementById('my-requests-preview').innerHTML = html;
+        } else {
+            document.getElementById('my-requests-preview').innerHTML = `
+                <p class="text-sm text-gray-500 dark:text-gray-400 italic">Aucune demande récente.</p>
+            `;
+        }
+    } catch (error) {
+        console.error('Erreur chargement aperçu demandes:', error);
+    }
+};
 
+/**
+ * Charger un aperçu des demandes en attente (Collaborateur/Admin)
+ */
+window.loadPendingFinancialReportsPreview = async function() {
+    try {
+        const response = await apiFetch('api/reports/pending?limit=3', { method: 'GET' });
+        
+        if (response.success && response.data.length > 0) {
+            const html = response.data.map(req => generateRequestPreviewItem(req, true)).join('');
+            document.getElementById('pending-requests-preview').innerHTML = html;
+        } else {
+            document.getElementById('pending-requests-preview').innerHTML = `
+                <p class="text-sm text-gray-500 dark:text-gray-400 italic">Aucune demande en attente.</p>
+            `;
+        }
+    } catch (error) {
+        console.error('Erreur chargement demandes en attente:', error);
+    }
+};
+
+/**
+ * Générer un item d'aperçu de demande
+ */
+function generateRequestPreviewItem(request, showCompany = false) {
+    const statusConfig = getStatusConfig(request.status);
+    
     return `
-        <div class="p-4">
-            <h4 class="text-2xl font-black mb-3">${reportData.title || 'Rapport Financier'}</h4>
-            <p class="text-sm text-gray-500 mb-4">Date de génération: ${reportData.date || 'N/A'}</p>
-            
-            <div class="overflow-x-auto border rounded-xl">
-                <table class="min-w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                        <tr>
-                            <th scope="col" class="px-4 py-3">Rubrique</th>
-                            <th scope="col" class="px-4 py-3 text-right">Montant (XOF)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
+        <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+             onclick="window.viewRequestDetails(${request.id})">
+            <div class="flex-1">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                    ${showCompany ? request.company_name : request.accounting_system}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    ${new Date(request.period_start).toLocaleDateString('fr-FR')} - ${new Date(request.period_end).toLocaleDateString('fr-FR')}
+                </p>
             </div>
-            
-            <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">Ce rapport est un aperçu. Utilisez l'option Export pour la version officielle.</p>
+            <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusConfig.bgClass} ${statusConfig.textClass}">
+                ${statusConfig.label}
+            </span>
         </div>
     `;
+}
+
+/**
+ * Configuration des statuts
+ */
+function getStatusConfig(status) {
+    const configs = {
+        'pending': { label: 'En attente', bgClass: 'bg-gray-200', textClass: 'text-gray-800' },
+        'processing': { label: 'En cours', bgClass: 'bg-yellow-200', textClass: 'text-yellow-800' },
+        'generated': { label: 'Générés', bgClass: 'bg-blue-200', textClass: 'text-blue-800' },
+        'validated': { label: 'Validés', bgClass: 'bg-green-200', textClass: 'text-green-800' },
+        'sent': { label: 'Envoyés', bgClass: 'bg-purple-200', textClass: 'text-purple-800' },
+        'cancelled': { label: 'Annulés', bgClass: 'bg-red-200', textClass: 'text-red-800' },
+        'error': { label: 'Erreur', bgClass: 'bg-red-300', textClass: 'text-red-900' }
+    };
+    
+    return configs[status] || configs['pending'];
+}
+
+/**
+ * Initialiser le module au chargement de la page Rapports
+ */
+window.initFinancialReportsModule = function() {
+    const userRole = appState.user?.role || 'user';
+    
+    // Charger les stats si Admin/Collab
+    if (userRole === 'admin' || userRole === 'collaborateur') {
+        window.loadReportsStats();
+        window.loadPendingFinancialReportsPreview();
+    }
+    
+    // Charger l'aperçu des demandes de l'utilisateur
+    window.loadMyFinancialReportsPreview();
+};
+
+// Appeler l'initialisation lors du chargement du menu Rapports
+// À ajouter dans ton système de navigation existant
+
+/**
+ * ============================================
+ * MODAL : DEMANDE D'ÉTATS FINANCIERS
+ * ============================================
+ */
+
+/**
+ * Ouvrir le modal de demande d'états financiers
+ */
+window.openRequestFinancialReportsModal = function() {
+    const modalContent = generateRequestFinancialReportsFormHTML();
+    ModalManager.open('Demander des États Financiers', modalContent, 'max-w-2xl');
+};
+
+/**
+ * Générer le HTML du formulaire de demande
+ */
+function generateRequestFinancialReportsFormHTML() {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+    
+    return `
+        <div class="p-6">
+            <div class="mb-6 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-info p-4 rounded-lg">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-info text-xl mr-3 mt-1"></i>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                            Génération d'États Financiers Officiels
+                        </p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">
+                            Une fois votre demande envoyée, un collaborateur la traitera et générera vos états financiers conformes aux normes comptables.
+                            Vous recevrez une notification lorsque les documents seront prêts.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <form id="request-financial-reports-form" class="space-y-6">
+                
+                <!-- Système Comptable -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-book text-info mr-2"></i>
+                        Système Comptable *
+                    </label>
+                    <select id="accounting-system" name="accounting_system" required
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-info focus:border-transparent transition-all">
+                        <option value="">-- Sélectionnez un système --</option>
+                        <optgroup label="SYSCOHADA (OHADA)">
+                            <option value="SYSCOHADA_NORMAL">SYSCOHADA - Système Normal</option>
+                            <option value="SYSCOHADA_MINIMAL">SYSCOHADA - Système Minimal de Trésorerie</option>
+                        </optgroup>
+                        <optgroup label="SYCEBNL (Entités à But Non Lucratif - Bénin)">
+                            <option value="SYCEBNL_NORMAL">SYCEBNL - Système Normal</option>
+                            <option value="SYCEBNL_ALLEGE">SYCEBNL - Système Allégé</option>
+                        </optgroup>
+                        <optgroup label="Plan Comptable Général (France)">
+                            <option value="PCG_FRENCH">PCG - Plan Comptable Général Français</option>
+                        </optgroup>
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Choisissez le référentiel comptable applicable à votre entreprise.
+                    </p>
+                </div>
+
+                <!-- Informations sur le système sélectionné -->
+                <div id="system-info" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                        <i class="fas fa-file-alt text-purple-600 mr-2"></i>
+                        États financiers qui seront générés :
+                    </p>
+                    <ul id="system-reports-list" class="text-xs text-gray-700 dark:text-gray-300 space-y-1 ml-6">
+                        <!-- Sera rempli dynamiquement -->
+                    </ul>
+                </div>
+
+                <!-- Période -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-calendar-alt text-success mr-2"></i>
+                            Date de Début *
+                        </label>
+                        <input type="date" id="period-start" name="period_start" required
+                            value="${currentYear}-01-01"
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-success focus:border-transparent transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-calendar-check text-success mr-2"></i>
+                            Date de Fin *
+                        </label>
+                        <input type="date" id="period-end" name="period_end" required
+                            value="${currentYear}-12-31"
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-success focus:border-transparent transition-all">
+                    </div>
+                </div>
+
+                <!-- Exercice Fiscal -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-calendar text-primary mr-2"></i>
+                        Exercice Fiscal (optionnel)
+                    </label>
+                    <input type="text" id="fiscal-year" name="fiscal_year" 
+                        placeholder="Ex: 2026, N-1, Exercice 2026"
+                        value="${currentYear}"
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Identifiant de l'exercice comptable (ex: 2026, N, N-1).
+                    </p>
+                </div>
+
+                <!-- Notes complémentaires -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-comment text-warning mr-2"></i>
+                        Notes / Instructions (optionnel)
+                    </label>
+                    <textarea id="request-notes" name="notes" rows="3" 
+                        placeholder="Ajoutez des précisions ou instructions particulières pour le collaborateur..."
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-warning focus:border-transparent transition-all resize-none"></textarea>
+                </div>
+
+                <!-- Résumé de la demande -->
+                <div id="request-summary" class="hidden bg-gray-50 dark:bg-gray-700 p-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                        <i class="fas fa-clipboard-check text-success mr-2"></i>
+                        Résumé de votre demande
+                    </p>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span class="text-gray-500 dark:text-gray-400">Entreprise :</span>
+                            <p class="font-semibold text-gray-900 dark:text-white">${appState.currentCompanyName || 'Non définie'}</p>
+                        </div>
+                        <div>
+                            <span class="text-gray-500 dark:text-gray-400">Système :</span>
+                            <p class="font-semibold text-gray-900 dark:text-white" id="summary-system">-</p>
+                        </div>
+                        <div>
+                            <span class="text-gray-500 dark:text-gray-400">Période :</span>
+                            <p class="font-semibold text-gray-900 dark:text-white" id="summary-period">-</p>
+                        </div>
+                        <div>
+                            <span class="text-gray-500 dark:text-gray-400">Exercice :</span>
+                            <p class="font-semibold text-gray-900 dark:text-white" id="summary-fiscal">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" onclick="ModalManager.close()" 
+                        class="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-times mr-2"></i>
+                        Annuler
+                    </button>
+                    <button type="submit" id="submit-request-btn"
+                        class="flex-1 px-6 py-3 bg-gradient-to-r from-info to-primary text-white rounded-xl font-bold hover:shadow-lg transition-all transform hover:scale-105">
+                        <i class="fas fa-paper-plane mr-2"></i>
+                        Envoyer la Demande
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <script>
+            // Initialiser les event listeners du formulaire
+            (function() {
+                const form = document.getElementById('request-financial-reports-form');
+                const systemSelect = document.getElementById('accounting-system');
+                const periodStart = document.getElementById('period-start');
+                const periodEnd = document.getElementById('period-end');
+                const fiscalYear = document.getElementById('fiscal-year');
+                
+                // Afficher les infos du système sélectionné
+                systemSelect.addEventListener('change', function() {
+                    updateSystemInfo(this.value);
+                    updateSummary();
+                });
+                
+                // Mettre à jour le résumé en temps réel
+                [periodStart, periodEnd, fiscalYear].forEach(input => {
+                    input.addEventListener('change', updateSummary);
+                });
+                
+                // Soumettre le formulaire
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    await window.handleSubmitFinancialReportRequest();
+                });
+                
+                // Afficher le résumé après 1 seconde
+                setTimeout(() => {
+                    document.getElementById('request-summary').classList.remove('hidden');
+                }, 1000);
+            })();
+            
+            function updateSystemInfo(system) {
+                const systemInfo = document.getElementById('system-info');
+                const reportsList = document.getElementById('system-reports-list');
+                
+                if (!system) {
+                    systemInfo.classList.add('hidden');
+                    return;
+                }
+                
+                const reportsConfig = {
+                    'SYSCOHADA_NORMAL': [
+                        '✓ Bilan (Actif/Passif)',
+                        '✓ Compte de Résultat par Nature',
+                        '✓ Tableau des Flux de Trésorerie (TFT)',
+                        '✓ Notes Annexes Complètes (47 pages)',
+                        '✓ État des Immobilisations',
+                        '✓ État des Amortissements',
+                        '✓ État des Provisions',
+                        '✓ Tableau de Variation des Capitaux Propres (TAFIRE)'
+                    ],
+                    'SYSCOHADA_MINIMAL': [
+                        '✓ Bilan Simplifié',
+                        '✓ Compte de Résultat Simplifié',
+                        '✓ Tableau des Flux de Trésorerie Adapté',
+                        '✓ État des Recettes et Dépenses'
+                    ],
+                    'SYCEBNL_NORMAL': [
+                        '✓ Bilan (structure EBNL avec fonds propres)',
+                        '✓ Compte de Résultat (Emplois/Ressources)',
+                        '✓ Tableau des Flux de Trésorerie',
+                        '✓ Annexes Détaillées'
+                    ],
+                    'SYCEBNL_ALLEGE': [
+                        '✓ Bilan Abrégé',
+                        '✓ Compte de Résultat Abrégé',
+                        '✓ Notes Simplifiées'
+                    ],
+                    'PCG_FRENCH': [
+                        '✓ Bilan Comptable (Actif/Passif)',
+                        '✓ Compte de Résultat (liste ou tableau)',
+                        '✓ Annexe Comptable',
+                        '✓ Tableau des Flux de Trésorerie (optionnel)'
+                    ]
+                };
+                
+                const reports = reportsConfig[system] || [];
+                reportsList.innerHTML = reports.map(r => \`<li>\${r}</li>\`).join('');
+                systemInfo.classList.remove('hidden');
+            }
+            
+            function updateSummary() {
+                const system = document.getElementById('accounting-system').value;
+                const periodStart = document.getElementById('period-start').value;
+                const periodEnd = document.getElementById('period-end').value;
+                const fiscalYear = document.getElementById('fiscal-year').value;
+                
+                const systemLabels = {
+                    'SYSCOHADA_NORMAL': 'SYSCOHADA Normal',
+                    'SYSCOHADA_MINIMAL': 'SYSCOHADA Minimal',
+                    'SYCEBNL_NORMAL': 'SYCEBNL Normal',
+                    'SYCEBNL_ALLEGE': 'SYCEBNL Allégé',
+                    'PCG_FRENCH': 'PCG Français'
+                };
+                
+                document.getElementById('summary-system').textContent = systemLabels[system] || '-';
+                document.getElementById('summary-period').textContent = 
+                    periodStart && periodEnd 
+                        ? \`Du \${new Date(periodStart).toLocaleDateString('fr-FR')} au \${new Date(periodEnd).toLocaleDateString('fr-FR')}\`
+                        : '-';
+                document.getElementById('summary-fiscal').textContent = fiscalYear || 'Non spécifié';
+            }
+        </script>
+    `;
+}
+
+/**
+ * Soumettre la demande d'états financiers
+ */
+window.handleSubmitFinancialReportRequest = async function() {
+    const form = document.getElementById('request-financial-reports-form');
+    const submitBtn = document.getElementById('submit-request-btn');
+    
+    // Validation
+    if (!form.checkValidity()) {
+        NotificationManager.show('Veuillez remplir tous les champs obligatoires.', 'error', 5000);
+        form.reportValidity();
+        return;
+    }
+    
+    // Récupérer les données
+    const formData = {
+        company_id: appState.currentCompanyId,
+        accounting_system: document.getElementById('accounting-system').value,
+        period_start: document.getElementById('period-start').value,
+        period_end: document.getElementById('period-end').value,
+        fiscal_year: document.getElementById('fiscal-year').value || null,
+        notes: document.getElementById('request-notes').value || null
+    };
+    
+    // Validation des dates
+    if (new Date(formData.period_start) > new Date(formData.period_end)) {
+        NotificationManager.show('La date de début doit être antérieure à la date de fin.', 'error', 5000);
+        return;
+    }
+    
+    // Désactiver le bouton pendant l'envoi
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Envoi en cours...';
+    
+    try {
+        const response = await apiFetch('api/reports/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.success) {
+            NotificationManager.show(
+                '✅ Demande envoyée avec succès ! Un collaborateur va la traiter sous peu.', 
+                'success', 
+                7000
+            );
+            
+            ModalManager.close();
+            
+            // Rafraîchir l'aperçu des demandes
+            window.loadMyFinancialReportsPreview();
+            
+            // Afficher une notification visuelle de succès
+            showSuccessAnimation();
+            
+        } else {
+            throw new Error(response.message || 'Erreur lors de l\'envoi de la demande');
+        }
+        
+    } catch (error) {
+        console.error('Erreur soumission demande:', error);
+        NotificationManager.show(
+            `❌ Erreur : ${error.message}`, 
+            'error', 
+            7000
+        );
+        
+        // Réactiver le bouton
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Envoyer la Demande';
+    }
+};
+
+/**
+ * Animation de succès après création de demande
+ */
+function showSuccessAnimation() {
+    const animation = document.createElement('div');
+    animation.className = 'fixed inset-0 flex items-center justify-center z-50 pointer-events-none';
+    animation.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-full p-8 shadow-2xl animate-bounce">
+            <i class="fas fa-check-circle text-success text-6xl"></i>
+        </div>
+    `;
+    
+    document.body.appendChild(animation);
+    
+    setTimeout(() => {
+        animation.remove();
+    }, 2000);
 }
 
 window.exportReport = function(reportId, reportTitle) {
