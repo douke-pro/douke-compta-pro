@@ -1,14 +1,12 @@
 // =============================================================================
 // FICHIER : controllers/notificationsController.js
-// Version : V23 - TOUT DANS ODOO (SANS POSTGRESQL)
+// Version : V24 - NOTIFICATIONS RÉELLES AVEC DESTINATAIRES
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
 
 /**
  * Récupère les notifications de l'utilisateur connecté
- * @route GET /api/notifications
- * @access Authentifié
  */
 exports.getNotifications = async (req, res) => {
     try {
@@ -16,39 +14,62 @@ exports.getNotifications = async (req, res) => {
         
         console.log('🔔 [getNotifications] User:', userId);
         
-        // ✅ CHARGER UNIQUEMENT DEPUIS ODOO (pas de PostgreSQL)
-        const odooMessages = await odooExecuteKw({
+        // Récupérer les notifications depuis mail.notification
+        const notifications = await odooExecuteKw({
             uid: ADMIN_UID_INT,
-            model: 'mail.message',
+            model: 'mail.notification',
             method: 'search_read',
             args: [[
-                ['message_type', '=', 'notification'],
-                ['date', '>=', getThirtyDaysAgo()]
+                ['res_partner_id.user_ids', 'in', [userId]],
+                ['is_read', '=', false]
             ]],
             kwargs: {
-                fields: ['id', 'subject', 'body', 'date', 'needaction', 'author_id'],
-                order: 'date DESC',
+                fields: ['id', 'mail_message_id', 'is_read', 'notification_type', 'notification_status'],
+                order: 'id DESC',
                 limit: 50
             }
         });
         
-        // Formater les notifications
-        const notifications = odooMessages.map(n => ({
-            id: n.id,
-            type: 'info',
-            priority: 'normal',
-            title: n.subject || 'Notification',
-            message: stripHtmlTags(n.body || '').substring(0, 200),
-            created_at: n.date,
-            read: !n.needaction,
-            sender_id: n.author_id ? n.author_id[1] : 'Système'
-        }));
+        console.log(`📬 [getNotifications] ${notifications.length} notifications trouvées`);
         
-        console.log(`✅ [getNotifications] ${notifications.length} notifications Odoo trouvées`);
+        // Récupérer les détails des messages
+        const messageIds = notifications.map(n => n.mail_message_id[0]).filter(Boolean);
+        
+        let messages = [];
+        if (messageIds.length > 0) {
+            messages = await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'mail.message',
+                method: 'search_read',
+                args: [[['id', 'in', messageIds]]],
+                kwargs: {
+                    fields: ['id', 'subject', 'body', 'date', 'author_id'],
+                    order: 'date DESC'
+                }
+            });
+        }
+        
+        // Combiner notifications + messages
+        const formattedNotifications = notifications.map(notif => {
+            const message = messages.find(m => m.id === notif.mail_message_id[0]) || {};
+            
+            return {
+                id: notif.id,
+                type: 'info',
+                priority: 'normal',
+                title: message.subject || 'Notification',
+                message: stripHtmlTags(message.body || '').substring(0, 200),
+                created_at: message.date || new Date().toISOString(),
+                read: notif.is_read,
+                sender_id: message.author_id ? message.author_id[1] : 'Système'
+            };
+        });
+        
+        console.log(`✅ [getNotifications] ${formattedNotifications.length} notifications formatées`);
         
         res.json({
             status: 'success',
-            data: notifications
+            data: formattedNotifications
         });
         
     } catch (error) {
@@ -62,8 +83,6 @@ exports.getNotifications = async (req, res) => {
 
 /**
  * Envoie une notification à un ou plusieurs utilisateurs
- * @route POST /api/notifications/send
- * @access ADMIN + COLLABORATEUR uniquement
  */
 exports.sendNotification = async (req, res) => {
     try {
@@ -75,7 +94,7 @@ exports.sendNotification = async (req, res) => {
 
         console.log('📤 [sendNotification] Envoi par:', senderEmail, '| Type:', type);
 
-        // ✅ VÉRIFICATION PERMISSIONS
+        // Vérification permissions
         if (senderRole !== 'ADMIN' && senderRole !== 'COLLABORATEUR') {
             return res.status(403).json({
                 status: 'error',
@@ -83,7 +102,7 @@ exports.sendNotification = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATION
+        // Validation
         if (!title || !message) {
             return res.status(400).json({
                 status: 'error',
@@ -98,7 +117,7 @@ exports.sendNotification = async (req, res) => {
             });
         }
 
-        // ✅ RÉCUPÉRER LES IDS DES UTILISATEURS DESTINATAIRES
+        // Récupérer les utilisateurs destinataires
         let userIds = [];
         let targetUsers = [];
 
@@ -111,7 +130,7 @@ exports.sendNotification = async (req, res) => {
                 method: 'search_read',
                 args: [[['company_ids', 'in', [parseInt(companyId)]]]],
                 kwargs: { 
-                    fields: ['id', 'name', 'email', 'login'],
+                    fields: ['id', 'name', 'email', 'login', 'partner_id'],
                     limit: 500
                 }
             });
@@ -129,7 +148,7 @@ exports.sendNotification = async (req, res) => {
                 method: 'search_read',
                 args: [[['company_ids', 'in', [parseInt(companyId)]]]],
                 kwargs: { 
-                    fields: ['id', 'name', 'email', 'login'],
+                    fields: ['id', 'name', 'email', 'login', 'partner_id'],
                     limit: 500
                 }
             });
@@ -171,7 +190,7 @@ exports.sendNotification = async (req, res) => {
                 method: 'search_read',
                 args: [[['id', 'in', userIds]]],
                 kwargs: { 
-                    fields: ['id', 'name', 'email', 'login'],
+                    fields: ['id', 'name', 'email', 'login', 'partner_id'],
                     limit: 500
                 }
             });
@@ -186,62 +205,50 @@ exports.sendNotification = async (req, res) => {
             });
         }
 
-        // ✅ CRÉER LES NOTIFICATIONS UNIQUEMENT DANS ODOO
-        const notificationIds = [];
-        const successfulRecipients = [];
-        const failedRecipients = [];
+        // ✅ CRÉER LE MESSAGE AVEC LES DESTINATAIRES
+        const partnerIds = targetUsers
+            .map(u => u.partner_id ? u.partner_id[0] : null)
+            .filter(Boolean);
 
-        for (const user of targetUsers) {
-            try {
-                const messageId = await odooExecuteKw({
-                    uid: ADMIN_UID_INT,
-                    model: 'mail.message',
-                    method: 'create',
-                    args: [{
-                        message_type: 'notification',
-                        subtype_id: 1,
-                        body: `<div style="font-family: Arial, sans-serif;">
-                                <h3 style="color: #2563eb; margin-bottom: 10px;">${title}</h3>
-                                <p style="color: #374151; line-height: 1.6;">${message}</p>
-                                <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
-                                <p style="color: #6b7280; font-size: 12px;">
-                                    <strong>Priorité:</strong> ${getPriorityLabel(priority)} | 
-                                    <strong>Type:</strong> ${getTypeLabel(type)} | 
-                                    <strong>Envoyé par:</strong> ${senderEmail}
-                                </p>
-                               </div>`,
-                        subject: title,
-                        author_id: senderId,
-                        needaction: true,
-                        record_name: `Notification - ${type}`
-                    }],
-                    kwargs: {}
-                });
+        console.log(`👥 [sendNotification] Partner IDs:`, partnerIds);
 
-                notificationIds.push(messageId);
-                
-                successfulRecipients.push({
-                    id: user.id,
-                    name: user.name,
-                    email: user.email || user.login,
-                    channel: 'notification',
-                    status: 'sent'
-                });
+        const messageId = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'mail.message',
+            method: 'create',
+            args: [{
+                message_type: 'notification',
+                subtype_id: 1,
+                body: `<div style="font-family: Arial, sans-serif; padding: 20px;">
+                        <h3 style="color: #2563eb; margin-bottom: 10px;">${title}</h3>
+                        <p style="color: #374151; line-height: 1.6; margin-bottom: 20px;">${message}</p>
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
+                        <p style="color: #6b7280; font-size: 12px;">
+                            <strong>Priorité:</strong> ${getPriorityLabel(priority)} | 
+                            <strong>Type:</strong> ${getTypeLabel(type)} | 
+                            <strong>Envoyé par:</strong> ${senderEmail}
+                        </p>
+                       </div>`,
+                subject: title,
+                author_id: senderId,
+                needaction: true,
+                record_name: `Notification - ${type}`,
+                // ✅ CRUCIAL : Associer aux destinataires
+                partner_ids: [[6, 0, partnerIds]]
+            }],
+            kwargs: {}
+        });
 
-            } catch (userError) {
-                console.warn(`⚠️ [sendNotification] Erreur envoi à user ${user.id}:`, userError.message);
-                
-                failedRecipients.push({
-                    id: user.id,
-                    name: user.name,
-                    email: user.email || user.login,
-                    channel: 'notification',
-                    status: 'failed'
-                });
-            }
-        }
+        console.log(`✅ [sendNotification] Message ${messageId} créé avec ${partnerIds.length} destinataires`);
 
-        console.log(`✅ [sendNotification] ${notificationIds.length} notifications créées`);
+        // Récupérer les détails des destinataires pour le récapitulatif
+        const successfulRecipients = targetUsers.map(user => ({
+            id: user.id,
+            name: user.name,
+            email: user.email || user.login,
+            channel: 'notification',
+            status: 'sent'
+        }));
 
         res.json({
             status: 'success',
@@ -249,10 +256,10 @@ exports.sendNotification = async (req, res) => {
             data: {
                 count: successfulRecipients.length,
                 sent_count: successfulRecipients.length,
-                failed_count: failedRecipients.length,
+                failed_count: 0,
                 total_recipients: targetUsers.length,
-                recipients: [...successfulRecipients, ...failedRecipients],
-                notification_ids: notificationIds
+                recipients: successfulRecipients,
+                notification_ids: [messageId]
             }
         });
 
@@ -270,8 +277,6 @@ exports.sendNotification = async (req, res) => {
 
 /**
  * Marque une notification comme lue
- * @route PATCH /api/notifications/:id/read
- * @access Authentifié
  */
 exports.markAsRead = async (req, res) => {
     try {
@@ -282,9 +287,9 @@ exports.markAsRead = async (req, res) => {
 
         await odooExecuteKw({
             uid: ADMIN_UID_INT,
-            model: 'mail.message',
+            model: 'mail.notification',
             method: 'write',
-            args: [[notificationId], { needaction: false }],
+            args: [[notificationId], { is_read: true }],
             kwargs: {}
         });
 
@@ -304,8 +309,6 @@ exports.markAsRead = async (req, res) => {
 
 /**
  * Supprime une notification
- * @route DELETE /api/notifications/:id
- * @access Authentifié
  */
 exports.deleteNotification = async (req, res) => {
     try {
@@ -316,7 +319,7 @@ exports.deleteNotification = async (req, res) => {
 
         await odooExecuteKw({
             uid: ADMIN_UID_INT,
-            model: 'mail.message',
+            model: 'mail.notification',
             method: 'unlink',
             args: [[notificationId]],
             kwargs: {}
@@ -339,12 +342,6 @@ exports.deleteNotification = async (req, res) => {
 // =============================================================================
 // FONCTIONS UTILITAIRES
 // =============================================================================
-
-function getThirtyDaysAgo() {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return date.toISOString().split('T')[0] + ' 00:00:00';
-}
 
 function stripHtmlTags(html) {
     if (!html) return '';
