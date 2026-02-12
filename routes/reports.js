@@ -101,6 +101,32 @@ router.post(
 );
 
 /**
+ * 🔧 NOUVEAU : GET /api/reports/:id/preview
+ * Aperçu des données extraites pour édition
+ * Permet au collaborateur/admin de voir les données avant modification
+ * Permissions : COLLABORATEUR, ADMIN
+ */
+router.get(
+    '/:id/preview',
+    authenticateToken,
+    checkRole(['collaborateur', 'admin']),
+    reportsController.previewReportData
+);
+
+/**
+ * 🔧 NOUVEAU : POST /api/reports/:id/regenerate
+ * Sauvegarder les données éditées et régénérer les PDFs
+ * Body : { edited_data: { actif: {...}, passif: {...}, charges: {...}, produits: {...} } }
+ * Permissions : COLLABORATEUR, ADMIN
+ */
+router.post(
+    '/:id/regenerate',
+    authenticateToken,
+    checkRole(['collaborateur', 'admin']),
+    reportsController.regenerateReportsWithEdits
+);
+
+/**
  * PATCH /api/reports/:id/validate
  * Valider les rapports générés
  * Permissions : COLLABORATEUR, ADMIN
@@ -122,18 +148,6 @@ router.post(
     authenticateToken,
     checkRole(['collaborateur', 'admin']),
     reportsController.sendReportsToUser
-);
-
-/**
- * GET /api/reports/:id/preview
- * Aperçu des données extraites avant génération PDF
- * Permissions : COLLABORATEUR, ADMIN
- */
-router.get(
-    '/:id/preview',
-    authenticateToken,
-    checkRole(['collaborateur', 'admin']),
-    reportsController.previewReportData
 );
 
 /**
