@@ -822,3 +822,239 @@ exports.getReportsStats = async (req, res) => {
         });
     }
 };
+
+/**
+ * 🔧 NOUVEAU : GET /api/reports/:id/preview
+ * Aperçu des données pour édition (déjà présent dans ton code, mais voici la version optimisée)
+ */
+exports.previewReportData = async function(req, res) {
+    try {
+        const requestId = req.params.id;
+
+        const requestResult = await pool.query(
+            'SELECT * FROM financial_reports_requests WHERE id = $1',
+            [requestId]
+        );
+
+        if (requestResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Demande introuvable'
+            });
+        }
+
+        const request = requestResult.rows[0];
+
+        // Si données déjà extraites et éventuellement éditées, les retourner
+        if (request.odoo_data) {
+            return res.json({
+                success: true,
+                data: request.odoo_data,
+                cached: true
+            });
+        }
+
+        // Sinon, extraire depuis Odoo
+        const odooData = await odooReportsService.extractFinancialData(
+            request.company_id,
+            request.period_start,
+            request.period_end,
+            request.accounting_system
+        );
+
+        // Sauvegarder en cache dans la BDD
+        await pool.query(
+            `UPDATE financial_reports_requests 
+             SET odoo_data = $1 
+             WHERE id = $2`,
+            [JSON.stringify(odooData), requestId]
+        );
+
+        res.json({
+            success: true,
+            data: odooData,
+            cached: false
+        });
+
+    } catch (error) {
+        console.error('Erreur previewReportData:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+/**
+ * 🔧 NOUVEAU : POST /api/reports/:id/regenerate
+ * Sauvegarder les modifications et régénérer les PDFs
+ */
+exports.regenerateReportsWithEdits = async function(req, res) {
+    const client = await pool.connect();
+    
+    try {
+        const requestId = req.params.id;
+        const { edited_data } = req.body;
+        const userId = req.user.id;
+
+        // Validation
+        if (!edited_data) {
+            return res.status(400).json({
+                success: false,
+                message: 'Données éditées manquantes'
+            });
+        }
+
+        // Récupérer la demande
+        const requestResult = await client.query(
+            'SELECT * FROM financial_reports_requests WHERE id = $1',
+            [requestId]
+        );
+
+        if (requestResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Demande introuvable'
+            });
+        }
+
+        const request = requestResult.rows[0];
+
+        // Vérifier le statut (doit être processing ou generated)
+        if (!['processing', 'generated'].includes(request.status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cette demande ne peut plus être modifiée (statut actuel : ' + request.status + ')'
+            });
+        }
+
+        await client.query('BEGIN');
+
+        // Fusionner les données éditées avec les données Odoo existantes
+        const odooData = request.odoo_data || {};
+        
+        // Mettre à jour le bilan si édité
+        if (edited_data.actif) {
+            Object.keys(edited_data.actif).forEach(key => {
+                if (odooData.bilan && odooData.bilan.actif && odooData.bilan.actif[key]) {
+                    odooData.bilan.actif[key].balance = parseFloat(edited_data.actif[key]);
+                }
+            });
+        }
+        
+        if (edited_data.passif) {
+            Object.keys(edited_data.passif).forEach(key => {
+                if (odooData.bilan && odooData.bilan.passif && odooData.bilan.passif[key]) {
+                    odooData.bilan.passif[key].balance = parseFloat(edited_data.passif[key]);
+                }
+            });
+        }
+
+        // Mettre à jour le compte de résultat si édité
+        if (edited_data.charges) {
+            Object.keys(edited_data.charges).forEach(key => {
+                if (odooData.compte_resultat && odooData.compte_resultat.charges && odooData.compte_resultat.charges[key]) {
+                    odooData.compte_resultat.charges[key].balance = parseFloat(edited_data.charges[key]);
+                }
+            });
+        }
+        
+        if (edited_data.produits) {
+            Object.keys(edited_data.produits).forEach(key => {
+                if (odooData.compte_resultat && odooData.compte_resultat.produits && odooData.compte_resultat.produits[key]) {
+                    odooData.compte_resultat.produits[key].balance = parseFloat(edited_data.produits[key]);
+                }
+            });
+        }
+
+        // Recalculer les totaux
+        if (odooData.bilan) {
+            odooData.bilan.totaux = {
+                actif: Object.values(odooData.bilan.actif).reduce((sum, cat) => sum + Math.abs(cat.balance), 0),
+                passif: Object.values(odooData.bilan.passif).reduce((sum, cat) => sum + Math.abs(cat.balance), 0)
+            };
+            odooData.bilan.totaux.difference = Math.abs(odooData.bilan.totaux.actif - odooData.bilan.totaux.passif);
+        }
+
+        if (odooData.compte_resultat) {
+            const totalCharges = Object.values(odooData.compte_resultat.charges).reduce((sum, cat) => sum + Math.abs(cat.balance), 0);
+            const totalProduits = Object.values(odooData.compte_resultat.produits).reduce((sum, cat) => sum + Math.abs(cat.balance), 0);
+            odooData.compte_resultat.totaux = {
+                charges: totalCharges,
+                produits: totalProduits,
+                resultat: totalProduits - totalCharges,
+                resultat_label: (totalProduits - totalCharges) >= 0 ? 'Bénéfice' : 'Perte'
+            };
+        }
+
+        // Sauvegarder les données modifiées
+        await client.query(
+            `UPDATE financial_reports_requests 
+             SET odoo_data = $1, 
+                 updated_at = NOW()
+             WHERE id = $2`,
+            [JSON.stringify(odooData), requestId]
+        );
+
+        await client.query('COMMIT');
+
+        // Lancer la régénération des PDFs en arrière-plan
+        setImmediate(async () => {
+            try {
+                const pdfFiles = await pdfGeneratorService.generateAllReports(
+                    odooData,
+                    request.accounting_system,
+                    requestId
+                );
+
+                await pool.query(
+                    `UPDATE financial_reports_requests 
+                     SET status = 'generated', 
+                         pdf_files = $1,
+                         processed_by = $2,
+                         processed_at = NOW(),
+                         updated_at = NOW()
+                     WHERE id = $3`,
+                    [JSON.stringify(pdfFiles), userId, requestId]
+                );
+
+                // Notifier
+                await notificationsService.send({
+                    userId: request.requested_by,
+                    type: 'financial_report_regenerated',
+                    title: 'États financiers mis à jour',
+                    message: 'Vos états financiers modifiés ont été régénérés avec succès',
+                    link: `/reports/${requestId}`
+                });
+
+            } catch (error) {
+                console.error('Erreur régénération PDFs:', error);
+                
+                await pool.query(
+                    `UPDATE financial_reports_requests 
+                     SET status = 'error', 
+                         error_message = $1,
+                         updated_at = NOW()
+                     WHERE id = $2`,
+                    [error.message, requestId]
+                );
+            }
+        });
+
+        res.json({
+            success: true,
+            message: 'Modifications sauvegardées. Régénération des PDFs en cours...',
+            data: { request_id: requestId, status: 'processing' }
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Erreur regenerateReportsWithEdits:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    } finally {
+        client.release();
+    }
+};
