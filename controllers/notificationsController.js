@@ -1,6 +1,6 @@
 // =============================================================================
 // FICHIER : controllers/notificationsController.js
-// Version : V25 - FINALE SANS POSTGRESQL - 100% ODOO
+// Version : V26 - CORRECTION PARTNER_IDS POUR ODOO 19
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -225,7 +225,26 @@ exports.sendNotification = async (req, res) => {
             });
         }
 
-        // Récupérer les partner_ids
+        // ✅ RÉCUPÉRER LE PARTNER_ID DE L'EXPÉDITEUR
+        const senderData = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.users',
+            method: 'read',
+            args: [[senderId], ['partner_id']],
+            kwargs: {}
+        });
+
+        const senderPartnerId = senderData[0]?.partner_id ? senderData[0].partner_id[0] : null;
+
+        if (!senderPartnerId) {
+            console.error('🚨 [sendNotification] Partner ID expéditeur introuvable !');
+            return res.status(500).json({
+                status: 'error',
+                error: 'Impossible de récupérer l\'expéditeur'
+            });
+        }
+
+        // Récupérer les partner_ids des destinataires
         const partnerIds = targetUsers
             .map(u => u.partner_id ? u.partner_id[0] : null)
             .filter(Boolean);
@@ -238,9 +257,10 @@ exports.sendNotification = async (req, res) => {
             });
         }
 
-        console.log(`👥 [sendNotification] Partner IDs:`, partnerIds);
+        console.log(`👥 [sendNotification] Partner IDs destinataires:`, partnerIds);
+        console.log(`👤 [sendNotification] Partner ID expéditeur:`, senderPartnerId);
 
-        // ✅ CRÉER LE MESSAGE AVEC NOTIFICATION AUTOMATIQUE
+        // ✅ CRÉER LE MESSAGE AVEC PARTNER_IDS CORRECT
         const messageId = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'mail.message',
@@ -259,26 +279,22 @@ exports.sendNotification = async (req, res) => {
                         </p>
                        </div>`,
                 subject: title,
-                author_id: senderId,
+                author_id: senderPartnerId,  // ✅ CORRECTION : Partner ID au lieu de User ID
                 needaction: true,
                 record_name: `Notification - ${type}`,
-                // ✅ CRUCIAL : Associer aux destinataires
-                partner_ids: [[6, 0, partnerIds]],
-                // ✅ FORCER LA CRÉATION DES NOTIFICATIONS
-                notification_ids: [[0, 0, {
-                    'notification_type': 'inbox',
-                    'notification_status': 'sent'
-                }]]
+                partner_ids: [[6, 0, partnerIds]]  // ✅ IMPORTANT : Liste des destinataires
             }],
             kwargs: {}
         });
 
         console.log(`✅ [sendNotification] Message ${messageId} créé`);
 
-        // Forcer la création des notifications pour chaque partner
+        // ✅ CRÉER LES NOTIFICATIONS POUR CHAQUE DESTINATAIRE
+        const createdNotifications = [];
+        
         for (const partnerId of partnerIds) {
             try {
-                await odooExecuteKw({
+                const notifId = await odooExecuteKw({
                     uid: ADMIN_UID_INT,
                     model: 'mail.notification',
                     method: 'create',
@@ -291,11 +307,16 @@ exports.sendNotification = async (req, res) => {
                     }],
                     kwargs: {}
                 });
-                console.log(`✅ Notification créée pour partner ${partnerId}`);
+                
+                createdNotifications.push(notifId);
+                console.log(`✅ Notification ${notifId} créée pour partner ${partnerId}`);
+                
             } catch (notifError) {
                 console.warn(`⚠️ Erreur création notification pour partner ${partnerId}:`, notifError.message);
             }
         }
+
+        console.log(`✅ [sendNotification] ${createdNotifications.length} notifications créées`);
 
         // Récupérer les détails des destinataires pour le récapitulatif
         const successfulRecipients = targetUsers.map(user => ({
@@ -315,7 +336,8 @@ exports.sendNotification = async (req, res) => {
                 failed_count: 0,
                 total_recipients: targetUsers.length,
                 recipients: successfulRecipients,
-                notification_ids: [messageId]
+                notification_ids: [messageId],
+                created_notifications: createdNotifications
             }
         });
 
@@ -323,7 +345,7 @@ exports.sendNotification = async (req, res) => {
         console.error('🚨 [sendNotification] Erreur:', error.message);
         console.error('Stack:', error.stack);
         
-        res.json({
+        res.status(500).json({
             status: 'error',
             error: 'Erreur lors de l\'envoi des notifications',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
