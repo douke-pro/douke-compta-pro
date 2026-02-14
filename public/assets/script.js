@@ -5505,31 +5505,6 @@ window.exportReport = function(reportId, reportTitle) {
 };
 
 // =================================================================
-// FONCTIONS UTILITAIRES PARTAGÉES
-// =================================================================
-
-/**
- * Formate un montant en XOF
- */
-function formatAmount(amount) {
-    return (amount || 0).toLocaleString('fr-FR', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
-    });
-}
-
-/**
- * Formate une date au format français
- */
-function formatDate(dateString) {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-}
-// =================================================================
 // PLAN COMPTABLE
 // =================================================================
 
