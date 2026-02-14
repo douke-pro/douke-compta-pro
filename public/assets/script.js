@@ -2061,6 +2061,57 @@ window.printLedger = function() {
  * ============================================
  * MENU PRINCIPAL DES RAPPORTS FINANCIERS
  * ============================================
+/**
+ * Statistiques rapides pour Admin/Collaborateur
+ */
+/**
+ * Statistiques rapides pour Admin/Collaborateur
+ */
+function generateReportsStatsCards() {
+    return `
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">En attente</p>
+                        <p class="text-3xl font-black mt-1" id="stats-pending">-</p>
+                    </div>
+                    <i class="fas fa-clock fa-2x opacity-70"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-5 rounded-2xl shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">En traitement</p>
+                        <p class="text-3xl font-black mt-1" id="stats-processing">-</p>
+                    </div>
+                    <i class="fas fa-spinner fa-2x opacity-70"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">Validés</p>
+                        <p class="text-3xl font-black mt-1" id="stats-validated">-</p>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x opacity-70"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">Envoyés</p>
+                        <p class="text-3xl font-black mt-1" id="stats-sent">-</p>
+                    </div>
+                    <i class="fas fa-paper-plane fa-2x opacity-70"></i>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Menu principal des rapports financiers avec distinction USER/ADMIN/COLLABORATEUR
  */
 function generateReportsMenuHTML() {
     const userRole = appState.user?.role || 'user';
@@ -2103,37 +2154,54 @@ function generateReportsMenuHTML() {
                 <!-- Statistiques rapides (Admin/Collab uniquement) -->
                 ${userRole === 'admin' || userRole === 'collaborateur' ? generateReportsStatsCards() : ''}
 
-                <!-- Cards de demande -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Demander des États Financiers -->
-                    <div>
-                        <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center">
-                            <i class="fas fa-file-invoice text-info mr-2"></i>
-                            Demander des États Financiers
-                        </h5>
-                        ${generateRequestReportsCard()}
-                    </div>
+                <!-- ========================================== -->
+                <!-- AFFICHAGE SELON LE RÔLE -->
+                <!-- ========================================== -->
 
-                    <!-- Mes Demandes -->
-                    <div>
-                        <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center">
-                            <i class="fas fa-history text-primary mr-2"></i>
-                            Mes Demandes
-                        </h5>
-                        ${generateMyRequestsCard()}
-                    </div>
-                </div>
-
-                <!-- Dashboard Collaborateur/Admin -->
                 ${userRole === 'admin' || userRole === 'collaborateur' ? `
-                    <div class="mt-6">
-                        <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center">
+                    <!-- Vue Admin/Collaborateur : Gestion des demandes clients -->
+                    <div class="mb-6">
+                        <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                             <i class="fas fa-tasks text-warning mr-2"></i>
-                            Demandes en Attente de Traitement
-                        </h5>
+                            Gestion des Demandes Clients
+                        </h4>
                         ${generatePendingRequestsCard()}
                     </div>
-                ` : ''}
+                    
+                    <!-- Mes propres demandes (optionnel pour Admin/Collab) -->
+                    <details class="mt-8">
+                        <summary class="cursor-pointer text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center hover:text-primary transition-colors">
+                            <i class="fas fa-user text-info mr-2"></i>
+                            Mes Propres Demandes
+                            <i class="fas fa-chevron-down ml-2 text-sm"></i>
+                        </summary>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+                            ${generateRequestReportsCard()}
+                            ${generateMyRequestsCard()}
+                        </div>
+                    </details>
+                ` : `
+                    <!-- Vue User : Créer et suivre ses demandes -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Demander des États Financiers -->
+                        <div>
+                            <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center">
+                                <i class="fas fa-file-invoice text-info mr-2"></i>
+                                Demander des États Financiers
+                            </h5>
+                            ${generateRequestReportsCard()}
+                        </div>
+
+                        <!-- Mes Demandes -->
+                        <div>
+                            <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center">
+                                <i class="fas fa-history text-primary mr-2"></i>
+                                Mes Demandes
+                            </h5>
+                            ${generateMyRequestsCard()}
+                        </div>
+                    </div>
+                `}
             </div>
 
             <!-- ========================================== -->
@@ -2165,7 +2233,7 @@ function generateReportsMenuHTML() {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     ${generateClassicReportCard(
                         'Bilan Interactif', 
                         'fas fa-balance-scale', 
@@ -2184,12 +2252,6 @@ function generateReportsMenuHTML() {
                         'fas fa-arrows-split-up-and-down', 
                         'cash-flow', 
                         'Analyse des mouvements de trésorerie.'
-                    )}
-                    ${generateClassicReportCard(
-                        'Balance Générale', 
-                        'fas fa-list-ol', 
-                        'balance', 
-                        'Liste de tous les comptes avec soldes.'
                     )}
                 </div>
             </div>
