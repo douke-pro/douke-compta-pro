@@ -2058,10 +2058,6 @@ window.printLedger = function() {
 // =================================================================
 
 /**
- * ============================================
- * MENU PRINCIPAL DES RAPPORTS FINANCIERS
- * ============================================
-/**
  * Statistiques rapides pour Admin/Collaborateur
  */
 function generateReportsStatsCards() {
