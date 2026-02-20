@@ -2794,6 +2794,358 @@ function generateClassicReportCard(title, icon, reportId, description, isImpleme
     `;
 }
 
+// =================================================================
+// MODULE IMMOBILISATIONS
+// Gestion des immobilisations corporelles et incorporelles (SYSCOHADA)
+// =================================================================
+
+/**
+ * Générer le menu principal des immobilisations
+ */
+function generateImmobilisationsMenuHTML() {
+    const userRole = appState.user?.role || 'user';
+    
+    return `
+        <div class="fade-in">
+            <h3 class="text-3xl font-black text-secondary mb-4">
+                <i class="fas fa-building mr-3"></i>
+                Gestion des Immobilisations
+            </h3>
+            <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">
+                Suivez vos immobilisations corporelles et incorporelles conformément au SYSCOHADA Révisé.
+            </p>
+
+            <!-- Statistiques des immobilisations -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-90">Total Immobilisations</p>
+                            <p class="text-3xl font-black mt-1" id="immob-total">-</p>
+                        </div>
+                        <i class="fas fa-building fa-2x opacity-70"></i>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-90">Valeur Brute</p>
+                            <p class="text-2xl font-black mt-1" id="immob-valeur-brute">-</p>
+                        </div>
+                        <i class="fas fa-coins fa-2x opacity-70"></i>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-90">Amortissements</p>
+                            <p class="text-2xl font-black mt-1" id="immob-amortissements">-</p>
+                        </div>
+                        <i class="fas fa-chart-line fa-2x opacity-70"></i>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-90">Valeur Nette</p>
+                            <p class="text-2xl font-black mt-1" id="immob-valeur-nette">-</p>
+                        </div>
+                        <i class="fas fa-dollar-sign fa-2x opacity-70"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions rapides -->
+            <div class="grid grid-cols-1 md:grid-cols-${userRole === 'admin' || userRole === 'collaborateur' ? '3' : '2'} gap-6 mb-8">
+                ${userRole === 'admin' || userRole === 'collaborateur' ? `
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-primary hover:shadow-lg transition-shadow">
+                        <div class="flex items-start">
+                            <i class="fas fa-plus-circle fa-2x text-primary mr-4"></i>
+                            <div class="flex-1">
+                                <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                    Nouvelle Immobilisation
+                                </h5>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                    Enregistrer une nouvelle immobilisation corporelle ou incorporelle.
+                                </p>
+                                <button onclick="window.openNewImmobilisationModal()" 
+                                    class="w-full bg-primary text-white py-3 px-4 rounded-xl font-bold hover:bg-primary-dark transition-colors">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    Ajouter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-info hover:shadow-lg transition-shadow">
+                    <div class="flex items-start">
+                        <i class="fas fa-list fa-2x text-info mr-4"></i>
+                        <div class="flex-1">
+                            <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                Liste des Immobilisations
+                            </h5>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Consultez la liste complète avec détails et amortissements.
+                            </p>
+                            <button onclick="window.loadImmobilisationsList()" 
+                                class="w-full bg-info text-white py-3 px-4 rounded-xl font-bold hover:bg-info/90 transition-colors">
+                                <i class="fas fa-eye mr-2"></i>
+                                Voir la Liste
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-success hover:shadow-lg transition-shadow">
+                    <div class="flex items-start">
+                        <i class="fas fa-file-excel fa-2x text-success mr-4"></i>
+                        <div class="flex-1">
+                            <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                États Immobilisations
+                            </h5>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Générer les tableaux réglementaires (SYSCOHADA).
+                            </p>
+                            <button onclick="window.generateImmobilisationsReport()" 
+                                class="w-full bg-success text-white py-3 px-4 rounded-xl font-bold hover:bg-success/90 transition-colors">
+                                <i class="fas fa-download mr-2"></i>
+                                Générer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catégories SYSCOHADA -->
+            <div class="mb-8">
+                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <i class="fas fa-folder-open text-warning mr-2"></i>
+                    Catégories d'Immobilisations (SYSCOHADA)
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${generateImmobilisationCategoryCard('Charges Immobilisées', '20', 'fas fa-file-alt', 'Frais d\'établissement, charges à répartir')}
+                    ${generateImmobilisationCategoryCard('Immobilisations Incorporelles', '21', 'fas fa-lightbulb', 'Brevets, licences, logiciels, fonds commercial')}
+                    ${generateImmobilisationCategoryCard('Terrains', '22', 'fas fa-map', 'Terrains agricoles, bâtis, aménagés')}
+                    ${generateImmobilisationCategoryCard('Bâtiments', '23', 'fas fa-building', 'Constructions, installations, agencements')}
+                    ${generateImmobilisationCategoryCard('Matériel', '24', 'fas fa-cogs', 'Matériel industriel, outillage, équipements')}
+                    ${generateImmobilisationCategoryCard('Autres Immobilisations', '25-28', 'fas fa-boxes', 'Mobilier, matériel de transport, agencements')}
+                </div>
+            </div>
+
+            <!-- États disponibles -->
+            <div class="mb-8">
+                <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <i class="fas fa-clipboard-list text-info mr-2"></i>
+                    États et Tableaux Disponibles
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${generateImmobilisationReportCard(
+                        'Tableau des Immobilisations',
+                        'fas fa-table',
+                        'Détail des acquisitions, cessions et sorties par catégorie',
+                        'immobilisations-table'
+                    )}
+                    ${generateImmobilisationReportCard(
+                        'Tableau des Amortissements',
+                        'fas fa-percentage',
+                        'Amortissements cumulés et dotations de l\'exercice',
+                        'amortissements-table'
+                    )}
+                    ${generateImmobilisationReportCard(
+                        'Tableau des Provisions',
+                        'fas fa-shield-alt',
+                        'Provisions pour dépréciation des immobilisations',
+                        'provisions-table'
+                    )}
+                    ${generateImmobilisationReportCard(
+                        'État de Rapprochement',
+                        'fas fa-sync-alt',
+                        'Rapprochement comptabilité / inventaire physique',
+                        'rapprochement-table'
+                    )}
+                </div>
+            </div>
+
+            <!-- Alerte développement -->
+            <div class="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-l-4 border-warning p-6 rounded-xl shadow-md">
+                <div class="flex items-start">
+                    <i class="fas fa-exclamation-triangle text-warning text-3xl mr-4 mt-1"></i>
+                    <div class="flex-1">
+                        <p class="font-black text-gray-900 dark:text-white text-lg mb-2">
+                            🚧 Module en cours de développement
+                        </p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                            Le module complet de gestion des immobilisations sera disponible prochainement avec les fonctionnalités suivantes :
+                        </p>
+                        <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-4">
+                            <li>✓ Enregistrement et suivi détaillé des immobilisations</li>
+                            <li>✓ Calcul automatique des amortissements (linéaire, dégressif, variable)</li>
+                            <li>✓ Gestion des cessions et mises au rebut</li>
+                            <li>✓ Réévaluation et dépréciation</li>
+                            <li>✓ Génération des états réglementaires SYSCOHADA</li>
+                            <li>✓ Import/Export des données (Excel, CSV)</li>
+                            <li>✓ Alertes et rappels (fin d'amortissement, révision)</li>
+                            <li>✓ Rapports analytiques et graphiques</li>
+                        </ul>
+                        <div class="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg">
+                            <p class="text-xs text-gray-600 dark:text-gray-400">
+                                <strong>📅 Date de livraison estimée :</strong> Version 2.0 (Q2 2026) • 
+                                <strong>💬 Besoin d'une fonctionnalité spécifique ?</strong> Contactez votre administrateur
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Générer une card de catégorie d'immobilisation
+ */
+function generateImmobilisationCategoryCard(title, code, icon, description) {
+    return `
+        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary hover:shadow-md transition-all cursor-pointer"
+             onclick="window.filterImmobilisationsByCategory('${code}')">
+            <div class="flex items-start">
+                <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                    <i class="${icon} text-xl text-primary"></i>
+                </div>
+                <div class="flex-1">
+                    <h6 class="text-sm font-bold text-gray-900 dark:text-white mb-1">${title}</h6>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">${description}</p>
+                    <span class="inline-block px-2 py-1 text-xs font-mono font-bold rounded bg-info/10 text-info">
+                        Compte ${code}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Générer une card d'état/tableau
+ */
+function generateImmobilisationReportCard(title, icon, description, reportId) {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border-l-4 border-success hover:shadow-lg transition-shadow cursor-pointer"
+             onclick="window.generateSpecificImmobilisationReport('${reportId}')">
+            <div class="flex items-start">
+                <i class="${icon} fa-2x text-success mr-4 mt-1"></i>
+                <div class="flex-1">
+                    <h6 class="text-base font-bold text-gray-900 dark:text-white mb-2">${title}</h6>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">${description}</p>
+                    <button class="text-sm text-success font-semibold hover:underline">
+                        Générer cet état <i class="fas fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Charger les statistiques des immobilisations
+ */
+async function loadImmobilisationsStats() {
+    try {
+        const companyId = appState.currentCompanyId;
+        const response = await apiFetch(`accounting/immobilisations/stats?companyId=${companyId}`, { 
+            method: 'GET' 
+        });
+        
+        if (response.status === 'success') {
+            const stats = response.data;
+            
+            document.getElementById('immob-total').textContent = stats.total || '0';
+            document.getElementById('immob-valeur-brute').textContent = 
+                (stats.valeur_brute || 0).toLocaleString('fr-FR') + ' XOF';
+            document.getElementById('immob-amortissements').textContent = 
+                (stats.amortissements || 0).toLocaleString('fr-FR') + ' XOF';
+            document.getElementById('immob-valeur-nette').textContent = 
+                (stats.valeur_nette || 0).toLocaleString('fr-FR') + ' XOF';
+        }
+    } catch (error) {
+        console.error('Erreur chargement stats immobilisations:', error);
+        document.getElementById('immob-total').textContent = '0';
+        document.getElementById('immob-valeur-brute').textContent = '0 XOF';
+        document.getElementById('immob-amortissements').textContent = '0 XOF';
+        document.getElementById('immob-valeur-nette').textContent = '0 XOF';
+    }
+}
+
+/**
+ * Fonctions placeholders pour immobilisations
+ */
+window.openNewImmobilisationModal = function() {
+    const modalContent = `
+        <div class="p-6 text-center">
+            <i class="fas fa-hammer text-6xl text-warning mb-4"></i>
+            <h4 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                Fonctionnalité en développement
+            </h4>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">
+                L'enregistrement des immobilisations sera disponible dans la version 2.0 (Q2 2026).
+            </p>
+            <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-left">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                    💡 En attendant, vous pouvez :
+                </p>
+                <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-4">
+                    <li>• Consulter vos immobilisations existantes dans Odoo</li>
+                    <li>• Demander un état financier officiel incluant le tableau des immobilisations</li>
+                    <li>• Contacter votre collaborateur pour un enregistrement manuel</li>
+                </ul>
+            </div>
+            <button onclick="ModalManager.close()" 
+                class="mt-6 px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-dark transition-colors">
+                Compris
+            </button>
+        </div>
+    `;
+    ModalManager.open('🏗️ Nouvelle Immobilisation', modalContent, 'max-w-2xl');
+};
+
+window.loadImmobilisationsList = function() {
+    NotificationManager.show('📋 Module en développement - Disponible en V2.0', 'info', 5000);
+};
+
+window.generateImmobilisationsReport = function() {
+    const modalContent = `
+        <div class="p-6">
+            <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-file-excel text-success mr-2"></i>
+                États Immobilisations SYSCOHADA
+            </h4>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Pour générer les états réglementaires des immobilisations, veuillez utiliser le module 
+                <strong>États Financiers Officiels</strong>.
+            </p>
+            <div class="space-y-3">
+                <button onclick="ModalManager.close(); window.openRequestFinancialReportsModal();" 
+                    class="w-full bg-primary text-white py-3 px-4 rounded-xl font-bold hover:bg-primary-dark transition-colors text-left">
+                    <i class="fas fa-file-invoice mr-2"></i>
+                    Demander des États Financiers (inclut tableaux immobilisations)
+                </button>
+                <button onclick="ModalManager.close();" 
+                    class="w-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-3 px-4 rounded-xl font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Annuler
+                </button>
+            </div>
+        </div>
+    `;
+    ModalManager.open('États Immobilisations', modalContent, 'max-w-lg');
+};
+
+window.filterImmobilisationsByCategory = function(categoryCode) {
+    NotificationManager.show(`Filtrage par compte ${categoryCode} - En développement`, 'info', 3000);
+};
+
+window.generateSpecificImmobilisationReport = function(reportId) {
+    NotificationManager.show('📊 Génération en cours... (Fonctionnalité V2.0)', 'info', 3000);
+};
+
 /**
  * ============================================
  * INITIALISATION DU MODULE RAPPORTS FINANCIERS
