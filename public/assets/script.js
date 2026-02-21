@@ -2633,52 +2633,6 @@ window.generateSpecificImmobilisationReport = function(reportId) {
 };
 
 /**
- * Statistiques rapides pour Admin/Collaborateur
- */
-function generateReportsStatsCards() {
-    return `
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm opacity-90">En attente</p>
-                        <p class="text-3xl font-black mt-1" id="stats-pending">-</p>
-                    </div>
-                    <i class="fas fa-clock fa-2x opacity-70"></i>
-                </div>
-            </div>
-            <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-5 rounded-2xl shadow-lg">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm opacity-90">En traitement</p>
-                        <p class="text-3xl font-black mt-1" id="stats-processing">-</p>
-                    </div>
-                    <i class="fas fa-spinner fa-2x opacity-70"></i>
-                </div>
-            </div>
-            <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-lg">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm opacity-90">Validés</p>
-                        <p class="text-3xl font-black mt-1" id="stats-validated">-</p>
-                    </div>
-                    <i class="fas fa-check-circle fa-2x opacity-70"></i>
-                </div>
-            </div>
-            <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm opacity-90">Envoyés</p>
-                        <p class="text-3xl font-black mt-1" id="stats-sent">-</p>
-                    </div>
-                    <i class="fas fa-paper-plane fa-2x opacity-70"></i>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
  * Card pour demander des états financiers
  */
 function generateRequestReportsCard() {
