@@ -5,13 +5,13 @@
 
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/authMiddleware');
+const { protect, checkCompanyAccess } = require('../middleware/auth'); // ✅ CORRIGÉ
 
 /**
  * GET /api/accounting/immobilisations/stats
  * Récupérer les statistiques des immobilisations pour une entreprise
  */
-router.get('/stats', authenticateToken, async (req, res) => {
+router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
     try {
         const { companyId } = req.query;
         
@@ -56,7 +56,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
  * GET /api/accounting/immobilisations/list
  * Liste des immobilisations (placeholder V2.0)
  */
-router.get('/list', authenticateToken, async (req, res) => {
+router.get('/list', protect, checkCompanyAccess, async (req, res) => {
     try {
         const { companyId } = req.query;
         
@@ -88,7 +88,7 @@ router.get('/list', authenticateToken, async (req, res) => {
  * POST /api/accounting/immobilisations/create
  * Créer une nouvelle immobilisation (placeholder V2.0)
  */
-router.post('/create', authenticateToken, async (req, res) => {
+router.post('/create', protect, checkCompanyAccess, async (req, res) => {
     try {
         // Placeholder pour V2.0
         res.json({
