@@ -4850,65 +4850,6 @@ async function fetchJournalData(endpoint) {
     }
 }
 
-
-
-/**
- * 🔧 AMÉLIORATION: Affiche Journal + N° Opération
- */
-function generateJournalHTML(entries) {
-    if (!entries || entries.length === 0) {
-        return '<p class="text-center text-gray-500 mt-4">Aucune écriture trouvée pour le moment.</p>';
-    }
-
-    const tableRows = entries.map(entry => {
-        const numero = entry.name || `#${entry.id}`;
-        const journal = entry.journal || 'N/A';
-        const narration = entry.libelle || `Écriture #${entry.id}`;
-        const debit = (entry.debit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
-        const credit = (entry.credit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
-        
-        let statusClass = 'text-gray-500';
-        if (entry.status === 'Validé') {
-            statusClass = 'text-success';
-        } else if (entry.status === 'Brouillon') {
-            statusClass = 'text-warning';
-        }
-
-        return `
-            <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer" onclick="window.handleDrillDown(${entry.id}, 'Journal')">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-gray-100">${numero}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${entry.date}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">${journal}</td>
-                <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${narration}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-success">${debit}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-danger">${credit}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm ${statusClass}">${entry.status || 'Inconnu'}</td>
-            </tr>
-        `;
-    }).join('');
-
-    return `
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Opération</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Journal</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Libellé</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Débit</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Crédit</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                    ${tableRows}
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-
 // =================================================================
 // HANDLERS DES FILTRES (NOUVELLES FONCTIONS GLOBALES)
 // =================================================================
