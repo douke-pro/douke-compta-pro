@@ -4850,78 +4850,7 @@ async function fetchJournalData(endpoint) {
     }
 }
 
-/**
- * 🔧 AMÉLIORATION: Génère le HTML avec filtres (Type/Journal/Période)
- */
-function generateJournalWithFiltersHTML(entries, journals) {
-    // Options du menu déroulant journaux
-    const journalOptions = journals.map(j => 
-        `<option value="${j.id}">${j.name} (${j.code})</option>`
-    ).join('');
-    
-    // En-tête avec filtres
-    const filtersHTML = `
-        <div class="mb-6 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-            <h3 class="text-2xl font-black text-secondary mb-4">
-                <i class="fas fa-filter mr-2"></i> Filtres
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Filtre par Type -->
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Type d'affichage
-                    </label>
-                    <select id="view-type-filter" onchange="window.handleViewTypeChange(this.value)" 
-                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                        <option value="entries">📋 Écritures Comptables</option>
-                        <option value="journals">📖 Liste des Journaux</option>
-                    </select>
-                </div>
-                
-                <!-- Filtre par Journal -->
-                <div id="journal-filter-container">
-                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Filtrer par Journal
-                    </label>
-                    <select id="journal-filter" onchange="window.handleJournalFilter(this.value)" 
-                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                        <option value="">Tous les journaux</option>
-                        ${journalOptions}
-                    </select>
-                </div>
-                
-                <!-- Filtre par Période -->
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Période
-                    </label>
-                    <select id="period-filter" onchange="window.handlePeriodFilter(this.value)" 
-                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                        <option value="all">Toutes les périodes</option>
-                        <option value="today">Aujourd'hui</option>
-                        <option value="week">Cette semaine</option>
-                        <option value="month">Ce mois</option>
-                        <option value="year">Cette année</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Conteneur pour les résultats
-    const resultsHTML = `
-        <div id="journal-results-container" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-            <h3 class="text-2xl font-black text-secondary mb-4">
-                <i class="fas fa-book mr-2"></i> Écritures Comptables
-            </h3>
-            <div id="journal-table-container">
-                ${generateJournalHTML(entries)}
-            </div>
-        </div>
-    `;
-    
-    return filtersHTML + resultsHTML;
-}
+
 
 /**
  * 🔧 AMÉLIORATION: Affiche Journal + N° Opération
