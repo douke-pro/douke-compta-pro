@@ -19,6 +19,7 @@ const settingsRoutes = require('./routes/settings');
 const adminUsersRoutes = require('./routes/adminUsers');
 const notificationsRoutes = require('./routes/notifications');
 const ocrRoutes = require('./routes/ocr');
+const immobilisationsRoutes = require('./routes/immobilisations');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +65,9 @@ console.log('✅ Route /api/notifications montée');
 
 app.use('/api/ocr', ocrRoutes);
 console.log('✅ Route /api/ocr montée');
+
+app.use('/api/accounting/immobilisations', immobilisationsRoutes);
+console.log('✅ Route /api/accounting/immobilisations montée');
 
 console.log('✅ Toutes les routes montées avec succès');
 
