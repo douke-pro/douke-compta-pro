@@ -437,6 +437,7 @@ function getRoleBaseMenus(role) {
     menus.push({ id: 'chart-of-accounts', name: 'Plan Comptable', icon: 'fas fa-list-alt' }); 
     menus.push({ id: 'manual-entry', name: 'Passer une Écriture', icon: 'fas fa-plus-square' }); 
 
+    menus.push({ id: 'immobilisations', name: 'Immobilisations', icon: 'fas fa-building', badge: 'Bientôt' });
     menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' });
     
     if (role === 'ADMIN') {
@@ -491,7 +492,16 @@ async function loadContentArea(contentId, title) {
                 endpoint = `accounting/journal${companyFilter}`; 
                 content = await fetchJournalData(endpoint); 
                 break;
-            
+
+             case 'immobilisations':
+                content = generateImmobilisationsMenuHTML();
+                setTimeout(() => {
+                if (typeof loadImmobilisationsStats === 'function') {
+                loadImmobilisationsStats();
+                }
+              }, 100);
+          break;
+                
             case 'reports':
                 content = generateReportsMenuHTML();
                 break;
