@@ -4971,34 +4971,6 @@ window.handlePeriodFilter = async function(period) {
 };
 
 /**
- * 🔧 AMÉLIORATION: Génère le HTML de la liste des journaux
- */
-function generateJournalsListHTML(journals) {
-    if (!journals || journals.length === 0) {
-        return '<p class="text-center text-gray-500 mt-4">Aucun journal trouvé.</p>';
-    }
-    
-    const cards = journals.map(journal => `
-        <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-primary hover:shadow-lg transition-shadow cursor-pointer"
-             onclick="window.handleJournalClick('${journal.id}', '${journal.name}')">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h4 class="text-lg font-bold text-gray-900 dark:text-white">${journal.name}</h4>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Code: ${journal.code}</p>
-                </div>
-                <div class="text-right">
-                    <span class="inline-block px-3 py-1 text-xs font-bold rounded-full bg-primary/10 text-primary">
-                        ${journal.type || 'N/A'}
-                    </span>
-                </div>
-            </div>
-        </div>
-    `).join('');
-    
-    return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${cards}</div>`;
-}
-
-/**
  * 🔧 AMÉLIORATION: Gère le clic sur un journal
  */
 window.handleJournalClick = function(journalId, journalName) {
