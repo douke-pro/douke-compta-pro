@@ -3055,12 +3055,22 @@ function generateImmobilisationReportCard(title, icon, description, reportId) {
     `;
 }
 
-/**
+🚨 ERREUR DE SYNTAXE DÉTECTÉE
+❌ PROBLÈME
+Il y a une erreur de syntaxe dans ton code à la ligne 3 :
+javascriptconst response = await apiFetch`accounting/immobilisations/stats?companyId=${companyId}`, {
+Le problème : Il manque la parenthèse ouvrante ( après apiFetch.
+
+✅ CODE CORRIGÉ
+Voici la version corrigée :
+javascript/**
  * Charger les statistiques des immobilisations
  */
 async function loadImmobilisationsStats() {
     try {
         const companyId = appState.currentCompanyId;
+        
+        // ✅ CORRIGÉ : Ajouter la parenthèse ouvrante après apiFetch
         const response = await apiFetch(`accounting/immobilisations/stats?companyId=${companyId}`, { 
             method: 'GET' 
         });
