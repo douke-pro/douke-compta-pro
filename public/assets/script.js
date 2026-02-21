@@ -3055,22 +3055,15 @@ function generateImmobilisationReportCard(title, icon, description, reportId) {
     `;
 }
 
-🚨 ERREUR DE SYNTAXE DÉTECTÉE
-❌ PROBLÈME
-Il y a une erreur de syntaxe dans ton code à la ligne 3 :
-javascriptconst response = await apiFetch`accounting/immobilisations/stats?companyId=${companyId}`, {
-Le problème : Il manque la parenthèse ouvrante ( après apiFetch.
-
-✅ CODE CORRIGÉ
-Voici la version corrigée :
-javascript/**
+/**
  * Charger les statistiques des immobilisations
  */
 async function loadImmobilisationsStats() {
     try {
         const companyId = appState.currentCompanyId;
         
-        // ✅ CORRIGÉ : Ajouter la parenthèse ouvrante après apiFetch
+        console.log('📊 [Immobilisations] Chargement stats pour company:', companyId);
+        
         const response = await apiFetch(`accounting/immobilisations/stats?companyId=${companyId}`, { 
             method: 'GET' 
         });
@@ -3085,9 +3078,15 @@ async function loadImmobilisationsStats() {
                 (stats.amortissements || 0).toLocaleString('fr-FR') + ' XOF';
             document.getElementById('immob-valeur-nette').textContent = 
                 (stats.valeur_nette || 0).toLocaleString('fr-FR') + ' XOF';
+            
+            console.log('✅ [Immobilisations] Stats chargées:', stats);
+        } else {
+            throw new Error(response.message || 'Erreur réponse API');
         }
     } catch (error) {
-        console.error('Erreur chargement stats immobilisations:', error);
+        console.error('❌ [Immobilisations] Erreur chargement stats:', error);
+        
+        // Afficher des valeurs par défaut en cas d'erreur
         document.getElementById('immob-total').textContent = '0';
         document.getElementById('immob-valeur-brute').textContent = '0 XOF';
         document.getElementById('immob-amortissements').textContent = '0 XOF';
