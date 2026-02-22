@@ -1,7 +1,7 @@
 // =============================================================================
 // FICHIER : routes/immobilisations.js
 // Description : Routes pour le module Immobilisations (SYSCOHADA)
-// Version : PRODUCTION - Compatible Odoo 19 (TOUTES ERREURS CORRIGÉES)
+// Version : PRODUCTION - Compatible Odoo 19 + TABLEAUX DÉTAILLÉS
 // =============================================================================
 
 const express = require('express');
@@ -26,7 +26,6 @@ router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('📊 [getImmobilisationsStats] Company:', companyId);
         
-        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const assets = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -40,7 +39,6 @@ router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
             }
         });
         
-        // Calculer les statistiques
         const stats = {
             total: assets.length,
             valeur_brute: assets.reduce((sum, a) => sum + (parseFloat(a.original_value) || 0), 0),
@@ -58,10 +56,7 @@ router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('✅ [getImmobilisationsStats] Stats:', stats);
         
-        res.json({
-            status: 'success',
-            data: stats
-        });
+        res.json({ status: 'success', data: stats });
         
     } catch (error) {
         console.error('❌ [getImmobilisationsStats] Erreur:', error.message);
@@ -84,10 +79,8 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('📋 [getImmobilisationsList] Company:', companyId, 'Category:', category);
         
-        // Construire le domaine de recherche
         const domain = [['company_id', '=', companyId]];
         
-        // Filtre par catégorie SYSCOHADA (basé sur le code du compte)
         if (category && category !== '') {
             const categoryRanges = {
                 '20': { min: '200', max: '209' },
@@ -105,7 +98,6 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
             }
         }
         
-        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const assets = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -113,14 +105,8 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
             args: [domain],
             kwargs: {
                 fields: [
-                    'name', 
-                    'account_asset_id', 
-                    'original_value', 
-                    'book_value',
-                    'acquisition_date', 
-                    'method', 
-                    'method_number', 
-                    'state'
+                    'name', 'account_asset_id', 'original_value', 'book_value',
+                    'acquisition_date', 'method', 'method_number', 'state'
                 ],
                 limit: parseInt(limit),
                 offset: parseInt(offset),
@@ -128,7 +114,6 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
             }
         });
         
-        // Compter le total
         const total = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -170,7 +155,6 @@ router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('🔍 [getImmobilisationById] Asset:', assetId);
         
-        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const asset = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -178,19 +162,10 @@ router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
             args: [[assetId]],
             kwargs: {
                 fields: [
-                    'name', 
-                    'account_asset_id', 
-                    'original_value', 
-                    'book_value',
-                    'salvage_value',
-                    'acquisition_date', 
-                    'first_depreciation_date',
-                    'method', 
-                    'method_number',
-                    'method_period', 
-                    'state', 
-                    'account_depreciation_id',
-                    'account_depreciation_expense_id', 
+                    'name', 'account_asset_id', 'original_value', 'book_value',
+                    'salvage_value', 'acquisition_date', 'first_depreciation_date',
+                    'method', 'method_number', 'method_period', 'state',
+                    'account_depreciation_id', 'account_depreciation_expense_id',
                     'depreciation_move_ids'
                 ]
             }
@@ -205,10 +180,7 @@ router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('✅ [getImmobilisationById] Immobilisation trouvée');
         
-        res.json({
-            status: 'success',
-            data: asset[0]
-        });
+        res.json({ status: 'success', data: asset[0] });
         
     } catch (error) {
         console.error('❌ [getImmobilisationById] Erreur:', error.message);
@@ -230,13 +202,12 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
         
         console.log('📂 [getCategories] Company:', companyId);
         
-        // ✅ CORRECTION : account.account utilise company_ids (many2many) en Odoo 19
         const accounts = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.account',
             method: 'search_read',
             args: [[
-                ['company_ids', 'in', [companyId]], // ← company_ids, pas company_id
+                ['company_ids', 'in', [companyId]],
                 ['code', '>=', '200'],
                 ['code', '<=', '289']
             ]],
@@ -248,10 +219,7 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
         
         console.log(`✅ [getCategories] ${accounts.length} comptes trouvés`);
         
-        res.json({
-            status: 'success',
-            data: accounts
-        });
+        res.json({ status: 'success', data: accounts });
         
     } catch (error) {
         console.error('❌ [getCategories] Erreur:', error.message);
@@ -269,24 +237,14 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
 
 /**
  * POST /api/accounting/immobilisations/create
- * Créer une nouvelle immobilisation
  */
 router.post('/create', protect, checkCompanyAccess, async (req, res) => {
     try {
         const companyId = req.validatedCompanyId;
-        const { 
-            name, 
-            original_value, 
-            account_asset_id, 
-            acquisition_date, 
-            method, 
-            method_number,
-            salvage_value 
-        } = req.body;
+        const { name, original_value, account_asset_id, acquisition_date, method, method_number, salvage_value } = req.body;
         
         console.log('➕ [createImmobilisation] Création:', name);
         
-        // Validation
         if (!name || !original_value || !account_asset_id || !acquisition_date) {
             return res.status(400).json({
                 status: 'error',
@@ -294,21 +252,19 @@ router.post('/create', protect, checkCompanyAccess, async (req, res) => {
             });
         }
         
-        // ✅ CRÉATION AVEC CHAMPS ODOO 19 VÉRIFIÉS
         const assetData = {
             name,
             original_value: parseFloat(original_value),
             account_asset_id: parseInt(account_asset_id),
             acquisition_date,
-            first_depreciation_date: acquisition_date, // Par défaut, même date
+            first_depreciation_date: acquisition_date,
             company_id: companyId,
             method: method || 'linear',
             method_number: parseInt(method_number) || 5,
-            method_period: 'month', // ✅ String, pas integer
+            method_period: 'month',
             state: 'draft'
         };
         
-        // Ajouter salvage_value si fourni
         if (salvage_value !== undefined) {
             assetData.salvage_value = parseFloat(salvage_value);
         }
@@ -341,7 +297,6 @@ router.post('/create', protect, checkCompanyAccess, async (req, res) => {
 
 /**
  * PUT /api/accounting/immobilisations/:id
- * Modifier une immobilisation (en brouillon uniquement)
  */
 router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -350,7 +305,6 @@ router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('✏️ [updateImmobilisation] MAJ Asset:', assetId);
         
-        // Champs modifiables autorisés
         const allowedFields = ['name', 'original_value', 'method', 'method_number', 'salvage_value'];
         const filteredUpdates = {};
         
@@ -387,7 +341,6 @@ router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
 
 /**
  * DELETE /api/accounting/immobilisations/:id
- * Clôturer une immobilisation
  */
 router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -395,7 +348,6 @@ router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('🗑️ [disposeImmobilisation] Asset:', assetId);
         
-        // Marquer comme clôturée
         await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -422,12 +374,11 @@ router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
 });
 
 // =============================================================================
-// ROUTES DE RAPPORTS
+// ROUTES DE RAPPORTS - TABLEAUX DÉTAILLÉS
 // =============================================================================
 
 /**
  * GET /api/accounting/immobilisations/reports/tableau-immobilisations
- * Tableau des immobilisations SYSCOHADA
  */
 router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -435,7 +386,6 @@ router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, asyn
         
         console.log('📊 [getTableauImmobilisations] Company:', companyId);
         
-        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const assets = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -447,7 +397,6 @@ router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, asyn
             }
         });
         
-        // Grouper par catégorie
         const categories = {};
         
         assets.forEach(asset => {
@@ -479,10 +428,7 @@ router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, asyn
         
         console.log('✅ [getTableauImmobilisations] Rapport généré');
         
-        res.json({
-            status: 'success',
-            data: report
-        });
+        res.json({ status: 'success', data: report });
         
     } catch (error) {
         console.error('❌ [getTableauImmobilisations] Erreur:', error.message);
@@ -496,54 +442,106 @@ router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, asyn
 
 /**
  * GET /api/accounting/immobilisations/reports/tableau-amortissements
- * Tableau des amortissements
+ * TABLEAU DÉTAILLÉ avec toutes les colonnes demandées
  */
 router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async (req, res) => {
     try {
         const companyId = req.validatedCompanyId;
+        const { fiscalYear } = req.query;
         
-        console.log('📊 [getTableauAmortissements] Company:', companyId);
+        console.log('📊 [getTableauAmortissements] Company:', companyId, 'Year:', fiscalYear);
         
-        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const assets = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
-            args: [[['company_id', '=', companyId]]],
+            args: [[
+                ['company_id', '=', companyId],
+                ['state', 'in', ['open', 'close']]
+            ]],
             kwargs: {
-                fields: ['name', 'account_asset_id', 'original_value', 'book_value']
+                fields: [
+                    'name', 'account_asset_id', 'original_value', 'book_value',
+                    'acquisition_date', 'method', 'method_number'
+                ],
+                order: 'account_asset_id, acquisition_date'
             }
         });
         
+        const rows = [];
         const categories = {};
+        let totaux = {
+            valeur_origine: 0,
+            amortissement_exercice: 0,
+            cumul_amortissements: 0,
+            valeur_actuelle: 0
+        };
         
         assets.forEach(asset => {
             const accountCode = asset.account_asset_id ? asset.account_asset_id[1].match(/^\d+/)?.[0] : '999';
-            const categoryCode = accountCode ? accountCode.substring(0, 2) : '99';
+            const categoryCode = accountCode.substring(0, 2);
             
-            if (!categories[categoryCode]) {
-                categories[categoryCode] = {
-                    name: getCategoryName(categoryCode),
-                    amort_cumules: 0
-                };
+            const methodNumber = parseInt(asset.method_number) || 5;
+            let tauxAmortissement = 0;
+            
+            if (asset.method === 'linear') {
+                tauxAmortissement = (100 / methodNumber).toFixed(2);
+            } else if (asset.method === 'degressive') {
+                const coefficient = methodNumber <= 5 ? 2 : 2.5;
+                tauxAmortissement = ((100 / methodNumber) * coefficient).toFixed(2);
             }
             
-            const amortCumule = (parseFloat(asset.original_value) || 0) - (parseFloat(asset.book_value) || 0);
-            categories[categoryCode].amort_cumules += amortCumule;
+            const valeurOrigine = parseFloat(asset.original_value) || 0;
+            const valeurActuelle = parseFloat(asset.book_value) || 0;
+            const cumulAmortissements = valeurOrigine - valeurActuelle;
+            const amortissementExercice = valeurOrigine / methodNumber;
+            
+            if (!categories[categoryCode]) {
+                categories[categoryCode] = getCategoryName(categoryCode);
+                rows.push({
+                    type: 'category',
+                    designation: `${categoryCode} - ${categories[categoryCode]}`,
+                    isHeader: true
+                });
+            }
+            
+            rows.push({
+                type: 'detail',
+                designation: asset.name,
+                valeur_origine: valeurOrigine,
+                date_entree: asset.acquisition_date,
+                taux: tauxAmortissement + '%',
+                nb_annees: methodNumber + ' ans',
+                amortissement_exercice: amortissementExercice,
+                cumul_amortissements: cumulAmortissements,
+                valeur_actuelle: valeurActuelle
+            });
+            
+            totaux.valeur_origine += valeurOrigine;
+            totaux.amortissement_exercice += amortissementExercice;
+            totaux.cumul_amortissements += cumulAmortissements;
+            totaux.valeur_actuelle += valeurActuelle;
         });
         
         const report = {
-            headers: ['Catégorie', 'Amortissements cumulés'],
-            rows: Object.entries(categories).map(([code, cat]) => [
-                `${code} - ${cat.name}`,
-                cat.amort_cumules.toLocaleString('fr-FR') + ' XOF'
-            ])
+            headers: [
+                'Désignation',
+                'Valeur d\'origine',
+                'Date d\'entrée',
+                'Taux',
+                'Nb années',
+                'Amort. exercice',
+                'Cumul amort.',
+                'Valeur actuelle'
+            ],
+            rows: rows,
+            totaux: totaux,
+            exercice: fiscalYear || new Date().getFullYear()
         };
         
-        res.json({
-            status: 'success',
-            data: report
-        });
+        console.log('✅ [getTableauAmortissements] Rapport généré avec', assets.length, 'immobilisations');
+        
+        res.json({ status: 'success', data: report });
         
     } catch (error) {
         console.error('❌ [getTableauAmortissements] Erreur:', error.message);
@@ -557,23 +555,111 @@ router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async
 
 /**
  * GET /api/accounting/immobilisations/reports/tableau-provisions
- * Tableau des provisions (placeholder)
+ * TABLEAU DÉTAILLÉ avec toutes les colonnes demandées
  */
 router.get('/reports/tableau-provisions', protect, checkCompanyAccess, async (req, res) => {
     try {
-        res.json({
-            status: 'success',
-            data: {
-                headers: ['Catégorie', 'Provisions'],
-                rows: [],
-                message: 'Aucune provision enregistrée'
+        const companyId = req.validatedCompanyId;
+        const { fiscalYear } = req.query;
+        
+        console.log('📊 [getTableauProvisions] Company:', companyId, 'Year:', fiscalYear);
+        
+        const assets = await odooExecuteKw({
+            uid: req.user.odooUid || ADMIN_UID,
+            model: 'account.asset',
+            method: 'search_read',
+            args: [[
+                ['company_id', '=', companyId],
+                ['state', 'in', ['open', 'close']]
+            ]],
+            kwargs: {
+                fields: [
+                    'name', 'account_asset_id', 'original_value', 'book_value',
+                    'salvage_value', 'acquisition_date', 'method_number'
+                ],
+                order: 'account_asset_id, acquisition_date'
             }
         });
+        
+        const rows = [];
+        const categories = {};
+        let totaux = {
+            valeur_origine: 0,
+            provision_exercice: 0,
+            cumul_provisions: 0,
+            valeur_nette: 0
+        };
+        
+        assets.forEach(asset => {
+            const accountCode = asset.account_asset_id ? asset.account_asset_id[1].match(/^\d+/)?.[0] : '999';
+            const categoryCode = accountCode.substring(0, 2);
+            
+            const valeurOrigine = parseFloat(asset.original_value) || 0;
+            const valeurActuelle = parseFloat(asset.book_value) || 0;
+            const valeurResiduelle = parseFloat(asset.salvage_value) || 0;
+            
+            const valeurAttendue = valeurOrigine - (valeurOrigine / asset.method_number);
+            const provision = valeurAttendue > valeurActuelle ? (valeurAttendue - valeurActuelle) : 0;
+            
+            if (provision > 0) {
+                if (!categories[categoryCode]) {
+                    categories[categoryCode] = getCategoryName(categoryCode);
+                    rows.push({
+                        type: 'category',
+                        designation: `${categoryCode} - ${categories[categoryCode]}`,
+                        isHeader: true
+                    });
+                }
+                
+                const cumulProvisions = provision;
+                const valeurNette = valeurActuelle - provision;
+                const tauxDepreciation = ((provision / valeurOrigine) * 100).toFixed(2);
+                
+                rows.push({
+                    type: 'detail',
+                    designation: asset.name,
+                    valeur_origine: valeurOrigine,
+                    date_entree: asset.acquisition_date,
+                    taux: tauxDepreciation + '%',
+                    nb_annees: asset.method_number + ' ans',
+                    provision_exercice: provision,
+                    cumul_provisions: cumulProvisions,
+                    valeur_nette: valeurNette
+                });
+                
+                totaux.valeur_origine += valeurOrigine;
+                totaux.provision_exercice += provision;
+                totaux.cumul_provisions += cumulProvisions;
+                totaux.valeur_nette += valeurNette;
+            }
+        });
+        
+        const report = {
+            headers: [
+                'Désignation',
+                'Valeur d\'origine',
+                'Date d\'entrée',
+                'Taux dépréc.',
+                'Nb années',
+                'Provision exercice',
+                'Cumul provisions',
+                'Valeur nette'
+            ],
+            rows: rows,
+            totaux: totaux,
+            exercice: fiscalYear || new Date().getFullYear(),
+            message: rows.length === 0 ? 'Aucune provision pour dépréciation' : null
+        };
+        
+        console.log('✅ [getTableauProvisions] Rapport généré avec', rows.filter(r => r.type === 'detail').length, 'provisions');
+        
+        res.json({ status: 'success', data: report });
+        
     } catch (error) {
         console.error('❌ [getTableauProvisions] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
-            message: 'Erreur serveur',
+            message: 'Erreur lors de la génération du tableau',
             error: error.message
         });
     }
@@ -581,7 +667,6 @@ router.get('/reports/tableau-provisions', protect, checkCompanyAccess, async (re
 
 /**
  * GET /api/accounting/immobilisations/reports/etat-rapprochement
- * État de rapprochement (placeholder)
  */
 router.get('/reports/etat-rapprochement', protect, checkCompanyAccess, async (req, res) => {
     try {
