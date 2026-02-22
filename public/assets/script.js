@@ -3490,6 +3490,13 @@ window.downloadPDF = async function(requestId, fileType) {
 };
 
 /**
+ * ✅ FONCTION COMPLÈTE : Télécharger un rapport (alias pour compatibilité)
+ */
+window.downloadReport = async function(requestId) {
+    await window.downloadAllReports(requestId);
+};
+
+/**
  * ✅ FONCTION COMPLÈTE : Télécharger tous les PDFs (zip)
  */
 window.downloadAllReports = async function(requestId) {
