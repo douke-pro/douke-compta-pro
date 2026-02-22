@@ -1,7 +1,7 @@
 // =============================================================================
 // FICHIER : routes/immobilisations.js
 // Description : Routes pour le module Immobilisations (SYSCOHADA)
-// Version : PRODUCTION - Compatible Odoo 19 + TABLEAUX DÉTAILLÉS
+// Version : PRODUCTION - ADMIN_UID forcé (fix Access Denied pour USER)
 // =============================================================================
 
 const express = require('express');
@@ -18,7 +18,6 @@ const ADMIN_UID = parseInt(process.env.ODOO_ADMIN_UID, 10);
 
 /**
  * GET /api/accounting/immobilisations/stats
- * Récupérer les statistiques globales des immobilisations
  */
 router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -26,8 +25,9 @@ router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('📊 [getImmobilisationsStats] Company:', companyId);
         
+        // ✅ ADMIN_UID forcé - Les USER n'ont pas accès direct à account.asset
         const assets = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
             args: [[
@@ -70,7 +70,6 @@ router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
 
 /**
  * GET /api/accounting/immobilisations/list
- * Liste des immobilisations avec filtres et pagination
  */
 router.get('/list', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -99,7 +98,7 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
         }
         
         const assets = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
             args: [domain],
@@ -115,7 +114,7 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
         });
         
         const total = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'search_count',
             args: [domain],
@@ -147,7 +146,6 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
 
 /**
  * GET /api/accounting/immobilisations/:id
- * Détails d'une immobilisation spécifique
  */
 router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -156,7 +154,7 @@ router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
         console.log('🔍 [getImmobilisationById] Asset:', assetId);
         
         const asset = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'read',
             args: [[assetId]],
@@ -194,7 +192,6 @@ router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
 
 /**
  * GET /api/accounting/immobilisations/categories/list
- * Liste des catégories d'immobilisations (comptes 20-28)
  */
 router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -203,7 +200,7 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
         console.log('📂 [getCategories] Company:', companyId);
         
         const accounts = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.account',
             method: 'search_read',
             args: [[
@@ -270,7 +267,7 @@ router.post('/create', protect, checkCompanyAccess, async (req, res) => {
         }
         
         const assetId = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'create',
             args: [assetData],
@@ -315,7 +312,7 @@ router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
         });
         
         await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'write',
             args: [[assetId], filteredUpdates],
@@ -349,7 +346,7 @@ router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
         console.log('🗑️ [disposeImmobilisation] Asset:', assetId);
         
         await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'write',
             args: [[assetId], { state: 'close' }],
@@ -374,7 +371,7 @@ router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
 });
 
 // =============================================================================
-// ROUTES DE RAPPORTS - TABLEAUX DÉTAILLÉS
+// ROUTES DE RAPPORTS
 // =============================================================================
 
 /**
@@ -387,7 +384,7 @@ router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, asyn
         console.log('📊 [getTableauImmobilisations] Company:', companyId);
         
         const assets = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
             args: [[['company_id', '=', companyId]]],
@@ -442,7 +439,6 @@ router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, asyn
 
 /**
  * GET /api/accounting/immobilisations/reports/tableau-amortissements
- * TABLEAU DÉTAILLÉ avec toutes les colonnes demandées
  */
 router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -452,7 +448,7 @@ router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async
         console.log('📊 [getTableauAmortissements] Company:', companyId, 'Year:', fiscalYear);
         
         const assets = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
             args: [[
@@ -555,7 +551,6 @@ router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async
 
 /**
  * GET /api/accounting/immobilisations/reports/tableau-provisions
- * TABLEAU DÉTAILLÉ avec toutes les colonnes demandées
  */
 router.get('/reports/tableau-provisions', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -565,7 +560,7 @@ router.get('/reports/tableau-provisions', protect, checkCompanyAccess, async (re
         console.log('📊 [getTableauProvisions] Company:', companyId, 'Year:', fiscalYear);
         
         const assets = await odooExecuteKw({
-            uid: req.user.odooUid || ADMIN_UID,
+            uid: ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
             args: [[
