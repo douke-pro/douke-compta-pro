@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : server.js (VERSION V18 - CORRIGÉE)
+// FICHIER : server.js (VERSION V19 - AJOUT ROUTE REPORTS)
 // Description : Serveur Express avec toutes les routes montées AVANT le fallback
 // =============================================================================
 
@@ -20,6 +20,7 @@ const adminUsersRoutes = require('./routes/adminUsers');
 const notificationsRoutes = require('./routes/notifications');
 const ocrRoutes = require('./routes/ocr');
 const immobilisationsRoutes = require('./routes/immobilisations');
+const reportsRoutes = require('./routes/reports'); // ✅ AJOUT
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -69,6 +70,9 @@ console.log('✅ Route /api/ocr montée');
 app.use('/api/accounting/immobilisations', immobilisationsRoutes);
 console.log('✅ Route /api/accounting/immobilisations montée');
 
+app.use('/api/reports', reportsRoutes); // ✅ AJOUT
+console.log('✅ Route /api/reports montée');
+
 console.log('✅ Toutes les routes montées avec succès');
 
 // =============================================================================
@@ -86,7 +90,8 @@ app.get('/api/health', (req, res) => {
             'settings', 
             'admin',
             'notifications',
-            'ocr'
+            'ocr',
+            'reports' // ✅ AJOUT
         ]
     });
 });
@@ -114,7 +119,8 @@ app.use((req, res) => {
                 '/api/settings',
                 '/api/admin',
                 '/api/notifications',
-                '/api/ocr'
+                '/api/ocr',
+                '/api/reports' // ✅ AJOUT
             ]
         });
     }
