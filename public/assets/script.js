@@ -2113,6 +2113,248 @@ function generateReportsStatsCards() {
     `;
 }
 
+// =============================================================================
+// FONCTIONS CARDS - MODULE RAPPORTS FINANCIERS
+// À ajouter dans script.js AVANT generateReportsMenuHTML()
+// Insérer autour de la ligne 1650-1700
+// =============================================================================
+
+/**
+ * Card pour demander des états financiers
+ */
+function generateRequestReportsCard() {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-info hover:shadow-lg transition-shadow">
+            <div class="flex items-start">
+                <i class="fas fa-file-invoice fa-2x text-info mr-4"></i>
+                <div class="flex-1">
+                    <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                        Demander des États Financiers
+                    </h5>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Créez une demande pour recevoir vos états financiers officiels conformes SYSCOHADA (Bilan, Compte de Résultat, TFT, Annexes).
+                    </p>
+                    <button onclick="window.openRequestFinancialReportsModal()" 
+                        class="w-full bg-info text-white py-3 px-4 rounded-xl font-bold hover:bg-info/90 transition-colors flex items-center justify-center">
+                        <i class="fas fa-plus-circle mr-2"></i>
+                        Nouvelle Demande
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Card pour afficher mes demandes avec preview
+ */
+function generateMyRequestsCard() {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-primary hover:shadow-lg transition-shadow">
+            <div class="flex items-start">
+                <i class="fas fa-list fa-2x text-primary mr-4"></i>
+                <div class="flex-1">
+                    <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                        Mes Demandes
+                    </h5>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Consultez l'historique et le statut de vos demandes d'états financiers.
+                    </p>
+                    <button onclick="window.loadMyFinancialReports()" 
+                        class="w-full bg-primary text-white py-3 px-4 rounded-xl font-bold hover:bg-primary-dark transition-colors flex items-center justify-center">
+                        <i class="fas fa-eye mr-2"></i>
+                        Voir Toutes Mes Demandes
+                    </button>
+                    
+                    <!-- Aperçu des 3 dernières demandes (chargé dynamiquement) -->
+                    <div id="my-requests-preview" class="mt-4 space-y-2">
+                        <div class="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            Chargement...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Card pour les demandes en attente (Collaborateur/Admin uniquement)
+ */
+function generatePendingRequestsCard() {
+    return `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-warning hover:shadow-lg transition-shadow">
+            <div class="flex items-start">
+                <i class="fas fa-tasks fa-2x text-warning mr-4"></i>
+                <div class="flex-1">
+                    <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                        Demandes Clients en Attente
+                    </h5>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Gérez et traitez les demandes d'états financiers de vos clients.
+                    </p>
+                    <button onclick="window.loadPendingFinancialReports()" 
+                        class="w-full bg-warning text-white py-3 px-4 rounded-xl font-bold hover:bg-warning/90 transition-colors flex items-center justify-center">
+                        <i class="fas fa-clipboard-check mr-2"></i>
+                        Voir Demandes en Attente
+                    </button>
+                    
+                    <!-- Aperçu des 3 demandes urgentes (chargé dynamiquement) -->
+                    <div id="pending-requests-preview" class="mt-4 space-y-2">
+                        <div class="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            Chargement...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// =============================================================================
+// FONCTIONS WINDOW - Si elles n'existent pas déjà
+// =============================================================================
+
+/**
+ * Ouvrir le modal de demande d'états financiers
+ */
+if (typeof window.openRequestFinancialReportsModal === 'undefined') {
+    window.openRequestFinancialReportsModal = function() {
+        // Vérifier si la fonction generateRequestFinancialReportsFormHTML existe
+        if (typeof generateRequestFinancialReportsFormHTML === 'function') {
+            const formHTML = generateRequestFinancialReportsFormHTML();
+            ModalManager.open('Demander des États Financiers', formHTML, 'max-w-4xl');
+        } else {
+            // Formulaire simplifié si la fonction complète n'existe pas
+            const simpleFormHTML = `
+                <div class="p-6 text-center">
+                    <i class="fas fa-file-invoice text-6xl text-info mb-4"></i>
+                    <h4 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                        Demande d'États Financiers
+                    </h4>
+                    <p class="text-gray-600 dark:text-gray-400 mb-6">
+                        Cette fonctionnalité permet de demander la génération d'états financiers officiels conformes SYSCOHADA.
+                    </p>
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border-l-4 border-warning mb-6">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                            ⚠️ Fonctionnalité en cours de finalisation
+                        </p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">
+                            Le module complet de demande d'états financiers sera disponible prochainement.
+                            Contactez votre collaborateur pour une génération manuelle.
+                        </p>
+                    </div>
+                    <button onclick="ModalManager.close()" 
+                        class="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-dark transition-colors">
+                        Compris
+                    </button>
+                </div>
+            `;
+            ModalManager.open('Demande d\'États Financiers', simpleFormHTML, 'max-w-2xl');
+        }
+    };
+}
+
+/**
+ * Charger la liste complète de mes demandes
+ */
+if (typeof window.loadMyFinancialReports === 'undefined') {
+    window.loadMyFinancialReports = function() {
+        const modalContent = `
+            <div class="p-6 text-center">
+                <i class="fas fa-list text-6xl text-primary mb-4"></i>
+                <h4 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                    Mes Demandes d'États Financiers
+                </h4>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    Consultez ici l'historique complet de vos demandes d'états financiers avec leur statut.
+                </p>
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
+                    <p class="text-sm text-gray-700 dark:text-gray-300">
+                        💡 Fonctionnalité en cours de finalisation. Les demandes existantes seront affichées ici.
+                    </p>
+                </div>
+                <button onclick="ModalManager.close()" 
+                    class="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-dark transition-colors">
+                    Fermer
+                </button>
+            </div>
+        `;
+        ModalManager.open('Mes Demandes', modalContent, 'max-w-2xl');
+    };
+}
+
+/**
+ * Charger les demandes en attente (Admin/Collaborateur)
+ */
+if (typeof window.loadPendingFinancialReports === 'undefined') {
+    window.loadPendingFinancialReports = function() {
+        const modalContent = `
+            <div class="p-6 text-center">
+                <i class="fas fa-tasks text-6xl text-warning mb-4"></i>
+                <h4 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                    Demandes Clients en Attente
+                </h4>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    Gérez les demandes d'états financiers de vos clients nécessitant un traitement.
+                </p>
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg mb-6">
+                    <p class="text-sm text-gray-700 dark:text-gray-300">
+                        ⚠️ Fonctionnalité en cours de finalisation. Les demandes en attente seront affichées ici.
+                    </p>
+                </div>
+                <button onclick="ModalManager.close()" 
+                    class="px-8 py-3 bg-warning text-white rounded-xl font-bold hover:bg-warning/90 transition-colors">
+                    Fermer
+                </button>
+            </div>
+        `;
+        ModalManager.open('Demandes en Attente', modalContent, 'max-w-2xl');
+    };
+}
+
+/**
+ * Charger l'aperçu de mes demandes (3 dernières)
+ */
+if (typeof window.loadMyFinancialReportsPreview === 'undefined') {
+    window.loadMyFinancialReportsPreview = function() {
+        const previewContainer = document.getElementById('my-requests-preview');
+        if (!previewContainer) return;
+        
+        // Simuler un chargement puis afficher message
+        setTimeout(() => {
+            previewContainer.innerHTML = `
+                <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Aucune demande récente
+                </div>
+            `;
+        }, 500);
+    };
+}
+
+/**
+ * Charger l'aperçu des demandes en attente (3 premières)
+ */
+if (typeof window.loadPendingFinancialReportsPreview === 'undefined') {
+    window.loadPendingFinancialReportsPreview = function() {
+        const previewContainer = document.getElementById('pending-requests-preview');
+        if (!previewContainer) return;
+        
+        // Simuler un chargement puis afficher message
+        setTimeout(() => {
+            previewContainer.innerHTML = `
+                <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Aucune demande en attente
+                </div>
+            `;
+        }, 500);
+    };
+}
+
 /**
  * Menu principal des rapports financiers avec distinction USER/ADMIN/COLLABORATEUR
  */
