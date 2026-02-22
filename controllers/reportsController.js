@@ -4,7 +4,7 @@
 // Version : PRODUCTION COMPLÈTE avec getDashboardStats
 // ============================================
 
-const pool = require('../config/database');
+const pool = require('../services/dbService');
 const odooReportsService = require('../services/odooReportsService');
 const pdfGeneratorService = require('../services/pdfGenerator');
 const notificationsService = require('../services/notifications');
