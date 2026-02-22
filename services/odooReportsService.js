@@ -4,7 +4,8 @@
 // Normes : SYSCOHADA, SYCEBNL, PCG
 // ============================================
 
-const odoo = require('../config/odoo');
+const { odooExecuteKw } = require('./odooService');
+const ADMIN_UID = parseInt(process.env.ODOO_ADMIN_UID, 10);
 
 /**
  * ============================================
