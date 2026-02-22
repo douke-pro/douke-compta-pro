@@ -1,7 +1,9 @@
 // =============================================================================
-// FICHIER : middleware/auth.js (VERSION V16 - FINALE ROBUSTE)
+// FICHIER : middleware/auth.js (VERSION V17)
 // Description : Protection avec validation temps réel Odoo
-// Correction : Support de req.params.companyId pour les routes settings
+// Correction V16 : Support de req.params.companyId pour les routes settings
+// Correction V17 : Ajout de authenticateToken (alias protect) et checkRole
+//                  requis par routes/reports.js — rien d'autre n'a été modifié
 // =============================================================================
 
 const jwt = require('jsonwebtoken');
@@ -213,13 +215,49 @@ const restrictTo = (...roles) => {
     };
 };
 
+/**
+ * MIDDLEWARE 5 : ✅ AJOUT V17 - Vérification Rôle insensible à la casse
+ * Utilisé par routes/reports.js qui passe les rôles en minuscules
+ * ('admin', 'collaborateur', 'user', 'caissier')
+ * alors que le JWT stocke les rôles en majuscules ('ADMIN', 'USER'...)
+ */
+const checkRole = (roles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ 
+                status: 'error',
+                error: 'Non authentifié.' 
+            });
+        }
+
+        // Comparaison insensible à la casse
+        const userRole = (req.user.role || '').toLowerCase();
+        const allowedRoles = roles.map(r => r.toLowerCase());
+
+        if (!allowedRoles.includes(userRole)) {
+            console.warn(`⚠️ [checkRole] Accès refusé: ${req.user.email} (role: ${userRole}) → Requis: ${allowedRoles.join(', ')}`);
+            return res.status(403).json({ 
+                status: 'error',
+                error: 'Accès refusé. Permissions insuffisantes.' 
+            });
+        }
+
+        next();
+    };
+};
+
 // =============================================================================
 // EXPORT DE TOUS LES MIDDLEWARES
 // =============================================================================
 
 module.exports = {
+    // Exports originaux V16 — inchangés
     protect,
     checkCompanyAccess,
     checkWritePermission,
-    restrictTo
+    restrictTo,
+
+    // ✅ Ajouts V17 — requis par routes/reports.js
+    authenticateToken: protect,  // alias de protect
+    checkRole,
 };
