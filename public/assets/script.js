@@ -3208,6 +3208,296 @@ function generateReportTableHTML(data, reportId) {
     `;
 }
 
+// =============================================================================
+// FRONTEND - Fonctions d'affichage des tableaux détaillés
+// À ajouter dans MODULE_IMMOBILISATIONS_COMPLET.js
+// =============================================================================
+
+/**
+ * Générer le HTML d'un tableau détaillé d'amortissements ou provisions
+ */
+function generateDetailedReportTableHTML(data, reportType) {
+    if (!data || !data.rows || data.rows.length === 0) {
+        return `
+            <div class="p-10 text-center">
+                <i class="fas fa-chart-bar fa-5x text-gray-300 mb-4"></i>
+                <p class="text-lg font-semibold text-gray-500">
+                    ${data.message || 'Aucune donnée disponible'}
+                </p>
+            </div>
+        `;
+    }
+    
+    // Titres spécifiques selon le type
+    const titles = {
+        'amortissements': 'Tableau des Amortissements',
+        'provisions': 'Tableau des Provisions pour Dépréciation'
+    };
+    
+    const title = titles[reportType] || 'Rapport';
+    
+    // Générer les en-têtes
+    const headerRow = data.headers.map(h => 
+        `<th class="px-4 py-3 text-left text-xs font-bold uppercase text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700">${h}</th>`
+    ).join('');
+    
+    // Générer les lignes
+    const bodyRows = data.rows.map(row => {
+        if (row.isHeader) {
+            // Ligne catégorie
+            return `
+                <tr class="bg-gradient-to-r from-primary/10 to-info/10 border-l-4 border-primary">
+                    <td colspan="${data.headers.length}" class="px-4 py-3 font-bold text-gray-900 dark:text-white">
+                        ${row.designation}
+                    </td>
+                </tr>
+            `;
+        } else {
+            // Ligne détail
+            return `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700">
+                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${row.designation}</td>
+                    <td class="px-4 py-3 text-sm text-right font-mono text-gray-700 dark:text-gray-300">
+                        ${formatCurrency(row.valeur_origine)}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                        ${formatDate(row.date_entree)}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-center font-semibold text-info">
+                        ${row.taux}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
+                        ${row.nb_annees}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-right font-mono font-semibold text-warning">
+                        ${formatCurrency(row.amortissement_exercice || row.provision_exercice)}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-right font-mono font-bold text-orange-600">
+                        ${formatCurrency(row.cumul_amortissements || row.cumul_provisions)}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-right font-mono font-bold text-success">
+                        ${formatCurrency(row.valeur_actuelle || row.valeur_nette)}
+                    </td>
+                </tr>
+            `;
+        }
+    }).join('');
+    
+    // Ligne de totaux
+    const totauxRow = data.totaux ? `
+        <tr class="bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border-t-2 border-primary font-bold">
+            <td class="px-4 py-4 text-sm uppercase text-gray-900 dark:text-white">
+                <i class="fas fa-calculator mr-2"></i>TOTAUX
+            </td>
+            <td class="px-4 py-4 text-sm text-right font-mono text-lg text-gray-900 dark:text-white">
+                ${formatCurrency(data.totaux.valeur_origine)}
+            </td>
+            <td colspan="3"></td>
+            <td class="px-4 py-4 text-sm text-right font-mono text-lg text-warning">
+                ${formatCurrency(data.totaux.amortissement_exercice || data.totaux.provision_exercice)}
+            </td>
+            <td class="px-4 py-4 text-sm text-right font-mono text-lg text-orange-600">
+                ${formatCurrency(data.totaux.cumul_amortissements || data.totaux.cumul_provisions)}
+            </td>
+            <td class="px-4 py-4 text-sm text-right font-mono text-lg text-success">
+                ${formatCurrency(data.totaux.valeur_actuelle || data.totaux.valeur_nette)}
+            </td>
+        </tr>
+    ` : '';
+    
+    return `
+        <div class="p-6">
+            <!-- En-tête avec info exercice -->
+            <div class="mb-6 flex items-center justify-between">
+                <div>
+                    <h3 class="text-2xl font-black text-gray-900 dark:text-white">${title}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Exercice fiscal : <span class="font-bold">${data.exercice || new Date().getFullYear()}</span>
+                    </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="window.printReport()" 
+                        class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-print mr-2"></i>Imprimer
+                    </button>
+                    <button onclick="window.exportReportToExcel('${reportType}')" 
+                        class="px-4 py-2 bg-success text-white rounded-lg hover:bg-success/90 transition-colors">
+                        <i class="fas fa-file-excel mr-2"></i>Excel
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Tableau -->
+            <div class="overflow-x-auto shadow-lg rounded-xl border border-gray-200 dark:border-gray-700">
+                <table class="w-full">
+                    <thead>
+                        <tr>${headerRow}</tr>
+                    </thead>
+                    <tbody>
+                        ${bodyRows}
+                        ${totauxRow}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Légende -->
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border-l-4 border-info">
+                    <p class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">TAUX</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        Linéaire : 100% ÷ nb années<br>
+                        Dégressif : Taux × coefficient (2 ou 2.5)
+                    </p>
+                </div>
+                <div class="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border-l-4 border-warning">
+                    <p class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">CUMUL</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        ${reportType === 'amortissements' ? 'Amortissements' : 'Provisions'} cumulés depuis acquisition
+                    </p>
+                </div>
+                <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border-l-4 border-success">
+                    <p class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">VALEUR ${reportType === 'amortissements' ? 'ACTUELLE' : 'NETTE'}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        Valeur d'origine - Cumul ${reportType === 'amortissements' ? 'amortissements' : 'provisions'}
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button onclick="ModalManager.close()"
+                    class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Fermer
+                </button>
+                <button onclick="window.generatePDFReport('${reportType}')"
+                    class="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors">
+                    <i class="fas fa-file-pdf mr-2"></i>Générer PDF
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Fonction MODIFIÉE pour générer les rapports spécifiques
+ */
+window.generateSpecificImmobilisationReport = async function(reportId) {
+    const loaderContent = `
+        <div class="flex items-center justify-center py-20">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-5xl text-info mb-4"></i>
+                <p class="text-lg font-semibold text-gray-700 dark:text-gray-300">Génération du rapport...</p>
+            </div>
+        </div>
+    `;
+    
+    ModalManager.open('Rapport Immobilisations', loaderContent, 'max-w-7xl');
+    
+    try {
+        const companyId = appState.currentCompanyId;
+        const fiscalYear = new Date().getFullYear(); // Ou depuis un sélecteur
+        
+        let endpoint = '';
+        let reportType = '';
+        
+        // Mapper les IDs aux endpoints
+        switch(reportId) {
+            case 'tableau-immobilisations':
+                endpoint = `accounting/immobilisations/reports/tableau-immobilisations?companyId=${companyId}&fiscalYear=${fiscalYear}`;
+                reportType = 'immobilisations';
+                break;
+            case 'tableau-amortissements':
+                endpoint = `accounting/immobilisations/reports/tableau-amortissements?companyId=${companyId}&fiscalYear=${fiscalYear}`;
+                reportType = 'amortissements';
+                break;
+            case 'tableau-provisions':
+                endpoint = `accounting/immobilisations/reports/tableau-provisions?companyId=${companyId}&fiscalYear=${fiscalYear}`;
+                reportType = 'provisions';
+                break;
+            case 'etat-rapprochement':
+                endpoint = `accounting/immobilisations/reports/etat-rapprochement?companyId=${companyId}`;
+                reportType = 'rapprochement';
+                break;
+            default:
+                throw new Error('Type de rapport inconnu');
+        }
+        
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        
+        if (response.status === 'success') {
+            // Utiliser la fonction détaillée pour amortissements et provisions
+            let reportHTML;
+            
+            if (reportType === 'amortissements' || reportType === 'provisions') {
+                reportHTML = generateDetailedReportTableHTML(response.data, reportType);
+            } else {
+                // Utiliser l'ancienne fonction pour les autres
+                reportHTML = generateReportTableHTML(response.data, reportId);
+            }
+            
+            ModalManager.open(getReportTitle(reportId), reportHTML, 'max-w-7xl');
+        } else {
+            throw new Error(response.message || 'Erreur génération rapport');
+        }
+    } catch (error) {
+        console.error('Erreur génération rapport:', error);
+        NotificationManager.show(`❌ ${error.message}`, 'error', 5000);
+        ModalManager.close();
+    }
+};
+
+/**
+ * Fonctions utilitaires pour l'export
+ */
+window.printReport = function() {
+    window.print();
+};
+
+window.exportReportToExcel = function(reportType) {
+    NotificationManager.show('📊 Export Excel en cours de développement...', 'info', 3000);
+    // TODO: Implémenter export Excel avec bibliothèque comme xlsx.js
+};
+
+window.generatePDFReport = function(reportType) {
+    NotificationManager.show('📄 Génération PDF en cours de développement...', 'info', 3000);
+    // TODO: Implémenter génération PDF avec jsPDF ou similaire
+};
+
+/**
+ * Helper : Formater les devises (si pas déjà défini)
+ */
+function formatCurrency(amount) {
+    if (typeof amount === 'undefined' || amount === null) return '0 XOF';
+    return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: 'XOF',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(amount);
+}
+
+/**
+ * Helper : Formater les dates (si pas déjà défini)
+ */
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR');
+}
+
+/**
+ * Helper : Titre du rapport (si pas déjà défini)
+ */
+function getReportTitle(reportId) {
+    const titles = {
+        'tableau-immobilisations': 'Tableau des Immobilisations SYSCOHADA',
+        'tableau-amortissements': 'Tableau des Amortissements',
+        'tableau-provisions': 'Tableau des Provisions',
+        'etat-rapprochement': 'État de Rapprochement'
+    };
+    return titles[reportId] || 'Rapport';
+}
+
 /**
  * ============================================
  * INITIALISATION DU MODULE RAPPORTS FINANCIERS
