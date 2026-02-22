@@ -5,7 +5,7 @@
 // ============================================
 
 const { odooExecuteKw } = require('./odooService');
-const ADMIN_UID = parseInt(process.env.ODOO_ADMIN_UID, 10);
+const ADMIN_UID = parseInt(process.env.ODOO_ADMIN_UID, 2);
 
 /**
  * ============================================
