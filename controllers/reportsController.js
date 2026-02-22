@@ -1,6 +1,7 @@
 // ============================================
 // CONTROLLER : Rapports Financiers
 // Description : Logique métier des états financiers
+// Version : PRODUCTION COMPLÈTE avec getDashboardStats
 // ============================================
 
 const pool = require('../config/database');
@@ -330,7 +331,7 @@ exports.cancelRequest = async (req, res) => {
  */
 exports.getPendingRequests = async (req, res) => {
     try {
-        const { company_id, accounting_system } = req.query;
+        const { company_id, accounting_system, limit = 50 } = req.query;
 
         let query = `
             SELECT r.*, 
@@ -355,6 +356,11 @@ exports.getPendingRequests = async (req, res) => {
         }
 
         query += ` ORDER BY r.requested_at ASC`;
+        
+        if (limit) {
+            params.push(limit);
+            query += ` LIMIT $${params.length}`;
+        }
 
         const result = await pool.query(query, params);
 
@@ -709,142 +715,6 @@ exports.previewReportData = async (req, res) => {
 
         const request = requestResult.rows[0];
 
-        // Si données déjà extraites, les retourner
-        if (request.odoo_data) {
-            return res.json({
-                success: true,
-                data: request.odoo_data,
-                cached: true
-            });
-        }
-
-        // Sinon, extraire depuis Odoo
-        const odooData = await odooReportsService.extractFinancialData(
-            request.company_id,
-            request.period_start,
-            request.period_end,
-            request.accounting_system
-        );
-
-        res.json({
-            success: true,
-            data: odooData,
-            cached: false
-        });
-
-    } catch (error) {
-        console.error('Erreur previewReportData:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
-
-/**
- * GET /api/reports/:id/download/:fileType
- * Télécharger un fichier PDF
- */
-exports.downloadPDF = async (req, res) => {
-    try {
-        const { id: requestId, fileType } = req.params;
-        const userId = req.user.id;
-        const userRole = req.user.role;
-
-        const request = await checkAccessToRequest(requestId, userId, userRole);
-
-        if (!request.pdf_files || !request.pdf_files[fileType]) {
-            return res.status(404).json({
-                success: false,
-                message: 'Fichier PDF introuvable'
-            });
-        }
-
-        const filePath = path.join(__dirname, '../../', request.pdf_files[fileType]);
-
-        // Vérifier que le fichier existe
-        try {
-            await fs.access(filePath);
-        } catch {
-            return res.status(404).json({
-                success: false,
-                message: 'Fichier PDF introuvable sur le serveur'
-            });
-        }
-
-        // Envoyer le fichier
-        res.download(filePath);
-
-    } catch (error) {
-        console.error('Erreur downloadPDF:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
-
-/**
- * GET /api/reports/stats/summary
- * Statistiques globales (ADMIN)
- */
-exports.getReportsStats = async (req, res) => {
-    try {
-        const stats = await pool.query(`
-            SELECT 
-                COUNT(*) as total_requests,
-                COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
-                COUNT(*) FILTER (WHERE status = 'processing') as processing_count,
-                COUNT(*) FILTER (WHERE status = 'generated') as generated_count,
-                COUNT(*) FILTER (WHERE status = 'validated') as validated_count,
-                COUNT(*) FILTER (WHERE status = 'sent') as sent_count,
-                COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled_count,
-                COUNT(*) FILTER (WHERE status = 'error') as error_count,
-                COUNT(DISTINCT company_id) as unique_companies,
-                COUNT(*) FILTER (WHERE accounting_system = 'SYSCOHADA_NORMAL') as syscohada_normal_count,
-                COUNT(*) FILTER (WHERE accounting_system = 'SYSCOHADA_MINIMAL') as syscohada_minimal_count,
-                COUNT(*) FILTER (WHERE accounting_system = 'SYCEBNL_NORMAL') as sycebnl_normal_count,
-                COUNT(*) FILTER (WHERE accounting_system = 'SYCEBNL_ALLEGE') as sycebnl_allege_count,
-                COUNT(*) FILTER (WHERE accounting_system = 'PCG_FRENCH') as pcg_french_count
-            FROM financial_reports_requests
-        `);
-
-        res.json({
-            success: true,
-            data: stats.rows[0]
-        });
-
-    } catch (error) {
-        console.error('Erreur getReportsStats:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
-
-/**
- * 🔧 NOUVEAU : GET /api/reports/:id/preview
- * Aperçu des données pour édition (déjà présent dans ton code, mais voici la version optimisée)
- */
-exports.previewReportData = async function(req, res) {
-    try {
-        const requestId = req.params.id;
-
-        const requestResult = await pool.query(
-            'SELECT * FROM financial_reports_requests WHERE id = $1',
-            [requestId]
-        );
-
-        if (requestResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Demande introuvable'
-            });
-        }
-
-        const request = requestResult.rows[0];
-
         // Si données déjà extraites et éventuellement éditées, les retourner
         if (request.odoo_data) {
             return res.json({
@@ -886,10 +756,10 @@ exports.previewReportData = async function(req, res) {
 };
 
 /**
- * 🔧 NOUVEAU : POST /api/reports/:id/regenerate
+ * POST /api/reports/:id/regenerate
  * Sauvegarder les modifications et régénérer les PDFs
  */
-exports.regenerateReportsWithEdits = async function(req, res) {
+exports.regenerateReportsWithEdits = async (req, res) => {
     const client = await pool.connect();
     
     try {
@@ -1056,5 +926,140 @@ exports.regenerateReportsWithEdits = async function(req, res) {
         });
     } finally {
         client.release();
+    }
+};
+
+/**
+ * GET /api/reports/:id/download/:fileType
+ * Télécharger un fichier PDF
+ */
+exports.downloadPDF = async (req, res) => {
+    try {
+        const { id: requestId, fileType } = req.params;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+
+        const request = await checkAccessToRequest(requestId, userId, userRole);
+
+        if (!request.pdf_files || !request.pdf_files[fileType]) {
+            return res.status(404).json({
+                success: false,
+                message: 'Fichier PDF introuvable'
+            });
+        }
+
+        const filePath = path.join(__dirname, '../../', request.pdf_files[fileType]);
+
+        // Vérifier que le fichier existe
+        try {
+            await fs.access(filePath);
+        } catch {
+            return res.status(404).json({
+                success: false,
+                message: 'Fichier PDF introuvable sur le serveur'
+            });
+        }
+
+        // Envoyer le fichier
+        res.download(filePath);
+
+    } catch (error) {
+        console.error('Erreur downloadPDF:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// ============================================
+// STATISTIQUES
+// ============================================
+
+/**
+ * ✅ NOUVEAU : GET /api/reports/stats
+ * Statistiques pour le dashboard (format frontend compatible)
+ * Permissions : COLLABORATEUR, ADMIN
+ */
+exports.getDashboardStats = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const userRole = req.user.role || req.user.profile || 'user';
+        
+        console.log('📊 [getDashboardStats] User:', req.user.email, 'Role:', userRole);
+        
+        // Requête optimisée avec COUNT FILTER
+        const stats = await pool.query(`
+            SELECT 
+                COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+                COUNT(*) FILTER (WHERE status = 'processing') as processing_count,
+                COUNT(*) FILTER (WHERE status = 'validated') as validated_count,
+                COUNT(*) FILTER (WHERE status = 'sent') as sent_count
+            FROM financial_reports_requests
+            WHERE status NOT IN ('cancelled', 'error')
+        `);
+        
+        const result = {
+            pending_count: parseInt(stats.rows[0].pending_count) || 0,
+            processing_count: parseInt(stats.rows[0].processing_count) || 0,
+            validated_count: parseInt(stats.rows[0].validated_count) || 0,
+            sent_count: parseInt(stats.rows[0].sent_count) || 0
+        };
+        
+        console.log('✅ [getDashboardStats] Stats:', result);
+        
+        res.json({
+            status: 'success',
+            data: result
+        });
+        
+    } catch (error) {
+        console.error('❌ [getDashboardStats] Erreur:', error.message);
+        console.error('Stack:', error.stack);
+        
+        res.status(500).json({
+            status: 'error',
+            message: 'Erreur lors de la récupération des statistiques du dashboard',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
+        });
+    }
+};
+
+/**
+ * GET /api/reports/stats/summary
+ * Statistiques globales détaillées (ADMIN)
+ */
+exports.getReportsStats = async (req, res) => {
+    try {
+        const stats = await pool.query(`
+            SELECT 
+                COUNT(*) as total_requests,
+                COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+                COUNT(*) FILTER (WHERE status = 'processing') as processing_count,
+                COUNT(*) FILTER (WHERE status = 'generated') as generated_count,
+                COUNT(*) FILTER (WHERE status = 'validated') as validated_count,
+                COUNT(*) FILTER (WHERE status = 'sent') as sent_count,
+                COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled_count,
+                COUNT(*) FILTER (WHERE status = 'error') as error_count,
+                COUNT(DISTINCT company_id) as unique_companies,
+                COUNT(*) FILTER (WHERE accounting_system = 'SYSCOHADA_NORMAL') as syscohada_normal_count,
+                COUNT(*) FILTER (WHERE accounting_system = 'SYSCOHADA_MINIMAL') as syscohada_minimal_count,
+                COUNT(*) FILTER (WHERE accounting_system = 'SYCEBNL_NORMAL') as sycebnl_normal_count,
+                COUNT(*) FILTER (WHERE accounting_system = 'SYCEBNL_ALLEGE') as sycebnl_allege_count,
+                COUNT(*) FILTER (WHERE accounting_system = 'PCG_FRENCH') as pcg_french_count
+            FROM financial_reports_requests
+        `);
+
+        res.json({
+            success: true,
+            data: stats.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Erreur getReportsStats:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
