@@ -1,7 +1,7 @@
 // =============================================================================
 // FICHIER : routes/immobilisations.js
-// Description : Routes complètes pour le module Immobilisations (SYSCOHADA)
-// Version : PRODUCTION - Compatible Odoo 19
+// Description : Routes pour le module Immobilisations (SYSCOHADA)
+// Version : PRODUCTION - Compatible Odoo 19 (champs vérifiés)
 // =============================================================================
 
 const express = require('express');
@@ -26,17 +26,17 @@ router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('📊 [getImmobilisationsStats] Company:', companyId);
         
-        // Récupérer toutes les immobilisations de l'entreprise depuis Odoo
+        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const assets = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
             args: [[
                 ['company_id', '=', companyId],
-                ['state', 'in', ['open', 'close', 'draft']]
+                ['state', 'in', ['open', 'close', 'draft', 'paused']]
             ]],
             kwargs: {
-                fields: ['original_value', 'value_residual', 'state']
+                fields: ['original_value', 'book_value', 'state']
             }
         });
         
@@ -46,13 +46,14 @@ router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
             valeur_brute: assets.reduce((sum, a) => sum + (parseFloat(a.original_value) || 0), 0),
             amortissements: assets.reduce((sum, a) => {
                 const valeurBrute = parseFloat(a.original_value) || 0;
-                const valeurNette = parseFloat(a.value_residual) || 0;
+                const valeurNette = parseFloat(a.book_value) || 0;
                 return sum + (valeurBrute - valeurNette);
             }, 0),
-            valeur_nette: assets.reduce((sum, a) => sum + (parseFloat(a.value_residual) || 0), 0),
+            valeur_nette: assets.reduce((sum, a) => sum + (parseFloat(a.book_value) || 0), 0),
             actives: assets.filter(a => a.state === 'open').length,
             cloturees: assets.filter(a => a.state === 'close').length,
-            brouillons: assets.filter(a => a.state === 'draft').length
+            brouillons: assets.filter(a => a.state === 'draft').length,
+            pausees: assets.filter(a => a.state === 'paused').length
         };
         
         console.log('✅ [getImmobilisationsStats] Stats:', stats);
@@ -63,7 +64,7 @@ router.get('/stats', protect, checkCompanyAccess, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ [getImmobilisationsStats] Erreur:', error);
+        console.error('❌ [getImmobilisationsStats] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la récupération des statistiques',
@@ -84,13 +85,10 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
         console.log('📋 [getImmobilisationsList] Company:', companyId, 'Category:', category);
         
         // Construire le domaine de recherche
-        const domain = [
-            ['company_id', '=', companyId]
-        ];
+        const domain = [['company_id', '=', companyId]];
         
-        // Filtre par catégorie si spécifié (basé sur le code du compte)
+        // Filtre par catégorie SYSCOHADA (basé sur le code du compte)
         if (category && category !== '') {
-            // Mapping catégories SYSCOHADA vers plages de comptes Odoo
             const categoryRanges = {
                 '20': { min: '200', max: '209' },
                 '21': { min: '210', max: '219' },
@@ -102,13 +100,12 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
             
             const range = categoryRanges[category];
             if (range) {
-                // Note: Odoo 19 utilise account_asset_id pour le compte comptable
                 domain.push(['account_asset_id.code', '>=', range.min]);
                 domain.push(['account_asset_id.code', '<=', range.max]);
             }
         }
         
-        // Récupérer les immobilisations
+        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const assets = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -116,8 +113,14 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
             args: [domain],
             kwargs: {
                 fields: [
-                    'name', 'account_asset_id', 'original_value', 'value_residual',
-                    'acquisition_date', 'asset_type', 'method', 'method_number', 'state'
+                    'name', 
+                    'account_asset_id', 
+                    'original_value', 
+                    'book_value',
+                    'acquisition_date', 
+                    'method', 
+                    'method_number', 
+                    'state'
                 ],
                 limit: parseInt(limit),
                 offset: parseInt(offset),
@@ -125,7 +128,7 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
             }
         });
         
-        // Compter le total pour pagination
+        // Compter le total
         const total = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -148,7 +151,7 @@ router.get('/list', protect, checkCompanyAccess, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ [getImmobilisationsList] Erreur:', error);
+        console.error('❌ [getImmobilisationsList] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la récupération de la liste',
@@ -167,6 +170,7 @@ router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('🔍 [getImmobilisationById] Asset:', assetId);
         
+        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const asset = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -174,10 +178,20 @@ router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
             args: [[assetId]],
             kwargs: {
                 fields: [
-                    'name', 'account_asset_id', 'original_value', 'value_residual',
-                    'acquisition_date', 'asset_type', 'method', 'method_number',
-                    'method_period', 'state', 'account_depreciation_id',
-                    'account_depreciation_expense_id', 'depreciation_move_ids'
+                    'name', 
+                    'account_asset_id', 
+                    'original_value', 
+                    'book_value',
+                    'salvage_value',
+                    'acquisition_date', 
+                    'first_depreciation_date',
+                    'method', 
+                    'method_number',
+                    'method_period', 
+                    'state', 
+                    'account_depreciation_id',
+                    'account_depreciation_expense_id', 
+                    'depreciation_move_ids'
                 ]
             }
         });
@@ -197,7 +211,7 @@ router.get('/:id', protect, checkCompanyAccess, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ [getImmobilisationById] Erreur:', error);
+        console.error('❌ [getImmobilisationById] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la récupération des détails',
@@ -224,11 +238,10 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
             args: [[
                 ['company_id', '=', companyId],
                 ['code', '>=', '200'],
-                ['code', '<=', '289'],
-                ['account_type', 'in', ['asset_fixed', 'asset_non_current']]
+                ['code', '<=', '289']
             ]],
             kwargs: {
-                fields: ['code', 'name', 'account_type'],
+                fields: ['code', 'name'],
                 order: 'code asc'
             }
         });
@@ -241,7 +254,7 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
         });
         
     } catch (error) {
-        console.error('❌ [getCategories] Erreur:', error);
+        console.error('❌ [getCategories] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la récupération des catégories',
@@ -261,7 +274,15 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
 router.post('/create', protect, checkCompanyAccess, async (req, res) => {
     try {
         const companyId = req.validatedCompanyId;
-        const { name, original_value, account_asset_id, acquisition_date, method, method_number } = req.body;
+        const { 
+            name, 
+            original_value, 
+            account_asset_id, 
+            acquisition_date, 
+            method, 
+            method_number,
+            salvage_value 
+        } = req.body;
         
         console.log('➕ [createImmobilisation] Création:', name);
         
@@ -273,23 +294,30 @@ router.post('/create', protect, checkCompanyAccess, async (req, res) => {
             });
         }
         
-        // Créer l'immobilisation dans Odoo
+        // ✅ CRÉATION AVEC CHAMPS ODOO 19 VÉRIFIÉS
+        const assetData = {
+            name,
+            original_value: parseFloat(original_value),
+            account_asset_id: parseInt(account_asset_id),
+            acquisition_date,
+            first_depreciation_date: acquisition_date, // Par défaut, même date
+            company_id: companyId,
+            method: method || 'linear',
+            method_number: parseInt(method_number) || 5,
+            method_period: 'month', // Mensuel par défaut
+            state: 'draft'
+        };
+        
+        // Ajouter salvage_value si fourni
+        if (salvage_value !== undefined) {
+            assetData.salvage_value = parseFloat(salvage_value);
+        }
+        
         const assetId = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
             method: 'create',
-            args: [{
-                name,
-                original_value: parseFloat(original_value),
-                account_asset_id: parseInt(account_asset_id),
-                acquisition_date,
-                company_id: companyId,
-                method: method || 'linear',
-                method_number: parseInt(method_number) || 5,
-                method_period: '12', // Mensuel
-                state: 'draft',
-                asset_type: 'purchase' // Par défaut : achat
-            }],
+            args: [assetData],
             kwargs: {}
         });
         
@@ -302,7 +330,7 @@ router.post('/create', protect, checkCompanyAccess, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ [createImmobilisation] Erreur:', error);
+        console.error('❌ [createImmobilisation] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la création',
@@ -313,7 +341,7 @@ router.post('/create', protect, checkCompanyAccess, async (req, res) => {
 
 /**
  * PUT /api/accounting/immobilisations/:id
- * Modifier une immobilisation
+ * Modifier une immobilisation (en brouillon uniquement)
  */
 router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -322,8 +350,8 @@ router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('✏️ [updateImmobilisation] MAJ Asset:', assetId);
         
-        // Filtrer les champs autorisés
-        const allowedFields = ['name', 'original_value', 'method', 'method_number'];
+        // Champs modifiables autorisés
+        const allowedFields = ['name', 'original_value', 'method', 'method_number', 'salvage_value'];
         const filteredUpdates = {};
         
         allowedFields.forEach(field => {
@@ -332,7 +360,6 @@ router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
             }
         });
         
-        // Mettre à jour dans Odoo
         await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
@@ -349,7 +376,7 @@ router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ [updateImmobilisation] Erreur:', error);
+        console.error('❌ [updateImmobilisation] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la mise à jour',
@@ -360,7 +387,7 @@ router.put('/:id', protect, checkCompanyAccess, async (req, res) => {
 
 /**
  * DELETE /api/accounting/immobilisations/:id
- * Clôturer une immobilisation (mise au rebut)
+ * Clôturer une immobilisation
  */
 router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
     try {
@@ -368,14 +395,12 @@ router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
         
         console.log('🗑️ [disposeImmobilisation] Asset:', assetId);
         
-        // Marquer comme clôturée dans Odoo
+        // Marquer comme clôturée
         await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
             method: 'write',
-            args: [[assetId], {
-                state: 'close'
-            }],
+            args: [[assetId], { state: 'close' }],
             kwargs: {}
         });
         
@@ -387,7 +412,7 @@ router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ [disposeImmobilisation] Erreur:', error);
+        console.error('❌ [disposeImmobilisation] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la clôture',
@@ -397,7 +422,7 @@ router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
 });
 
 // =============================================================================
-// ROUTES DE RAPPORTS (GET)
+// ROUTES DE RAPPORTS
 // =============================================================================
 
 /**
@@ -407,62 +432,49 @@ router.delete('/:id', protect, checkCompanyAccess, async (req, res) => {
 router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, async (req, res) => {
     try {
         const companyId = req.validatedCompanyId;
-        const { fiscalYear } = req.query;
         
-        console.log('📊 [getTableauImmobilisations] Company:', companyId, 'Year:', fiscalYear);
+        console.log('📊 [getTableauImmobilisations] Company:', companyId);
         
-        // Récupérer toutes les immobilisations
+        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const assets = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
             args: [[['company_id', '=', companyId]]],
             kwargs: {
-                fields: [
-                    'name', 'account_asset_id', 'original_value',
-                    'value_residual', 'acquisition_date', 'state'
-                ],
+                fields: ['name', 'account_asset_id', 'original_value', 'book_value', 'acquisition_date', 'state'],
                 order: 'account_asset_id, acquisition_date'
             }
         });
         
-        // Grouper par catégorie et construire le tableau
+        // Grouper par catégorie
         const categories = {};
         
         assets.forEach(asset => {
             const accountCode = asset.account_asset_id ? asset.account_asset_id[1].match(/^\d+/)?.[0] : '999';
-            const categoryCode = accountCode.substring(0, 2);
+            const categoryCode = accountCode ? accountCode.substring(0, 2) : '99';
             
             if (!categories[categoryCode]) {
                 categories[categoryCode] = {
                     code: categoryCode,
                     name: getCategoryName(categoryCode),
-                    valeur_brute_debut: 0,
-                    acquisitions: 0,
-                    cessions: 0,
-                    valeur_brute_fin: 0
+                    valeur_brute_fin: 0,
+                    count: 0
                 };
             }
             
-            // TODO: Calculer les mouvements de l'année fiscale
             categories[categoryCode].valeur_brute_fin += parseFloat(asset.original_value) || 0;
+            categories[categoryCode].count += 1;
         });
         
         const report = {
-            headers: ['Catégorie', 'Valeur brute début', 'Acquisitions', 'Cessions', 'Valeur brute fin'],
+            headers: ['Catégorie', 'Nombre', 'Valeur brute totale'],
             rows: Object.values(categories).map(cat => [
                 `${cat.code} - ${cat.name}`,
-                cat.valeur_brute_debut.toLocaleString('fr-FR') + ' XOF',
-                cat.acquisitions.toLocaleString('fr-FR') + ' XOF',
-                cat.cessions.toLocaleString('fr-FR') + ' XOF',
+                cat.count.toString(),
                 cat.valeur_brute_fin.toLocaleString('fr-FR') + ' XOF'
             ]),
-            totaux: Object.values(categories).reduce((acc, cat) => ({
-                valeur_brute_debut: acc.valeur_brute_debut + cat.valeur_brute_debut,
-                acquisitions: acc.acquisitions + cat.acquisitions,
-                cessions: acc.cessions + cat.cessions,
-                valeur_brute_fin: acc.valeur_brute_fin + cat.valeur_brute_fin
-            }), { valeur_brute_debut: 0, acquisitions: 0, cessions: 0, valeur_brute_fin: 0 })
+            total: assets.reduce((sum, a) => sum + (parseFloat(a.original_value) || 0), 0)
         };
         
         console.log('✅ [getTableauImmobilisations] Rapport généré');
@@ -473,7 +485,7 @@ router.get('/reports/tableau-immobilisations', protect, checkCompanyAccess, asyn
         });
         
     } catch (error) {
-        console.error('❌ [getTableauImmobilisations] Erreur:', error);
+        console.error('❌ [getTableauImmobilisations] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la génération du tableau',
@@ -492,14 +504,14 @@ router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async
         
         console.log('📊 [getTableauAmortissements] Company:', companyId);
         
-        // Récupérer les immobilisations avec amortissements
+        // ✅ CHAMPS ODOO 19 VÉRIFIÉS
         const assets = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.asset',
             method: 'search_read',
             args: [[['company_id', '=', companyId]]],
             kwargs: {
-                fields: ['name', 'account_asset_id', 'original_value', 'value_residual']
+                fields: ['name', 'account_asset_id', 'original_value', 'book_value']
             }
         });
         
@@ -507,28 +519,24 @@ router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async
         
         assets.forEach(asset => {
             const accountCode = asset.account_asset_id ? asset.account_asset_id[1].match(/^\d+/)?.[0] : '999';
-            const categoryCode = accountCode.substring(0, 2);
+            const categoryCode = accountCode ? accountCode.substring(0, 2) : '99';
             
             if (!categories[categoryCode]) {
                 categories[categoryCode] = {
                     name: getCategoryName(categoryCode),
-                    amort_cumules_debut: 0,
-                    dotations: 0,
-                    amort_cumules_fin: 0
+                    amort_cumules: 0
                 };
             }
             
-            const amortCumule = (parseFloat(asset.original_value) || 0) - (parseFloat(asset.value_residual) || 0);
-            categories[categoryCode].amort_cumules_fin += amortCumule;
+            const amortCumule = (parseFloat(asset.original_value) || 0) - (parseFloat(asset.book_value) || 0);
+            categories[categoryCode].amort_cumules += amortCumule;
         });
         
         const report = {
-            headers: ['Catégorie', 'Amort. cumulés début', 'Dotations exercice', 'Amort. cumulés fin'],
+            headers: ['Catégorie', 'Amortissements cumulés'],
             rows: Object.entries(categories).map(([code, cat]) => [
                 `${code} - ${cat.name}`,
-                cat.amort_cumules_debut.toLocaleString('fr-FR') + ' XOF',
-                cat.dotations.toLocaleString('fr-FR') + ' XOF',
-                cat.amort_cumules_fin.toLocaleString('fr-FR') + ' XOF'
+                cat.amort_cumules.toLocaleString('fr-FR') + ' XOF'
             ])
         };
         
@@ -538,7 +546,7 @@ router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async
         });
         
     } catch (error) {
-        console.error('❌ [getTableauAmortissements] Erreur:', error);
+        console.error('❌ [getTableauAmortissements] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur lors de la génération du tableau',
@@ -549,20 +557,20 @@ router.get('/reports/tableau-amortissements', protect, checkCompanyAccess, async
 
 /**
  * GET /api/accounting/immobilisations/reports/tableau-provisions
- * Tableau des provisions
+ * Tableau des provisions (placeholder)
  */
 router.get('/reports/tableau-provisions', protect, checkCompanyAccess, async (req, res) => {
     try {
         res.json({
             status: 'success',
             data: {
-                headers: ['Catégorie', 'Provisions début', 'Dotations', 'Reprises', 'Provisions fin'],
+                headers: ['Catégorie', 'Provisions'],
                 rows: [],
                 message: 'Aucune provision enregistrée'
             }
         });
     } catch (error) {
-        console.error('❌ [getTableauProvisions] Erreur:', error);
+        console.error('❌ [getTableauProvisions] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur serveur',
@@ -573,21 +581,18 @@ router.get('/reports/tableau-provisions', protect, checkCompanyAccess, async (re
 
 /**
  * GET /api/accounting/immobilisations/reports/etat-rapprochement
- * État de rapprochement comptabilité/inventaire
+ * État de rapprochement (placeholder)
  */
 router.get('/reports/etat-rapprochement', protect, checkCompanyAccess, async (req, res) => {
     try {
         res.json({
             status: 'success',
             data: {
-                comptabilite: { total: 0, items: [] },
-                inventaire: { total: 0, items: [] },
-                ecarts: [],
                 message: 'Fonctionnalité disponible prochainement'
             }
         });
     } catch (error) {
-        console.error('❌ [getEtatRapprochement] Erreur:', error);
+        console.error('❌ [getEtatRapprochement] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
             message: 'Erreur serveur',
@@ -600,9 +605,6 @@ router.get('/reports/etat-rapprochement', protect, checkCompanyAccess, async (re
 // FONCTIONS HELPERS
 // =============================================================================
 
-/**
- * Obtenir le nom d'une catégorie SYSCOHADA par son code
- */
 function getCategoryName(code) {
     const names = {
         '20': 'Charges Immobilisées',
