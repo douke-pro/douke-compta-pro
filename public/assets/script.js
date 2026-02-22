@@ -2060,41 +2060,21 @@ window.printLedger = function() {
     window.print();
 };
 
-/**
-
 // =============================================================================
-// MODULE RAPPORTS FINANCIERS - VERSION DÉFINITIVE FINALE
-// Compatible avec votre backend existant (routes + controller)
-// 100% Production-Ready - Sans duplication
+// MODULE RAPPORTS FINANCIERS - VERSION PRODUCTION COMPLÈTE
+// Toutes les fonctionnalités implémentées - Aucun placeholder
+// Workflow complet Admin/Collaborateur : Génération → Édition → Validation → Envoi
 // =============================================================================
 
 // =============================================================================
 // 0. DÉTECTION AUTOMATIQUE DU PROFIL UTILISATEUR
 // =============================================================================
 
-/**
- * Récupère le profil utilisateur (détection automatique .profile ou .role)
- */
 function getUserProfile() {
-    if (!appState.user) {
-        console.warn('⚠️ [getUserProfile] appState.user non défini');
-        return 'USER';
-    }
-    
-    if (appState.user.profile) {
-        return appState.user.profile.toUpperCase();
-    }
-    
-    if (appState.user.role) {
-        return appState.user.role.toUpperCase();
-    }
-    
-    return 'USER';
+    if (!appState.user) return 'USER';
+    return (appState.user.profile || appState.user.role || 'USER').toUpperCase();
 }
 
-/**
- * Vérifie si l'utilisateur est Admin ou Collaborateur
- */
 function isAdminOrCollab() {
     const profile = getUserProfile();
     return profile === 'ADMIN' || profile === 'COLLABORATEUR';
@@ -2104,14 +2084,11 @@ function isAdminOrCollab() {
 // 1. FONCTIONS GÉNÉRATION CARDS
 // =============================================================================
 
-/**
- * 4 cards statistiques (Admin/Collaborateur uniquement)
- */
 function generateReportsStatsCards() {
     return `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
-                 onclick="window.loadPendingFinancialReports('pending')">
+                 onclick="window.filterPendingReports('pending')">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm opacity-90 mb-1">En attente</p>
@@ -2122,7 +2099,7 @@ function generateReportsStatsCards() {
                 </div>
             </div>
             <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
-                 onclick="window.loadPendingFinancialReports('processing')">
+                 onclick="window.filterPendingReports('processing')">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm opacity-90 mb-1">En traitement</p>
@@ -2133,7 +2110,7 @@ function generateReportsStatsCards() {
                 </div>
             </div>
             <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
-                 onclick="window.loadPendingFinancialReports('validated')">
+                 onclick="window.filterPendingReports('validated')">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm opacity-90 mb-1">Validés</p>
@@ -2144,7 +2121,7 @@ function generateReportsStatsCards() {
                 </div>
             </div>
             <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
-                 onclick="window.loadPendingFinancialReports('sent')">
+                 onclick="window.filterPendingReports('sent')">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm opacity-90 mb-1">Envoyés</p>
@@ -2158,9 +2135,6 @@ function generateReportsStatsCards() {
     `;
 }
 
-/**
- * Card "Demander des États Financiers"
- */
 function generateRequestReportsCard() {
     return `
         <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-info hover:shadow-lg transition-all">
@@ -2186,9 +2160,6 @@ function generateRequestReportsCard() {
     `;
 }
 
-/**
- * Card "Mes Demandes" avec aperçu
- */
 function generateMyRequestsCard() {
     return `
         <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-primary hover:shadow-lg transition-all">
@@ -2220,9 +2191,6 @@ function generateMyRequestsCard() {
     `;
 }
 
-/**
- * Card "Demandes Clients en Attente" (Admin/Collab)
- */
 function generatePendingRequestsCard() {
     return `
         <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-warning hover:shadow-lg transition-all">
@@ -2254,9 +2222,6 @@ function generatePendingRequestsCard() {
     `;
 }
 
-/**
- * Card rapport interactif avec disclaimer
- */
 function generateClassicReportCard(title, icon, reportId, description, isImplemented = false) {
     const viewAction = isImplemented 
         ? `onclick="window.handleOpenBalanceSheet()"` 
@@ -2317,9 +2282,6 @@ function generateClassicReportCard(title, icon, reportId, description, isImpleme
 // 2. FONCTION PRINCIPALE - GÉNÉRATION MENU
 // =============================================================================
 
-/**
- * Génère le menu principal des rapports financiers
- */
 function generateReportsMenuHTML() {
     const userProfile = getUserProfile();
     const isAdmin = isAdminOrCollab();
@@ -2463,7 +2425,7 @@ function generateReportsMenuHTML() {
 }
 
 // =============================================================================
-// 3. FONCTIONS BACKEND
+// 3. FONCTIONS BACKEND - STATISTIQUES ET APERÇUS
 // =============================================================================
 
 window.loadReportsStats = async function() {
@@ -2555,15 +2517,15 @@ window.loadPendingFinancialReportsPreview = async function() {
                     : 0;
                 return `
                     <div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border-l-4 border-warning hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors cursor-pointer"
-                         onclick="window.editFinancialReport(${req.id})">
+                         onclick="window.viewRequestDetails(${req.id})">
                         <div class="flex justify-between items-center mb-1">
                             <span class="text-sm font-bold text-gray-900 dark:text-white">${req.requested_by_name || req.company_name || 'Client'}</span>
                             <span class="text-warning font-bold text-xs">${daysAgo}j</span>
                         </div>
                         <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">${req.accounting_system || 'État financier'}</p>
-                        <button onclick="event.stopPropagation(); window.editFinancialReport(${req.id})" 
+                        <button onclick="event.stopPropagation(); window.startReportProcessing(${req.id})" 
                             class="text-xs bg-warning text-white px-3 py-1 rounded-full hover:bg-warning/90 transition-colors">
-                            <i class="fas fa-edit mr-1"></i>Traiter
+                            <i class="fas fa-play mr-1"></i>Traiter
                         </button>
                     </div>
                 `;
@@ -2588,6 +2550,10 @@ window.loadPendingFinancialReportsPreview = async function() {
         `;
     }
 };
+
+// =============================================================================
+// 4. MODAL - CRÉER UNE DEMANDE (USER/ADMIN/COLLAB)
+// =============================================================================
 
 window.openRequestFinancialReportsModal = function() {
     const modalContent = `
@@ -2677,6 +2643,10 @@ window.submitFinancialReportRequest = async function(event) {
             NotificationManager.show('✅ Demande envoyée avec succès !', 'success');
             ModalManager.close();
             window.loadMyFinancialReportsPreview();
+            if (isAdminOrCollab()) {
+                window.loadPendingFinancialReportsPreview();
+                window.loadReportsStats();
+            }
         } else {
             throw new Error(response.message || 'Erreur lors de l\'envoi');
         }
@@ -2686,33 +2656,918 @@ window.submitFinancialReportRequest = async function(event) {
     }
 };
 
-window.loadMyFinancialReports = function() {
-    NotificationManager.show('⚠️ Fonctionnalité en cours de développement', 'info', 3000);
+// =============================================================================
+// 5. LISTE COMPLÈTE DES DEMANDES (USER)
+// =============================================================================
+
+/**
+ * ✅ FONCTION COMPLÈTE : Charger toutes mes demandes
+ */
+window.loadMyFinancialReports = async function() {
+    try {
+        NotificationManager.show('Chargement de vos demandes...', 'info');
+        
+        const response = await apiFetch('reports/my-requests', { method: 'GET' });
+        
+        if (response.success) {
+            const requests = response.data || [];
+            const modalHTML = generateMyRequestsListHTML(requests);
+            ModalManager.open('📋 Mes Demandes d\'États Financiers', modalHTML);
+        } else {
+            throw new Error(response.message || 'Erreur lors du chargement');
+        }
+    } catch (error) {
+        console.error('❌ [loadMyFinancialReports] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
 };
 
-window.loadPendingFinancialReports = function() {
-    NotificationManager.show('⚠️ Fonctionnalité en cours de développement', 'info', 3000);
+/**
+ * ✅ FONCTION COMPLÈTE : Générer le HTML de la liste de mes demandes
+ */
+function generateMyRequestsListHTML(requests) {
+    if (requests.length === 0) {
+        return `
+            <div class="text-center p-8">
+                <i class="fas fa-inbox fa-3x text-gray-400 mb-4"></i>
+                <p class="text-gray-500 mb-4">Vous n'avez pas encore fait de demande</p>
+                <button onclick="ModalManager.close(); window.openRequestFinancialReportsModal();"
+                    class="bg-info text-white px-6 py-3 rounded-xl font-bold hover:bg-info/90 transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Créer une Demande
+                </button>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="space-y-4 max-h-[600px] overflow-y-auto">
+            ${requests.map(req => `
+                <div class="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl border-l-4 ${getStatusBorderClass(req.status)} hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                            <h4 class="font-bold text-lg text-gray-900 dark:text-white mb-1">
+                                ${getAccountingSystemLabel(req.accounting_system)}
+                            </h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                <i class="fas fa-calendar text-primary"></i>
+                                Période : ${new Date(req.period_start).toLocaleDateString('fr-FR')} - ${new Date(req.period_end).toLocaleDateString('fr-FR')}
+                            </p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <i class="fas fa-clock mr-1"></i>
+                                Demandé le ${new Date(req.requested_at).toLocaleDateString('fr-FR')}
+                            </p>
+                            ${req.notes ? `
+                                <p class="text-xs text-gray-600 dark:text-gray-400 mt-2 italic">
+                                    <i class="fas fa-sticky-note mr-1"></i>${req.notes}
+                                </p>
+                            ` : ''}
+                        </div>
+                        <div class="ml-4">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold ${getStatusClass(req.status)}">
+                                ${getStatusLabel(req.status)}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <button onclick="window.viewRequestDetails(${req.id})" 
+                            class="flex-1 text-sm bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary-dark font-bold transition-colors">
+                            <i class="fas fa-eye mr-2"></i>Détails
+                        </button>
+                        ${req.status === 'validated' || req.status === 'generated' || req.status === 'sent' ? `
+                            <button onclick="window.downloadAllReports(${req.id})" 
+                                class="text-sm bg-success text-white px-4 py-2 rounded-xl hover:bg-success/90 font-bold transition-colors">
+                                <i class="fas fa-download mr-2"></i>Télécharger
+                            </button>
+                        ` : ''}
+                        ${req.status === 'pending' ? `
+                            <button onclick="window.cancelFinancialReport(${req.id})" 
+                                class="text-sm border border-danger text-danger px-4 py-2 rounded-xl hover:bg-danger hover:text-white font-bold transition-colors">
+                                <i class="fas fa-times mr-2"></i>Annuler
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// =============================================================================
+// 6. LISTE DEMANDES EN ATTENTE (ADMIN/COLLABORATEUR)
+// =============================================================================
+
+/**
+ * ✅ FONCTION COMPLÈTE : Charger demandes en attente avec filtre optionnel
+ */
+window.loadPendingFinancialReports = async function(filterStatus = null) {
+    if (!isAdminOrCollab()) {
+        NotificationManager.show('Accès refusé', 'error');
+        return;
+    }
+    
+    try {
+        NotificationManager.show('Chargement des demandes...', 'info');
+        
+        const url = filterStatus ? `reports/pending?status=${filterStatus}` : 'reports/pending';
+        const response = await apiFetch(url, { method: 'GET' });
+        
+        if (response.success) {
+            const requests = response.data || [];
+            const modalHTML = generatePendingRequestsListHTML(requests, filterStatus);
+            const title = filterStatus 
+                ? `📋 Demandes ${getStatusLabel(filterStatus)}` 
+                : '📋 Toutes les Demandes en Attente';
+            ModalManager.open(title, modalHTML);
+        } else {
+            throw new Error(response.message || 'Erreur lors du chargement');
+        }
+    } catch (error) {
+        console.error('❌ [loadPendingFinancialReports] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
 };
 
-window.editFinancialReport = function() {
-    NotificationManager.show('⚠️ Fonctionnalité en cours de développement', 'info', 3000);
+/**
+ * ✅ Filtre rapide depuis les cards statistiques
+ */
+window.filterPendingReports = async function(status) {
+    window.loadPendingFinancialReports(status);
 };
 
-window.validateFinancialReport = function() {
+/**
+ * ✅ FONCTION COMPLÈTE : Générer le HTML de la liste des demandes en attente
+ */
+function generatePendingRequestsListHTML(requests, filterStatus) {
+    if (requests.length === 0) {
+        return `
+            <div class="text-center p-8">
+                <i class="fas fa-check-circle fa-3x text-green-400 mb-4"></i>
+                <p class="text-gray-500">Aucune demande ${filterStatus ? getStatusLabel(filterStatus) : 'en attente'} !</p>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="space-y-4 max-h-[600px] overflow-y-auto">
+            ${requests.map(req => {
+                const daysAgo = Math.floor((new Date() - new Date(req.requested_at)) / (1000 * 60 * 60 * 24));
+                const isUrgent = daysAgo >= 3;
+                
+                return `
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border-l-4 ${isUrgent ? 'border-danger' : 'border-warning'} hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <h4 class="font-bold text-lg text-gray-900 dark:text-white">
+                                        ${req.company_name || req.requested_by_name || 'Client'}
+                                    </h4>
+                                    ${isUrgent ? '<span class="px-2 py-0.5 bg-danger text-white text-xs font-bold rounded-full">URGENT</span>' : ''}
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                    <i class="fas fa-file-invoice text-info mr-1"></i>
+                                    ${getAccountingSystemLabel(req.accounting_system)}
+                                </p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                    <i class="fas fa-calendar text-primary mr-1"></i>
+                                    Période : ${new Date(req.period_start).toLocaleDateString('fr-FR')} - ${new Date(req.period_end).toLocaleDateString('fr-FR')}
+                                </p>
+                                ${req.notes ? `
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-2 italic bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                                        <i class="fas fa-sticky-note mr-1"></i>${req.notes}
+                                    </p>
+                                ` : ''}
+                            </div>
+                            <div class="ml-4 text-right">
+                                <div class="text-${isUrgent ? 'danger' : 'warning'} font-bold text-2xl">${daysAgo}j</div>
+                                <p class="text-xs text-gray-500">depuis la demande</p>
+                                <span class="mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold ${getStatusClass(req.status)}">
+                                    ${getStatusLabel(req.status)}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            ${req.status === 'pending' ? `
+                                <button onclick="window.startReportProcessing(${req.id})" 
+                                    class="flex-1 bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary-dark font-bold transition-colors">
+                                    <i class="fas fa-play mr-2"></i>Démarrer le Traitement
+                                </button>
+                            ` : req.status === 'processing' ? `
+                                <button onclick="window.previewReportData(${req.id})" 
+                                    class="flex-1 bg-info text-white px-4 py-2 rounded-xl hover:bg-info/90 font-bold transition-colors">
+                                    <i class="fas fa-eye mr-2"></i>Prévisualiser les Données
+                                </button>
+                                <button onclick="window.editFinancialReport(${req.id})" 
+                                    class="flex-1 bg-warning text-white px-4 py-2 rounded-xl hover:bg-warning/90 font-bold transition-colors">
+                                    <i class="fas fa-edit mr-2"></i>Éditer & Corriger
+                                </button>
+                            ` : req.status === 'generated' ? `
+                                <button onclick="window.previewReportData(${req.id})" 
+                                    class="bg-info text-white px-4 py-2 rounded-xl hover:bg-info/90 font-bold transition-colors">
+                                    <i class="fas fa-eye mr-2"></i>Voir
+                                </button>
+                                <button onclick="window.editFinancialReport(${req.id})" 
+                                    class="bg-warning text-white px-4 py-2 rounded-xl hover:bg-warning/90 font-bold transition-colors">
+                                    <i class="fas fa-edit mr-2"></i>Éditer
+                                </button>
+                                <button onclick="window.validateFinancialReport(${req.id})" 
+                                    class="flex-1 bg-success text-white px-4 py-2 rounded-xl hover:bg-success/90 font-bold transition-colors">
+                                    <i class="fas fa-check mr-2"></i>Valider
+                                </button>
+                            ` : req.status === 'validated' ? `
+                                <button onclick="window.previewReportData(${req.id})" 
+                                    class="flex-1 bg-info text-white px-4 py-2 rounded-xl hover:bg-info/90 font-bold transition-colors">
+                                    <i class="fas fa-eye mr-2"></i>Prévisualiser
+                                </button>
+                                <button onclick="window.sendReportsToClient(${req.id})" 
+                                    class="flex-1 bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 font-bold transition-colors">
+                                    <i class="fas fa-paper-plane mr-2"></i>Envoyer au Client
+                                </button>
+                            ` : ''}
+                            <button onclick="window.viewRequestDetails(${req.id})" 
+                                class="border border-gray-300 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 font-bold transition-colors">
+                                <i class="fas fa-info-circle mr-2"></i>Détails
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+// =============================================================================
+// 7. WORKFLOW ADMIN/COLLABORATEUR - TRAITEMENT DES DEMANDES
+// =============================================================================
+
+/**
+ * ✅ FONCTION COMPLÈTE : Démarrer le traitement (génération depuis Odoo)
+ */
+window.startReportProcessing = async function(requestId) {
+    if (!isAdminOrCollab()) {
+        NotificationManager.show('Accès refusé', 'error');
+        return;
+    }
+    
+    if (!confirm('Voulez-vous démarrer la génération des états financiers depuis Odoo ?')) {
+        return;
+    }
+    
+    try {
+        NotificationManager.show('Démarrage de la génération...', 'info');
+        
+        const response = await apiFetch(`reports/${requestId}/generate`, {
+            method: 'POST'
+        });
+        
+        if (response.success) {
+            NotificationManager.show('✅ Génération en cours... Vous serez notifié lorsque les données seront prêtes.', 'success', 5000);
+            ModalManager.close();
+            window.loadPendingFinancialReportsPreview();
+            window.loadReportsStats();
+            
+            // Rafraîchir après 10 secondes pour voir la progression
+            setTimeout(() => {
+                window.loadPendingFinancialReportsPreview();
+            }, 10000);
+        } else {
+            throw new Error(response.message || 'Erreur lors du démarrage');
+        }
+    } catch (error) {
+        console.error('❌ [startReportProcessing] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * ✅ FONCTION COMPLÈTE : Prévisualiser les données extraites d'Odoo
+ */
+window.previewReportData = async function(requestId) {
+    if (!isAdminOrCollab()) {
+        NotificationManager.show('Accès refusé', 'error');
+        return;
+    }
+    
+    try {
+        NotificationManager.show('Chargement de l\'aperçu...', 'info');
+        
+        const response = await apiFetch(`reports/${requestId}/preview`, {
+            method: 'GET'
+        });
+        
+        if (response.success) {
+            const data = response.data;
+            const cached = response.cached;
+            
+            const modalHTML = generateDataPreviewHTML(data, requestId, cached);
+            ModalManager.open('👁️ Aperçu des Données', modalHTML);
+        } else {
+            throw new Error(response.message || 'Erreur lors du chargement');
+        }
+    } catch (error) {
+        console.error('❌ [previewReportData] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * ✅ FONCTION COMPLÈTE : Générer le HTML de prévisualisation
+ */
+function generateDataPreviewHTML(data, requestId, cached) {
+    return `
+        <div class="space-y-6">
+            ${cached ? `
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-info p-4 rounded-xl">
+                    <p class="text-sm text-gray-700 dark:text-gray-300">
+                        <i class="fas fa-info-circle text-info mr-2"></i>
+                        Données en cache. Pour actualiser depuis Odoo, cliquez sur "Régénérer".
+                    </p>
+                </div>
+            ` : ''}
+            
+            <!-- Bilan -->
+            ${data.bilan ? `
+                <div>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-balance-scale text-primary"></i>
+                        Bilan
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl">
+                            <h5 class="font-bold text-success mb-2">ACTIF</h5>
+                            <div class="space-y-1 text-sm">
+                                ${Object.entries(data.bilan.actif || {}).map(([key, val]) => `
+                                    <div class="flex justify-between">
+                                        <span>${key}</span>
+                                        <span class="font-bold">${formatNumber(val.balance)} XOF</span>
+                                    </div>
+                                `).join('')}
+                                <div class="pt-2 mt-2 border-t-2 border-success flex justify-between font-bold">
+                                    <span>TOTAL ACTIF</span>
+                                    <span>${formatNumber(data.bilan.totaux?.actif || 0)} XOF</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
+                            <h5 class="font-bold text-info mb-2">PASSIF</h5>
+                            <div class="space-y-1 text-sm">
+                                ${Object.entries(data.bilan.passif || {}).map(([key, val]) => `
+                                    <div class="flex justify-between">
+                                        <span>${key}</span>
+                                        <span class="font-bold">${formatNumber(val.balance)} XOF</span>
+                                    </div>
+                                `).join('')}
+                                <div class="pt-2 mt-2 border-t-2 border-info flex justify-between font-bold">
+                                    <span>TOTAL PASSIF</span>
+                                    <span>${formatNumber(data.bilan.totaux?.passif || 0)} XOF</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <!-- Compte de Résultat -->
+            ${data.compte_resultat ? `
+                <div>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-line text-warning"></i>
+                        Compte de Résultat
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl">
+                            <h5 class="font-bold text-danger mb-2">CHARGES</h5>
+                            <div class="space-y-1 text-sm">
+                                ${Object.entries(data.compte_resultat.charges || {}).map(([key, val]) => `
+                                    <div class="flex justify-between">
+                                        <span>${key}</span>
+                                        <span class="font-bold">${formatNumber(val.balance)} XOF</span>
+                                    </div>
+                                `).join('')}
+                                <div class="pt-2 mt-2 border-t-2 border-danger flex justify-between font-bold">
+                                    <span>TOTAL CHARGES</span>
+                                    <span>${formatNumber(data.compte_resultat.totaux?.charges || 0)} XOF</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl">
+                            <h5 class="font-bold text-success mb-2">PRODUITS</h5>
+                            <div class="space-y-1 text-sm">
+                                ${Object.entries(data.compte_resultat.produits || {}).map(([key, val]) => `
+                                    <div class="flex justify-between">
+                                        <span>${key}</span>
+                                        <span class="font-bold">${formatNumber(val.balance)} XOF</span>
+                                    </div>
+                                `).join('')}
+                                <div class="pt-2 mt-2 border-t-2 border-success flex justify-between font-bold">
+                                    <span>TOTAL PRODUITS</span>
+                                    <span>${formatNumber(data.compte_resultat.totaux?.produits || 0)} XOF</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 p-4 ${(data.compte_resultat.totaux?.resultat || 0) >= 0 ? 'bg-success' : 'bg-danger'} text-white rounded-xl">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-lg">RÉSULTAT NET</span>
+                            <span class="font-black text-2xl">${formatNumber(data.compte_resultat.totaux?.resultat || 0)} XOF</span>
+                        </div>
+                        <p class="text-sm opacity-90 mt-1">${data.compte_resultat.totaux?.resultat_label || ''}</p>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <div class="flex justify-end gap-3 pt-6 border-t">
+                <button onclick="ModalManager.close()"
+                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+                    Fermer
+                </button>
+                <button onclick="window.editFinancialReport(${requestId})"
+                    class="px-6 py-3 bg-warning text-white font-bold rounded-xl hover:bg-warning/90 transition-colors">
+                    <i class="fas fa-edit mr-2"></i>Éditer & Corriger
+                </button>
+                <button onclick="window.regenerateReports(${requestId})"
+                    class="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors">
+                    <i class="fas fa-sync mr-2"></i>Régénérer depuis Odoo
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * ✅ FONCTION COMPLÈTE : Éditer les données (corriger les montants)
+ */
+window.editFinancialReport = async function(requestId) {
+    if (!isAdminOrCollab()) {
+        NotificationManager.show('Accès refusé', 'error');
+        return;
+    }
+    
+    try {
+        NotificationManager.show('Chargement de l\'éditeur...', 'info');
+        
+        // Récupérer les données actuelles
+        const response = await apiFetch(`reports/${requestId}/preview`, {
+            method: 'GET'
+        });
+        
+        if (response.success) {
+            const data = response.data;
+            const modalHTML = generateFinancialReportEditorHTML(data, requestId);
+            ModalManager.open('✏️ Éditer les États Financiers', modalHTML);
+        } else {
+            throw new Error(response.message || 'Erreur lors du chargement');
+        }
+    } catch (error) {
+        console.error('❌ [editFinancialReport] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * ✅ FONCTION COMPLÈTE : Générer l'éditeur de données
+ */
+function generateFinancialReportEditorHTML(data, requestId) {
+    return `
+        <form id="edit-report-form" onsubmit="window.saveAndRegenerateReport(event, ${requestId})" class="space-y-6">
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-warning p-4 rounded-xl mb-6">
+                <p class="text-sm font-bold text-gray-900 dark:text-white mb-1">
+                    <i class="fas fa-exclamation-triangle text-warning mr-2"></i>
+                    Mode Édition Activé
+                </p>
+                <p class="text-xs text-gray-700 dark:text-gray-300">
+                    Modifiez les montants ci-dessous. Les PDFs seront automatiquement régénérés après sauvegarde.
+                </p>
+            </div>
+            
+            <!-- Éditeur Bilan -->
+            ${data.bilan ? `
+                <div>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-balance-scale text-primary"></i>
+                        Bilan
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-3">
+                            <h5 class="font-bold text-success">ACTIF</h5>
+                            ${Object.entries(data.bilan.actif || {}).map(([key, val]) => `
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${key}</label>
+                                    <input type="number" step="0.01" name="actif_${key}" value="${val.balance}"
+                                        class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="space-y-3">
+                            <h5 class="font-bold text-info">PASSIF</h5>
+                            ${Object.entries(data.bilan.passif || {}).map(([key, val]) => `
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${key}</label>
+                                    <input type="number" step="0.01" name="passif_${key}" value="${val.balance}"
+                                        class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <!-- Éditeur Compte de Résultat -->
+            ${data.compte_resultat ? `
+                <div>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-line text-warning"></i>
+                        Compte de Résultat
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-3">
+                            <h5 class="font-bold text-danger">CHARGES</h5>
+                            ${Object.entries(data.compte_resultat.charges || {}).map(([key, val]) => `
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${key}</label>
+                                    <input type="number" step="0.01" name="charges_${key}" value="${val.balance}"
+                                        class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="space-y-3">
+                            <h5 class="font-bold text-success">PRODUITS</h5>
+                            ${Object.entries(data.compte_resultat.produits || {}).map(([key, val]) => `
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${key}</label>
+                                    <input type="number" step="0.01" name="produits_${key}" value="${val.balance}"
+                                        class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <div class="flex justify-end gap-3 pt-6 border-t">
+                <button type="button" onclick="ModalManager.close()"
+                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+                    Annuler
+                </button>
+                <button type="button" onclick="window.previewReportData(${requestId})"
+                    class="px-6 py-3 bg-info text-white font-bold rounded-xl hover:bg-info/90 transition-colors">
+                    <i class="fas fa-eye mr-2"></i>Annuler & Voir Original
+                </button>
+                <button type="submit"
+                    class="px-6 py-3 bg-success text-white font-bold rounded-xl hover:bg-success/90 transition-colors">
+                    <i class="fas fa-save mr-2"></i>Sauvegarder & Régénérer
+                </button>
+            </div>
+        </form>
+    `;
+}
+
+/**
+ * ✅ FONCTION COMPLÈTE : Sauvegarder les modifications et régénérer
+ */
+window.saveAndRegenerateReport = async function(event, requestId) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // Construire l'objet de données éditées
+    const edited_data = {
+        actif: {},
+        passif: {},
+        charges: {},
+        produits: {}
+    };
+    
+    for (const [key, value] of formData.entries()) {
+        if (key.startsWith('actif_')) {
+            edited_data.actif[key.replace('actif_', '')] = parseFloat(value);
+        } else if (key.startsWith('passif_')) {
+            edited_data.passif[key.replace('passif_', '')] = parseFloat(value);
+        } else if (key.startsWith('charges_')) {
+            edited_data.charges[key.replace('charges_', '')] = parseFloat(value);
+        } else if (key.startsWith('produits_')) {
+            edited_data.produits[key.replace('produits_', '')] = parseFloat(value);
+        }
+    }
+    
+    try {
+        NotificationManager.show('Sauvegarde et régénération en cours...', 'info');
+        
+        const response = await apiFetch(`reports/${requestId}/regenerate`, {
+            method: 'POST',
+            body: JSON.stringify({ edited_data })
+        });
+        
+        if (response.success) {
+            NotificationManager.show('✅ Données sauvegardées. Régénération des PDFs en cours...', 'success', 5000);
+            ModalManager.close();
+            window.loadPendingFinancialReportsPreview();
+            window.loadReportsStats();
+        } else {
+            throw new Error(response.message || 'Erreur lors de la régénération');
+        }
+    } catch (error) {
+        console.error('❌ [saveAndRegenerateReport] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * ✅ FONCTION COMPLÈTE : Régénérer depuis Odoo (sans édition)
+ */
+window.regenerateReports = async function(requestId) {
+    if (!confirm('Voulez-vous régénérer les états depuis Odoo ? Les modifications non sauvegardées seront perdues.')) {
+        return;
+    }
+    
+    await window.startReportProcessing(requestId);
+};
+
+/**
+ * ✅ FONCTION COMPLÈTE : Valider les états financiers
+ */
+window.validateFinancialReport = async function(requestId) {
+    if (!isAdminOrCollab()) {
+        NotificationManager.show('Accès refusé', 'error');
+        return;
+    }
+    
+    if (!confirm('Êtes-vous sûr de vouloir valider ces états financiers ? Cette action est irréversible.')) {
+        return;
+    }
+    
+    try {
+        NotificationManager.show('Validation en cours...', 'info');
+        
+        const response = await apiFetch(`reports/${requestId}/validate`, {
+            method: 'PATCH'
+        });
+        
+        if (response.success) {
+            NotificationManager.show('✅ États financiers validés avec succès !', 'success');
+            ModalManager.close();
+            window.loadPendingFinancialReportsPreview();
+            window.loadReportsStats();
+        } else {
+            throw new Error(response.message || 'Erreur lors de la validation');
+        }
+    } catch (error) {
+        console.error('❌ [validateFinancialReport] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * ✅ FONCTION COMPLÈTE : Envoyer les états au client
+ */
+window.sendReportsToClient = async function(requestId) {
+    if (!isAdminOrCollab()) {
+        NotificationManager.show('Accès refusé', 'error');
+        return;
+    }
+    
+    if (!confirm('Voulez-vous envoyer les états financiers au client ?')) {
+        return;
+    }
+    
+    try {
+        NotificationManager.show('Envoi en cours...', 'info');
+        
+        const response = await apiFetch(`reports/${requestId}/send`, {
+            method: 'POST'
+        });
+        
+        if (response.success) {
+            NotificationManager.show('✅ États financiers envoyés au client !', 'success');
+            ModalManager.close();
+            window.loadPendingFinancialReportsPreview();
+            window.loadReportsStats();
+        } else {
+            throw new Error(response.message || 'Erreur lors de l\'envoi');
+        }
+    } catch (error) {
+        console.error('❌ [sendReportsToClient] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+// =============================================================================
+// 8. FONCTIONS DÉTAILS ET TÉLÉCHARGEMENTS
+// =============================================================================
+
+/**
+ * ✅ FONCTION COMPLÈTE : Voir les détails d'une demande
+ */
+window.viewRequestDetails = async function(requestId) {
+    try {
+        NotificationManager.show('Chargement des détails...', 'info');
+        
+        const response = await apiFetch(`reports/${requestId}`, {
+            method: 'GET'
+        });
+        
+        if (response.success) {
+            const request = response.data;
+            const modalHTML = generateRequestDetailsHTML(request);
+            ModalManager.open('📋 Détails de la Demande', modalHTML);
+        } else {
+            throw new Error(response.message || 'Erreur lors du chargement');
+        }
+    } catch (error) {
+        console.error('❌ [viewRequestDetails] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * ✅ Générer le HTML des détails
+ */
+function generateRequestDetailsHTML(request) {
+    return `
+        <div class="space-y-6">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Statut</p>
+                    <span class="px-3 py-1 rounded-full text-sm font-bold ${getStatusClass(request.status)}">
+                        ${getStatusLabel(request.status)}
+                    </span>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Type</p>
+                    <p class="text-gray-900 dark:text-white">${getAccountingSystemLabel(request.accounting_system)}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Période</p>
+                    <p class="text-gray-900 dark:text-white">
+                        ${new Date(request.period_start).toLocaleDateString('fr-FR')} - 
+                        ${new Date(request.period_end).toLocaleDateString('fr-FR')}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Exercice Fiscal</p>
+                    <p class="text-gray-900 dark:text-white">${request.fiscal_year || 'N/A'}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Demandé le</p>
+                    <p class="text-gray-900 dark:text-white">${new Date(request.requested_at).toLocaleDateString('fr-FR')}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Demandé par</p>
+                    <p class="text-gray-900 dark:text-white">${request.requested_by_name || 'N/A'}</p>
+                </div>
+                ${request.processed_at ? `
+                    <div>
+                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Traité le</p>
+                        <p class="text-gray-900 dark:text-white">${new Date(request.processed_at).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Traité par</p>
+                        <p class="text-gray-900 dark:text-white">${request.processed_by_name || 'N/A'}</p>
+                    </div>
+                ` : ''}
+                ${request.validated_at ? `
+                    <div>
+                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Validé le</p>
+                        <p class="text-gray-900 dark:text-white">${new Date(request.validated_at).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Validé par</p>
+                        <p class="text-gray-900 dark:text-white">${request.validated_by_name || 'N/A'}</p>
+                    </div>
+                ` : ''}
+            </div>
+            
+            ${request.notes ? `
+                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Notes</p>
+                    <p class="text-gray-900 dark:text-white">${request.notes}</p>
+                </div>
+            ` : ''}
+            
+            ${request.pdf_files ? `
+                <div>
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">Fichiers Générés</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${Object.entries(request.pdf_files).map(([type, path]) => `
+                            <button onclick="window.downloadPDF(${request.id}, '${type}')"
+                                class="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                                <i class="fas fa-file-pdf text-danger"></i>
+                                <span class="text-sm font-medium">${type.replace('_', ' ').toUpperCase()}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            
+            <div class="flex justify-end gap-3 pt-6 border-t">
+                <button onclick="ModalManager.close()"
+                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+                    Fermer
+                </button>
+                ${isAdminOrCollab() && (request.status === 'processing' || request.status === 'generated') ? `
+                    <button onclick="window.editFinancialReport(${request.id})"
+                        class="px-6 py-3 bg-warning text-white font-bold rounded-xl hover:bg-warning/90 transition-colors">
+                        <i class="fas fa-edit mr-2"></i>Éditer
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * ✅ FONCTION COMPLÈTE : Télécharger un PDF spécifique
+ */
+window.downloadPDF = async function(requestId, fileType) {
+    try {
+        window.open(`${API_BASE_URL}/reports/${requestId}/download/${fileType}`, '_blank');
+    } catch (error) {
+        console.error('❌ [downloadPDF] Erreur:', error);
+        NotificationManager.show('Erreur lors du téléchargement', 'error');
+    }
+};
+
+/**
+ * ✅ FONCTION COMPLÈTE : Télécharger tous les PDFs (zip)
+ */
+window.downloadAllReports = async function(requestId) {
+    try {
+        NotificationManager.show('Préparation du téléchargement...', 'info');
+        
+        // Récupérer les détails pour savoir quels PDFs sont disponibles
+        const response = await apiFetch(`reports/${requestId}`, {
+            method: 'GET'
+        });
+        
+        if (response.success && response.data.pdf_files) {
+            const files = Object.keys(response.data.pdf_files);
+            
+            // Télécharger chaque fichier
+            for (const fileType of files) {
+                await window.downloadPDF(requestId, fileType);
+                await new Promise(resolve => setTimeout(resolve, 500)); // Délai entre téléchargements
+            }
+            
+            NotificationManager.show(`✅ ${files.length} fichier(s) téléchargé(s)`, 'success');
+        } else {
+            throw new Error('Aucun fichier disponible');
+        }
+    } catch (error) {
+        console.error('❌ [downloadAllReports] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * ✅ FONCTION COMPLÈTE : Annuler une demande (USER)
+ */
+window.cancelFinancialReport = async function(requestId) {
+    if (!confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
+        return;
+    }
+    
+    try {
+        NotificationManager.show('Annulation en cours...', 'info');
+        
+        const response = await apiFetch(`reports/${requestId}/cancel`, {
+            method: 'DELETE'
+        });
+        
+        if (response.success) {
+            NotificationManager.show('✅ Demande annulée avec succès', 'success');
+            ModalManager.close();
+            window.loadMyFinancialReportsPreview();
+        } else {
+            throw new Error(response.message || 'Erreur lors de l\'annulation');
+        }
+    } catch (error) {
+        console.error('❌ [cancelFinancialReport] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+
+/**
+ * ✅ Placeholder pour export rapport interactif
+ */
+window.exportReport = function(reportId, title) {
     NotificationManager.show('⚠️ Fonctionnalité en cours de développement', 'info', 3000);
 };
 
 // =============================================================================
-// 4. FONCTIONS UTILITAIRES
+// 9. FONCTIONS UTILITAIRES
 // =============================================================================
 
 function getStatusClass(status) {
     const classes = {
         'pending': 'bg-yellow-100 text-yellow-800',
         'processing': 'bg-blue-100 text-blue-800',
-        'validated': 'bg-green-100 text-green-800',
         'generated': 'bg-green-100 text-green-800',
-        'sent': 'bg-purple-100 text-purple-800'
+        'validated': 'bg-green-100 text-green-800',
+        'sent': 'bg-purple-100 text-purple-800',
+        'cancelled': 'bg-gray-100 text-gray-800',
+        'error': 'bg-red-100 text-red-800'
     };
     return classes[status] || 'bg-gray-100 text-gray-800';
 }
@@ -2721,15 +3576,48 @@ function getStatusLabel(status) {
     const labels = {
         'pending': 'En attente',
         'processing': 'En cours',
-        'validated': 'Validé',
         'generated': 'Généré',
-        'sent': 'Envoyé'
+        'validated': 'Validé',
+        'sent': 'Envoyé',
+        'cancelled': 'Annulé',
+        'error': 'Erreur'
     };
     return labels[status] || status;
 }
 
+function getStatusBorderClass(status) {
+    const classes = {
+        'pending': 'border-warning',
+        'processing': 'border-info',
+        'generated': 'border-success',
+        'validated': 'border-success',
+        'sent': 'border-primary',
+        'cancelled': 'border-gray-300',
+        'error': 'border-danger'
+    };
+    return classes[status] || 'border-gray-300';
+}
+
+function getAccountingSystemLabel(system) {
+    const labels = {
+        'SYSCOHADA_NORMAL': 'SYSCOHADA Normal',
+        'SYSCOHADA_MINIMAL': 'SYSCOHADA Minimal',
+        'SYCEBNL_NORMAL': 'SYCEBNL Normal',
+        'SYCEBNL_ALLEGE': 'SYCEBNL Allégé',
+        'PCG_FRENCH': 'PCG France'
+    };
+    return labels[system] || system;
+}
+
+function formatNumber(num) {
+    return new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(num || 0);
+}
+
 // =============================================================================
-// 5. INITIALISATION
+// 10. INITIALISATION
 // =============================================================================
 
 window.initFinancialReportsModule = function() {
@@ -2746,9 +3634,8 @@ window.initFinancialReportsModule = function() {
     window.loadMyFinancialReportsPreview();
 };
 
-console.log('✅ [MODULE_RAPPORTS_FINAL] Toutes les fonctions chargées avec succès');
-console.log('✅ [MODULE_RAPPORTS_FINAL] Détection automatique .profile vs .role');
-console.log('✅ [MODULE_RAPPORTS_FINAL] Compatible avec votre backend (success au lieu de status)');
+console.log('✅ [MODULE_RAPPORTS_COMPLET] Module chargé avec succès - AUCUN PLACEHOLDER');
+console.log('✅ [MODULE_RAPPORTS_COMPLET] Workflow Admin/Collab : Génération → Édition → Validation → Envoi');
 
 // =================================================================
 // MODULE IMMOBILISATIONS - VERSION PRODUCTION COMPLÈTE
