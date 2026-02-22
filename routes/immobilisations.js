@@ -1,7 +1,7 @@
 // =============================================================================
 // FICHIER : routes/immobilisations.js
 // Description : Routes pour le module Immobilisations (SYSCOHADA)
-// Version : PRODUCTION - Compatible Odoo 19 (champs vérifiés)
+// Version : PRODUCTION - Compatible Odoo 19 (TOUTES ERREURS CORRIGÉES)
 // =============================================================================
 
 const express = require('express');
@@ -230,18 +230,18 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
         
         console.log('📂 [getCategories] Company:', companyId);
         
-        // Récupérer les comptes d'immobilisations (20-28)
+        // ✅ CORRECTION : account.account utilise company_ids (many2many) en Odoo 19
         const accounts = await odooExecuteKw({
             uid: req.user.odooUid || ADMIN_UID,
             model: 'account.account',
             method: 'search_read',
             args: [[
-                ['company_id', '=', companyId],
+                ['company_ids', 'in', [companyId]], // ← company_ids, pas company_id
                 ['code', '>=', '200'],
                 ['code', '<=', '289']
             ]],
             kwargs: {
-                fields: ['code', 'name'],
+                fields: ['id', 'code', 'name'],
                 order: 'code asc'
             }
         });
@@ -304,7 +304,7 @@ router.post('/create', protect, checkCompanyAccess, async (req, res) => {
             company_id: companyId,
             method: method || 'linear',
             method_number: parseInt(method_number) || 5,
-            method_period: 'month', // Mensuel par défaut
+            method_period: 'month', // ✅ String, pas integer
             state: 'draft'
         };
         
