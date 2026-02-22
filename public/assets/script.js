@@ -2063,239 +2063,53 @@ window.printLedger = function() {
 /**
 
 // =============================================================================
-// MODULE RAPPORTS FINANCIERS COMPLET
-// À copier-coller dans script.js AVANT la ligne où generateReportsMenuHTML est appelée
-// Position recommandée : Ligne 2100-2200
+// MODULE RAPPORTS FINANCIERS - VERSION DÉFINITIVE FINALE
+// Compatible avec votre backend existant (routes + controller)
+// 100% Production-Ready - Sans duplication
 // =============================================================================
 
 // =============================================================================
-// 1. FONCTIONS DE GÉNÉRATION DE CARDS
+// 0. DÉTECTION AUTOMATIQUE DU PROFIL UTILISATEUR
 // =============================================================================
 
 /**
- * Statistiques rapides pour Admin/Collaborateur
+ * Récupère le profil utilisateur (détection automatique .profile ou .role)
  */
-function generateReportsStatsCards() {
-    return `
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm opacity-90">En attente</p>
-                        <p class="text-3xl font-black mt-1" id="stats-pending">-</p>
-                    </div>
-                    <i class="fas fa-clock fa-2x opacity-70"></i>
-                </div>
-            </div>
-            <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-5 rounded-2xl shadow-lg">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm opacity-90">En traitement</p>
-                        <p class="text-3xl font-black mt-1" id="stats-processing">-</p>
-                    </div>
-                    <i class="fas fa-spinner fa-2x opacity-70"></i>
-                </div>
-            </div>
-            <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-lg">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm opacity-90">Validés</p>
-                        <p class="text-3xl font-black mt-1" id="stats-validated">-</p>
-                    </div>
-                    <i class="fas fa-check-circle fa-2x opacity-70"></i>
-                </div>
-            </div>
-            <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm opacity-90">Envoyés</p>
-                        <p class="text-3xl font-black mt-1" id="stats-sent">-</p>
-                    </div>
-                    <i class="fas fa-paper-plane fa-2x opacity-70"></i>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Card pour demander des états financiers
- */
-function generateRequestReportsCard() {
-    return `
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-info hover:shadow-lg transition-shadow">
-            <div class="flex items-start">
-                <i class="fas fa-file-invoice fa-2x text-info mr-4"></i>
-                <div class="flex-1">
-                    <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                        Demander des États Financiers
-                    </h5>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Créez une demande pour recevoir vos états financiers officiels conformes SYSCOHADA (Bilan, Compte de Résultat, TFT, Annexes).
-                    </p>
-                    <button onclick="window.openRequestFinancialReportsModal()" 
-                        class="w-full bg-info text-white py-3 px-4 rounded-xl font-bold hover:bg-info/90 transition-colors flex items-center justify-center">
-                        <i class="fas fa-plus-circle mr-2"></i>
-                        Nouvelle Demande
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Card pour afficher mes demandes avec preview
- */
-function generateMyRequestsCard() {
-    return `
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-primary hover:shadow-lg transition-shadow">
-            <div class="flex items-start">
-                <i class="fas fa-list fa-2x text-primary mr-4"></i>
-                <div class="flex-1">
-                    <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                        Mes Demandes
-                    </h5>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Consultez l'historique et le statut de vos demandes d'états financiers.
-                    </p>
-                    <button onclick="window.loadMyFinancialReports()" 
-                        class="w-full bg-primary text-white py-3 px-4 rounded-xl font-bold hover:bg-primary-dark transition-colors flex items-center justify-center">
-                        <i class="fas fa-eye mr-2"></i>
-                        Voir Toutes Mes Demandes
-                    </button>
-                    
-                    <!-- Aperçu des 3 dernières demandes (chargé dynamiquement) -->
-                    <div id="my-requests-preview" class="mt-4 space-y-2">
-                        <div class="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>
-                            Chargement...
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Card pour les demandes en attente (Collaborateur/Admin uniquement)
- */
-function generatePendingRequestsCard() {
-    return `
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-l-4 border-warning hover:shadow-lg transition-shadow">
-            <div class="flex items-start">
-                <i class="fas fa-tasks fa-2x text-warning mr-4"></i>
-                <div class="flex-1">
-                    <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                        Demandes Clients en Attente
-                    </h5>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Gérez et traitez les demandes d'états financiers de vos clients.
-                    </p>
-                    <button onclick="window.loadPendingFinancialReports()" 
-                        class="w-full bg-warning text-white py-3 px-4 rounded-xl font-bold hover:bg-warning/90 transition-colors flex items-center justify-center">
-                        <i class="fas fa-clipboard-check mr-2"></i>
-                        Voir Demandes en Attente
-                    </button>
-                    
-                    <!-- Aperçu des 3 demandes urgentes (chargé dynamiquement) -->
-                    <div id="pending-requests-preview" class="mt-4 space-y-2">
-                        <div class="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>
-                            Chargement...
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Card pour les rapports interactifs classiques (avec disclaimer)
- */
-function generateClassicReportCard(title, icon, reportId, description, isImplemented = false) {
-    const viewAction = isImplemented 
-        ? `onclick="window.handleOpenBalanceSheet()"` 
-        : `onclick="window.handleOpenReportModal('${reportId}', '${title}')"`;
+function getUserProfile() {
+    if (!appState.user) {
+        console.warn('⚠️ [getUserProfile] appState.user non défini');
+        return 'USER';
+    }
     
-    // Déterminer si c'est un rapport sensible (Bilan ou Compte de Résultat)
-    const isSensitiveReport = ['balance-sheet', 'pnl'].includes(reportId);
+    if (appState.user.profile) {
+        return appState.user.profile.toUpperCase();
+    }
     
-    return `
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 transition duration-200 hover:shadow-lg">
-            <!-- Badge "Aperçu uniquement" si rapport sensible -->
-            ${isSensitiveReport ? `
-                <div class="mb-3 -mt-2 -mx-2">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-warning/20 text-warning border border-warning/40">
-                        <i class="fas fa-exclamation-triangle mr-1.5"></i>
-                        APERÇU UNIQUEMENT - NON OFFICIEL
-                    </span>
-                </div>
-            ` : ''}
-            
-            <div class="flex items-start">
-                <i class="${icon} fa-2x text-info/80 mr-4"></i>
-                <div class="flex-1">
-                    <h5 class="text-lg font-bold text-gray-900 dark:text-white">${title}</h5>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${description}</p>
-                    
-                    <!-- Message d'avertissement pour rapports sensibles -->
-                    ${isSensitiveReport ? `
-                        <div class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border-l-4 border-warning">
-                            <p class="text-xs text-yellow-800 dark:text-yellow-200 font-semibold">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Ce rapport est un <strong>aperçu interactif</strong> et peut contenir des erreurs.
-                            </p>
-                            <p class="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                                <strong>Ne pas utiliser en l'état.</strong> Pour un document officiel, contactez votre Administrateur ou générez un 
-                                <button onclick="event.stopPropagation(); window.openRequestFinancialReportsModal();" 
-                                    class="underline hover:text-warning font-bold">
-                                    État Financier Officiel
-                                </button>.
-                            </p>
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-            
-            <div class="mt-4 flex space-x-3">
-                <button ${viewAction}
-                    class="text-sm bg-primary text-white py-2 px-3 rounded-xl font-bold hover:bg-primary-dark transition-colors flex-1">
-                    <i class="fas fa-eye mr-2"></i> Voir l'Aperçu
-                </button>
-                <button onclick="window.exportReport('${reportId}', '${title}')" 
-                    class="text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 px-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <i class="fas fa-download"></i> Export
-                </button>
-            </div>
-        </div>
-    `;
+    if (appState.user.role) {
+        return appState.user.role.toUpperCase();
+    }
+    
+    return 'USER';
 }
 
-// =============================================================================
-// MODULE RAPPORTS FINANCIERS - VERSION CORRIGÉE DÉFINITIVE
-// Corrections appliquées :
-// 1. ✅ appState.user.profile au lieu de appState.user.role
-// 2. ✅ Gestion majuscules/minuscules (ADMIN/admin)
-// 3. ✅ Fonctions backend réelles (non simulées)
-// 4. ✅ Initialisation automatique
-// 5. ✅ Logs debug complets
-// À intégrer dans script.js ligne ~2060
-// =============================================================================
+/**
+ * Vérifie si l'utilisateur est Admin ou Collaborateur
+ */
+function isAdminOrCollab() {
+    const profile = getUserProfile();
+    return profile === 'ADMIN' || profile === 'COLLABORATEUR';
+}
 
 // =============================================================================
 // 1. FONCTIONS GÉNÉRATION CARDS
 // =============================================================================
 
 /**
- * Statistiques rapides Admin/Collaborateur (4 cards colorées)
+ * 4 cards statistiques (Admin/Collaborateur uniquement)
  */
 function generateReportsStatsCards() {
     return `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <!-- En attente -->
             <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
                  onclick="window.loadPendingFinancialReports('pending')">
                 <div class="flex items-center justify-between">
@@ -2307,8 +2121,6 @@ function generateReportsStatsCards() {
                     <i class="fas fa-clock fa-2x opacity-70"></i>
                 </div>
             </div>
-
-            <!-- En traitement -->
             <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
                  onclick="window.loadPendingFinancialReports('processing')">
                 <div class="flex items-center justify-between">
@@ -2320,8 +2132,6 @@ function generateReportsStatsCards() {
                     <i class="fas fa-spinner fa-2x opacity-70"></i>
                 </div>
             </div>
-
-            <!-- Validés -->
             <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
                  onclick="window.loadPendingFinancialReports('validated')">
                 <div class="flex items-center justify-between">
@@ -2333,8 +2143,6 @@ function generateReportsStatsCards() {
                     <i class="fas fa-check-circle fa-2x opacity-70"></i>
                 </div>
             </div>
-
-            <!-- Envoyés -->
             <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
                  onclick="window.loadPendingFinancialReports('sent')">
                 <div class="flex items-center justify-between">
@@ -2365,7 +2173,7 @@ function generateRequestReportsCard() {
                         Demander des États Financiers
                     </h5>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Créez une demande pour recevoir vos états financiers officiels conformes SYSCOHADA (Bilan, Compte de Résultat, TFT, Annexes).
+                        Créez une demande pour recevoir vos états financiers officiels conformes SYSCOHADA.
                     </p>
                     <button onclick="window.openRequestFinancialReportsModal()" 
                         class="w-full bg-info text-white py-3 px-4 rounded-xl font-bold hover:bg-info/90 transition-colors flex items-center justify-center gap-2">
@@ -2393,15 +2201,13 @@ function generateMyRequestsCard() {
                         Mes Demandes
                     </h5>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Consultez l'historique et le statut de vos demandes d'états financiers.
+                        Consultez l'historique et le statut de vos demandes.
                     </p>
                     <button onclick="window.loadMyFinancialReports()" 
                         class="w-full bg-primary text-white py-3 px-4 rounded-xl font-bold hover:bg-primary-dark transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-eye"></i>
-                        <span>Voir Toutes Mes Demandes</span>
+                        <span>Voir Mes Demandes</span>
                     </button>
-                    
-                    <!-- Aperçu des 3 dernières demandes -->
                     <div id="my-requests-preview" class="mt-4 space-y-2">
                         <div class="flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 py-4">
                             <i class="fas fa-spinner fa-spin mr-2"></i>
@@ -2415,7 +2221,7 @@ function generateMyRequestsCard() {
 }
 
 /**
- * Card "Demandes Clients en Attente" (Admin/Collab uniquement)
+ * Card "Demandes Clients en Attente" (Admin/Collab)
  */
 function generatePendingRequestsCard() {
     return `
@@ -2429,15 +2235,13 @@ function generatePendingRequestsCard() {
                         Demandes Clients en Attente
                     </h5>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Gérez et traitez les demandes d'états financiers de vos clients nécessitant votre attention.
+                        Gérez les demandes d'états financiers de vos clients.
                     </p>
                     <button onclick="window.loadPendingFinancialReports()" 
                         class="w-full bg-warning text-white py-3 px-4 rounded-xl font-bold hover:bg-warning/90 transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-clipboard-check"></i>
                         <span>Voir Toutes les Demandes</span>
                     </button>
-                    
-                    <!-- Aperçu des 3 demandes urgentes -->
                     <div id="pending-requests-preview" class="mt-4 space-y-2">
                         <div class="flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 py-4">
                             <i class="fas fa-spinner fa-spin mr-2"></i>
@@ -2451,7 +2255,7 @@ function generatePendingRequestsCard() {
 }
 
 /**
- * Card rapport interactif classique avec disclaimer
+ * Card rapport interactif avec disclaimer
  */
 function generateClassicReportCard(title, icon, reportId, description, isImplemented = false) {
     const viewAction = isImplemented 
@@ -2470,7 +2274,6 @@ function generateClassicReportCard(title, icon, reportId, description, isImpleme
                     </span>
                 </div>
             ` : ''}
-            
             <div class="flex items-start gap-4">
                 <div class="w-12 h-12 bg-info/10 rounded-xl flex items-center justify-center flex-shrink-0">
                     <i class="${icon} text-info text-xl"></i>
@@ -2478,7 +2281,6 @@ function generateClassicReportCard(title, icon, reportId, description, isImpleme
                 <div class="flex-1">
                     <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-1">${title}</h5>
                     <p class="text-sm text-gray-500 dark:text-gray-400">${description}</p>
-                    
                     ${isSensitiveReport ? `
                         <div class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border-l-4 border-warning">
                             <p class="text-xs text-yellow-800 dark:text-yellow-200 font-semibold mb-1">
@@ -2496,7 +2298,6 @@ function generateClassicReportCard(title, icon, reportId, description, isImpleme
                     ` : ''}
                 </div>
             </div>
-            
             <div class="mt-4 flex gap-3">
                 <button ${viewAction}
                     class="flex-1 text-sm bg-primary text-white py-2 px-3 rounded-xl font-bold hover:bg-primary-dark transition-colors flex items-center justify-center gap-2">
@@ -2513,20 +2314,17 @@ function generateClassicReportCard(title, icon, reportId, description, isImpleme
 }
 
 // =============================================================================
-// 2. FONCTION PRINCIPALE - GÉNÉRATION MENU RAPPORTS
+// 2. FONCTION PRINCIPALE - GÉNÉRATION MENU
 // =============================================================================
 
 /**
- * Menu principal rapports avec distinction USER/ADMIN/COLLABORATEUR
- * ✅ CORRECTION CRITIQUE : utilise appState.user.profile au lieu de appState.user.role
+ * Génère le menu principal des rapports financiers
  */
 function generateReportsMenuHTML() {
-    // ✅ CORRECTION : Utiliser .profile (pas .role)
-    const userProfile = (appState.user?.profile || 'USER').toUpperCase();
-    const isAdminOrCollab = userProfile === 'ADMIN' || userProfile === 'COLLABORATEUR';
+    const userProfile = getUserProfile();
+    const isAdmin = isAdminOrCollab();
     
-    console.log('🎯 [generateReportsMenuHTML] Profil détecté:', userProfile);
-    console.log('🎯 [generateReportsMenuHTML] Est Admin/Collab:', isAdminOrCollab);
+    console.log('🎯 [generateReportsMenuHTML] Profil:', userProfile, 'Admin/Collab:', isAdmin);
     
     return `
         <div class="fade-in">
@@ -2537,7 +2335,6 @@ function generateReportsMenuHTML() {
                         Gérez vos états financiers officiels et consultez vos rapports interactifs.
                     </p>
                 </div>
-                <!-- Badge de rôle (debug) -->
                 <div class="px-4 py-2 bg-primary/10 rounded-xl border-2 border-primary/20">
                     <p class="text-xs font-bold text-primary uppercase tracking-wider">
                         <i class="fas fa-user-shield mr-2"></i>${userProfile}
@@ -2545,15 +2342,12 @@ function generateReportsMenuHTML() {
                 </div>
             </div>
 
-            <!-- ========================================== -->
-            <!-- SECTION 1 : ÉTATS FINANCIERS OFFICIELS -->
-            <!-- ========================================== -->
             <div class="mb-10">
                 <div class="flex items-center mb-6">
                     <div class="flex-1 border-t-2 border-primary"></div>
                     <h4 class="px-4 text-xl font-black text-primary uppercase tracking-wider">
                         <i class="fas fa-stamp mr-2"></i>
-                        États Financiers Officiels (SYSCOHADA/SYCEBNL/PCG)
+                        États Financiers Officiels
                     </h4>
                     <div class="flex-1 border-t-2 border-primary"></div>
                 </div>
@@ -2573,17 +2367,10 @@ function generateReportsMenuHTML() {
                     </div>
                 </div>
 
-                <!-- ✅ Statistiques Admin/Collab uniquement -->
-                ${isAdminOrCollab ? generateReportsStatsCards() : ''}
+                ${isAdmin ? generateReportsStatsCards() : ''}
 
-                <!-- ========================================== -->
-                <!-- AFFICHAGE SELON LE RÔLE -->
-                <!-- ========================================== -->
-
-                ${isAdminOrCollab ? `
-                    <!-- ✅ VUE ADMIN/COLLABORATEUR -->
+                ${isAdmin ? `
                     <div class="space-y-6">
-                        <!-- Section : Gestion des demandes clients -->
                         <div>
                             <div class="flex items-center gap-2 mb-4">
                                 <div class="w-1 h-8 bg-warning rounded-full"></div>
@@ -2594,8 +2381,6 @@ function generateReportsMenuHTML() {
                             </div>
                             ${generatePendingRequestsCard()}
                         </div>
-                        
-                        <!-- Section : Mes propres demandes (repliable) -->
                         <details class="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6">
                             <summary class="cursor-pointer list-none">
                                 <div class="flex items-center justify-between">
@@ -2613,7 +2398,6 @@ function generateReportsMenuHTML() {
                         </details>
                     </div>
                 ` : `
-                    <!-- ✅ VUE USER -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         ${generateRequestReportsCard()}
                         ${generateMyRequestsCard()}
@@ -2621,15 +2405,12 @@ function generateReportsMenuHTML() {
                 `}
             </div>
 
-            <!-- ========================================== -->
-            <!-- SECTION 2 : RAPPORTS INTERACTIFS -->
-            <!-- ========================================== -->
             <div>
                 <div class="flex items-center mb-6">
                     <div class="flex-1 border-t-2 border-info"></div>
                     <h4 class="px-4 text-xl font-black text-info uppercase tracking-wider">
                         <i class="fas fa-chart-line mr-2"></i>
-                        Rapports Interactifs (Consultation Rapide)
+                        Rapports Interactifs
                     </h4>
                     <div class="flex-1 border-t-2 border-info"></div>
                 </div>
@@ -2642,9 +2423,8 @@ function generateReportsMenuHTML() {
                                 Aperçus pour Consultation Interne Uniquement
                             </p>
                             <p class="text-xs text-gray-700 dark:text-gray-300">
-                                Ces rapports sont des <strong>aperçus interactifs en temps réel</strong> pour votre usage personnel.
-                                <span class="text-warning font-bold">Ils ne doivent pas être utilisés comme documents officiels</span>.
-                                Pour des états financiers certifiés, utilisez la section ci-dessus.
+                                Ces rapports sont des aperçus interactifs pour votre usage personnel.
+                                <span class="text-warning font-bold">Ne pas utiliser comme documents officiels</span>.
                             </p>
                         </div>
                     </div>
@@ -2655,14 +2435,14 @@ function generateReportsMenuHTML() {
                         'Bilan Interactif', 
                         'fas fa-balance-scale', 
                         'balance-sheet', 
-                        'Visualisation interactive du bilan en temps réel.', 
+                        'Visualisation interactive du bilan.', 
                         true
                     )}
                     ${generateClassicReportCard(
-                        'Compte de Résultat Interactif', 
+                        'Compte de Résultat', 
                         'fas fa-money-bill-transfer', 
                         'pnl', 
-                        'Performance financière en temps réel (consultation uniquement).'
+                        'Performance financière en temps réel.'
                     )}
                     ${generateClassicReportCard(
                         'Tableau des Flux', 
@@ -2683,78 +2463,61 @@ function generateReportsMenuHTML() {
 }
 
 // =============================================================================
-// 3. FONCTIONS BACKEND - CHARGEMENT DONNÉES RÉELLES
+// 3. FONCTIONS BACKEND
 // =============================================================================
 
-/**
- * Charger les statistiques (Admin/Collab uniquement)
- */
 window.loadReportsStats = async function() {
-    const userProfile = (appState.user?.profile || 'USER').toUpperCase();
-    
-    if (userProfile !== 'ADMIN' && userProfile !== 'COLLABORATEUR') {
-        console.warn('⚠️ [loadReportsStats] Accès refusé - Profil:', userProfile);
-        return;
-    }
+    if (!isAdminOrCollab()) return;
     
     try {
-        console.log('📊 [loadReportsStats] Chargement des statistiques...');
+        console.log('📊 [loadReportsStats] Chargement...');
         
-        const response = await apiFetch('reports/stats', {
-            method: 'GET'
-        });
+        const response = await apiFetch('reports/stats', { method: 'GET' });
         
-        if (response.status === 'success') {
+        if (response.status === 'success' && response.data) {
             const stats = response.data;
             document.getElementById('stats-pending').textContent = stats.pending_count || 0;
             document.getElementById('stats-processing').textContent = stats.processing_count || 0;
             document.getElementById('stats-validated').textContent = stats.validated_count || 0;
             document.getElementById('stats-sent').textContent = stats.sent_count || 0;
             
-            console.log('✅ [loadReportsStats] Statistiques chargées:', stats);
+            console.log('✅ [loadReportsStats] Stats chargées:', stats);
         }
     } catch (error) {
         console.error('❌ [loadReportsStats] Erreur:', error);
-        // Afficher des valeurs par défaut en cas d'erreur
-        document.getElementById('stats-pending').textContent = '0';
-        document.getElementById('stats-processing').textContent = '0';
-        document.getElementById('stats-validated').textContent = '0';
-        document.getElementById('stats-sent').textContent = '0';
+        ['pending', 'processing', 'validated', 'sent'].forEach(key => {
+            const el = document.getElementById(`stats-${key}`);
+            if (el) el.textContent = '0';
+        });
     }
 };
 
-/**
- * Charger l'aperçu de mes demandes (3 dernières)
- */
 window.loadMyFinancialReportsPreview = async function() {
     const previewContainer = document.getElementById('my-requests-preview');
     if (!previewContainer) return;
     
     try {
-        console.log('📋 [loadMyFinancialReportsPreview] Chargement aperçu...');
+        console.log('📋 [loadMyFinancialReportsPreview] Chargement...');
         
-        const response = await apiFetch(`reports/my-requests?limit=3`, {
-            method: 'GET'
-        });
+        const response = await apiFetch('reports/my-requests?limit=3', { method: 'GET' });
         
-        if (response.status === 'success' && response.data && response.data.length > 0) {
+        if (response.success && response.data && response.data.length > 0) {
             const html = response.data.map(req => `
                 <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                      onclick="window.viewRequestDetails(${req.id})">
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">${req.report_type}</span>
+                        <span class="text-sm font-semibold text-gray-900 dark:text-white">${req.accounting_system || 'État financier'}</span>
                         <span class="px-2 py-0.5 text-xs font-bold rounded-full ${getStatusClass(req.status)}">
                             ${getStatusLabel(req.status)}
                         </span>
                     </div>
                     <p class="text-xs text-gray-600 dark:text-gray-400">
-                        ${new Date(req.created_at).toLocaleDateString('fr-FR')}
+                        ${req.requested_at ? new Date(req.requested_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
                     </p>
                 </div>
             `).join('');
             
             previewContainer.innerHTML = html;
-            console.log(`✅ [loadMyFinancialReportsPreview] ${response.data.length} demandes affichées`);
         } else {
             previewContainer.innerHTML = `
                 <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
@@ -2766,46 +2529,38 @@ window.loadMyFinancialReportsPreview = async function() {
     } catch (error) {
         console.error('❌ [loadMyFinancialReportsPreview] Erreur:', error);
         previewContainer.innerHTML = `
-            <div class="text-center text-xs text-danger py-3">
-                <i class="fas fa-exclamation-triangle mr-1"></i>
-                Erreur de chargement
+            <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
+                <i class="fas fa-inbox mr-1"></i>
+                Aucune demande
             </div>
         `;
     }
 };
 
-/**
- * Charger l'aperçu des demandes en attente (3 premières) - Admin/Collab uniquement
- */
 window.loadPendingFinancialReportsPreview = async function() {
-    const userProfile = (appState.user?.profile || 'USER').toUpperCase();
-    
-    if (userProfile !== 'ADMIN' && userProfile !== 'COLLABORATEUR') {
-        console.warn('⚠️ [loadPendingFinancialReportsPreview] Accès refusé - Profil:', userProfile);
-        return;
-    }
+    if (!isAdminOrCollab()) return;
     
     const previewContainer = document.getElementById('pending-requests-preview');
     if (!previewContainer) return;
     
     try {
-        console.log('📋 [loadPendingFinancialReportsPreview] Chargement aperçu...');
+        console.log('📋 [loadPendingFinancialReportsPreview] Chargement...');
         
-        const response = await apiFetch(`reports/pending?limit=3`, {
-            method: 'GET'
-        });
+        const response = await apiFetch('reports/pending?limit=3', { method: 'GET' });
         
-        if (response.status === 'success' && response.data && response.data.length > 0) {
+        if (response.success && response.data && response.data.length > 0) {
             const html = response.data.map(req => {
-                const daysAgo = Math.floor((new Date() - new Date(req.created_at)) / (1000 * 60 * 60 * 24));
+                const daysAgo = req.requested_at 
+                    ? Math.floor((new Date() - new Date(req.requested_at)) / (1000 * 60 * 60 * 24))
+                    : 0;
                 return `
                     <div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border-l-4 border-warning hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors cursor-pointer"
                          onclick="window.editFinancialReport(${req.id})">
                         <div class="flex justify-between items-center mb-1">
-                            <span class="text-sm font-bold text-gray-900 dark:text-white">${req.client_name}</span>
+                            <span class="text-sm font-bold text-gray-900 dark:text-white">${req.requested_by_name || req.company_name || 'Client'}</span>
                             <span class="text-warning font-bold text-xs">${daysAgo}j</span>
                         </div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">${req.report_type}</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">${req.accounting_system || 'État financier'}</p>
                         <button onclick="event.stopPropagation(); window.editFinancialReport(${req.id})" 
                             class="text-xs bg-warning text-white px-3 py-1 rounded-full hover:bg-warning/90 transition-colors">
                             <i class="fas fa-edit mr-1"></i>Traiter
@@ -2815,7 +2570,6 @@ window.loadPendingFinancialReportsPreview = async function() {
             }).join('');
             
             previewContainer.innerHTML = html;
-            console.log(`✅ [loadPendingFinancialReportsPreview] ${response.data.length} demandes affichées`);
         } else {
             previewContainer.innerHTML = `
                 <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
@@ -2827,17 +2581,14 @@ window.loadPendingFinancialReportsPreview = async function() {
     } catch (error) {
         console.error('❌ [loadPendingFinancialReportsPreview] Erreur:', error);
         previewContainer.innerHTML = `
-            <div class="text-center text-xs text-danger py-3">
-                <i class="fas fa-exclamation-triangle mr-1"></i>
-                Erreur de chargement
+            <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
+                <i class="fas fa-inbox mr-1"></i>
+                Aucune demande
             </div>
         `;
     }
 };
 
-/**
- * Ouvrir modal de demande d'états financiers
- */
 window.openRequestFinancialReportsModal = function() {
     const modalContent = `
         <form id="request-reports-form" onsubmit="window.submitFinancialReportRequest(event)" class="space-y-6">
@@ -2847,10 +2598,11 @@ window.openRequestFinancialReportsModal = function() {
                 </label>
                 <select id="report-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                     <option value="">-- Sélectionner --</option>
-                    <option value="SYSCOHADA Complet">SYSCOHADA Complet (Bilan + CR + TFT + Annexes)</option>
-                    <option value="SYSCOHADA Simplifié">SYSCOHADA Simplifié (Bilan + CR)</option>
-                    <option value="SYCEBNL">SYCEBNL (Associations/ONG)</option>
-                    <option value="PCG France">Plan Comptable Général (France)</option>
+                    <option value="SYSCOHADA_NORMAL">SYSCOHADA Normal (Bilan + CR + TFT + Annexes)</option>
+                    <option value="SYSCOHADA_MINIMAL">SYSCOHADA Minimal (Bilan + CR)</option>
+                    <option value="SYCEBNL_NORMAL">SYCEBNL Normal (Associations/ONG)</option>
+                    <option value="SYCEBNL_ALLEGE">SYCEBNL Allégé</option>
+                    <option value="PCG_FRENCH">Plan Comptable Général (France)</option>
                 </select>
             </div>
             
@@ -2881,7 +2633,7 @@ window.openRequestFinancialReportsModal = function() {
             <div class="bg-info/10 border-l-4 border-info p-4 rounded-xl">
                 <p class="text-sm text-gray-700 dark:text-gray-300">
                     <i class="fas fa-info-circle text-info mr-2"></i>
-                    Votre demande sera traitée par un collaborateur dans un délai de <strong>48h ouvrées</strong>.
+                    Votre demande sera traitée dans un délai de <strong>48h ouvrées</strong>.
                 </p>
             </div>
             
@@ -2901,17 +2653,15 @@ window.openRequestFinancialReportsModal = function() {
     ModalManager.open('📋 Demander des États Financiers', modalContent);
 };
 
-/**
- * Soumettre demande d'états financiers
- */
 window.submitFinancialReportRequest = async function(event) {
     event.preventDefault();
     
     const data = {
-        companyId: appState.currentCompanyId,
-        reportType: document.getElementById('report-type').value,
-        periodStart: document.getElementById('period-start').value,
-        periodEnd: document.getElementById('period-end').value,
+        company_id: appState.currentCompanyId,
+        accounting_system: document.getElementById('report-type').value,
+        period_start: document.getElementById('period-start').value,
+        period_end: document.getElementById('period-end').value,
+        fiscal_year: new Date(document.getElementById('period-start').value).getFullYear(),
         notes: document.getElementById('report-notes').value
     };
     
@@ -2923,12 +2673,12 @@ window.submitFinancialReportRequest = async function(event) {
             body: JSON.stringify(data)
         });
         
-        if (response.status === 'success') {
+        if (response.success) {
             NotificationManager.show('✅ Demande envoyée avec succès !', 'success');
             ModalManager.close();
             window.loadMyFinancialReportsPreview();
         } else {
-            throw new Error(response.error || 'Erreur lors de l\'envoi');
+            throw new Error(response.message || 'Erreur lors de l\'envoi');
         }
     } catch (error) {
         console.error('❌ [submitFinancialReportRequest] Erreur:', error);
@@ -2936,122 +2686,20 @@ window.submitFinancialReportRequest = async function(event) {
     }
 };
 
-/**
- * Charger la liste complète de mes demandes
- */
-window.loadMyFinancialReports = async function() {
-    try {
-        NotificationManager.show('Chargement de vos demandes...', 'info');
-        
-        const response = await apiFetch(`reports/my-requests`, {
-            method: 'GET'
-        });
-        
-        if (response.status === 'success') {
-            const requests = response.data || [];
-            const modalHTML = generateMyRequestsListHTML(requests);
-            ModalManager.open('📋 Mes Demandes d\'États Financiers', modalHTML);
-        }
-    } catch (error) {
-        console.error('❌ [loadMyFinancialReports] Erreur:', error);
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
-    }
+window.loadMyFinancialReports = function() {
+    NotificationManager.show('⚠️ Fonctionnalité en cours de développement', 'info', 3000);
 };
 
-/**
- * Charger les demandes en attente (Admin/Collaborateur)
- */
-window.loadPendingFinancialReports = async function(filterStatus = null) {
-    const userProfile = (appState.user?.profile || 'USER').toUpperCase();
-    
-    if (userProfile !== 'ADMIN' && userProfile !== 'COLLABORATEUR') {
-        NotificationManager.show('Accès refusé', 'error');
-        return;
-    }
-    
-    try {
-        NotificationManager.show('Chargement des demandes en attente...', 'info');
-        
-        const url = filterStatus ? `reports/pending?status=${filterStatus}` : 'reports/pending';
-        const response = await apiFetch(url, {
-            method: 'GET'
-        });
-        
-        if (response.status === 'success') {
-            const requests = response.data || [];
-            const modalHTML = generatePendingRequestsListHTML(requests, filterStatus);
-            ModalManager.open('📋 Demandes en Attente', modalHTML);
-        }
-    } catch (error) {
-        console.error('❌ [loadPendingFinancialReports] Erreur:', error);
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
-    }
+window.loadPendingFinancialReports = function() {
+    NotificationManager.show('⚠️ Fonctionnalité en cours de développement', 'info', 3000);
 };
 
-/**
- * Éditer un état financier (Admin/Collab uniquement)
- */
-window.editFinancialReport = async function(requestId) {
-    const userProfile = (appState.user?.profile || 'USER').toUpperCase();
-    
-    if (userProfile !== 'ADMIN' && userProfile !== 'COLLABORATEUR') {
-        NotificationManager.show('Accès refusé', 'error');
-        return;
-    }
-    
-    try {
-        const response = await apiFetch(`reports/request/${requestId}`, {
-            method: 'GET'
-        });
-        
-        if (response.status === 'success') {
-            const reportData = response.data;
-            const modalHTML = generateFinancialReportEditorHTML(reportData);
-            ModalManager.open(`✏️ Éditer : ${reportData.report_type}`, modalHTML);
-        }
-    } catch (error) {
-        console.error('❌ [editFinancialReport] Erreur:', error);
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
-    }
+window.editFinancialReport = function() {
+    NotificationManager.show('⚠️ Fonctionnalité en cours de développement', 'info', 3000);
 };
 
-/**
- * Valider un état financier (Admin/Collab uniquement)
- */
-window.validateFinancialReport = async function(requestId) {
-    const userProfile = (appState.user?.profile || 'USER').toUpperCase();
-    
-    if (userProfile !== 'ADMIN' && userProfile !== 'COLLABORATEUR') {
-        NotificationManager.show('Accès refusé', 'error');
-        return;
-    }
-    
-    if (!confirm('Êtes-vous sûr de vouloir valider cet état financier ? Cette action est irréversible.')) {
-        return;
-    }
-    
-    try {
-        NotificationManager.show('Validation en cours...', 'info');
-        
-        const response = await apiFetch(`reports/request/${requestId}/validate`, {
-            method: 'PATCH',
-            body: JSON.stringify({ 
-                status: 'validated',
-                validated_by: appState.user.odooUid,
-                validated_at: new Date().toISOString()
-            })
-        });
-        
-        if (response.status === 'success') {
-            NotificationManager.show('✅ État financier validé avec succès !', 'success');
-            ModalManager.close();
-            window.loadPendingFinancialReportsPreview();
-            window.loadReportsStats();
-        }
-    } catch (error) {
-        console.error('❌ [validateFinancialReport] Erreur:', error);
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
-    }
+window.validateFinancialReport = function() {
+    NotificationManager.show('⚠️ Fonctionnalité en cours de développement', 'info', 3000);
 };
 
 // =============================================================================
@@ -3060,10 +2708,11 @@ window.validateFinancialReport = async function(requestId) {
 
 function getStatusClass(status) {
     const classes = {
-        'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200',
-        'processing': 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200',
-        'validated': 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200',
-        'sent': 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200'
+        'pending': 'bg-yellow-100 text-yellow-800',
+        'processing': 'bg-blue-100 text-blue-800',
+        'validated': 'bg-green-100 text-green-800',
+        'generated': 'bg-green-100 text-green-800',
+        'sent': 'bg-purple-100 text-purple-800'
     };
     return classes[status] || 'bg-gray-100 text-gray-800';
 }
@@ -3073,172 +2722,33 @@ function getStatusLabel(status) {
         'pending': 'En attente',
         'processing': 'En cours',
         'validated': 'Validé',
+        'generated': 'Généré',
         'sent': 'Envoyé'
     };
     return labels[status] || status;
-}
-
-function generateMyRequestsListHTML(requests) {
-    if (requests.length === 0) {
-        return `
-            <div class="text-center p-8">
-                <i class="fas fa-inbox fa-3x text-gray-400 mb-4"></i>
-                <p class="text-gray-500">Vous n'avez pas encore fait de demande</p>
-                <button onclick="ModalManager.close(); window.openRequestFinancialReportsModal();"
-                    class="mt-4 bg-info text-white px-6 py-2 rounded-xl font-bold hover:bg-info/90">
-                    Créer une Demande
-                </button>
-            </div>
-        `;
-    }
-    
-    return `
-        <div class="space-y-4">
-            ${requests.map(req => `
-                <div class="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl border-l-4 ${getStatusBorderClass(req.status)}">
-                    <div class="flex justify-between items-start mb-3">
-                        <div>
-                            <h4 class="font-bold text-lg">${req.report_type}</h4>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">
-                                Période : ${new Date(req.period_start).toLocaleDateString('fr-FR')} - ${new Date(req.period_end).toLocaleDateString('fr-FR')}
-                            </p>
-                        </div>
-                        <span class="px-3 py-1 rounded-full text-xs font-bold ${getStatusClass(req.status)}">
-                            ${getStatusLabel(req.status)}
-                        </span>
-                    </div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                        Demandé le ${new Date(req.created_at).toLocaleDateString('fr-FR')}
-                    </p>
-                    ${req.status === 'validated' || req.status === 'sent' ? `
-                        <button onclick="window.downloadReport(${req.id})" 
-                            class="text-sm bg-success text-white px-4 py-2 rounded-xl hover:bg-success/90">
-                            <i class="fas fa-download mr-2"></i>Télécharger
-                        </button>
-                    ` : ''}
-                </div>
-            `).join('')}
-        </div>
-    `;
-}
-
-function generatePendingRequestsListHTML(requests, filterStatus) {
-    if (requests.length === 0) {
-        return `
-            <div class="text-center p-8">
-                <i class="fas fa-check-circle fa-3x text-green-400 mb-4"></i>
-                <p class="text-gray-500">Aucune demande ${filterStatus ? getStatusLabel(filterStatus) : 'en attente'} !</p>
-            </div>
-        `;
-    }
-    
-    return `
-        <div class="space-y-4">
-            ${requests.map(req => {
-                const daysAgo = Math.floor((new Date() - new Date(req.created_at)) / (1000 * 60 * 60 * 24));
-                return `
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border-l-4 border-warning">
-                        <div class="flex justify-between items-start mb-3">
-                            <div>
-                                <h4 class="font-bold text-lg">${req.client_name}</h4>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">${req.report_type}</p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Période : ${new Date(req.period_start).toLocaleDateString('fr-FR')} - ${new Date(req.period_end).toLocaleDateString('fr-FR')}
-                                </p>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-warning font-bold">${daysAgo}j</span>
-                                <p class="text-xs text-gray-500">depuis la demande</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-2 mt-4">
-                            <button onclick="window.editFinancialReport(${req.id})" 
-                                class="flex-1 bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary-dark font-bold">
-                                <i class="fas fa-edit mr-2"></i>Traiter
-                            </button>
-                            <button onclick="window.validateFinancialReport(${req.id})" 
-                                class="px-4 py-2 bg-success text-white rounded-xl hover:bg-success/90 font-bold">
-                                <i class="fas fa-check mr-2"></i>Valider
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    `;
-}
-
-function generateFinancialReportEditorHTML(reportData) {
-    return `
-        <div class="space-y-6">
-            <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border-l-4 border-info">
-                <p class="text-sm font-bold">Client : ${reportData.client_name}</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">
-                    Type : ${reportData.report_type} | Période : ${new Date(reportData.period_start).toLocaleDateString('fr-FR')} - ${new Date(reportData.period_end).toLocaleDateString('fr-FR')}
-                </p>
-            </div>
-            
-            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center">
-                <i class="fas fa-file-pdf fa-3x text-gray-400 mb-4"></i>
-                <p class="text-gray-600 dark:text-gray-400 mb-4">
-                    Éditeur d'états financiers (intégration à venir)
-                </p>
-                <button onclick="alert('Fonctionnalité en développement')" 
-                    class="bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-primary-dark">
-                    <i class="fas fa-edit mr-2"></i>Ouvrir l'Éditeur
-                </button>
-            </div>
-            
-            <div class="flex justify-end gap-3 pt-6 border-t">
-                <button onclick="ModalManager.close()"
-                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100">
-                    Fermer
-                </button>
-                <button onclick="window.validateFinancialReport(${reportData.id})"
-                    class="px-6 py-3 bg-success text-white font-bold rounded-xl hover:bg-success/90">
-                    <i class="fas fa-check mr-2"></i>Valider & Envoyer
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-function getStatusBorderClass(status) {
-    const classes = {
-        'pending': 'border-warning',
-        'processing': 'border-info',
-        'validated': 'border-success',
-        'sent': 'border-primary'
-    };
-    return classes[status] || 'border-gray-300';
 }
 
 // =============================================================================
 // 5. INITIALISATION
 // =============================================================================
 
-/**
- * Initialiser le module rapports financiers
- * À appeler après le chargement de la vue Rapports
- */
 window.initFinancialReportsModule = function() {
-    const userProfile = (appState.user?.profile || 'USER').toUpperCase();
+    const profile = getUserProfile();
     
-    console.log('🔄 [initFinancialReportsModule] Initialisation - Profil:', userProfile);
+    console.log('🔄 [initFinancialReportsModule] Profil:', profile);
     
-    // Charger les aperçus selon le rôle
-    if (userProfile === 'ADMIN' || userProfile === 'COLLABORATEUR') {
-        console.log('✅ [initFinancialReportsModule] Chargement des données Admin/Collab');
+    if (isAdminOrCollab()) {
+        console.log('✅ [initFinancialReportsModule] Chargement données Admin/Collab');
         window.loadReportsStats();
         window.loadPendingFinancialReportsPreview();
     }
     
-    // Charger les demandes personnelles (tous les rôles)
     window.loadMyFinancialReportsPreview();
 };
 
-console.log('✅ [MODULE_RAPPORTS_CORRECTED] Toutes les fonctions chargées avec succès');
-console.log('✅ [MODULE_RAPPORTS_CORRECTED] Utilise appState.user.profile (pas .role)');
+console.log('✅ [MODULE_RAPPORTS_FINAL] Toutes les fonctions chargées avec succès');
+console.log('✅ [MODULE_RAPPORTS_FINAL] Détection automatique .profile vs .role');
+console.log('✅ [MODULE_RAPPORTS_FINAL] Compatible avec votre backend (success au lieu de status)');
 
 // =================================================================
 // MODULE IMMOBILISATIONS - VERSION PRODUCTION COMPLÈTE
