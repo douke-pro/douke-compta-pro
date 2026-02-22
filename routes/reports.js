@@ -1,6 +1,7 @@
 // ============================================
 // ROUTES : Rapports Financiers
 // Description : Gestion des états financiers
+// Version : PRODUCTION COMPLÈTE - Toutes corrections intégrées
 // ============================================
 
 const express = require('express');
@@ -114,7 +115,7 @@ router.get(
 );
 
 /**
- * 🔧 NOUVEAU : POST /api/reports/:id/regenerate
+ * POST /api/reports/:id/regenerate
  * Sauvegarder les données éditées et régénérer les PDFs
  * Body : { edited_data: { actif: {...}, passif: {...}, charges: {...}, produits: {...} } }
  * Permissions : COLLABORATEUR, ADMIN
@@ -168,8 +169,32 @@ router.get(
 // ============================================
 
 /**
+ * ✅ NOUVEAU : GET /api/reports/stats
+ * Statistiques pour le dashboard (cards Admin/Collaborateur)
+ * Format compatible avec le frontend
+ * Permissions : COLLABORATEUR, ADMIN
+ * 
+ * Retourne :
+ * {
+ *   status: 'success',
+ *   data: {
+ *     pending_count: number,
+ *     processing_count: number,
+ *     validated_count: number,
+ *     sent_count: number
+ *   }
+ * }
+ */
+router.get(
+    '/stats',
+    authenticateToken,
+    checkRole(['collaborateur', 'admin']),
+    reportsController.getDashboardStats
+);
+
+/**
  * GET /api/reports/stats/summary
- * Statistiques globales des rapports
+ * Statistiques globales des rapports (format détaillé)
  * Permissions : ADMIN
  */
 router.get(
