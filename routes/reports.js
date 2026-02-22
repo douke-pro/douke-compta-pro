@@ -1,7 +1,8 @@
 // ============================================
 // ROUTES : Rapports Financiers
 // Description : Gestion des états financiers
-// Version : PRODUCTION COMPLÈTE - Toutes corrections intégrées
+// Version : PRODUCTION COMPLÈTE - Correction ordre des routes
+// Date : 2026-02-22
 // ============================================
 
 const express = require('express');
@@ -10,7 +11,15 @@ const reportsController = require('../controllers/reportsController');
 const { authenticateToken, checkRole } = require('../middleware/auth');
 
 // ============================================
-// ROUTES USER
+// ⚠️ RÈGLE CRITIQUE EXPRESS :
+// Les routes STATIQUES doivent toujours être déclarées
+// AVANT les routes DYNAMIQUES (/:id)
+// Sinon /:id intercepte tout ce qui suit.
+// ============================================
+
+
+// ============================================
+// ROUTES STATIQUES USER
 // ============================================
 
 /**
@@ -37,32 +46,9 @@ router.get(
     reportsController.getMyRequests
 );
 
-/**
- * GET /api/reports/:id
- * Détails d'une demande spécifique
- * Permissions : USER (propriétaire), COLLABORATEUR, ADMIN
- */
-router.get(
-    '/:id',
-    authenticateToken,
-    checkRole(['user', 'caissier', 'collaborateur', 'admin']),
-    reportsController.getRequestDetails
-);
-
-/**
- * DELETE /api/reports/:id/cancel
- * Annuler une demande (seulement si status = pending)
- * Permissions : USER (propriétaire), ADMIN
- */
-router.delete(
-    '/:id/cancel',
-    authenticateToken,
-    checkRole(['user', 'admin']),
-    reportsController.cancelRequest
-);
 
 // ============================================
-// ROUTES COLLABORATEUR/ADMIN
+// ROUTES STATIQUES COLLABORATEUR / ADMIN
 // ============================================
 
 /**
@@ -87,6 +73,77 @@ router.get(
     authenticateToken,
     checkRole(['collaborateur', 'admin']),
     reportsController.getAllRequests
+);
+
+
+// ============================================
+// ROUTES STATIQUES STATISTIQUES / DASHBOARD
+// ============================================
+
+/**
+ * GET /api/reports/stats
+ * Statistiques pour le dashboard (cards Admin/Collaborateur)
+ * Permissions : COLLABORATEUR, ADMIN
+ *
+ * Retourne :
+ * {
+ *   status: 'success',
+ *   data: {
+ *     pending_count: number,
+ *     processing_count: number,
+ *     validated_count: number,
+ *     sent_count: number
+ *   }
+ * }
+ */
+router.get(
+    '/stats',
+    authenticateToken,
+    checkRole(['collaborateur', 'admin']),
+    reportsController.getDashboardStats
+);
+
+/**
+ * GET /api/reports/stats/summary
+ * Statistiques globales des rapports (format détaillé)
+ * Permissions : ADMIN
+ */
+router.get(
+    '/stats/summary',
+    authenticateToken,
+    checkRole(['admin']),
+    reportsController.getReportsStats
+);
+
+
+// ============================================
+// ROUTES DYNAMIQUES /:id
+// ⚠️ TOUJOURS EN DERNIER pour ne pas intercepter
+// les routes statiques déclarées ci-dessus
+// ============================================
+
+/**
+ * GET /api/reports/:id
+ * Détails d'une demande spécifique
+ * Permissions : USER (propriétaire), COLLABORATEUR, ADMIN
+ */
+router.get(
+    '/:id',
+    authenticateToken,
+    checkRole(['user', 'caissier', 'collaborateur', 'admin']),
+    reportsController.getRequestDetails
+);
+
+/**
+ * DELETE /api/reports/:id/cancel
+ * Annuler une demande (seulement si status = pending)
+ * Permissions : USER (propriétaire), ADMIN
+ */
+router.delete(
+    '/:id/cancel',
+    authenticateToken,
+    checkRole(['user', 'admin']),
+    reportsController.cancelRequest
 );
 
 /**
@@ -162,46 +219,6 @@ router.get(
     authenticateToken,
     checkRole(['user', 'caissier', 'collaborateur', 'admin']),
     reportsController.downloadPDF
-);
-
-// ============================================
-// ROUTES STATISTIQUES/DASHBOARD
-// ============================================
-
-/**
- * ✅ NOUVEAU : GET /api/reports/stats
- * Statistiques pour le dashboard (cards Admin/Collaborateur)
- * Format compatible avec le frontend
- * Permissions : COLLABORATEUR, ADMIN
- * 
- * Retourne :
- * {
- *   status: 'success',
- *   data: {
- *     pending_count: number,
- *     processing_count: number,
- *     validated_count: number,
- *     sent_count: number
- *   }
- * }
- */
-router.get(
-    '/stats',
-    authenticateToken,
-    checkRole(['collaborateur', 'admin']),
-    reportsController.getDashboardStats
-);
-
-/**
- * GET /api/reports/stats/summary
- * Statistiques globales des rapports (format détaillé)
- * Permissions : ADMIN
- */
-router.get(
-    '/stats/summary',
-    authenticateToken,
-    checkRole(['admin']),
-    reportsController.getReportsStats
 );
 
 module.exports = router;
