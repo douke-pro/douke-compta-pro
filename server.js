@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : server.js (VERSION V20 - INIT DB AUTOMATIQUE)
+// FICHIER : server.js (VERSION V21 - FIX SYNTAX ERROR)
 // =============================================================================
 
 const express = require('express');
@@ -7,9 +7,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// =============================================================================
-// IMPORTS DES ROUTES
-// =============================================================================
 const authRoutes = require('./routes/auth');      
 const companyRoutes = require('./routes/company'); 
 const accountingRoutes = require('./routes/accounting');
@@ -64,10 +61,9 @@ const initDB = async () => {
                 read_at TIMESTAMP
             );
         `);
-        console.log('✅ Tables financial_reports initialisées avec succès');
+        console.log('[DB] Tables financial_reports initialisees avec succes');
     } catch (error) {
-        console.error('🚨 Erreur initialisation tables:', error.message);
-        // Ne pas bloquer le démarrage du serveur
+        console.error('[DB] Erreur initialisation tables:', error.message);
     }
 };
 
@@ -116,7 +112,7 @@ console.log('✅ Route /api/reports montée');
 console.log('✅ Toutes les routes montées avec succès');
 
 // =============================================================================
-// ROUTE DE SANTÉ
+// ROUTE DE SANTE
 // =============================================================================
 app.get('/api/health', (req, res) => {
     res.json({ 
@@ -136,9 +132,9 @@ app.use((req, res) => {
     if (!req.url.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
     } else {
-        console.log(`❌ 404 API: ${req.method} ${req.url}`);
+        console.log(`[404] API: ${req.method} ${req.url}`);
         res.status(404).json({ 
-            error: "Route API non trouvée",
+            error: "Route API non trouvee",
             path: req.url,
             method: req.method,
             availableRoutes: [
@@ -154,7 +150,7 @@ app.use((req, res) => {
 // GESTIONNAIRE D'ERREURS GLOBAL
 // =============================================================================
 app.use((err, req, res, next) => {
-    console.error('🚨 Erreur serveur:', err.message);
+    console.error('[ERREUR SERVEUR]', err.message);
     console.error(err.stack);
     res.status(500).json({ 
         error: 'Erreur serveur interne',
@@ -163,22 +159,16 @@ app.use((err, req, res, next) => {
 });
 
 // =============================================================================
-// DÉMARRAGE DU SERVEUR
+// DEMARRAGE DU SERVEUR
 // =============================================================================
 app.listen(PORT, async () => {
     console.log("=".repeat(60));
-    console.log("🚀 DOUKÈ COMPTA PRO - SERVEUR DÉMARRÉ");
+    console.log("DOUKE COMPTA PRO - SERVEUR DEMARRE");
     console.log("=".repeat(60));
-    console.log(`📍 Port: ${PORT}`);
-    console.log(`🌐 URL: http://localhost:${PORT}`);
-    console.log(`📅 Timestamp: ${new Date().toISOString()}`);
+    console.log(`Port: ${PORT}`);
+    console.log(`URL: http://localhost:${PORT}`);
+    console.log(`Timestamp: ${new Date().toISOString()}`);
     console.log("=".repeat(60));
 
-    // Initialiser les tables après démarrage
     await initDB();
 });
-```
-
-Après redéploiement tu verras dans les logs :
-```
-✅ Tables financial_reports initialisées avec succès
