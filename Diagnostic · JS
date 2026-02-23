@@ -1,0 +1,66 @@
+// =============================================================================
+// SCRIPT NODE.JS : Diagnostic rapide de l'erreur companyId
+// Usage : node diagnostic.js
+// =============================================================================
+
+const fs = require('fs');
+const path = require('path');
+
+console.log('\n================================================');
+console.log('🔍 DIAGNOSTIC ERREUR COMPANYID');
+console.log('================================================\n');
+
+// 1. Vérifier ocrController.js
+console.log('1️⃣ Vérification de ocrController.js...');
+console.log('================================================');
+
+const ocrPath = path.join(process.cwd(), 'controllers', 'ocrController.js');
+
+if (fs.existsSync(ocrPath)) {
+    console.log('✅ Fichier existe:', ocrPath);
+    
+    const content = fs.readFileSync(ocrPath, 'utf8');
+    const lines = content.split('\n');
+    
+    console.log('   📊 Nombre de lignes:', lines.length);
+    
+    // Chercher les validations
+    if (content.includes('VALIDATION 1 : UTILISATEUR')) {
+        console.log('   ✅ Contient les validations corrigées');
+    } else {
+        console.log('   ❌ NE CONTIENT PAS les validations corrigées');
+        console.log('   ⚠️  Le fichier n\'a PAS été remplacé correctement !');
+    }
+    
+    // Trouver la ligne avec companyId
+    const companyIdLine = lines.findIndex(line => 
+        line.includes('const companyId') && 
+        line.includes('req.validatedCompanyId') &&
+        !line.includes('//')
+    );
+    
+    if (companyIdLine !== -1) {
+        console.log('\n   📍 Ligne avec companyId trouvée:', companyIdLine + 1);
+        console.log('   📄 Contenu:');
+        
+        // Afficher 5 lignes autour
+        for (let i = Math.max(0, companyIdLine - 2); i < Math.min(lines.length, companyIdLine + 8); i++) {
+            const marker = i === companyIdLine ? '>>> ' : '    ';
+            console.log(marker + (i + 1) + ':', lines[i]);
+        }
+    }
+    
+} else {
+    console.log('❌ Fichier ocrController.js introuvable !');
+    console.log('   Chemin recherché:', ocrPath);
+}
+
+console.log('\n================================================');
+console.log('✅ DIAGNOSTIC TERMINÉ');
+console.log('================================================\n');
+
+console.log('📋 INTERPRÉTATION :');
+console.log('   - Si "NE CONTIENT PAS les validations" → Remplacer le fichier');
+console.log('   - Si ligne montre "const companyId = req.validatedCompanyId;" sans fallback → Problème confirmé');
+console.log('   - Si validations présentes mais erreur persiste → Vérifier qu\'il n\'y a pas un cache ou que le serveur a redémarré');
+console.log('');
