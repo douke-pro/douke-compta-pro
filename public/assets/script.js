@@ -5605,7 +5605,7 @@ window.fetchMyFinancialReports = async function(page = 1) {
             if (value) queryParams.append(key, value);
         });
         
-        const response = await apiFetch(`api/reports/my-requests?${queryParams.toString()}`, {
+        const response = await apiFetch(`reports/my-requests?${queryParams.toString()}`, {
             method: 'GET'
         });
         
@@ -5854,7 +5854,7 @@ window.cancelFinancialReportRequest = async function(requestId) {
     }
     
     try {
-        const response = await apiFetch(`api/reports/${requestId}/cancel`, {
+        const response = await apiFetch(`reports/${requestId}/cancel`, {
             method: 'DELETE'
         });
         
@@ -5878,7 +5878,7 @@ window.downloadAllReports = async function(requestId) {
     NotificationManager.show('📥 Préparation du téléchargement...', 'info', 3000);
     
     try {
-        const response = await apiFetch(`api/reports/${requestId}`, { method: 'GET' });
+        const response = await apiFetch(`reports/${requestId}`, { method: 'GET' });
         
         if (response.success && response.data.pdf_files) {
             const files = response.data.pdf_files;
@@ -5928,7 +5928,7 @@ window.viewRequestDetails = async function(requestId) {
     ModalManager.open('Détails de la Demande', loaderContent, 'max-w-5xl');
     
     try {
-        const response = await apiFetch(`api/reports/${requestId}`, { method: 'GET' });
+        const response = await apiFetch(`reports/${requestId}`, { method: 'GET' });
         
         if (response.success) {
             const request = response.data;
@@ -6444,7 +6444,7 @@ window.startProcessingRequest = async function(requestId) {
     try {
         NotificationManager.show('🔄 Génération des rapports en cours...', 'info', 5000);
         
-        const response = await apiFetch(`api/reports/${requestId}/generate`, {
+        const response = await apiFetch(`reports/${requestId}/generate`, {
             method: 'POST'
         });
         
@@ -6475,7 +6475,7 @@ window.startProcessingRequest = async function(requestId) {
 window.openEditReportsModal = async function(requestId) {
     try {
         // Charger les détails de la demande et les données Odoo
-        const response = await apiFetch(`api/reports/${requestId}/preview`, { method: 'GET' });
+        const response = await apiFetch(`reports/${requestId}/preview`, { method: 'GET' });
         
         if (response.success) {
             const requestData = response.data;
@@ -6794,7 +6794,7 @@ window.saveAndRegenerateReports = async function(requestId) {
     try {
         NotificationManager.show('💾 Sauvegarde et régénération en cours...', 'info', 10000);
 
-        const response = await apiFetch(`api/reports/${requestId}/regenerate`, {
+        const response = await apiFetch(`reports/${requestId}/regenerate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ edited_data: editedData })
@@ -6825,7 +6825,7 @@ window.validateFinancialReports = async function(requestId) {
     }
     
     try {
-        const response = await apiFetch(`api/reports/${requestId}/validate`, {
+        const response = await apiFetch(`reports/${requestId}/validate`, {
             method: 'PATCH'
         });
         
@@ -6859,7 +6859,7 @@ window.sendReportsToUser = async function(requestId) {
     }
     
     try {
-        const response = await apiFetch(`api/reports/${requestId}/send`, {
+        const response = await apiFetch(`reports/${requestId}/send`, {
             method: 'POST'
         });
         
