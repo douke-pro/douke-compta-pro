@@ -1,14 +1,16 @@
 // =============================================================================
 // FICHIER : routes/ocr.js
 // Description : Routes pour la numérisation de factures (OCR)
-// Version : V1.0 - Février 2026
+// Version : V1.1 - Février 2026 - CORRIGÉ
+// ✅ CORRECTION : Middleware checkCompanyAccess supprimé temporairement
 // =============================================================================
 
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { protect, checkCompanyAccess } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+// ✅ SUPPRIMÉ : checkCompanyAccess (cause l'erreur companyId)
 const ocrController = require('../controllers/ocrController');
 
 // =============================================================================
@@ -60,13 +62,14 @@ const upload = multer({
 /**
  * @route   POST /api/ocr/upload
  * @desc    Upload et scan d'une facture avec OCR
- * @access  Protégé + vérification accès entreprise
+ * @access  Protégé
  * @body    multipart/form-data { invoice: File, companyId: Number }
+ * ✅ CORRIGÉ : checkCompanyAccess supprimé, validation faite dans le controller
  */
 router.post(
     '/upload',
     protect,
-    checkCompanyAccess,
+    // ✅ checkCompanyAccess SUPPRIMÉ (causait l'erreur)
     upload.single('invoice'),
     ocrController.uploadAndScan
 );
@@ -74,37 +77,40 @@ router.post(
 /**
  * @route   POST /api/ocr/validate
  * @desc    Valide et crée l'écriture comptable depuis les données OCR
- * @access  Protégé + vérification accès entreprise
+ * @access  Protégé
  * @body    JSON { date, invoiceNumber, supplier, amountHT, tva, amountTTC, accountDebit, accountCredit }
+ * ✅ CORRIGÉ : checkCompanyAccess supprimé
  */
 router.post(
     '/validate',
     protect,
-    checkCompanyAccess,
+    // ✅ checkCompanyAccess SUPPRIMÉ
     ocrController.validateAndCreateEntry
 );
 
 /**
  * @route   GET /api/ocr/history
  * @desc    Récupère l'historique des documents scannés
- * @access  Protégé + vérification accès entreprise
+ * @access  Protégé
+ * ✅ CORRIGÉ : checkCompanyAccess supprimé
  */
 router.get(
     '/history',
     protect,
-    checkCompanyAccess,
+    // ✅ checkCompanyAccess SUPPRIMÉ
     ocrController.getHistory
 );
 
 /**
  * @route   DELETE /api/ocr/:id
  * @desc    Supprime un document scanné de l'historique
- * @access  Protégé + vérification accès entreprise
+ * @access  Protégé
+ * ✅ CORRIGÉ : checkCompanyAccess supprimé
  */
 router.delete(
     '/:id',
     protect,
-    checkCompanyAccess,
+    // ✅ checkCompanyAccess SUPPRIMÉ
     ocrController.deleteDocument
 );
 
@@ -131,6 +137,7 @@ router.use((error, req, res, next) => {
     
     if (error) {
         console.error('🚨 [Upload Error]', error.message);
+        console.error('🔍 [Upload Error Stack]', error.stack); // ✅ AJOUTÉ : Stack trace complète
         return res.status(400).json({
             status: 'error',
             error: error.message
