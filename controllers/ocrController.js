@@ -1,8 +1,9 @@
 // =============================================================================
 // FICHIER : controllers/ocrController.js
 // Description : Contrôleur pour la numérisation de factures (OCR)
-// Version : V1.0 - Février 2026
+// Version : V1.1 - Février 2026 - CORRIGÉ
 // Technologies : Tesseract.js (gratuit) ou Google Cloud Vision (payant)
+// ✅ CORRECTION : Validation robuste de companyId avec fallbacks multiples
 // =============================================================================
 
 const tesseract = require('tesseract.js');
@@ -24,16 +25,57 @@ const OCR_ENGINE = process.env.OCR_ENGINE || 'tesseract'; // 'tesseract' ou 'goo
 /**
  * Upload et scan d'une facture avec OCR
  * @route POST /api/ocr/upload
+ * ✅ VERSION CORRIGÉE avec validations robustes
  */
 exports.uploadAndScan = async (req, res) => {
     let filePath = null;
     
     try {
+        // =============================
+        // ✅ VALIDATION 1 : UTILISATEUR
+        // =============================
+        if (!req.user) {
+            console.error('❌ [uploadAndScan] Utilisateur non authentifié');
+            return res.status(401).json({
+                status: 'error',
+                error: 'Authentification requise'
+            });
+        }
+        
+        // =============================
+        // ✅ VALIDATION 2 : COMPANY ID
+        // =============================
+        // Essayer plusieurs sources avec fallback
+        const companyId = req.validatedCompanyId || 
+                         req.user.companyId || 
+                         req.user.entrepriseContextId || 
+                         req.user.company_id ||
+                         req.body.companyId || 
+                         req.body.company_id ||
+                         parseInt(req.query.companyId);
+        
+        if (!companyId) {
+            console.error('❌ [uploadAndScan] Company ID manquant', {
+                user: req.user.email,
+                validatedCompanyId: req.validatedCompanyId,
+                userCompanyId: req.user.companyId,
+                bodyCompanyId: req.body.companyId,
+                queryCompanyId: req.query.companyId
+            });
+            return res.status(400).json({
+                status: 'error',
+                error: 'Company ID manquant. Veuillez sélectionner une entreprise.'
+            });
+        }
+        
+        // =============================
+        // ✅ VALIDATION 3 : FICHIER
+        // =============================
         const file = req.file;
-        const companyId = req.validatedCompanyId;
         const userEmail = req.user.email;
 
         if (!file) {
+            console.error('❌ [uploadAndScan] Aucun fichier fourni');
             return res.status(400).json({
                 status: 'error',
                 error: 'Aucun fichier fourni'
@@ -50,7 +92,9 @@ exports.uploadAndScan = async (req, res) => {
             companyId: companyId
         });
 
-        // Extraction du texte avec OCR
+        // =============================
+        // EXTRACTION DU TEXTE AVEC OCR
+        // =============================
         let extractedText = '';
         
         if (OCR_ENGINE === 'tesseract') {
@@ -97,7 +141,7 @@ exports.uploadAndScan = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('🚨 [OCR] Erreur:', error.message);
+        console.error('🚨 [uploadAndScan] Erreur:', error.message);
         console.error('Stack:', error.stack);
         
         // Nettoyer le fichier en cas d'erreur
@@ -295,9 +339,26 @@ function calculateConfidence(data) {
 /**
  * Valide et crée l'écriture comptable dans Odoo
  * @route POST /api/ocr/validate
+ * ✅ VERSION CORRIGÉE avec validations robustes
  */
 exports.validateAndCreateEntry = async (req, res) => {
     try {
+        // =============================
+        // ✅ VALIDATION : COMPANY ID
+        // =============================
+        const companyId = req.validatedCompanyId || 
+                         req.user?.companyId || 
+                         req.body?.companyId || 
+                         parseInt(req.query.companyId);
+        
+        if (!companyId) {
+            console.error('❌ [validateAndCreateEntry] Company ID manquant');
+            return res.status(400).json({
+                status: 'error',
+                error: 'Company ID manquant'
+            });
+        }
+        
         const {
             date,
             invoiceNumber,
@@ -309,7 +370,6 @@ exports.validateAndCreateEntry = async (req, res) => {
             accountCredit
         } = req.body;
         
-        const companyId = req.validatedCompanyId;
         const userEmail = req.user.email;
 
         console.log('✅ [OCR Validate] Création écriture:', {
@@ -451,7 +511,16 @@ exports.validateAndCreateEntry = async (req, res) => {
  */
 exports.getHistory = async (req, res) => {
     try {
-        const companyId = req.validatedCompanyId;
+        const companyId = req.validatedCompanyId || 
+                         req.user?.companyId || 
+                         parseInt(req.query.companyId);
+
+        if (!companyId) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Company ID manquant'
+            });
+        }
 
         console.log('📚 [OCR History] Récupération pour company:', companyId);
 
@@ -479,7 +548,16 @@ exports.getHistory = async (req, res) => {
 exports.deleteDocument = async (req, res) => {
     try {
         const documentId = req.params.id;
-        const companyId = req.validatedCompanyId;
+        const companyId = req.validatedCompanyId || 
+                         req.user?.companyId || 
+                         parseInt(req.query.companyId);
+
+        if (!companyId) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Company ID manquant'
+            });
+        }
 
         console.log('🗑️ [OCR Delete] Document:', documentId, '| Company:', companyId);
 
