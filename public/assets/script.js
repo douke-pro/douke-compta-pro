@@ -4911,7 +4911,7 @@ window.loadReportsStats = async function() {
  */
 window.loadMyFinancialReportsPreview = async function() {
     try {
-        const response = await apiFetch('api/reports/my-requests?limit=3', { method: 'GET' });
+        const response = await apiFetch('reports/my-requests?limit=3', { method: 'GET' });
         
         if (response.success && response.data.length > 0) {
             const html = response.data.map(req => generateRequestPreviewItem(req)).join('');
@@ -4931,7 +4931,7 @@ window.loadMyFinancialReportsPreview = async function() {
  */
 window.loadPendingFinancialReportsPreview = async function() {
     try {
-        const response = await apiFetch('api/reports/pending?limit=3', { method: 'GET' });
+        const response = await apiFetch('reports/pending?limit=3', { method: 'GET' });
         
         if (response.success && response.data.length > 0) {
             const html = response.data.map(req => generateRequestPreviewItem(req, true)).join('');
@@ -5345,7 +5345,7 @@ window.handleSubmitFinancialReportRequest = async function() {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Envoi en cours...';
     
     try {
-        const response = await apiFetch('api/reports/request', {
+        const response = await apiFetch('reports/request', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
