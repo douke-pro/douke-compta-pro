@@ -1,5 +1,5 @@
 // =============================================================================
-// FICHIER : server.js (VERSION V21 - FIX SYNTAX ERROR)
+// FICHIER : server.js (VERSION V22 - COLONNE requested_by_name AJOUTEE)
 // =============================================================================
 
 const express = require('express');
@@ -7,8 +7,8 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-const authRoutes = require('./routes/auth');      
-const companyRoutes = require('./routes/company'); 
+const authRoutes = require('./routes/auth');
+const companyRoutes = require('./routes/company');
 const accountingRoutes = require('./routes/accounting');
 const userRoutes = require('./routes/user');
 const settingsRoutes = require('./routes/settings');
@@ -27,6 +27,7 @@ const PORT = process.env.PORT || 3000;
 const initDB = async () => {
     const pool = require('./services/dbService');
     try {
+        // Creer les tables si elles n'existent pas
         await pool.query(`
             CREATE TABLE IF NOT EXISTS financial_reports_requests (
                 id SERIAL PRIMARY KEY,
@@ -37,6 +38,7 @@ const initDB = async () => {
                 period_end DATE,
                 fiscal_year VARCHAR(20),
                 requested_by INTEGER,
+                requested_by_name VARCHAR(150),
                 processed_by INTEGER,
                 validated_by INTEGER,
                 notes TEXT,
@@ -61,6 +63,14 @@ const initDB = async () => {
                 read_at TIMESTAMP
             );
         `);
+
+        // Ajouter la colonne requested_by_name si elle n'existe pas encore
+        // (pour les bases existantes avant cette migration)
+        await pool.query(`
+            ALTER TABLE financial_reports_requests 
+            ADD COLUMN IF NOT EXISTS requested_by_name VARCHAR(150);
+        `);
+
         console.log('[DB] Tables financial_reports initialisees avec succes');
     } catch (error) {
         console.error('[DB] Erreur initialisation tables:', error.message);
@@ -80,42 +90,42 @@ app.use(express.static(path.join(__dirname, 'public')));
 console.log('🔵 Montage des routes API...');
 
 app.use('/api/auth', authRoutes);
-console.log('✅ Route /api/auth montée');
+console.log('✅ Route /api/auth montee');
 
 app.use('/api/companies', companyRoutes);
-console.log('✅ Route /api/companies montée');
+console.log('✅ Route /api/companies montee');
 
 app.use('/api/accounting', accountingRoutes);
-console.log('✅ Route /api/accounting montée');
+console.log('✅ Route /api/accounting montee');
 
 app.use('/api/user', userRoutes);
-console.log('✅ Route /api/user montée');
+console.log('✅ Route /api/user montee');
 
 app.use('/api/settings', settingsRoutes);
-console.log('✅ Route /api/settings montée');
+console.log('✅ Route /api/settings montee');
 
 app.use('/api/admin', adminUsersRoutes);
-console.log('✅ Route /api/admin montée');
+console.log('✅ Route /api/admin montee');
 
 app.use('/api/notifications', notificationsRoutes);
-console.log('✅ Route /api/notifications montée');
+console.log('✅ Route /api/notifications montee');
 
 app.use('/api/ocr', ocrRoutes);
-console.log('✅ Route /api/ocr montée');
+console.log('✅ Route /api/ocr montee');
 
 app.use('/api/accounting/immobilisations', immobilisationsRoutes);
-console.log('✅ Route /api/accounting/immobilisations montée');
+console.log('✅ Route /api/accounting/immobilisations montee');
 
 app.use('/api/reports', reportsRoutes);
-console.log('✅ Route /api/reports montée');
+console.log('✅ Route /api/reports montee');
 
-console.log('✅ Toutes les routes montées avec succès');
+console.log('✅ Toutes les routes montees avec succes');
 
 // =============================================================================
 // ROUTE DE SANTE
 // =============================================================================
 app.get('/api/health', (req, res) => {
-    res.json({ 
+    res.json({
         status: 'OK',
         timestamp: new Date().toISOString(),
         routes: [
@@ -133,7 +143,7 @@ app.use((req, res) => {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
     } else {
         console.log(`[404] API: ${req.method} ${req.url}`);
-        res.status(404).json({ 
+        res.status(404).json({
             error: "Route API non trouvee",
             path: req.url,
             method: req.method,
@@ -152,7 +162,7 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
     console.error('[ERREUR SERVEUR]', err.message);
     console.error(err.stack);
-    res.status(500).json({ 
+    res.status(500).json({
         error: 'Erreur serveur interne',
         message: err.message
     });
