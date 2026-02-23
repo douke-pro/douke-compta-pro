@@ -1,10 +1,12 @@
 // =============================================================================
-// FICHIER : server.js (VERSION V22 - COLONNE requested_by_name AJOUTEE)
+// FICHIER : server.js (VERSION V23 - DOSSIERS UPLOADS AUTO + requested_by_name)
+// ✅ AJOUT : Création automatique des dossiers uploads au démarrage
 // =============================================================================
 
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs'); // ✅ AJOUTÉ pour création dossiers
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -20,6 +22,21 @@ const reportsRoutes = require('./routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// =============================================================================
+// ✅ CRÉATION AUTOMATIQUE DES DOSSIERS UPLOADS
+// =============================================================================
+const uploadDirs = ['uploads', 'uploads/temp', 'uploads/invoices', 'uploads/documents'];
+console.log('📁 [Init] Vérification des dossiers uploads...');
+uploadDirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`   ✅ Dossier créé: ${dir}`);
+    } else {
+        console.log(`   ✓ Dossier existe: ${dir}`);
+    }
+});
+console.log('✅ [Init] Dossiers uploads vérifiés');
 
 // =============================================================================
 // INITIALISATION DES TABLES (AUTO-MIGRATION)
