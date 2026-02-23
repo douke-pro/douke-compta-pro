@@ -339,13 +339,11 @@ function calculateConfidence(data) {
 /**
  * Valide et crée l'écriture comptable dans Odoo
  * @route POST /api/ocr/validate
- * ✅ VERSION CORRIGÉE avec validations robustes
+ * ✅ VERSION V1.2 : Support Fournisseur/Client + Recherche comptes par CODE
  */
 exports.validateAndCreateEntry = async (req, res) => {
     try {
-        // =============================
-        // ✅ VALIDATION : COMPANY ID
-        // =============================
+        // VALIDATION : COMPANY ID
         const companyId = req.validatedCompanyId || 
                          req.user?.companyId || 
                          req.body?.companyId || 
@@ -359,6 +357,7 @@ exports.validateAndCreateEntry = async (req, res) => {
             });
         }
         
+        // EXTRACTION DES DONNÉES
         const {
             date,
             invoiceNumber,
@@ -366,13 +365,15 @@ exports.validateAndCreateEntry = async (req, res) => {
             amountHT,
             tva,
             amountTTC,
-            accountDebit,
-            accountCredit
+            accountDebitCode,      // ✅ CODE au lieu d'ID
+            accountCreditCode,     // ✅ CODE au lieu d'ID
+            invoiceType            // ✅ 'fournisseur' ou 'client'
         } = req.body;
         
         const userEmail = req.user.email;
 
         console.log('✅ [OCR Validate] Création écriture:', {
+            type: invoiceType || 'fournisseur',
             invoiceNumber,
             supplier,
             amountTTC,
@@ -380,14 +381,11 @@ exports.validateAndCreateEntry = async (req, res) => {
             companyId
         });
 
-        // =============================
-        // 1. VALIDATIONS
-        // =============================
-        
+        // VALIDATIONS
         if (!date || !invoiceNumber || !supplier) {
             return res.status(400).json({
                 status: 'error',
-                error: 'Date, numéro de facture et fournisseur requis'
+                error: 'Date, numéro de facture et fournisseur/client requis'
             });
         }
         
@@ -398,25 +396,23 @@ exports.validateAndCreateEntry = async (req, res) => {
             });
         }
         
-        if (!accountDebit || !accountCredit) {
+        if (!accountDebitCode || !accountCreditCode) {
             return res.status(400).json({
                 status: 'error',
-                error: 'Comptes comptables requis'
+                error: 'Codes des comptes comptables requis'
             });
         }
 
-        // =============================
-        // 2. RECHERCHE DU JOURNAL
-        // =============================
+        // RECHERCHE DU JOURNAL
+        const journalType = invoiceType === 'client' ? 'sale' : 'purchase';
         
-        // Rechercher le journal "Achats" pour la compagnie
         const journals = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.journal',
             method: 'search_read',
             args: [[
                 ['company_id', '=', companyId],
-                ['type', '=', 'purchase']
+                ['type', '=', journalType]
             ]],
             kwargs: {
                 fields: ['id', 'name', 'code'],
@@ -427,35 +423,88 @@ exports.validateAndCreateEntry = async (req, res) => {
         if (!journals || journals.length === 0) {
             return res.status(400).json({
                 status: 'error',
-                error: 'Aucun journal d\'achats trouvé pour cette entreprise'
+                error: `Aucun journal ${journalType === 'sale' ? 'de ventes' : 'd\'achats'} trouvé pour cette entreprise`
             });
         }
 
         const journalId = journals[0].id;
         console.log('📖 [OCR Validate] Journal sélectionné:', journals[0].name, `(ID: ${journalId})`);
 
-        // =============================
-        // 3. CRÉATION DE L'ÉCRITURE
-        // =============================
+        // ✅ RECHERCHE COMPTE DÉBIT PAR CODE
+        console.log('🔍 [OCR Validate] Recherche compte débit:', accountDebitCode);
+        
+        const accountDebitSearch = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.account',
+            method: 'search_read',
+            args: [[
+                ['code', '=', accountDebitCode],
+                ['company_ids', 'in', [companyId]]
+            ]],
+            kwargs: { 
+                fields: ['id', 'name', 'code'], 
+                limit: 1 
+            }
+        });
+
+        if (!accountDebitSearch || accountDebitSearch.length === 0) {
+            console.error('❌ [OCR Validate] Compte débit introuvable:', accountDebitCode);
+            return res.status(400).json({
+                status: 'error',
+                error: `Compte débit "${accountDebitCode}" introuvable dans le plan comptable`
+            });
+        }
+
+        const accountDebitId = accountDebitSearch[0].id;
+        console.log('✅ [OCR Validate] Compte débit trouvé:', accountDebitSearch[0].code, '-', accountDebitSearch[0].name);
+
+        // ✅ RECHERCHE COMPTE CRÉDIT PAR CODE
+        console.log('🔍 [OCR Validate] Recherche compte crédit:', accountCreditCode);
+        
+        const accountCreditSearch = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.account',
+            method: 'search_read',
+            args: [[
+                ['code', '=', accountCreditCode],
+                ['company_ids', 'in', [companyId]]
+            ]],
+            kwargs: { 
+                fields: ['id', 'name', 'code'], 
+                limit: 1 
+            }
+        });
+
+        if (!accountCreditSearch || accountCreditSearch.length === 0) {
+            console.error('❌ [OCR Validate] Compte crédit introuvable:', accountCreditCode);
+            return res.status(400).json({
+                status: 'error',
+                error: `Compte crédit "${accountCreditCode}" introuvable dans le plan comptable`
+            });
+        }
+
+        const accountCreditId = accountCreditSearch[0].id;
+        console.log('✅ [OCR Validate] Compte crédit trouvé:', accountCreditSearch[0].code, '-', accountCreditSearch[0].name);
+
+        // CRÉATION DE L'ÉCRITURE
+        const partnerLabel = invoiceType === 'client' ? 'Client' : 'Fournisseur';
         
         const moveData = {
             company_id: companyId,
             journal_id: journalId,
             date: date,
             ref: invoiceNumber,
-            narration: `Facture ${supplier} - Numérisée automatiquement`,
+            narration: `Facture ${supplier} - Numérisée automatiquement (${partnerLabel})`,
             line_ids: [
-                // Ligne de débit (Achat)
                 [0, 0, {
-                    account_id: accountDebit,
-                    name: `Achat - ${supplier}`,
+                    account_id: accountDebitId,
+                    name: `${invoiceType === 'client' ? 'Vente' : 'Achat'} - ${supplier}`,
                     debit: amountTTC,
                     credit: 0
                 }],
-                // Ligne de crédit (Fournisseur)
                 [0, 0, {
-                    account_id: accountCredit,
-                    name: `Fournisseur - ${supplier}`,
+                    account_id: accountCreditId,
+                    name: `${partnerLabel} - ${supplier}`,
                     debit: 0,
                     credit: amountTTC
                 }]
@@ -474,18 +523,20 @@ exports.validateAndCreateEntry = async (req, res) => {
 
         console.log(`✅ [OCR Validate] Écriture créée avec succès: ID ${moveId}`);
 
-        // =============================
-        // 4. RÉPONSE
-        // =============================
-        
+        // RÉPONSE
         res.json({
             status: 'success',
             message: 'Écriture comptable créée avec succès',
             data: {
                 moveId: moveId,
                 invoiceNumber: invoiceNumber,
-                supplier: supplier,
-                amount: amountTTC
+                partner: supplier,
+                amount: amountTTC,
+                type: invoiceType || 'fournisseur',
+                accounts: {
+                    debit: `${accountDebitSearch[0].code} - ${accountDebitSearch[0].name}`,
+                    credit: `${accountCreditSearch[0].code} - ${accountCreditSearch[0].name}`
+                }
             }
         });
 
