@@ -504,6 +504,7 @@ async function loadContentArea(contentId, title) {
                 
             case 'reports':
                 content = generateReportsMenuHTML();
+                window.initFinancialReportsModule();
                 break;
                 
             case 'manual-entry':
