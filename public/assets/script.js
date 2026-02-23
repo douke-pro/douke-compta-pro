@@ -4892,7 +4892,7 @@ function getReportTitle(reportId) {
  */
 window.loadReportsStats = async function() {
     try {
-        const response = await apiFetch('api/reports/stats/summary', { method: 'GET' });
+        const response = await apiFetch('reports/stats', { method: 'GET' });
         
         if (response.success) {
             const stats = response.data;
