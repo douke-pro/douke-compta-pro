@@ -726,12 +726,23 @@ async function fetchDashboardData(endpoint) {
 /**
  * 📷 Ouvre la modal de numérisation de facture
  */
+// =============================================================================
+// FONCTIONS OCR - SCAN DE FACTURES
+// À ajouter dans script.js après la ligne ~8400
+// =============================================================================
+
+/**
+ * Ouvrir le scanner de factures
+ */
 window.openInvoiceScanner = function() {
-    console.log('📷 [openInvoiceScanner] Ouverture du scanner de factures...');
+    console.log('📷 [openInvoiceScanner] Ouverture du scanner...');
+    
+    // Charger dynamiquement les comptes disponibles
+    loadAccountsForOCR();
     
     const scannerHTML = `
         <div class="space-y-6">
-            <!-- Zone de Drop avec style amélioré -->
+            <!-- Zone de Drop -->
             <div id="invoice-dropzone" 
                  class="border-4 border-dashed border-primary/40 rounded-2xl p-16 text-center bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/15 transition-all cursor-pointer group"
                  onclick="document.getElementById('invoice-file-input').click()"
@@ -750,45 +761,55 @@ window.openInvoiceScanner = function() {
                 <input type="file" id="invoice-file-input" accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="window.handleInvoiceUpload(event)">
             </div>
             
-            <!-- Zone de résultat OCR (masquée au départ) -->
+            <!-- Zone de résultat OCR -->
             <div id="ocr-result-zone" class="hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Aperçu du document -->
+                    <!-- Aperçu -->
                     <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
                         <h5 class="font-bold text-gray-900 dark:text-white mb-3 flex items-center">
                             <i class="fas fa-file-image mr-2 text-primary"></i>
                             Document Scanné
                         </h5>
                         <div id="document-preview" class="bg-white dark:bg-gray-800 rounded-lg p-2 min-h-[400px] flex items-center justify-center border-2 border-gray-200 dark:border-gray-600">
-                            <span class="text-gray-400">Aperçu du document</span>
+                            <img id="preview-image" class="max-w-full max-h-[400px] object-contain hidden">
+                            <span id="preview-placeholder" class="text-gray-400">Aperçu du document</span>
                         </div>
                     </div>
                     
-                    <!-- Formulaire de validation -->
+                    <!-- Formulaire -->
                     <div>
                         <h5 class="font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                             <i class="fas fa-edit mr-2 text-success"></i>
                             Données Extraites
-                            <span class="ml-auto text-xs font-normal text-gray-500">Vérifiez et corrigez si nécessaire</span>
+                            <span class="ml-auto text-xs font-normal text-gray-500">Vérifiez et corrigez</span>
                         </h5>
                         <form id="ocr-validation-form" onsubmit="window.handleOCRValidation(event)" class="space-y-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                    Type de Facture <span class="text-danger">*</span>
+                                </label>
+                                <select id="ocr-invoice-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="fournisseur">Facture Fournisseur</option>
+                                    <option value="client">Facture Client</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                                     Date <span class="text-danger">*</span>
                                 </label>
-                                <input type="date" id="ocr-date" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                                <input type="date" id="ocr-date" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                                     N° Facture <span class="text-danger">*</span>
                                 </label>
-                                <input type="text" id="ocr-invoice-number" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                                <input type="text" id="ocr-invoice-number" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                                    Fournisseur <span class="text-danger">*</span>
+                                    Fournisseur/Client <span class="text-danger">*</span>
                                 </label>
-                                <input type="text" id="ocr-supplier" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary">
+                                <input type="text" id="ocr-supplier" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                             </div>
                             <div class="grid grid-cols-3 gap-3">
                                 <div>
@@ -797,7 +818,7 @@ window.openInvoiceScanner = function() {
                                 </div>
                                 <div>
                                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">TVA</label>
-                                    <input type="number" step="0.01" id="ocr-tva" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                    <input type="number" step="0.01" id="ocr-tva" class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">TTC</label>
@@ -809,10 +830,7 @@ window.openInvoiceScanner = function() {
                                     Compte Débit <span class="text-danger">*</span>
                                 </label>
                                 <select id="ocr-account-debit" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                                    <option value="">-- Choisir un compte --</option>
-                                    <option value="601100">601100 - Achats de marchandises</option>
-                                    <option value="601200">601200 - Achats de matières premières</option>
-                                    <option value="605000">605000 - Autres achats</option>
+                                    <option value="">-- Chargement des comptes... --</option>
                                 </select>
                             </div>
                             <div>
@@ -820,9 +838,7 @@ window.openInvoiceScanner = function() {
                                     Compte Crédit <span class="text-danger">*</span>
                                 </label>
                                 <select id="ocr-account-credit" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                                    <option value="">-- Choisir un compte --</option>
-                                    <option value="401000">401000 - Fournisseurs</option>
-                                    <option value="404000">404000 - Fournisseurs d'immobilisations</option>
+                                    <option value="">-- Chargement des comptes... --</option>
                                 </select>
                             </div>
                             <div class="flex gap-3 pt-6 border-t">
@@ -856,7 +872,49 @@ window.openInvoiceScanner = function() {
 };
 
 /**
- * 🖱️ Gère le drop de fichier (drag & drop)
+ * Charger les comptes disponibles pour les sélecteurs
+ */
+async function loadAccountsForOCR() {
+    try {
+        const response = await apiFetch(`accounting/accounts?companyId=${appState.currentCompanyId}`);
+        
+        if (response.status === 'success' && response.data) {
+            const accounts = response.data;
+            
+            // Attendre que les selects existent
+            setTimeout(() => {
+                const debitSelect = document.getElementById('ocr-account-debit');
+                const creditSelect = document.getElementById('ocr-account-credit');
+                
+                if (!debitSelect || !creditSelect) return;
+                
+                // Filtrer les comptes par type
+                const chargeAccounts = accounts.filter(acc => acc.code.startsWith('6'));
+                const tierAccounts = accounts.filter(acc => acc.code.startsWith('4'));
+                const produitAccounts = accounts.filter(acc => acc.code.startsWith('7'));
+                
+                // Remplir compte débit (charges + produits)
+                debitSelect.innerHTML = '<option value="">-- Choisir un compte --</option>';
+                [...chargeAccounts, ...produitAccounts].forEach(acc => {
+                    debitSelect.innerHTML += `<option value="${acc.code}">${acc.code} - ${acc.name}</option>`;
+                });
+                
+                // Remplir compte crédit (tiers)
+                creditSelect.innerHTML = '<option value="">-- Choisir un compte --</option>';
+                tierAccounts.forEach(acc => {
+                    creditSelect.innerHTML += `<option value="${acc.code}">${acc.code} - ${acc.name}</option>`;
+                });
+                
+                console.log('✅ [loadAccountsForOCR] Comptes chargés:', accounts.length);
+            }, 500);
+        }
+    } catch (error) {
+        console.error('❌ [loadAccountsForOCR] Erreur:', error);
+    }
+}
+
+/**
+ * Gérer le drop de fichier
  */
 window.handleInvoiceDrop = function(event) {
     event.preventDefault();
@@ -865,14 +923,14 @@ window.handleInvoiceDrop = function(event) {
     const dropzone = document.getElementById('invoice-dropzone');
     dropzone.classList.remove('border-primary', 'bg-primary/20');
     
-    const file = event.dataTransfer.files[0];
-    if (file) {
-        processInvoiceFile(file);
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        processInvoiceFile(files[0]);
     }
 };
 
 /**
- * 📤 Gère l'upload du fichier via input
+ * Gérer l'upload de fichier
  */
 window.handleInvoiceUpload = function(event) {
     const file = event.target.files[0];
@@ -882,21 +940,21 @@ window.handleInvoiceUpload = function(event) {
 };
 
 /**
- * ⚙️ Traite le fichier uploadé (validation + envoi OCR)
+ * Traiter le fichier uploadé
  */
 async function processInvoiceFile(file) {
-    console.log('📤 [processInvoiceFile] Fichier:', file.name, '|', (file.size / 1024 / 1024).toFixed(2), 'MB');
+    console.log('📄 [processInvoiceFile] Fichier:', file.name, 'Taille:', file.size);
     
-    // Validation taille
-    if (file.size > 10 * 1024 * 1024) {
-        NotificationManager.show('❌ Le fichier ne doit pas dépasser 10 MB', 'error');
+    // Validation
+    const maxSize = 10 * 1024 * 1024; // 10 MB
+    if (file.size > maxSize) {
+        NotificationManager.show('Fichier trop volumineux (max 10 MB)', 'error');
         return;
     }
     
-    // Validation type
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (!allowedTypes.includes(file.type)) {
-        NotificationManager.show('❌ Type de fichier non autorisé. Utilisez PDF, JPG ou PNG.', 'error');
+        NotificationManager.show('Format non supporté (PDF, JPG, PNG uniquement)', 'error');
         return;
     }
     
@@ -907,13 +965,11 @@ async function processInvoiceFile(file) {
     try {
         // Créer FormData
         const formData = new FormData();
-        formData.append('invoice', file);
+        formData.append('file', file);
         formData.append('companyId', appState.currentCompanyId);
         
-        console.log('🚀 [processInvoiceFile] Envoi au serveur pour OCR...');
-        
         // Appel API OCR
-        const response = await fetch(`${API_BASE_URL}/api/ocr/upload`, {
+        const response = await fetch(`${API_BASE_URL}/ocr/process`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${appState.token}`
@@ -923,80 +979,111 @@ async function processInvoiceFile(file) {
         
         const data = await response.json();
         
-        if (data.status === 'success') {
-            console.log('✅ [OCR] Données extraites:', data.data.parsed);
-            
-            // Pré-remplir le formulaire
-            document.getElementById('ocr-date').value = data.data.parsed.date || new Date().toISOString().split('T')[0];
-            document.getElementById('ocr-invoice-number').value = data.data.parsed.invoiceNumber || '';
-            document.getElementById('ocr-supplier').value = data.data.parsed.supplier || '';
-            document.getElementById('ocr-amount-ht').value = data.data.parsed.amountHT || 0;
-            document.getElementById('ocr-tva').value = data.data.parsed.tva || 0;
-            document.getElementById('ocr-amount-ttc').value = data.data.parsed.amountTTC || 0;
-            
-            // Afficher le résultat
-            document.getElementById('ocr-loading-zone').classList.add('hidden');
-            document.getElementById('ocr-result-zone').classList.remove('hidden');
-            
-            NotificationManager.show('✅ Document analysé ! Vérifiez les données extraites.', 'success');
-            
+        if (data.success) {
+            console.log('✅ [processInvoiceFile] OCR réussi:', data);
+            displayOCRResults(data.data, file);
         } else {
-            throw new Error(data.error || 'Erreur OCR');
+            throw new Error(data.message || 'Erreur OCR');
         }
         
     } catch (error) {
-        console.error('🚨 [processInvoiceFile] Erreur:', error);
-        NotificationManager.show(`❌ Erreur : ${error.message}`, 'error');
+        console.error('❌ [processInvoiceFile] Erreur:', error);
+        NotificationManager.show(`Erreur OCR: ${error.message}`, 'error');
         
-        // Réafficher la dropzone
-        document.getElementById('ocr-loading-zone').classList.add('hidden');
+        // Réinitialiser
         document.getElementById('invoice-dropzone').classList.remove('hidden');
+        document.getElementById('ocr-loading-zone').classList.add('hidden');
     }
 }
 
 /**
- * ✅ Valide et crée l'écriture comptable depuis les données OCR
+ * Afficher les résultats OCR dans le formulaire
+ */
+function displayOCRResults(ocrData, file) {
+    console.log('📊 [displayOCRResults] Données:', ocrData);
+    
+    // Masquer loading, afficher résultats
+    document.getElementById('ocr-loading-zone').classList.add('hidden');
+    document.getElementById('ocr-result-zone').classList.remove('hidden');
+    
+    // Afficher l'image
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('preview-image');
+            const placeholder = document.getElementById('preview-placeholder');
+            img.src = e.target.result;
+            img.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // Remplir le formulaire avec les données OCR
+    document.getElementById('ocr-date').value = ocrData.date || new Date().toISOString().split('T')[0];
+    document.getElementById('ocr-invoice-number').value = ocrData.invoice_number || '';
+    document.getElementById('ocr-supplier').value = ocrData.supplier || '';
+    document.getElementById('ocr-amount-ht').value = ocrData.amount_ht || '';
+    document.getElementById('ocr-tva').value = ocrData.tva || '';
+    document.getElementById('ocr-amount-ttc').value = ocrData.amount_ttc || '';
+    
+    // Auto-calculer TTC si manquant
+    if (!ocrData.amount_ttc && ocrData.amount_ht && ocrData.tva) {
+        const ttc = parseFloat(ocrData.amount_ht) + parseFloat(ocrData.tva);
+        document.getElementById('ocr-amount-ttc').value = ttc.toFixed(2);
+    }
+    
+    NotificationManager.show('✅ Document analysé avec succès', 'success');
+}
+
+/**
+ * Valider et créer l'écriture comptable
  */
 window.handleOCRValidation = async function(event) {
     event.preventDefault();
     
-    const data = {
+    const formData = {
         companyId: appState.currentCompanyId,
+        invoiceType: document.getElementById('ocr-invoice-type').value,
         date: document.getElementById('ocr-date').value,
         invoiceNumber: document.getElementById('ocr-invoice-number').value,
         supplier: document.getElementById('ocr-supplier').value,
         amountHT: parseFloat(document.getElementById('ocr-amount-ht').value),
-        tva: parseFloat(document.getElementById('ocr-tva').value),
+        tva: parseFloat(document.getElementById('ocr-tva').value) || 0,
         amountTTC: parseFloat(document.getElementById('ocr-amount-ttc').value),
-        accountDebit: parseInt(document.getElementById('ocr-account-debit').value),
-        accountCredit: parseInt(document.getElementById('ocr-account-credit').value)
+        accountDebitCode: document.getElementById('ocr-account-debit').value,
+        accountCreditCode: document.getElementById('ocr-account-credit').value
     };
     
-    console.log('✅ [handleOCRValidation] Validation et création:', data);
+    console.log('💾 [handleOCRValidation] Données:', formData);
     
     try {
-        NotificationManager.show('⏳ Création de l\'écriture comptable...', 'info');
+        NotificationManager.show('Création de l\'écriture...', 'info');
         
-        const response = await apiFetch('ocr/validate', {
+        const response = await apiFetch('ocr/validate-and-create', {
             method: 'POST',
-            body: JSON.stringify(data)
+            body: JSON.stringify(formData)
         });
         
-        if (response.status === 'success') {
-            NotificationManager.show('🎉 Facture enregistrée avec succès !', 'success');
+        if (response.success) {
+            NotificationManager.show('✅ Écriture créée avec succès !', 'success');
             ModalManager.close();
             
-            // Recharger le dashboard pour voir la nouvelle écriture
-            loadContentArea('dashboard', 'Tableau de Bord');
+            // Recharger les écritures
+            if (typeof loadContentArea === 'function') {
+                loadContentArea('journal', 'Journaux et Écritures');
+            }
         } else {
-            throw new Error(response.error || 'Erreur lors de la création');
+            throw new Error(response.message || 'Erreur lors de la création');
         }
         
     } catch (error) {
-        console.error('🚨 [handleOCRValidation] Erreur:', error);
-        NotificationManager.show(`❌ Erreur : ${error.message}`, 'error');
+        console.error('❌ [handleOCRValidation] Erreur:', error);
+        NotificationManager.show(`Erreur: ${error.message}`, 'error');
     }
 };
+
+console.log('✅ [OCR] Fonctions chargées avec succès');
 
 // =================================================================
 // JOURNAL (AVEC AMÉLIORATIONS)
