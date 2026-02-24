@@ -112,4 +112,49 @@ router.post('/chart-of-accounts', protect, checkCompanyAccess, checkWritePermiss
  */
 router.put('/chart-of-accounts', protect, checkCompanyAccess, checkWritePermission, accountingController.updateAccount);
 
+/**
+ * GET /api/accounting/accounts
+ * Récupérer les comptes pour une entreprise
+ */
+router.get('/accounts', authenticateToken, async (req, res) => {
+    try {
+        const companyId = req.user.currentCompanyId || 
+                         req.user.companyId || 
+                         parseInt(req.query.companyId);
+        
+        if (!companyId) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Company ID manquant'
+            });
+        }
+
+        const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+
+        const accounts = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.account',
+            method: 'search_read',
+            args: [[['company_id', '=', companyId]]],
+            kwargs: {
+                fields: ['id', 'code', 'name'],
+                order: 'code ASC',
+                limit: 1000
+            }
+        });
+
+        res.json({
+            status: 'success',
+            data: accounts
+        });
+
+    } catch (error) {
+        console.error('🚨 [getAccounts] Erreur:', error.message);
+        res.status(500).json({
+            status: 'error',
+            error: 'Erreur récupération comptes'
+        });
+    }
+});
+
 module.exports = router;
