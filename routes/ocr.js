@@ -1,7 +1,7 @@
 // =============================================================================
 // FICHIER : routes/ocr.js
-// Description : Routes pour la numérisation de factures (OCR)
-// Version : V2.0 - CORRIGÉE - Endpoints alignés avec le frontend
+// Description : Routes OCR - COMPATIBLE avec ocrController.js existant
+// Version : V2.1 - Aligné avec frontend + contrôleur existant
 // Date : 2026-02-22
 // =============================================================================
 
@@ -13,7 +13,7 @@ const { authenticateToken } = require('../middleware/auth');
 const ocrController = require('../controllers/ocrController');
 
 // =============================================================================
-// CONFIGURATION MULTER (Upload de fichiers)
+// CONFIGURATION MULTER
 // =============================================================================
 
 const storage = multer.diskStorage({
@@ -38,7 +38,7 @@ const upload = multer({
             'image/jpeg',
             'image/jpg',
             'image/png',
-            'application/pdf'  // ✅ Réactivé (avec conversion en image)
+            'application/pdf'
         ];
         
         if (allowedTypes.includes(file.mimetype)) {
@@ -59,21 +59,24 @@ const upload = multer({
  * POST /api/ocr/process
  * Upload et analyse OCR d'une facture
  * Body: FormData { file: File, companyId: Number }
+ * ✅ ALIGNÉ AVEC LE FRONTEND
+ * ✅ APPELLE ocrController.uploadAndScan (fonction existante)
  */
 router.post(
-    '/process',  // ✅ ALIGNÉ AVEC LE FRONTEND
+    '/process',
     authenticateToken,
-    upload.single('file'),  // ✅ Champ 'file' (pas 'invoice')
-    ocrController.processInvoice
+    upload.single('file'),  // ✅ Champ 'file' du frontend
+    ocrController.uploadAndScan  // ✅ Fonction existante dans ton contrôleur
 );
 
 /**
  * POST /api/ocr/validate-and-create
  * Valider et créer l'écriture comptable
- * Body: JSON { date, invoiceNumber, supplier, amountTTC, accountDebitCode, accountCreditCode, ... }
+ * Body: JSON { date, invoiceNumber, supplier, amountTTC, accountDebitCode, accountCreditCode, invoiceType }
+ * ✅ ALIGNÉ AVEC LE FRONTEND
  */
 router.post(
-    '/validate-and-create',  // ✅ ALIGNÉ AVEC LE FRONTEND
+    '/validate-and-create',
     authenticateToken,
     ocrController.validateAndCreateEntry
 );
@@ -129,5 +132,7 @@ router.use((error, req, res, next) => {
     
     next();
 });
+
+console.log('✅ [routes/ocr] Routes chargées avec succès');
 
 module.exports = router;
