@@ -1,9 +1,9 @@
 // =============================================================================
 // FICHIER : controllers/ocrController.js
 // Description : Contrôleur pour la numérisation de factures (OCR)
-// Version : V1.1 - Février 2026 - CORRIGÉ
+// Version : FINAL - Combinaison complète + corrections format frontend
 // Technologies : Tesseract.js (gratuit) ou Google Cloud Vision (payant)
-// ✅ CORRECTION : Validation robuste de companyId avec fallbacks multiples
+// Date : 2026-02-24
 // =============================================================================
 
 const tesseract = require('tesseract.js');
@@ -24,8 +24,8 @@ const OCR_ENGINE = process.env.OCR_ENGINE || 'tesseract'; // 'tesseract' ou 'goo
 
 /**
  * Upload et scan d'une facture avec OCR
- * @route POST /api/ocr/upload
- * ✅ VERSION CORRIGÉE avec validations robustes
+ * @route POST /api/ocr/process
+ * ✅ VERSION FINALE avec validations robustes + format frontend
  */
 exports.uploadAndScan = async (req, res) => {
     let filePath = null;
@@ -37,8 +37,8 @@ exports.uploadAndScan = async (req, res) => {
         if (!req.user) {
             console.error('❌ [uploadAndScan] Utilisateur non authentifié');
             return res.status(401).json({
-                status: 'error',
-                error: 'Authentification requise'
+                success: false,
+                message: 'Authentification requise'
             });
         }
         
@@ -48,6 +48,7 @@ exports.uploadAndScan = async (req, res) => {
         // Essayer plusieurs sources avec fallback
         const companyId = req.validatedCompanyId || 
                          req.user.companyId || 
+                         req.user.currentCompanyId ||
                          req.user.entrepriseContextId || 
                          req.user.company_id ||
                          req.body.companyId || 
@@ -59,12 +60,13 @@ exports.uploadAndScan = async (req, res) => {
                 user: req.user.email,
                 validatedCompanyId: req.validatedCompanyId,
                 userCompanyId: req.user.companyId,
+                userCurrentCompanyId: req.user.currentCompanyId,
                 bodyCompanyId: req.body.companyId,
                 queryCompanyId: req.query.companyId
             });
             return res.status(400).json({
-                status: 'error',
-                error: 'Company ID manquant. Veuillez sélectionner une entreprise.'
+                success: false,
+                message: 'Company ID manquant. Veuillez sélectionner une entreprise.'
             });
         }
         
@@ -77,8 +79,8 @@ exports.uploadAndScan = async (req, res) => {
         if (!file) {
             console.error('❌ [uploadAndScan] Aucun fichier fourni');
             return res.status(400).json({
-                status: 'error',
-                error: 'Aucun fichier fourni'
+                success: false,
+                message: 'Aucun fichier fourni'
             });
         }
 
@@ -131,12 +133,19 @@ exports.uploadAndScan = async (req, res) => {
         await fs.unlink(filePath);
         console.log('🗑️ [OCR] Fichier temporaire supprimé');
 
+        // ✅ FORMAT COMPATIBLE FRONTEND (success au lieu de status)
         res.json({
-            status: 'success',
+            success: true,
             message: 'Document analysé avec succès',
             data: {
-                rawText: extractedText.substring(0, 500), // Limiter pour éviter payload trop gros
-                parsed: parsedData
+                date: parsedData.date,
+                invoice_number: parsedData.invoiceNumber,
+                supplier: parsedData.supplier,
+                amount_ht: parsedData.amountHT,
+                tva: parsedData.tva,
+                amount_ttc: parsedData.amountTTC,
+                tva_rate: parsedData.tvaRate,
+                confidence: parsedData.confidence
             }
         });
 
@@ -154,9 +163,8 @@ exports.uploadAndScan = async (req, res) => {
         }
         
         res.status(500).json({
-            status: 'error',
-            error: 'Erreur lors du scan du document',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            success: false,
+            message: `Erreur OCR: ${error.message}`
         });
     }
 };
@@ -338,22 +346,23 @@ function calculateConfidence(data) {
 
 /**
  * Valide et crée l'écriture comptable dans Odoo
- * @route POST /api/ocr/validate
- * ✅ VERSION V1.2 : Support Fournisseur/Client + Recherche comptes par CODE
+ * @route POST /api/ocr/validate-and-create
+ * ✅ VERSION FINALE : Support Fournisseur/Client + Recherche comptes par CODE
  */
 exports.validateAndCreateEntry = async (req, res) => {
     try {
         // VALIDATION : COMPANY ID
         const companyId = req.validatedCompanyId || 
                          req.user?.companyId || 
+                         req.user?.currentCompanyId ||
                          req.body?.companyId || 
                          parseInt(req.query.companyId);
         
         if (!companyId) {
             console.error('❌ [validateAndCreateEntry] Company ID manquant');
             return res.status(400).json({
-                status: 'error',
-                error: 'Company ID manquant'
+                success: false,
+                message: 'Company ID manquant'
             });
         }
         
@@ -384,22 +393,22 @@ exports.validateAndCreateEntry = async (req, res) => {
         // VALIDATIONS
         if (!date || !invoiceNumber || !supplier) {
             return res.status(400).json({
-                status: 'error',
-                error: 'Date, numéro de facture et fournisseur/client requis'
+                success: false,
+                message: 'Date, numéro de facture et fournisseur/client requis'
             });
         }
         
         if (!amountTTC || amountTTC <= 0) {
             return res.status(400).json({
-                status: 'error',
-                error: 'Montant TTC invalide'
+                success: false,
+                message: 'Montant TTC invalide'
             });
         }
         
         if (!accountDebitCode || !accountCreditCode) {
             return res.status(400).json({
-                status: 'error',
-                error: 'Codes des comptes comptables requis'
+                success: false,
+                message: 'Codes des comptes comptables requis'
             });
         }
 
@@ -422,15 +431,15 @@ exports.validateAndCreateEntry = async (req, res) => {
 
         if (!journals || journals.length === 0) {
             return res.status(400).json({
-                status: 'error',
-                error: `Aucun journal ${journalType === 'sale' ? 'de ventes' : 'd\'achats'} trouvé pour cette entreprise`
+                success: false,
+                message: `Aucun journal ${journalType === 'sale' ? 'de ventes' : 'd\'achats'} trouvé pour cette entreprise`
             });
         }
 
         const journalId = journals[0].id;
         console.log('📖 [OCR Validate] Journal sélectionné:', journals[0].name, `(ID: ${journalId})`);
 
-        // ✅ RECHERCHE COMPTE DÉBIT PAR CODE
+        // ✅ RECHERCHE COMPTE DÉBIT PAR CODE (company_ids pour multi-entreprises)
         console.log('🔍 [OCR Validate] Recherche compte débit:', accountDebitCode);
         
         const accountDebitSearch = await odooExecuteKw({
@@ -439,7 +448,7 @@ exports.validateAndCreateEntry = async (req, res) => {
             method: 'search_read',
             args: [[
                 ['code', '=', accountDebitCode],
-                ['company_ids', 'in', [companyId]]
+                ['company_id', '=', companyId]
             ]],
             kwargs: { 
                 fields: ['id', 'name', 'code'], 
@@ -450,8 +459,8 @@ exports.validateAndCreateEntry = async (req, res) => {
         if (!accountDebitSearch || accountDebitSearch.length === 0) {
             console.error('❌ [OCR Validate] Compte débit introuvable:', accountDebitCode);
             return res.status(400).json({
-                status: 'error',
-                error: `Compte débit "${accountDebitCode}" introuvable dans le plan comptable`
+                success: false,
+                message: `Compte débit "${accountDebitCode}" introuvable dans le plan comptable`
             });
         }
 
@@ -467,7 +476,7 @@ exports.validateAndCreateEntry = async (req, res) => {
             method: 'search_read',
             args: [[
                 ['code', '=', accountCreditCode],
-                ['company_ids', 'in', [companyId]]
+                ['company_id', '=', companyId]
             ]],
             kwargs: { 
                 fields: ['id', 'name', 'code'], 
@@ -478,8 +487,8 @@ exports.validateAndCreateEntry = async (req, res) => {
         if (!accountCreditSearch || accountCreditSearch.length === 0) {
             console.error('❌ [OCR Validate] Compte crédit introuvable:', accountCreditCode);
             return res.status(400).json({
-                status: 'error',
-                error: `Compte crédit "${accountCreditCode}" introuvable dans le plan comptable`
+                success: false,
+                message: `Compte crédit "${accountCreditCode}" introuvable dans le plan comptable`
             });
         }
 
@@ -523,13 +532,13 @@ exports.validateAndCreateEntry = async (req, res) => {
 
         console.log(`✅ [OCR Validate] Écriture créée avec succès: ID ${moveId}`);
 
-        // RÉPONSE
+        // ✅ FORMAT COMPATIBLE FRONTEND (success au lieu de status)
         res.json({
-            status: 'success',
+            success: true,
             message: 'Écriture comptable créée avec succès',
             data: {
-                moveId: moveId,
-                invoiceNumber: invoiceNumber,
+                move_id: moveId,
+                invoice_number: invoiceNumber,
                 partner: supplier,
                 amount: amountTTC,
                 type: invoiceType || 'fournisseur',
@@ -545,9 +554,8 @@ exports.validateAndCreateEntry = async (req, res) => {
         console.error('Stack:', error.stack);
         
         res.status(500).json({
-            status: 'error',
-            error: 'Erreur lors de la création de l\'écriture',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            success: false,
+            message: `Erreur lors de la création de l'écriture: ${error.message}`
         });
     }
 };
@@ -564,12 +572,13 @@ exports.getHistory = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || 
                          req.user?.companyId || 
+                         req.user?.currentCompanyId ||
                          parseInt(req.query.companyId);
 
         if (!companyId) {
             return res.status(400).json({
-                status: 'error',
-                error: 'Company ID manquant'
+                success: false,
+                message: 'Company ID manquant'
             });
         }
 
@@ -579,15 +588,15 @@ exports.getHistory = async (req, res) => {
         // Pour l'instant, on retourne une liste vide
         
         res.json({
-            status: 'success',
+            success: true,
             data: []
         });
 
     } catch (error) {
         console.error('🚨 [OCR History] Erreur:', error.message);
         res.status(500).json({
-            status: 'error',
-            error: 'Erreur lors de la récupération de l\'historique'
+            success: false,
+            message: 'Erreur lors de la récupération de l\'historique'
         });
     }
 };
@@ -601,12 +610,13 @@ exports.deleteDocument = async (req, res) => {
         const documentId = req.params.id;
         const companyId = req.validatedCompanyId || 
                          req.user?.companyId || 
+                         req.user?.currentCompanyId ||
                          parseInt(req.query.companyId);
 
         if (!companyId) {
             return res.status(400).json({
-                status: 'error',
-                error: 'Company ID manquant'
+                success: false,
+                message: 'Company ID manquant'
             });
         }
 
@@ -615,15 +625,17 @@ exports.deleteDocument = async (req, res) => {
         // TODO: Implémenter suppression en base de données
         
         res.json({
-            status: 'success',
+            success: true,
             message: 'Document supprimé avec succès'
         });
 
     } catch (error) {
         console.error('🚨 [OCR Delete] Erreur:', error.message);
         res.status(500).json({
-            status: 'error',
-            error: 'Erreur lors de la suppression du document'
+            success: false,
+            message: 'Erreur lors de la suppression du document'
         });
     }
 };
+
+console.log('✅ [ocrController] Module chargé avec succès');
