@@ -6,7 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { protect, checkCompanyAccess, checkWritePermission } = require('../middleware/auth');
+const { protect, checkCompanyAccess, checkWritePermission, authenticateToken } = require('../middleware/auth');
 const accountingController = require('../controllers/accountingController');
 
 // =============================================================================
