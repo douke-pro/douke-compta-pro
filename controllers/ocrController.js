@@ -502,34 +502,42 @@ exports.getHistory = async (req, res) => {
 exports.deleteDocument = async (req, res) => {
     try {
         const documentId = req.params.id;
-        const companyId = req.validatedCompanyId || 
-                         req.user?.companyId || 
-                         req.user?.currentCompanyId ||
-                         parseInt(req.query.companyId);
+        const companyId = req.validatedCompanyId || req.user?.companyId || parseInt(req.query.companyId);
 
         if (!companyId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Company ID manquant'
-            });
+            return res.status(400).json({ success: false, message: 'Company ID manquant' });
         }
 
-        console.log('🗑️ [OCR Delete] Document:', documentId, '| Company:', companyId);
+        console.log('🗑️ [OCR Delete] Document:', documentId);
         
         res.json({
             success: true,
             message: 'Document supprimé avec succès'
         });
-
-   const accounts = await odooExecuteKw({
-    uid: ADMIN_UID_INT,
-    model: 'account.account',
-    method: 'search_read',
-    args: [[['company_id', '=', companyId]]], // Correction du champ
-    kwargs: { 
-        fields: ['id', 'code', 'name', 'current_balance'],
-        context: { allowed_company_ids: [companyId] } 
+    } catch (error) {
+        console.error('🚨 [OCR Delete] Erreur:', error.message);
+        res.status(500).json({ success: false, message: 'Erreur suppression' });
     }
-});
+};
+
+// Fonction utilitaire pour récupérer les comptes (si tu en as besoin ailleurs)
+exports.getAccounts = async (req, res) => {
+    try {
+        const companyId = req.validatedCompanyId || req.user?.companyId;
+        const accounts = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.account',
+            method: 'search_read',
+            args: [[['company_id', '=', companyId]]],
+            kwargs: { 
+                fields: ['id', 'code', 'name', 'current_balance'],
+                context: { allowed_company_ids: [companyId] } 
+            }
+        });
+        res.json({ success: true, data: accounts });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
 
 console.log('✅ [ocrController] Module chargé avec succès');
