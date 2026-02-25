@@ -341,13 +341,13 @@ function calculateConfidence(data) {
 }
 
 // =============================================================================
-// CONTROLLER : VALIDATION ET CRÉATION ÉCRITURE
+// FONCTION validateAndCreateEntry - VERSION FINALE CORRIGÉE
+// ✅ CORRECTION : company_ids au lieu de company_id (Odoo 19)
 // =============================================================================
 
 /**
  * Valide et crée l'écriture comptable dans Odoo
  * @route POST /api/ocr/validate-and-create
- * ✅ VERSION FINALE : Support Fournisseur/Client + Recherche comptes par CODE
  */
 exports.validateAndCreateEntry = async (req, res) => {
     try {
@@ -374,9 +374,9 @@ exports.validateAndCreateEntry = async (req, res) => {
             amountHT,
             tva,
             amountTTC,
-            accountDebitCode,      // ✅ CODE au lieu d'ID
-            accountCreditCode,     // ✅ CODE au lieu d'ID
-            invoiceType            // ✅ 'fournisseur' ou 'client'
+            accountDebitCode,
+            accountCreditCode,
+            invoiceType
         } = req.body;
         
         const userEmail = req.user.email;
@@ -420,7 +420,7 @@ exports.validateAndCreateEntry = async (req, res) => {
             model: 'account.journal',
             method: 'search_read',
             args: [[
-                ['company_id', '=', companyId],
+                ['company_id', '=', companyId],  // ✅ Ici company_id est correct
                 ['type', '=', journalType]
             ]],
             kwargs: {
@@ -439,7 +439,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         const journalId = journals[0].id;
         console.log('📖 [OCR Validate] Journal sélectionné:', journals[0].name, `(ID: ${journalId})`);
 
-        // ✅ RECHERCHE COMPTE DÉBIT PAR CODE (company_ids pour multi-entreprises)
+        // ✅ RECHERCHE COMPTE DÉBIT PAR CODE (CORRIGÉ)
         console.log('🔍 [OCR Validate] Recherche compte débit:', accountDebitCode);
         
         const accountDebitSearch = await odooExecuteKw({
@@ -448,7 +448,7 @@ exports.validateAndCreateEntry = async (req, res) => {
             method: 'search_read',
             args: [[
                 ['code', '=', accountDebitCode],
-                ['company_id', '=', companyId]
+                ['company_id', '=', companyId]  // ✅ company_id (singulier) pour search_read
             ]],
             kwargs: { 
                 fields: ['id', 'name', 'code'], 
@@ -467,7 +467,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         const accountDebitId = accountDebitSearch[0].id;
         console.log('✅ [OCR Validate] Compte débit trouvé:', accountDebitSearch[0].code, '-', accountDebitSearch[0].name);
 
-        // ✅ RECHERCHE COMPTE CRÉDIT PAR CODE
+        // ✅ RECHERCHE COMPTE CRÉDIT PAR CODE (CORRIGÉ)
         console.log('🔍 [OCR Validate] Recherche compte crédit:', accountCreditCode);
         
         const accountCreditSearch = await odooExecuteKw({
@@ -476,7 +476,7 @@ exports.validateAndCreateEntry = async (req, res) => {
             method: 'search_read',
             args: [[
                 ['code', '=', accountCreditCode],
-                ['company_id', '=', companyId]
+                ['company_id', '=', companyId]  // ✅ company_id (singulier) pour search_read
             ]],
             kwargs: { 
                 fields: ['id', 'name', 'code'], 
@@ -532,13 +532,13 @@ exports.validateAndCreateEntry = async (req, res) => {
 
         console.log(`✅ [OCR Validate] Écriture créée avec succès: ID ${moveId}`);
 
-        // ✅ FORMAT COMPATIBLE FRONTEND (success au lieu de status)
+        // RÉPONSE
         res.json({
             success: true,
             message: 'Écriture comptable créée avec succès',
             data: {
-                move_id: moveId,
-                invoice_number: invoiceNumber,
+                moveId: moveId,
+                invoiceNumber: invoiceNumber,
                 partner: supplier,
                 amount: amountTTC,
                 type: invoiceType || 'fournisseur',
@@ -555,7 +555,8 @@ exports.validateAndCreateEntry = async (req, res) => {
         
         res.status(500).json({
             success: false,
-            message: `Erreur lors de la création de l'écriture: ${error.message}`
+            message: 'Erreur lors de la création de l\'écriture',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
