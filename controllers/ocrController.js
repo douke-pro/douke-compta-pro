@@ -521,13 +521,15 @@ exports.deleteDocument = async (req, res) => {
             message: 'Document supprimé avec succès'
         });
 
-    } catch (error) {
-        console.error('🚨 [OCR Delete] Erreur:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Erreur lors de la suppression du document'
-        });
+   const accounts = await odooExecuteKw({
+    uid: ADMIN_UID_INT,
+    model: 'account.account',
+    method: 'search_read',
+    args: [[['company_id', '=', companyId]]], // Correction du champ
+    kwargs: { 
+        fields: ['id', 'code', 'name', 'current_balance'],
+        context: { allowed_company_ids: [companyId] } 
     }
-};
+});
 
 console.log('✅ [ocrController] Module chargé avec succès');
