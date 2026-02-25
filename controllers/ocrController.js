@@ -1,9 +1,8 @@
 // =============================================================================
 // FICHIER : controllers/ocrController.js
-// Description : Contrôleur pour la numérisation de factures (OCR)
-// Version : FINAL - Combinaison complète + corrections format frontend
-// Technologies : Tesseract.js (gratuit) ou Google Cloud Vision (payant)
-// Date : 2026-02-24
+// Version : V2.0 FINAL - ODOO 19 OPTIMIZED
+// Date : 2026-02-25
+// ✅ CORRECTION DÉFINITIVE : Utilisation contexte Odoo 19
 // =============================================================================
 
 const tesseract = require('tesseract.js');
@@ -11,29 +10,16 @@ const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
 const fs = require('fs').promises;
 const path = require('path');
 
-// =============================================================================
-// CONFIGURATION
-// =============================================================================
-
-// Choisir le moteur OCR (à configurer selon vos besoins)
-const OCR_ENGINE = process.env.OCR_ENGINE || 'tesseract'; // 'tesseract' ou 'google'
+const OCR_ENGINE = process.env.OCR_ENGINE || 'tesseract';
 
 // =============================================================================
 // CONTROLLER : UPLOAD ET SCAN
 // =============================================================================
 
-/**
- * Upload et scan d'une facture avec OCR
- * @route POST /api/ocr/process
- * ✅ VERSION FINALE avec validations robustes + format frontend
- */
 exports.uploadAndScan = async (req, res) => {
     let filePath = null;
     
     try {
-        // =============================
-        // ✅ VALIDATION 1 : UTILISATEUR
-        // =============================
         if (!req.user) {
             console.error('❌ [uploadAndScan] Utilisateur non authentifié');
             return res.status(401).json({
@@ -42,10 +28,6 @@ exports.uploadAndScan = async (req, res) => {
             });
         }
         
-        // =============================
-        // ✅ VALIDATION 2 : COMPANY ID
-        // =============================
-        // Essayer plusieurs sources avec fallback
         const companyId = req.validatedCompanyId || 
                          req.user.companyId || 
                          req.user.currentCompanyId ||
@@ -56,23 +38,13 @@ exports.uploadAndScan = async (req, res) => {
                          parseInt(req.query.companyId);
         
         if (!companyId) {
-            console.error('❌ [uploadAndScan] Company ID manquant', {
-                user: req.user.email,
-                validatedCompanyId: req.validatedCompanyId,
-                userCompanyId: req.user.companyId,
-                userCurrentCompanyId: req.user.currentCompanyId,
-                bodyCompanyId: req.body.companyId,
-                queryCompanyId: req.query.companyId
-            });
+            console.error('❌ [uploadAndScan] Company ID manquant');
             return res.status(400).json({
                 success: false,
                 message: 'Company ID manquant. Veuillez sélectionner une entreprise.'
             });
         }
         
-        // =============================
-        // ✅ VALIDATION 3 : FICHIER
-        // =============================
         const file = req.file;
         const userEmail = req.user.email;
 
@@ -94,9 +66,6 @@ exports.uploadAndScan = async (req, res) => {
             companyId: companyId
         });
 
-        // =============================
-        // EXTRACTION DU TEXTE AVEC OCR
-        // =============================
         let extractedText = '';
         
         if (OCR_ENGINE === 'tesseract') {
@@ -104,7 +73,7 @@ exports.uploadAndScan = async (req, res) => {
             
             const { data } = await tesseract.recognize(
                 filePath,
-                'fra', // Langue française
+                'fra',
                 {
                     logger: m => {
                         if (m.status === 'recognizing text') {
@@ -118,22 +87,18 @@ exports.uploadAndScan = async (req, res) => {
             console.log('✅ [OCR] Texte extrait (premiers 200 caractères):', extractedText.substring(0, 200));
             
         } else if (OCR_ENGINE === 'google') {
-            // TODO: Implémenter Google Cloud Vision API si besoin
             console.warn('⚠️ Google Cloud Vision pas encore implémenté, utilisation de Tesseract par défaut');
             const { data } = await tesseract.recognize(filePath, 'fra');
             extractedText = data.text;
         }
 
-        // Parsing automatique des données
         const parsedData = parseInvoiceText(extractedText);
         
         console.log('📋 [OCR] Données parsées:', parsedData);
 
-        // Nettoyer le fichier temporaire
         await fs.unlink(filePath);
         console.log('🗑️ [OCR] Fichier temporaire supprimé');
 
-        // ✅ FORMAT COMPATIBLE FRONTEND (success au lieu de status)
         res.json({
             success: true,
             message: 'Document analysé avec succès',
@@ -153,7 +118,6 @@ exports.uploadAndScan = async (req, res) => {
         console.error('🚨 [uploadAndScan] Erreur:', error.message);
         console.error('Stack:', error.stack);
         
-        // Nettoyer le fichier en cas d'erreur
         if (filePath) {
             try {
                 await fs.unlink(filePath);
@@ -173,32 +137,18 @@ exports.uploadAndScan = async (req, res) => {
 // PARSING DU TEXTE EXTRAIT
 // =============================================================================
 
-/**
- * Parse le texte extrait pour identifier les champs comptables
- * @param {string} text - Texte brut extrait par OCR
- * @returns {object} - Données structurées
- */
 function parseInvoiceText(text) {
     console.log('🔍 [parseInvoiceText] Début du parsing...');
     
-    // Nettoyer le texte
     const cleanText = text.replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
     
-    // =============================
-    // 1. EXTRACTION DE LA DATE
-    // =============================
     let date = null;
-    
-    // Formats possibles : 08/02/2026, 08-02-2026, 08.02.2026
     const dateRegex = /(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})/g;
     const dateMatches = cleanText.match(dateRegex);
     
     if (dateMatches && dateMatches.length > 0) {
-        // Prendre la première date trouvée
         const rawDate = dateMatches[0];
         const parts = rawDate.split(/[\/\-\.]/);
-        
-        // Convertir en format ISO : YYYY-MM-DD
         if (parts.length === 3) {
             date = `${parts[2]}-${parts[1]}-${parts[0]}`;
         }
@@ -206,12 +156,7 @@ function parseInvoiceText(text) {
     
     console.log('📅 [Parse] Date détectée:', date);
     
-    // =============================
-    // 2. EXTRACTION N° FACTURE
-    // =============================
     let invoiceNumber = null;
-    
-    // Patterns courants : FAC-2026-001, FACTURE 123, INV-456, N° 789
     const invoiceRegex = /(FAC|FACT|FACTURE|INV|INVOICE|N°|No\.?)\s*[:\-]?\s*([A-Z0-9\-]+)/gi;
     const invoiceMatch = cleanText.match(invoiceRegex);
     
@@ -221,10 +166,6 @@ function parseInvoiceText(text) {
     
     console.log('🔢 [Parse] N° facture détecté:', invoiceNumber);
     
-    // =============================
-    // 3. EXTRACTION FOURNISSEUR
-    // =============================
-    // Stratégie : Prendre les 3 premières lignes non-vides
     const lines = text.split('\n').filter(l => l.trim().length > 3);
     let supplier = lines.slice(0, 3)
         .join(' ')
@@ -232,15 +173,10 @@ function parseInvoiceText(text) {
         .substring(0, 100)
         .trim();
     
-    // Nettoyer les caractères parasites
     supplier = supplier.replace(/[^\w\s\-\.]/g, '');
     
     console.log('🏢 [Parse] Fournisseur détecté:', supplier);
     
-    // =============================
-    // 4. EXTRACTION MONTANTS
-    // =============================
-    // Pattern pour montants : 50 000,00 ou 50.000,00 ou 50000.00
     const amountRegex = /(\d{1,3}(?:[\s\.]\d{3})*(?:[,\.]\d{2})?)/g;
     const amounts = cleanText.match(amountRegex);
     
@@ -249,27 +185,22 @@ function parseInvoiceText(text) {
     let amountTTC = 0;
     
     if (amounts && amounts.length >= 1) {
-        // Convertir les montants en nombres
         const parsedAmounts = amounts.map(a => parseAmount(a)).filter(a => a > 0);
         
         console.log('💰 [Parse] Montants détectés:', parsedAmounts);
         
-        // Heuristique simple : le plus grand montant = TTC
         if (parsedAmounts.length > 0) {
-            parsedAmounts.sort((a, b) => b - a); // Tri décroissant
+            parsedAmounts.sort((a, b) => b - a);
             
             amountTTC = parsedAmounts[0];
             
-            // Si on a au moins 3 montants : HT, TVA, TTC
             if (parsedAmounts.length >= 3) {
-                amountHT = parsedAmounts[2]; // Plus petit = HT
-                tva = parsedAmounts[1]; // Moyen = TVA
+                amountHT = parsedAmounts[2];
+                tva = parsedAmounts[1];
             } else if (parsedAmounts.length === 2) {
                 amountHT = parsedAmounts[1];
                 tva = amountTTC - amountHT;
             } else {
-                // Un seul montant détecté : on suppose que c'est le TTC
-                // Calcul inverse avec TVA 18% (standard Bénin)
                 amountHT = amountTTC / 1.18;
                 tva = amountTTC - amountHT;
             }
@@ -278,11 +209,7 @@ function parseInvoiceText(text) {
     
     console.log('💵 [Parse] Montants finaux:', { amountHT, tva, amountTTC });
     
-    // =============================
-    // 5. DÉTECTION TVA (%)
-    // =============================
-    let tvaRate = 18; // Défaut Bénin
-    
+    let tvaRate = 18;
     const tvaRegex = /TVA\s*:?\s*(\d{1,2}[,\.]?\d{0,2})\s*%/gi;
     const tvaMatch = cleanText.match(tvaRegex);
     
@@ -295,14 +222,11 @@ function parseInvoiceText(text) {
     
     console.log('📊 [Parse] Taux TVA détecté:', tvaRate, '%');
     
-    // =============================
-    // RÉSULTAT FINAL
-    // =============================
     return {
         date: date,
         invoiceNumber: invoiceNumber,
         supplier: supplier,
-        amountHT: Math.round(amountHT * 100) / 100, // Arrondir à 2 décimales
+        amountHT: Math.round(amountHT * 100) / 100,
         tva: Math.round(tva * 100) / 100,
         amountTTC: Math.round(amountTTC * 100) / 100,
         tvaRate: tvaRate,
@@ -310,48 +234,28 @@ function parseInvoiceText(text) {
     };
 }
 
-/**
- * Convertit une chaîne de montant en nombre
- * Exemples : "50 000,00" → 50000.00 | "50.000,00" → 50000.00
- */
 function parseAmount(amountStr) {
     if (!amountStr) return 0;
-    
-    // Supprimer tous les espaces et points (séparateurs de milliers)
     let cleaned = amountStr.replace(/\s/g, '').replace(/\./g, '');
-    
-    // Remplacer la virgule par un point (séparateur décimal)
     cleaned = cleaned.replace(',', '.');
-    
     return parseFloat(cleaned) || 0;
 }
 
-/**
- * Calcule un score de confiance (0-100) basé sur les données extraites
- */
 function calculateConfidence(data) {
     let score = 0;
-    
     if (data.date) score += 25;
     if (data.invoiceNumber) score += 25;
     if (data.supplier && data.supplier.length > 5) score += 25;
     if (data.amountTTC > 0) score += 25;
-    
     return score;
 }
 
 // =============================================================================
-// FONCTION validateAndCreateEntry - VERSION FINALE CORRIGÉE
-// ✅ CORRECTION : company_ids au lieu de company_id (Odoo 19)
+// ✅ VERSION FINALE ODOO 19 - VALIDATION ET CRÉATION ÉCRITURE
 // =============================================================================
 
-/**
- * Valide et crée l'écriture comptable dans Odoo
- * @route POST /api/ocr/validate-and-create
- */
 exports.validateAndCreateEntry = async (req, res) => {
     try {
-        // VALIDATION : COMPANY ID
         const companyId = req.validatedCompanyId || 
                          req.user?.companyId || 
                          req.user?.currentCompanyId ||
@@ -366,7 +270,6 @@ exports.validateAndCreateEntry = async (req, res) => {
             });
         }
         
-        // EXTRACTION DES DONNÉES
         const {
             date,
             invoiceNumber,
@@ -390,7 +293,6 @@ exports.validateAndCreateEntry = async (req, res) => {
             companyId
         });
 
-        // VALIDATIONS
         if (!date || !invoiceNumber || !supplier) {
             return res.status(400).json({
                 success: false,
@@ -412,7 +314,6 @@ exports.validateAndCreateEntry = async (req, res) => {
             });
         }
 
-        // RECHERCHE DU JOURNAL
         const journalType = invoiceType === 'client' ? 'sale' : 'purchase';
         
         const journals = await odooExecuteKw({
@@ -420,7 +321,7 @@ exports.validateAndCreateEntry = async (req, res) => {
             model: 'account.journal',
             method: 'search_read',
             args: [[
-                ['company_id', '=', companyId],  // ✅ Ici company_id est correct
+                ['company_id', '=', companyId],
                 ['type', '=', journalType]
             ]],
             kwargs: {
@@ -439,7 +340,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         const journalId = journals[0].id;
         console.log('📖 [OCR Validate] Journal sélectionné:', journals[0].name, `(ID: ${journalId})`);
 
-        // ✅ RECHERCHE COMPTE DÉBIT PAR CODE (CORRIGÉ)
+        // ✅ MÉTHODE ODOO 19 : CONTEXTE AU LIEU DE FILTRE DOMAINE
         console.log('🔍 [OCR Validate] Recherche compte débit:', accountDebitCode);
         
         const accountDebitSearch = await odooExecuteKw({
@@ -447,12 +348,14 @@ exports.validateAndCreateEntry = async (req, res) => {
             model: 'account.account',
             method: 'search_read',
             args: [[
-                ['code', '=', accountDebitCode],
-                ['company_id', '=', companyId]  // ✅ company_id (singulier) pour search_read
+                ['code', '=', accountDebitCode]  // Seulement le code
             ]],
             kwargs: { 
                 fields: ['id', 'name', 'code'], 
-                limit: 1 
+                limit: 1,
+                context: {
+                    allowed_company_ids: [companyId]  // ✅ Company dans contexte
+                }
             }
         });
 
@@ -467,7 +370,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         const accountDebitId = accountDebitSearch[0].id;
         console.log('✅ [OCR Validate] Compte débit trouvé:', accountDebitSearch[0].code, '-', accountDebitSearch[0].name);
 
-        // ✅ RECHERCHE COMPTE CRÉDIT PAR CODE (CORRIGÉ)
+        // ✅ MÉTHODE ODOO 19 : CONTEXTE AU LIEU DE FILTRE DOMAINE
         console.log('🔍 [OCR Validate] Recherche compte crédit:', accountCreditCode);
         
         const accountCreditSearch = await odooExecuteKw({
@@ -475,12 +378,14 @@ exports.validateAndCreateEntry = async (req, res) => {
             model: 'account.account',
             method: 'search_read',
             args: [[
-                ['code', '=', accountCreditCode],
-                ['company_id', '=', companyId]  // ✅ company_id (singulier) pour search_read
+                ['code', '=', accountCreditCode]  // Seulement le code
             ]],
             kwargs: { 
                 fields: ['id', 'name', 'code'], 
-                limit: 1 
+                limit: 1,
+                context: {
+                    allowed_company_ids: [companyId]  // ✅ Company dans contexte
+                }
             }
         });
 
@@ -495,7 +400,6 @@ exports.validateAndCreateEntry = async (req, res) => {
         const accountCreditId = accountCreditSearch[0].id;
         console.log('✅ [OCR Validate] Compte crédit trouvé:', accountCreditSearch[0].code, '-', accountCreditSearch[0].name);
 
-        // CRÉATION DE L'ÉCRITURE
         const partnerLabel = invoiceType === 'client' ? 'Client' : 'Fournisseur';
         
         const moveData = {
@@ -532,7 +436,6 @@ exports.validateAndCreateEntry = async (req, res) => {
 
         console.log(`✅ [OCR Validate] Écriture créée avec succès: ID ${moveId}`);
 
-        // RÉPONSE
         res.json({
             success: true,
             message: 'Écriture comptable créée avec succès',
@@ -562,13 +465,9 @@ exports.validateAndCreateEntry = async (req, res) => {
 };
 
 // =============================================================================
-// CONTROLLER : HISTORIQUE
+// HISTORIQUE
 // =============================================================================
 
-/**
- * Récupère l'historique des documents scannés
- * @route GET /api/ocr/history
- */
 exports.getHistory = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || 
@@ -584,9 +483,6 @@ exports.getHistory = async (req, res) => {
         }
 
         console.log('📚 [OCR History] Récupération pour company:', companyId);
-
-        // TODO: Implémenter stockage historique en base de données
-        // Pour l'instant, on retourne une liste vide
         
         res.json({
             success: true,
@@ -602,10 +498,6 @@ exports.getHistory = async (req, res) => {
     }
 };
 
-/**
- * Supprime un document de l'historique
- * @route DELETE /api/ocr/:id
- */
 exports.deleteDocument = async (req, res) => {
     try {
         const documentId = req.params.id;
@@ -622,8 +514,6 @@ exports.deleteDocument = async (req, res) => {
         }
 
         console.log('🗑️ [OCR Delete] Document:', documentId, '| Company:', companyId);
-
-        // TODO: Implémenter suppression en base de données
         
         res.json({
             success: true,
