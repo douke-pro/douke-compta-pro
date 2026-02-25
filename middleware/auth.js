@@ -1,9 +1,6 @@
 // =============================================================================
-// FICHIER : middleware/auth.js (VERSION V17)
-// Description : Protection avec validation temps réel Odoo
-// Correction V16 : Support de req.params.companyId pour les routes settings
-// Correction V17 : Ajout de authenticateToken (alias protect) et checkRole
-//                  requis par routes/reports.js — rien d'autre n'a été modifié
+// FICHIER : middleware/auth.js (VERSION V18 - CORRIGÉ POUR OCR)
+// ✅ CORRECTION : Retourne TOUJOURS du JSON, jamais du HTML
 // =============================================================================
 
 const jwt = require('jsonwebtoken');
@@ -14,70 +11,92 @@ const ADMIN_UID = parseInt(process.env.ODOO_ADMIN_UID, 10);
 
 /**
  * MIDDLEWARE 1 : Protection JWT (Authentification)
+ * ✅ CORRIGÉ : Retourne JSON même si le header est manquant
  */
 const protect = async (req, res, next) => {
-    let token;
-
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        try {
-            token = req.headers.authorization.split(' ')[1];
-
-            if (!token) {
-                return res.status(401).json({ 
-                    status: 'error',
-                    error: 'Format du jeton invalide.' 
-                });
-            }
-
-            const decoded = jwt.verify(token, JWT_SECRET);
-
-            if (!decoded.odooUid) {
-                throw new Error('Jeton mal formé : odooUid manquant.');
-            }
+    try {
+        // Vérifier la présence du header Authorization
+        if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer')) {
+            console.error('❌ [protect] Header Authorization manquant ou invalide');
+            console.error('❌ [protect] URL:', req.url);
+            console.error('❌ [protect] Headers:', JSON.stringify(req.headers, null, 2));
             
-            req.user = {
-                odooUid: decoded.odooUid,
-                email: decoded.email,
-                role: decoded.role || 'USER',
-                profile: decoded.profile || decoded.role || 'USER',
-                selectedCompanyId: decoded.selectedCompanyId,
-            };
-
-            next();
-            
-        } catch (error) {
-            let message = 'Non autorisé, jeton invalide.';
-            if (error.name === 'TokenExpiredError') {
-                message = 'Session expirée, veuillez vous reconnecter.';
-            }
-            
-            console.error('[JWT AUTH ERROR]', error.message);
             return res.status(401).json({ 
+                success: false,  // ✅ Format uniforme avec OCR
                 status: 'error',
-                error: message 
+                error: 'Accès refusé. Token de sécurité manquant.',
+                message: 'Authentication required'
             });
         }
-    } else {
+
+        const token = req.headers.authorization.split(' ')[1];
+
+        if (!token) {
+            console.error('❌ [protect] Token vide après split');
+            return res.status(401).json({ 
+                success: false,
+                status: 'error',
+                error: 'Format du jeton invalide.',
+                message: 'Invalid token format'
+            });
+        }
+
+        // Vérifier et décoder le token
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        if (!decoded.odooUid) {
+            throw new Error('Jeton mal formé : odooUid manquant.');
+        }
+        
+        // Injecter les données utilisateur dans req
+        req.user = {
+            odooUid: decoded.odooUid,
+            email: decoded.email,
+            role: decoded.role || 'USER',
+            profile: decoded.profile || decoded.role || 'USER',
+            selectedCompanyId: decoded.selectedCompanyId,
+            companyId: decoded.companyId || decoded.selectedCompanyId,  // ✅ AJOUT
+            currentCompanyId: decoded.currentCompanyId || decoded.selectedCompanyId  // ✅ AJOUT
+        };
+
+        console.log('✅ [protect] Utilisateur authentifié:', req.user.email);
+        next();
+        
+    } catch (error) {
+        let message = 'Non autorisé, jeton invalide.';
+        let errorCode = 'INVALID_TOKEN';
+        
+        if (error.name === 'TokenExpiredError') {
+            message = 'Session expirée, veuillez vous reconnecter.';
+            errorCode = 'TOKEN_EXPIRED';
+        } else if (error.name === 'JsonWebTokenError') {
+            message = 'Token malformé.';
+            errorCode = 'MALFORMED_TOKEN';
+        }
+        
+        console.error('[JWT AUTH ERROR]', error.message);
+        
         return res.status(401).json({ 
+            success: false,  // ✅ Format uniforme
             status: 'error',
-            error: 'Accès refusé. Token de sécurité manquant.' 
+            error: message,
+            errorCode: errorCode
         });
     }
 };
 
 /**
  * MIDDLEWARE 2 : Vérification Accès Entreprise (TEMPS RÉEL ODOO)
- * 🔧 V16 : Support de req.params.companyId, req.query.companyId et req.body.companyId
  */
 const checkCompanyAccess = async (req, res, next) => {
     const { role, odooUid, email } = req.user;
     
-    // ✅ CORRECTION : Prioriser query (utilisé par le frontend)
     const rawCompanyId = req.query.companyId || req.params.companyId || req.body.companyId || req.body.company_id;
     
     if (!rawCompanyId) {
         console.error(`❌ checkCompanyAccess: Aucun companyId fourni par ${email}`);
         return res.status(400).json({ 
+            success: false,
             status: 'error',
             error: 'L\'ID de compagnie est requis pour cette opération.' 
         });
@@ -88,23 +107,21 @@ const checkCompanyAccess = async (req, res, next) => {
     if (isNaN(requestedCompanyId) || requestedCompanyId <= 0) {
         console.error(`🚨 INJECTION ATTEMPT: company_id="${rawCompanyId}" par ${email} (IP: ${req.ip})`);
         return res.status(400).json({ 
+            success: false,
             status: 'error',
             error: 'L\'ID de compagnie doit être un nombre entier positif.' 
         });
     }
 
-    // 2️⃣ ADMIN : Accès total
     if (role === 'ADMIN') {
         req.validatedCompanyId = requestedCompanyId;
         console.log(`✅ [ADMIN] ${email} → Company ${requestedCompanyId}`);
         return next();
     }
 
-    // 3️⃣ 🔒 VÉRIFICATION TEMPS RÉEL ODOO (CRITIQUE)
     try {
         console.log(`🔍 [VERIFY] ${email} (UID: ${odooUid}) → Company ${requestedCompanyId}...`);
 
-        // Query Odoo pour récupérer les company_ids autorisés
         const userData = await odooExecuteKw({
             uid: ADMIN_UID,
             model: 'res.users',
@@ -116,6 +133,7 @@ const checkCompanyAccess = async (req, res, next) => {
         if (!userData || userData.length === 0) {
             console.error(`🚨 USER NOT FOUND: UID ${odooUid}`);
             return res.status(403).json({
+                success: false,
                 status: 'error',
                 error: 'Utilisateur Odoo introuvable ou désactivé.'
             });
@@ -126,16 +144,15 @@ const checkCompanyAccess = async (req, res, next) => {
         if (allowedCompanyIds.length === 0) {
             console.error(`🚨 NO COMPANIES: UID ${odooUid} (${email})`);
             return res.status(403).json({
+                success: false,
                 status: 'error',
                 error: 'Aucune entreprise assignée à cet utilisateur.'
             });
         }
 
-        // Vérification de l'appartenance
         const hasAccess = allowedCompanyIds.includes(requestedCompanyId);
 
         if (!hasAccess) {
-            // 🚨 LOG DE SÉCURITÉ CRITIQUE
             console.error(`🚨 UNAUTHORIZED ACCESS ATTEMPT:
                 - User: ${email} (UID: ${odooUid}, Role: ${role})
                 - Requested: ${requestedCompanyId}
@@ -146,12 +163,12 @@ const checkCompanyAccess = async (req, res, next) => {
             `);
 
             return res.status(403).json({
+                success: false,
                 status: 'error',
                 error: 'Accès refusé. Vous n\'êtes pas autorisé à accéder à cette entreprise.'
             });
         }
 
-        // ✅ ACCÈS VALIDÉ
         req.validatedCompanyId = requestedCompanyId;
         console.log(`✅ [ACCESS GRANTED] ${email} (${role}) → Company ${requestedCompanyId}`);
         next();
@@ -160,6 +177,7 @@ const checkCompanyAccess = async (req, res, next) => {
         console.error('🚨 checkCompanyAccess Odoo Error:', error.message);
         console.error('Stack:', error.stack);
         return res.status(500).json({
+            success: false,
             status: 'error',
             error: 'Erreur lors de la vérification des permissions. Veuillez réessayer.'
         });
@@ -188,6 +206,7 @@ const checkWritePermission = (req, res, next) => {
 
         console.warn(`⚠️ CAISSIER BLOCKED: ${email} → ${req.originalUrl}`);
         return res.status(403).json({
+            success: false,
             status: 'error',
             error: 'Accès refusé. Rôle CAISSIER limité aux opérations de caisse.'
         });
@@ -195,6 +214,7 @@ const checkWritePermission = (req, res, next) => {
 
     console.error(`🚨 UNKNOWN ROLE: ${email} (Role: ${role})`);
     return res.status(403).json({
+        success: false,
         status: 'error',
         error: 'Accès refusé. Rôle non autorisé.'
     });
@@ -207,6 +227,7 @@ const restrictTo = (...roles) => {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {
             return res.status(403).json({ 
+                success: false,
                 status: 'error',
                 error: 'Accès refusé. Permissions insuffisantes.' 
             });
@@ -216,27 +237,25 @@ const restrictTo = (...roles) => {
 };
 
 /**
- * MIDDLEWARE 5 : ✅ AJOUT V17 - Vérification Rôle insensible à la casse
- * Utilisé par routes/reports.js qui passe les rôles en minuscules
- * ('admin', 'collaborateur', 'user', 'caissier')
- * alors que le JWT stocke les rôles en majuscules ('ADMIN', 'USER'...)
+ * MIDDLEWARE 5 : Vérification Rôle insensible à la casse
  */
 const checkRole = (roles) => {
     return (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({ 
+                success: false,
                 status: 'error',
                 error: 'Non authentifié.' 
             });
         }
 
-        // Comparaison insensible à la casse
         const userRole = (req.user.role || '').toLowerCase();
         const allowedRoles = roles.map(r => r.toLowerCase());
 
         if (!allowedRoles.includes(userRole)) {
             console.warn(`⚠️ [checkRole] Accès refusé: ${req.user.email} (role: ${userRole}) → Requis: ${allowedRoles.join(', ')}`);
             return res.status(403).json({ 
+                success: false,
                 status: 'error',
                 error: 'Accès refusé. Permissions insuffisantes.' 
             });
@@ -247,17 +266,16 @@ const checkRole = (roles) => {
 };
 
 // =============================================================================
-// EXPORT DE TOUS LES MIDDLEWARES
+// EXPORT
 // =============================================================================
 
 module.exports = {
-    // Exports originaux V16 — inchangés
     protect,
     checkCompanyAccess,
     checkWritePermission,
     restrictTo,
-
-    // ✅ Ajouts V17 — requis par routes/reports.js
-    authenticateToken: protect,  // alias de protect
+    authenticateToken: protect,
     checkRole,
 };
+
+console.log('✅ [middleware/auth] Chargé avec succès');
