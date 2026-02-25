@@ -727,8 +727,9 @@ async function fetchDashboardData(endpoint) {
  * 📷 Ouvre la modal de numérisation de facture
  */
 // =============================================================================
-// FONCTIONS OCR - SCAN DE FACTURES
-// À ajouter dans script.js après la ligne ~8400
+// FONCTIONS OCR - SCAN DE FACTURES (VERSION CORRIGÉE)
+// ✅ GESTION D'ERREURS ROBUSTE
+// ✅ LOGS DE DEBUG COMPLETS
 // =============================================================================
 
 /**
@@ -753,12 +754,11 @@ window.openInvoiceScanner = function() {
                 <h4 class="text-2xl font-black text-gray-900 dark:text-white mb-3">Glissez votre facture ici</h4>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">ou cliquez pour parcourir vos fichiers</p>
                 <div class="inline-flex items-center gap-3 text-xs text-gray-500">
-                    <span class="px-3 py-1 bg-white dark:bg-gray-700 rounded-full font-bold">📄 PDF</span>
                     <span class="px-3 py-1 bg-white dark:bg-gray-700 rounded-full font-bold">🖼️ JPG</span>
                     <span class="px-3 py-1 bg-white dark:bg-gray-700 rounded-full font-bold">🖼️ PNG</span>
                     <span class="px-3 py-1 bg-white dark:bg-gray-700 rounded-full font-bold">⚖️ Max 10 MB</span>
                 </div>
-                <input type="file" id="invoice-file-input" accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="window.handleInvoiceUpload(event)">
+                <input type="file" id="invoice-file-input" accept=".jpg,.jpeg,.png" class="hidden" onchange="window.handleInvoiceUpload(event)">
             </div>
             
             <!-- Zone de résultat OCR -->
@@ -876,7 +876,11 @@ window.openInvoiceScanner = function() {
  */
 async function loadAccountsForOCR() {
     try {
+        console.log('🔍 [loadAccountsForOCR] Chargement comptes pour company:', appState.currentCompanyId);
+        
         const response = await apiFetch(`accounting/accounts?companyId=${appState.currentCompanyId}`);
+        
+        console.log('📊 [loadAccountsForOCR] Réponse:', response);
         
         if (response.status === 'success' && response.data) {
             const accounts = response.data;
@@ -886,12 +890,21 @@ async function loadAccountsForOCR() {
                 const debitSelect = document.getElementById('ocr-account-debit');
                 const creditSelect = document.getElementById('ocr-account-credit');
                 
-                if (!debitSelect || !creditSelect) return;
+                if (!debitSelect || !creditSelect) {
+                    console.warn('⚠️ [loadAccountsForOCR] Selects non trouvés');
+                    return;
+                }
                 
                 // Filtrer les comptes par type
-                const chargeAccounts = accounts.filter(acc => acc.code.startsWith('6'));
-                const tierAccounts = accounts.filter(acc => acc.code.startsWith('4'));
-                const produitAccounts = accounts.filter(acc => acc.code.startsWith('7'));
+                const chargeAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('6'));
+                const tierAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('4'));
+                const produitAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('7'));
+                
+                console.log('📊 [loadAccountsForOCR] Comptes filtrés:', {
+                    charges: chargeAccounts.length,
+                    tiers: tierAccounts.length,
+                    produits: produitAccounts.length
+                });
                 
                 // Remplir compte débit (charges + produits)
                 debitSelect.innerHTML = '<option value="">-- Choisir un compte --</option>';
@@ -907,9 +920,12 @@ async function loadAccountsForOCR() {
                 
                 console.log('✅ [loadAccountsForOCR] Comptes chargés:', accounts.length);
             }, 500);
+        } else {
+            console.error('❌ [loadAccountsForOCR] Réponse invalide:', response);
         }
     } catch (error) {
         console.error('❌ [loadAccountsForOCR] Erreur:', error);
+        console.error('❌ [loadAccountsForOCR] Stack:', error.stack);
     }
 }
 
@@ -941,9 +957,13 @@ window.handleInvoiceUpload = function(event) {
 
 /**
  * Traiter le fichier uploadé
+ * ✅ GESTION D'ERREURS ROBUSTE
  */
 async function processInvoiceFile(file) {
-    console.log('📄 [processInvoiceFile] Fichier:', file.name, 'Taille:', file.size);
+    console.log('📄 [processInvoiceFile] === DÉBUT UPLOAD ===');
+    console.log('📄 [processInvoiceFile] Fichier:', file.name);
+    console.log('📄 [processInvoiceFile] Type:', file.type);
+    console.log('📄 [processInvoiceFile] Taille:', file.size, 'octets');
     
     // Validation
     const maxSize = 10 * 1024 * 1024; // 10 MB
@@ -952,9 +972,10 @@ async function processInvoiceFile(file) {
         return;
     }
     
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    // ✅ TYPES AUTORISÉS : IMAGES UNIQUEMENT (pas de PDF)
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
-        NotificationManager.show('Format non supporté (PDF, JPG, PNG uniquement)', 'error');
+        NotificationManager.show('Format non supporté. Utilisez JPG ou PNG uniquement.', 'error');
         return;
     }
     
@@ -966,9 +987,12 @@ async function processInvoiceFile(file) {
         // Créer FormData
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('companyId', appState.currentCompanyId);
         
-        // Appel API OCR
+        console.log('🚀 [processInvoiceFile] Envoi vers:', `${API_BASE_URL}/ocr/process`);
+        console.log('🚀 [processInvoiceFile] Token:', appState.token ? 'PRÉSENT' : 'MANQUANT');
+        console.log('🚀 [processInvoiceFile] Company ID:', appState.currentCompanyId);
+        
+        // ✅ APPEL API AVEC GESTION D'ERREURS ROBUSTE
         const response = await fetch(`${API_BASE_URL}/ocr/process`, {
             method: 'POST',
             headers: {
@@ -977,20 +1001,49 @@ async function processInvoiceFile(file) {
             body: formData
         });
         
-        const data = await response.json();
+        console.log('📊 [processInvoiceFile] Status HTTP:', response.status);
+        console.log('📊 [processInvoiceFile] Status Text:', response.statusText);
+        console.log('📊 [processInvoiceFile] Content-Type:', response.headers.get('content-type'));
         
-        if (data.success) {
-            console.log('✅ [processInvoiceFile] OCR réussi:', data);
-            displayOCRResults(data.data, file);
-        } else {
-            throw new Error(data.message || 'Erreur OCR');
+        // ✅ VÉRIFIER SI LA RÉPONSE EST DU JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            // Si ce n'est pas du JSON, c'est probablement du HTML (page d'erreur)
+            const textResponse = await response.text();
+            console.error('❌ [processInvoiceFile] Réponse non-JSON reçue:');
+            console.error('❌ [processInvoiceFile] Contenu (premiers 500 caractères):', textResponse.substring(0, 500));
+            throw new Error(`Le serveur a retourné du HTML au lieu de JSON (Status: ${response.status})`);
         }
         
-    } catch (error) {
-        console.error('❌ [processInvoiceFile] Erreur:', error);
-        NotificationManager.show(`Erreur OCR: ${error.message}`, 'error');
+        // Parser le JSON
+        const data = await response.json();
         
-        // Réinitialiser
+        console.log('📊 [processInvoiceFile] Réponse JSON:', data);
+        
+        // Vérifier le statut HTTP ET le champ success
+        if (!response.ok || !data.success) {
+            const errorMsg = data.message || data.error || `Erreur HTTP ${response.status}`;
+            console.error('❌ [processInvoiceFile] Erreur serveur:', errorMsg);
+            throw new Error(errorMsg);
+        }
+        
+        console.log('✅ [processInvoiceFile] OCR réussi');
+        displayOCRResults(data.data, file);
+        
+    } catch (error) {
+        console.error('❌ [processInvoiceFile] Erreur complète:', error);
+        console.error('❌ [processInvoiceFile] Message:', error.message);
+        console.error('❌ [processInvoiceFile] Stack:', error.stack);
+        
+        // Message d'erreur détaillé pour le debug
+        let userMessage = error.message;
+        if (userMessage.includes('HTML au lieu de JSON')) {
+            userMessage = 'Erreur serveur. Vérifiez que vous êtes bien connecté et que le token est valide.';
+        }
+        
+        NotificationManager.show(`Erreur OCR: ${userMessage}`, 'error');
+        
+        // Réinitialiser l'interface
         document.getElementById('invoice-dropzone').classList.remove('hidden');
         document.getElementById('ocr-loading-zone').classList.add('hidden');
     }
@@ -1000,7 +1053,7 @@ async function processInvoiceFile(file) {
  * Afficher les résultats OCR dans le formulaire
  */
 function displayOCRResults(ocrData, file) {
-    console.log('📊 [displayOCRResults] Données:', ocrData);
+    console.log('📊 [displayOCRResults] Données reçues:', ocrData);
     
     // Masquer loading, afficher résultats
     document.getElementById('ocr-loading-zone').classList.add('hidden');
@@ -1055,6 +1108,7 @@ window.handleOCRValidation = async function(event) {
         accountCreditCode: document.getElementById('ocr-account-credit').value
     };
     
+    console.log('💾 [handleOCRValidation] === DÉBUT VALIDATION ===');
     console.log('💾 [handleOCRValidation] Données:', formData);
     
     try {
@@ -1064,6 +1118,8 @@ window.handleOCRValidation = async function(event) {
             method: 'POST',
             body: JSON.stringify(formData)
         });
+        
+        console.log('📊 [handleOCRValidation] Réponse:', response);
         
         if (response.success) {
             NotificationManager.show('✅ Écriture créée avec succès !', 'success');
@@ -1079,6 +1135,7 @@ window.handleOCRValidation = async function(event) {
         
     } catch (error) {
         console.error('❌ [handleOCRValidation] Erreur:', error);
+        console.error('❌ [handleOCRValidation] Stack:', error.stack);
         NotificationManager.show(`Erreur: ${error.message}`, 'error');
     }
 };
