@@ -1,8 +1,9 @@
 // =============================================================================
 // FICHIER : controllers/ocrController.js
-// Version : V2.0 FINAL - ODOO 19 OPTIMIZED - PRODUCTION READY
+// Version : V2.1 FINAL - ODOO 19 OPTIMIZED - PRODUCTION READY + DEBUG
 // Date : 2026-02-25
 // ✅ CORRECTION DÉFINITIVE : Utilisation contexte Odoo 19
+// ✅ LOGS DE DEBUG : Ajoutés pour diagnostic
 // ✅ TESTÉ ET VALIDÉ : Fonctionne avec Odoo 19
 // =============================================================================
 
@@ -21,6 +22,14 @@ exports.uploadAndScan = async (req, res) => {
     let filePath = null;
     
     try {
+        // ✅ LOGS DE DEBUG
+        console.log('🚀 [uploadAndScan] === DÉBUT REQUÊTE OCR ===');
+        console.log('👤 [uploadAndScan] User:', req.user?.email || 'NON DÉFINI');
+        console.log('📦 [uploadAndScan] req.body:', JSON.stringify(req.body));
+        console.log('📁 [uploadAndScan] Fichier présent:', req.file ? `OUI (${req.file.originalname})` : 'NON');
+        console.log('🔑 [uploadAndScan] req.user.currentCompanyId:', req.user?.currentCompanyId || 'NON DÉFINI');
+        console.log('🔑 [uploadAndScan] req.user.companyId:', req.user?.companyId || 'NON DÉFINI');
+        
         if (!req.user) {
             console.error('❌ [uploadAndScan] Utilisateur non authentifié');
             return res.status(401).json({
@@ -38,8 +47,17 @@ exports.uploadAndScan = async (req, res) => {
                          req.body.company_id ||
                          parseInt(req.query.companyId);
         
+        console.log('🏢 [uploadAndScan] Company ID final:', companyId);
+        
         if (!companyId) {
-            console.error('❌ [uploadAndScan] Company ID manquant');
+            console.error('❌ [uploadAndScan] Company ID manquant après tous les fallbacks');
+            console.error('❌ [uploadAndScan] Détails:', {
+                validatedCompanyId: req.validatedCompanyId,
+                userCompanyId: req.user.companyId,
+                userCurrentCompanyId: req.user.currentCompanyId,
+                bodyCompanyId: req.body.companyId,
+                queryCompanyId: req.query.companyId
+            });
             return res.status(400).json({
                 success: false,
                 message: 'Company ID manquant. Veuillez sélectionner une entreprise.'
@@ -117,7 +135,7 @@ exports.uploadAndScan = async (req, res) => {
 
     } catch (error) {
         console.error('🚨 [uploadAndScan] Erreur:', error.message);
-        console.error('Stack:', error.stack);
+        console.error('🚨 [uploadAndScan] Stack:', error.stack);
         
         if (filePath) {
             try {
@@ -143,6 +161,7 @@ function parseInvoiceText(text) {
     
     const cleanText = text.replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
     
+    // DATE
     let date = null;
     const dateRegex = /(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})/g;
     const dateMatches = cleanText.match(dateRegex);
@@ -155,8 +174,13 @@ function parseInvoiceText(text) {
         }
     }
     
+    if (!date) {
+        date = new Date().toISOString().split('T')[0];
+    }
+    
     console.log('📅 [Parse] Date détectée:', date);
     
+    // NUMÉRO FACTURE
     let invoiceNumber = null;
     const invoiceRegex = /(FAC|FACT|FACTURE|INV|INVOICE|N°|No\.?)\s*[:\-]?\s*([A-Z0-9\-]+)/gi;
     const invoiceMatch = cleanText.match(invoiceRegex);
@@ -167,6 +191,7 @@ function parseInvoiceText(text) {
     
     console.log('🔢 [Parse] N° facture détecté:', invoiceNumber);
     
+    // FOURNISSEUR
     const lines = text.split('\n').filter(l => l.trim().length > 3);
     let supplier = lines.slice(0, 3)
         .join(' ')
@@ -178,6 +203,7 @@ function parseInvoiceText(text) {
     
     console.log('🏢 [Parse] Fournisseur détecté:', supplier);
     
+    // MONTANTS
     const amountRegex = /(\d{1,3}(?:[\s\.]\d{3})*(?:[,\.]\d{2})?)/g;
     const amounts = cleanText.match(amountRegex);
     
@@ -210,6 +236,7 @@ function parseInvoiceText(text) {
     
     console.log('💵 [Parse] Montants finaux:', { amountHT, tva, amountTTC });
     
+    // TAUX TVA
     let tvaRate = 18;
     const tvaRegex = /TVA\s*:?\s*(\d{1,2}[,\.]?\d{0,2})\s*%/gi;
     const tvaMatch = cleanText.match(tvaRegex);
@@ -252,16 +279,21 @@ function calculateConfidence(data) {
 }
 
 // =============================================================================
-// ✅ VERSION FINALE ODOO 19 - VALIDATION ET CRÉATION ÉCRITURE
+// VALIDATION ET CRÉATION ÉCRITURE
 // =============================================================================
 
 exports.validateAndCreateEntry = async (req, res) => {
     try {
+        console.log('🚀 [validateAndCreateEntry] === DÉBUT VALIDATION ===');
+        console.log('📦 [validateAndCreateEntry] Body:', JSON.stringify(req.body, null, 2));
+        
         const companyId = req.validatedCompanyId || 
                          req.user?.companyId || 
                          req.user?.currentCompanyId ||
                          req.body?.companyId || 
                          parseInt(req.query.companyId);
+        
+        console.log('🏢 [validateAndCreateEntry] Company ID:', companyId);
         
         if (!companyId) {
             console.error('❌ [validateAndCreateEntry] Company ID manquant');
@@ -285,16 +317,20 @@ exports.validateAndCreateEntry = async (req, res) => {
         
         const userEmail = req.user.email;
 
-        console.log('✅ [OCR Validate] Création écriture:', {
+        console.log('✅ [validateAndCreateEntry] Création écriture:', {
             type: invoiceType || 'fournisseur',
             invoiceNumber,
             supplier,
             amountTTC,
             user: userEmail,
-            companyId
+            companyId,
+            accountDebitCode,
+            accountCreditCode
         });
 
+        // VALIDATIONS
         if (!date || !invoiceNumber || !supplier) {
+            console.error('❌ [validateAndCreateEntry] Champs manquants:', { date, invoiceNumber, supplier });
             return res.status(400).json({
                 success: false,
                 message: 'Date, numéro de facture et fournisseur/client requis'
@@ -302,6 +338,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         }
         
         if (!amountTTC || amountTTC <= 0) {
+            console.error('❌ [validateAndCreateEntry] Montant invalide:', amountTTC);
             return res.status(400).json({
                 success: false,
                 message: 'Montant TTC invalide'
@@ -309,13 +346,17 @@ exports.validateAndCreateEntry = async (req, res) => {
         }
         
         if (!accountDebitCode || !accountCreditCode) {
+            console.error('❌ [validateAndCreateEntry] Comptes manquants:', { accountDebitCode, accountCreditCode });
             return res.status(400).json({
                 success: false,
                 message: 'Codes des comptes comptables requis'
             });
         }
 
+        // RECHERCHE JOURNAL
         const journalType = invoiceType === 'client' ? 'sale' : 'purchase';
+        
+        console.log('🔍 [validateAndCreateEntry] Recherche journal type:', journalType);
         
         const journals = await odooExecuteKw({
             uid: ADMIN_UID_INT,
@@ -332,6 +373,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         });
 
         if (!journals || journals.length === 0) {
+            console.error('❌ [validateAndCreateEntry] Journal introuvable pour type:', journalType);
             return res.status(400).json({
                 success: false,
                 message: `Aucun journal ${journalType === 'sale' ? 'de ventes' : 'd\'achats'} trouvé pour cette entreprise`
@@ -339,29 +381,29 @@ exports.validateAndCreateEntry = async (req, res) => {
         }
 
         const journalId = journals[0].id;
-        console.log('📖 [OCR Validate] Journal sélectionné:', journals[0].name, `(ID: ${journalId})`);
+        console.log('✅ [validateAndCreateEntry] Journal trouvé:', journals[0].name, `(ID: ${journalId})`);
 
-        // ✅ MÉTHODE ODOO 19 : CONTEXTE AU LIEU DE FILTRE DOMAINE
-        console.log('🔍 [OCR Validate] Recherche compte débit:', accountDebitCode);
+        // RECHERCHE COMPTE DÉBIT (MÉTHODE ODOO 19)
+        console.log('🔍 [validateAndCreateEntry] Recherche compte débit:', accountDebitCode);
         
         const accountDebitSearch = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
             method: 'search_read',
             args: [[
-                ['code', '=', accountDebitCode]  // Seulement le code
+                ['code', '=', accountDebitCode]
             ]],
             kwargs: { 
                 fields: ['id', 'name', 'code'], 
                 limit: 1,
                 context: {
-                    allowed_company_ids: [companyId]  // ✅ Company dans contexte
+                    allowed_company_ids: [companyId]
                 }
             }
         });
 
         if (!accountDebitSearch || accountDebitSearch.length === 0) {
-            console.error('❌ [OCR Validate] Compte débit introuvable:', accountDebitCode);
+            console.error('❌ [validateAndCreateEntry] Compte débit introuvable:', accountDebitCode);
             return res.status(400).json({
                 success: false,
                 message: `Compte débit "${accountDebitCode}" introuvable dans le plan comptable`
@@ -369,29 +411,29 @@ exports.validateAndCreateEntry = async (req, res) => {
         }
 
         const accountDebitId = accountDebitSearch[0].id;
-        console.log('✅ [OCR Validate] Compte débit trouvé:', accountDebitSearch[0].code, '-', accountDebitSearch[0].name);
+        console.log('✅ [validateAndCreateEntry] Compte débit trouvé:', accountDebitSearch[0].code, '-', accountDebitSearch[0].name, `(ID: ${accountDebitId})`);
 
-        // ✅ MÉTHODE ODOO 19 : CONTEXTE AU LIEU DE FILTRE DOMAINE
-        console.log('🔍 [OCR Validate] Recherche compte crédit:', accountCreditCode);
+        // RECHERCHE COMPTE CRÉDIT (MÉTHODE ODOO 19)
+        console.log('🔍 [validateAndCreateEntry] Recherche compte crédit:', accountCreditCode);
         
         const accountCreditSearch = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
             method: 'search_read',
             args: [[
-                ['code', '=', accountCreditCode]  // Seulement le code
+                ['code', '=', accountCreditCode]
             ]],
             kwargs: { 
                 fields: ['id', 'name', 'code'], 
                 limit: 1,
                 context: {
-                    allowed_company_ids: [companyId]  // ✅ Company dans contexte
+                    allowed_company_ids: [companyId]
                 }
             }
         });
 
         if (!accountCreditSearch || accountCreditSearch.length === 0) {
-            console.error('❌ [OCR Validate] Compte crédit introuvable:', accountCreditCode);
+            console.error('❌ [validateAndCreateEntry] Compte crédit introuvable:', accountCreditCode);
             return res.status(400).json({
                 success: false,
                 message: `Compte crédit "${accountCreditCode}" introuvable dans le plan comptable`
@@ -399,8 +441,9 @@ exports.validateAndCreateEntry = async (req, res) => {
         }
 
         const accountCreditId = accountCreditSearch[0].id;
-        console.log('✅ [OCR Validate] Compte crédit trouvé:', accountCreditSearch[0].code, '-', accountCreditSearch[0].name);
+        console.log('✅ [validateAndCreateEntry] Compte crédit trouvé:', accountCreditSearch[0].code, '-', accountCreditSearch[0].name, `(ID: ${accountCreditId})`);
 
+        // CRÉATION ÉCRITURE
         const partnerLabel = invoiceType === 'client' ? 'Client' : 'Fournisseur';
         
         const moveData = {
@@ -413,19 +456,19 @@ exports.validateAndCreateEntry = async (req, res) => {
                 [0, 0, {
                     account_id: accountDebitId,
                     name: `${invoiceType === 'client' ? 'Vente' : 'Achat'} - ${supplier}`,
-                    debit: amountTTC,
+                    debit: parseFloat(amountTTC),
                     credit: 0
                 }],
                 [0, 0, {
                     account_id: accountCreditId,
                     name: `${partnerLabel} - ${supplier}`,
                     debit: 0,
-                    credit: amountTTC
+                    credit: parseFloat(amountTTC)
                 }]
             ]
         };
 
-        console.log('📝 [OCR Validate] Données écriture:', JSON.stringify(moveData, null, 2));
+        console.log('📝 [validateAndCreateEntry] Données écriture:', JSON.stringify(moveData, null, 2));
 
         const moveId = await odooExecuteKw({
             uid: ADMIN_UID_INT,
@@ -435,14 +478,14 @@ exports.validateAndCreateEntry = async (req, res) => {
             kwargs: {}
         });
 
-        console.log(`✅ [OCR Validate] Écriture créée avec succès: ID ${moveId}`);
+        console.log(`✅ [validateAndCreateEntry] Écriture créée avec succès: ID ${moveId}`);
 
         res.json({
             success: true,
             message: 'Écriture comptable créée avec succès',
             data: {
-                moveId: moveId,
-                invoiceNumber: invoiceNumber,
+                move_id: moveId,
+                invoice_number: invoiceNumber,
                 partner: supplier,
                 amount: amountTTC,
                 type: invoiceType || 'fournisseur',
@@ -454,13 +497,12 @@ exports.validateAndCreateEntry = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('🚨 [OCR Validate] Erreur:', error.message);
-        console.error('Stack:', error.stack);
+        console.error('🚨 [validateAndCreateEntry] Erreur:', error.message);
+        console.error('🚨 [validateAndCreateEntry] Stack:', error.stack);
         
         res.status(500).json({
             success: false,
-            message: 'Erreur lors de la création de l\'écriture',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: `Erreur lors de la création de l'écriture: ${error.message}`
         });
     }
 };
@@ -483,7 +525,7 @@ exports.getHistory = async (req, res) => {
             });
         }
 
-        console.log('📚 [OCR History] Récupération pour company:', companyId);
+        console.log('📚 [getHistory] Récupération pour company:', companyId);
         
         res.json({
             success: true,
@@ -491,7 +533,7 @@ exports.getHistory = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('🚨 [OCR History] Erreur:', error.message);
+        console.error('🚨 [getHistory] Erreur:', error.message);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la récupération de l\'historique'
@@ -502,41 +544,31 @@ exports.getHistory = async (req, res) => {
 exports.deleteDocument = async (req, res) => {
     try {
         const documentId = req.params.id;
-        const companyId = req.validatedCompanyId || req.user?.companyId || parseInt(req.query.companyId);
+        const companyId = req.validatedCompanyId || 
+                         req.user?.companyId || 
+                         req.user?.currentCompanyId ||
+                         parseInt(req.query.companyId);
 
         if (!companyId) {
-            return res.status(400).json({ success: false, message: 'Company ID manquant' });
+            return res.status(400).json({
+                success: false,
+                message: 'Company ID manquant'
+            });
         }
 
-        console.log('🗑️ [OCR Delete] Document:', documentId);
+        console.log('🗑️ [deleteDocument] Document:', documentId, '| Company:', companyId);
         
         res.json({
             success: true,
             message: 'Document supprimé avec succès'
         });
-    } catch (error) {
-        console.error('🚨 [OCR Delete] Erreur:', error.message);
-        res.status(500).json({ success: false, message: 'Erreur suppression' });
-    }
-};
 
-// Fonction utilitaire pour récupérer les comptes (si tu en as besoin ailleurs)
-exports.getAccounts = async (req, res) => {
-    try {
-        const companyId = req.validatedCompanyId || req.user?.companyId;
-        const accounts = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.account',
-            method: 'search_read',
-            args: [[['company_id', '=', companyId]]],
-            kwargs: { 
-                fields: ['id', 'code', 'name', 'current_balance'],
-                context: { allowed_company_ids: [companyId] } 
-            }
-        });
-        res.json({ success: true, data: accounts });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('🚨 [deleteDocument] Erreur:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la suppression du document'
+        });
     }
 };
 
