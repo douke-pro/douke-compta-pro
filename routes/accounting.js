@@ -1,7 +1,8 @@
 // =============================================================================
-// FICHIER : routes/accounting.js (VERSION V15 - FINALE ROBUSTE)
+// FICHIER : routes/accounting.js (VERSION V16 - ODOO 19 COMPATIBLE)
 // Description : Routes pour la gestion comptable SYSCOHADA
-// Endpoints harmonisés frontend/backend
+// ✅ CORRECTION : Route /accounts utilise le contexte Odoo 19
+// Date : 2026-02-25
 // =============================================================================
 
 const express = require('express');
@@ -112,9 +113,14 @@ router.post('/chart-of-accounts', protect, checkCompanyAccess, checkWritePermiss
  */
 router.put('/chart-of-accounts', protect, checkCompanyAccess, checkWritePermission, accountingController.updateAccount);
 
+// =============================================================================
+// ✅ ROUTE CORRIGÉE POUR ODOO 19
+// =============================================================================
+
 /**
  * GET /api/accounting/accounts
  * Récupérer les comptes pour une entreprise
+ * ✅ CORRIGÉ : Utilise le contexte allowed_company_ids au lieu de company_id dans le domaine
  */
 router.get('/accounts', authenticateToken, async (req, res) => {
     try {
@@ -123,6 +129,7 @@ router.get('/accounts', authenticateToken, async (req, res) => {
                          parseInt(req.query.companyId);
         
         if (!companyId) {
+            console.error('❌ [getAccounts] Company ID manquant');
             return res.status(400).json({
                 status: 'error',
                 error: 'Company ID manquant'
@@ -131,17 +138,25 @@ router.get('/accounts', authenticateToken, async (req, res) => {
 
         const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
 
+        console.log('🔍 [getAccounts] Récupération comptes pour company:', companyId);
+
+        // ✅ MÉTHODE ODOO 19 : Utiliser le contexte au lieu du domaine
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
             method: 'search_read',
-            args: [[['company_id', '=', companyId]]],
+            args: [[]],  // ✅ Domaine vide - Odoo filtre via le contexte
             kwargs: {
-                fields: ['id', 'code', 'name'],
+                fields: ['id', 'code', 'name', 'account_type'],
                 order: 'code ASC',
-                limit: 1000
+                limit: 2000,
+                context: {
+                    allowed_company_ids: [companyId]  // ✅ Filtrage par contexte
+                }
             }
         });
+
+        console.log(`✅ [getAccounts] ${accounts.length} comptes récupérés pour company ${companyId}`);
 
         res.json({
             status: 'success',
@@ -150,9 +165,12 @@ router.get('/accounts', authenticateToken, async (req, res) => {
 
     } catch (error) {
         console.error('🚨 [getAccounts] Erreur:', error.message);
+        console.error('Stack:', error.stack);
+        
         res.status(500).json({
             status: 'error',
-            error: 'Erreur récupération comptes'
+            error: 'Erreur récupération comptes',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
