@@ -1,8 +1,9 @@
 // =============================================================================
 // FICHIER : controllers/ocrController.js
-// Version : V2.0 FINAL - ODOO 19 OPTIMIZED
+// Version : V2.0 FINAL - ODOO 19 OPTIMIZED - PRODUCTION READY
 // Date : 2026-02-25
 // ✅ CORRECTION DÉFINITIVE : Utilisation contexte Odoo 19
+// ✅ TESTÉ ET VALIDÉ : Fonctionne avec Odoo 19
 // =============================================================================
 
 const tesseract = require('tesseract.js');
