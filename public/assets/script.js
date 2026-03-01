@@ -10,7 +10,7 @@
 // =============================================================================
 
 // --- 1. CONFIGURATION GLOBALE ---
-const API_BASE_URL = 'https://douke-compta-pro.onrender.com';
+const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api';
 const IS_PROD = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
 // État central de l'application (ESSENTIEL POUR L'ISOLATION)
