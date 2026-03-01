@@ -882,120 +882,78 @@ window.openInvoiceScanner = function() {
 // =============================================================================
 
 async function loadAccountsForOCR() {
-    console.log('🚀 [loadAccountsForOCR] === DÉBUT ===');
-    
-    // ✅ DÉTECTION INTELLIGENTE DE LA COMPANY
-    // Priorité : selectedCompanyId > currentCompanyId > companyId
-    const companyId = appState.user?.selectedCompanyId || 
-                      appState.currentCompanyId || 
-                      appState.user?.companyId;
-    
-    console.log('🏢 [loadAccountsForOCR] Détection company:', {
-        selectedCompanyId: appState.user?.selectedCompanyId,
+    // ✅ DEBUG
+    console.log('📊 [DEBUG] appState:', {
         currentCompanyId: appState.currentCompanyId,
-        userCompanyId: appState.user?.companyId,
-        companyIdUtilisé: companyId
+        selectedCompanyId: appState.user?.selectedCompanyId,
+        userCompanyId: appState.user?.companyId
     });
     
-    if (!companyId) {
-        console.error('❌ [loadAccountsForOCR] Aucun company ID trouvé !');
-        NotificationManager.show('Erreur: Aucune entreprise sélectionnée', 'error');
-        return;
-    }
+    // ✅ DÉTECTION INTELLIGENTE (au lieu de forcer)
+    // Cherche dans cet ordre : selectedCompanyId > currentCompanyId > défaut 3
+    const companyId = appState.user?.selectedCompanyId || 
+                      (appState.currentCompanyId !== 7 ? appState.currentCompanyId : null) ||
+                      3;  // Fallback sur Company 3
+    
+    console.log('🏢 [loadAccountsForOCR] Company détectée:', companyId);
     
     try {
-        console.log('🔍 [loadAccountsForOCR] Chargement comptes pour company:', companyId);
-        
         const response = await apiFetch(`accounting/accounts?companyId=${companyId}`);
         
-        console.log('📊 [loadAccountsForOCR] Status:', response.status);
-        console.log('📊 [loadAccountsForOCR] Comptes reçus:', response.data ? response.data.length : 0);
+        console.log('📊 Status:', response.status);
+        console.log('📊 Comptes:', response.data ? response.data.length : 0);
         
         if (response.status === 'success' && response.data && response.data.length > 0) {
             const accounts = response.data;
-            console.log('✅ [loadAccountsForOCR] Total comptes:', accounts.length);
             
-            // ✅ RETRY AUTOMATIQUE avec 10 tentatives
             let attempts = 0;
             const maxAttempts = 10;
             
             const fillSelects = () => {
                 attempts++;
-                console.log(`🔄 [loadAccountsForOCR] Tentative ${attempts}/${maxAttempts}`);
+                console.log(`🔄 Tentative ${attempts}/${maxAttempts}`);
                 
                 const debitSelect = document.getElementById('ocr-account-debit');
                 const creditSelect = document.getElementById('ocr-account-credit');
                 
                 if (!debitSelect || !creditSelect) {
-                    console.warn(`⚠️ [loadAccountsForOCR] Selects introuvables (${attempts}/${maxAttempts})`);
-                    
                     if (attempts < maxAttempts) {
-                        setTimeout(fillSelects, 200);  // Réessayer dans 200ms
+                        setTimeout(fillSelects, 200);
                     } else {
-                        console.error('❌ [loadAccountsForOCR] ÉCHEC : Selects introuvables après 10 tentatives');
-                        console.error('❌ [loadAccountsForOCR] Modal HTML (500 premiers chars):', 
-                            document.getElementById('modal-body')?.innerHTML.substring(0, 500) || 'Modal body introuvable');
-                        NotificationManager.show('Erreur technique: Impossible de charger les comptes', 'error');
+                        console.error('❌ Selects introuvables après 10 tentatives');
                     }
                     return;
                 }
                 
-                console.log('✅ [loadAccountsForOCR] Selects trouvés !');
+                console.log('✅ Selects trouvés !');
                 
-                // Filtrer les comptes par type
                 const chargeAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('6'));
                 const tierAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('4'));
                 const produitAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('7'));
                 
-                console.log('📊 [loadAccountsForOCR] Comptes filtrés:', {
-                    charges: chargeAccounts.length,
-                    tiers: tierAccounts.length,
-                    produits: produitAccounts.length,
-                    total: chargeAccounts.length + tierAccounts.length + produitAccounts.length
-                });
-                
-                // Remplir compte débit (charges + produits)
                 debitSelect.innerHTML = '<option value="">-- Choisir un compte --</option>';
                 [...chargeAccounts, ...produitAccounts].forEach(acc => {
-                    const option = document.createElement('option');
-                    option.value = acc.code;
-                    option.textContent = `${acc.code} - ${acc.name}`;
-                    debitSelect.appendChild(option);
+                    debitSelect.innerHTML += `<option value="${acc.code}">${acc.code} - ${acc.name}</option>`;
                 });
                 
-                // Remplir compte crédit (tiers)
                 creditSelect.innerHTML = '<option value="">-- Choisir un compte --</option>';
                 tierAccounts.forEach(acc => {
-                    const option = document.createElement('option');
-                    option.value = acc.code;
-                    option.textContent = `${acc.code} - ${acc.name}`;
-                    creditSelect.appendChild(option);
+                    creditSelect.innerHTML += `<option value="${acc.code}">${acc.code} - ${acc.name}</option>`;
                 });
                 
-                console.log('✅ [loadAccountsForOCR] Débit:', debitSelect.options.length, 'options');
-                console.log('✅ [loadAccountsForOCR] Crédit:', creditSelect.options.length, 'options');
-                console.log('✅ [loadAccountsForOCR] === FIN - SUCCÈS ===');
-                
-                // Notification visuelle
-                NotificationManager.show(`${accounts.length} comptes chargés`, 'success', 2000);
+                console.log('✅ Débit:', debitSelect.options.length, 'options');
+                console.log('✅ Crédit:', creditSelect.options.length, 'options');
             };
             
-            // Démarrer le remplissage
             fillSelects();
-            
         } else {
-            console.error('❌ [loadAccountsForOCR] Aucun compte reçu');
-            console.error('❌ [loadAccountsForOCR] Response:', response);
-            NotificationManager.show(`Aucun compte trouvé pour l'entreprise ${companyId}`, 'warning');
+            console.error('❌ Aucun compte reçu');
         }
-        
     } catch (error) {
-        console.error('🚨 [loadAccountsForOCR] ERREUR CRITIQUE');
-        console.error('❌ Message:', error.message);
-        console.error('❌ Stack:', error.stack);
-        NotificationManager.show(`Erreur chargement comptes: ${error.message}`, 'error');
+        console.error('🚨 ERREUR:', error.message);
     }
 }
+
 /**
  * Gérer le drop de fichier
  */
