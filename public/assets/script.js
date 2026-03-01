@@ -880,28 +880,26 @@ window.openInvoiceScanner = function() {
 // =============================================================================
 
 async function loadAccountsForOCR() {
-    console.log('🚀 [loadAccountsForOCR] === DÉBUT ===');
-    
-    // ✅ DEBUG COMPLET
+    // ✅ DEBUG
     console.log('📊 [DEBUG] appState:', {
         currentCompanyId: appState.currentCompanyId,
         selectedCompanyId: appState.user?.selectedCompanyId,
         userCompanyId: appState.user?.companyId
     });
     
-    // 🔥 FORCER COMPANY 3 DIRECTEMENT (temporaire pour débloquer)
-    appState.currentCompanyId = 3;
-    appState.user.selectedCompanyId = 3;
+    // ✅ DÉTECTION INTELLIGENTE (au lieu de forcer)
+    // Cherche dans cet ordre : selectedCompanyId > currentCompanyId > défaut 3
+    const companyId = appState.user?.selectedCompanyId || 
+                      (appState.currentCompanyId !== 7 ? appState.currentCompanyId : null) ||
+                      3;  // Fallback sur Company 3
     
-    const companyId = 3;  // ← HARDCODÉ
-    
-    console.log('🏢 [loadAccountsForOCR] Company forcée à:', companyId);
+    console.log('🏢 [loadAccountsForOCR] Company détectée:', companyId);
     
     try {
         const response = await apiFetch(`accounting/accounts?companyId=${companyId}`);
         
-        console.log('📊 [loadAccountsForOCR] Status:', response.status);
-        console.log('📊 [loadAccountsForOCR] Comptes reçus:', response.data ? response.data.length : 0);
+        console.log('📊 Status:', response.status);
+        console.log('📊 Comptes:', response.data ? response.data.length : 0);
         
         if (response.status === 'success' && response.data && response.data.length > 0) {
             const accounts = response.data;
@@ -953,7 +951,6 @@ async function loadAccountsForOCR() {
         console.error('🚨 ERREUR:', error.message);
     }
 }
-
 /**
  * Gérer le drop de fichier
  */
