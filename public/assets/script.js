@@ -115,7 +115,7 @@ const ModalManager = {
 function cleanUrlJoin(base, path) {
     const cleanedBase = base.replace(/\/+$/, '');
     const cleanedPath = path.replace(/^\/+/, '');
-    return `${cleanedBase}/api/${cleanedPath}`;
+    return `${cleanedBase}/${cleanedPath}`;
 }
 
 async function apiFetch(endpoint, options = {}) {
