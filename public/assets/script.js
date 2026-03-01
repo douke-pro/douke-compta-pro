@@ -874,8 +874,10 @@ window.openInvoiceScanner = function() {
     ModalManager.open('📷 Numérisation de Facture', scannerHTML);
     
     // ✅ PUIS charger les comptes APRÈS (quand les selects existent)
+    setTimeout(() => {
     loadAccountsForOCR();
-};
+}, 100);
+}  
 
 /**
  * Charger les comptes disponibles pour les sélecteurs
