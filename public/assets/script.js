@@ -735,11 +735,13 @@ async function fetchDashboardData(endpoint) {
 /**
  * Ouvrir le scanner de factures
  */
+// =============================================================================
+// CORRECTION FONCTION openInvoiceScanner
+// À remplacer dans script.js à partir de la ligne 738
+// =============================================================================
+
 window.openInvoiceScanner = function() {
     console.log('📷 [openInvoiceScanner] Ouverture du scanner...');
-    
-    // Charger dynamiquement les comptes disponibles
-    loadAccountsForOCR();
     
     const scannerHTML = `
         <div class="space-y-6">
@@ -868,7 +870,11 @@ window.openInvoiceScanner = function() {
         </div>
     `;
     
+    // ✅ CORRECTION CRITIQUE : Ouvrir le modal D'ABORD
     ModalManager.open('📷 Numérisation de Facture', scannerHTML);
+    
+    // ✅ PUIS charger les comptes APRÈS (quand les selects existent)
+    loadAccountsForOCR();
 };
 
 /**
