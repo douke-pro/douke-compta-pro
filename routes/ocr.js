@@ -66,6 +66,61 @@ const upload = multer({
 // =============================================================================
 
 /**
+ * GET /api/accounting/accounts
+ * Récupérer les comptes comptables pour une entreprise
+ * Utilisé par le module OCR pour charger les sélecteurs
+ */
+router.get('/accounts', authenticateToken, async (req, res) => {
+    try {
+        const companyId = req.user.currentCompanyId || 
+                         req.user.companyId || 
+                         parseInt(req.query.companyId);
+        
+        if (!companyId) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Company ID manquant'
+            });
+        }
+
+        console.log('📋 [getAccounts] Company:', companyId);
+
+        const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+
+        const accounts = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'account.account',
+            method: 'search_read',
+            args: [[
+                ['company_id', '=', companyId]
+            ]],
+            kwargs: {
+                fields: ['id', 'code', 'name', 'account_type'],
+                order: 'code ASC',
+                limit: 1000,
+                context: {
+                    allowed_company_ids: [companyId]
+                }
+            }
+        });
+
+        console.log('✅ [getAccounts]', accounts.length, 'comptes récupérés');
+
+        res.json({
+            status: 'success',
+            data: accounts
+        });
+
+    } catch (error) {
+        console.error('🚨 [getAccounts] Erreur:', error.message);
+        res.status(500).json({
+            status: 'error',
+            error: 'Erreur lors de la récupération des comptes'
+        });
+    }
+});
+
+/**
  * @route   POST /api/ocr/process
  * @desc    Upload et scan d'une facture avec OCR
  * @access  Protégé (authentification requise)
