@@ -874,58 +874,108 @@ window.openInvoiceScanner = function() {
 /**
  * Charger les comptes disponibles pour les sélecteurs
  */
+// =============================================================================
+// VERSION ROBUSTE avec RETRY automatique
+// Remplacez loadAccountsForOCR par cette version
+// =============================================================================
+
 async function loadAccountsForOCR() {
+    console.log('🚀 [loadAccountsForOCR] === DÉBUT ===');
+    
     try {
-        console.log('🔍 [loadAccountsForOCR] Chargement comptes pour company:', appState.currentCompanyId);
+        const endpoint = `accounting/accounts?companyId=${appState.currentCompanyId}`;
+        console.log('🔍 [loadAccountsForOCR] Endpoint:', endpoint);
+        console.log('🔍 [loadAccountsForOCR] Company ID:', appState.currentCompanyId);
         
-        const response = await apiFetch(`accounting/accounts?companyId=${appState.currentCompanyId}`);
+        const response = await apiFetch(endpoint);
         
-        console.log('📊 [loadAccountsForOCR] Réponse:', response);
+        console.log('✅ [loadAccountsForOCR] Réponse reçue');
+        console.log('📊 [loadAccountsForOCR] Status:', response.status);
+        console.log('📊 [loadAccountsForOCR] Data:', response.data ? `${response.data.length} comptes` : 'VIDE');
         
-        if (response.status === 'success' && response.data) {
+        if (response.status === 'success' && response.data && response.data.length > 0) {
             const accounts = response.data;
+            console.log('📊 [loadAccountsForOCR] Total comptes:', accounts.length);
             
-            // Attendre que les selects existent
-            setTimeout(() => {
+            // RETRY AUTOMATIQUE jusqu'à ce que les selects existent
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            const fillSelects = () => {
+                attempts++;
+                console.log(`🔄 [loadAccountsForOCR] Tentative ${attempts}/${maxAttempts}`);
+                
                 const debitSelect = document.getElementById('ocr-account-debit');
                 const creditSelect = document.getElementById('ocr-account-credit');
                 
                 if (!debitSelect || !creditSelect) {
-                    console.warn('⚠️ [loadAccountsForOCR] Selects non trouvés');
+                    console.warn(`⚠️ [loadAccountsForOCR] Selects non trouvés (tentative ${attempts})`);
+                    
+                    if (attempts < maxAttempts) {
+                        setTimeout(fillSelects, 200);
+                    } else {
+                        console.error('❌ [loadAccountsForOCR] ÉCHEC : Selects introuvables après 10 tentatives');
+                    }
                     return;
                 }
                 
-                // Filtrer les comptes par type
+                console.log('✅ [loadAccountsForOCR] Selects trouvés !');
+                
+                // Filtrer
                 const chargeAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('6'));
                 const tierAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('4'));
                 const produitAccounts = accounts.filter(acc => acc.code && acc.code.startsWith('7'));
                 
-                console.log('📊 [loadAccountsForOCR] Comptes filtrés:', {
+                console.log('📊 [loadAccountsForOCR] Filtrés:', {
                     charges: chargeAccounts.length,
                     tiers: tierAccounts.length,
                     produits: produitAccounts.length
                 });
                 
-                // Remplir compte débit (charges + produits)
+                // Remplir débit
                 debitSelect.innerHTML = '<option value="">-- Choisir un compte --</option>';
                 [...chargeAccounts, ...produitAccounts].forEach(acc => {
-                    debitSelect.innerHTML += `<option value="${acc.code}">${acc.code} - ${acc.name}</option>`;
+                    const option = document.createElement('option');
+                    option.value = acc.code;
+                    option.textContent = `${acc.code} - ${acc.name}`;
+                    debitSelect.appendChild(option);
                 });
                 
-                // Remplir compte crédit (tiers)
+                // Remplir crédit
                 creditSelect.innerHTML = '<option value="">-- Choisir un compte --</option>';
                 tierAccounts.forEach(acc => {
-                    creditSelect.innerHTML += `<option value="${acc.code}">${acc.code} - ${acc.name}</option>`;
+                    const option = document.createElement('option');
+                    option.value = acc.code;
+                    option.textContent = `${acc.code} - ${acc.name}`;
+                    creditSelect.appendChild(option);
                 });
                 
-                console.log('✅ [loadAccountsForOCR] Comptes chargés:', accounts.length);
-            }, 500);
+                console.log('✅ [loadAccountsForOCR] Remplis !');
+                console.log('📊 [loadAccountsForOCR] Débit:', debitSelect.options.length, 'options');
+                console.log('📊 [loadAccountsForOCR] Crédit:', creditSelect.options.length, 'options');
+                
+                // Notification visuelle
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.show(`${accounts.length} comptes chargés`, 'success', 2000);
+                }
+            };
+            
+            // Démarrer les tentatives
+            fillSelects();
+            
         } else {
-            console.error('❌ [loadAccountsForOCR] Réponse invalide:', response);
+            console.error('❌ [loadAccountsForOCR] Pas de comptes reçus');
+            console.error('❌ [loadAccountsForOCR] Response:', response);
         }
+        
     } catch (error) {
-        console.error('❌ [loadAccountsForOCR] Erreur:', error);
-        console.error('❌ [loadAccountsForOCR] Stack:', error.stack);
+        console.error('🚨 [loadAccountsForOCR] ERREUR');
+        console.error('❌ Message:', error.message);
+        console.error('❌ Stack:', error.stack);
+        
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.show('Erreur chargement comptes', 'error');
+        }
     }
 }
 
