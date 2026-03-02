@@ -9,41 +9,29 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { authenticateToken } = require('../middleware/auth'); // ✅ CORRIGÉ
+const { authenticateToken } = require('../middleware/auth');
 const ocrController = require('../controllers/ocrController');
 
-// =============================================================================
-// CONFIGURATION MULTER (Upload de fichiers)
-// =============================================================================
-
-// Configuration du stockage temporaire
+// Configuration Multer
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'uploads/temp'); // Dossier temporaire
+        cb(null, 'uploads/temp');
     },
     filename: function (req, file, cb) {
-        // Format : invoice-timestamp-random.ext
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, `invoice-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
 });
 
-// Configuration Multer avec validations
 const upload = multer({
     storage: storage,
     limits: {
-        fileSize: 10 * 1024 * 1024, // 10 MB maximum
+        fileSize: 10 * 1024 * 1024,
     },
     fileFilter: (req, file, cb) => {
         console.log('📋 [Multer] Fichier reçu:', file.originalname, '|', file.mimetype);
         
-        // ✅ TYPES MIME AUTORISÉS : IMAGES UNIQUEMENT
-        const allowedTypes = [
-            // 'application/pdf',  // ❌ DÉSACTIVÉ : Tesseract.js ne supporte pas les PDFs nativement
-            'image/jpeg',
-            'image/jpg',
-            'image/png'
-        ];
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
         
         if (allowedTypes.includes(file.mimetype)) {
             console.log('✅ [Multer] Type de fichier accepté');
@@ -51,9 +39,8 @@ const upload = multer({
         } else {
             console.error('❌ [Multer] Type de fichier refusé:', file.mimetype);
             
-            // Message personnalisé pour les PDFs
             if (file.mimetype === 'application/pdf') {
-                cb(new Error('❌ Les fichiers PDF ne sont pas encore supportés. Veuillez utiliser une image (JPG ou PNG). Astuce : Prenez une capture d\'écran de votre facture PDF ou convertissez-la en image.'));
+                cb(new Error('❌ Les fichiers PDF ne sont pas encore supportés. Veuillez utiliser une image (JPG ou PNG).'));
             } else {
                 cb(new Error('❌ Type de fichier non autorisé. Formats acceptés : JPG, PNG uniquement.'));
             }
@@ -61,139 +48,17 @@ const upload = multer({
     }
 });
 
-// =============================================================================
-// ROUTES
-// =============================================================================
+// ✅ ROUTES OCR (PAS de route /accounts ici)
+router.post('/process', authenticateToken, upload.single('file'), ocrController.uploadAndScan);
+router.post('/validate-and-create', authenticateToken, ocrController.validateAndCreateEntry);
+router.get('/history', authenticateToken, ocrController.getHistory);
+router.delete('/:id', authenticateToken, ocrController.deleteDocument);
 
-/**
- * GET /api/accounting/accounts
- * Récupérer les comptes comptables pour une entreprise
- * Utilisé par le module OCR pour charger les sélecteurs
- */
-router.get('/accounts', authenticateToken, async (req, res) => {
-    try {
-        const companyId = req.user.currentCompanyId || 
-                         req.user.companyId || 
-                         parseInt(req.query.companyId);
-        
-        if (!companyId) {
-            return res.status(400).json({
-                status: 'error',
-                error: 'Company ID manquant'
-            });
-        }
-
-        console.log('📋 [getAccounts] Company:', companyId);
-
-        const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
-
-        const accounts = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'account.account',
-            method: 'search_read',
-            args: [[
-                ['company_id', '=', companyId]
-            ]],
-            kwargs: {
-                fields: ['id', 'code', 'name', 'account_type'],
-                order: 'code ASC',
-                limit: 1000,
-                context: {
-                    allowed_company_ids: [companyId]
-                }
-            }
-        });
-
-        console.log('✅ [getAccounts]', accounts.length, 'comptes récupérés');
-
-        res.json({
-            status: 'success',
-            data: accounts
-        });
-
-    } catch (error) {
-        console.error('🚨 [getAccounts] Erreur:', error.message);
-        res.status(500).json({
-            status: 'error',
-            error: 'Erreur lors de la récupération des comptes'
-        });
-    }
-});
-
-/**
- * @route   POST /api/ocr/process
- * @desc    Upload et scan d'une facture avec OCR
- * @access  Protégé (authentification requise)
- * @body    multipart/form-data { file: File (JPG/PNG), companyId?: Number }
- * ✅ ALIGNÉ avec le frontend
- */
-router.post(
-    '/process',
-    authenticateToken,
-    upload.single('file'),
-    ocrController.uploadAndScan
-);
-
-/**
- * @route   POST /api/ocr/validate-and-create
- * @desc    Valide et crée l'écriture comptable depuis les données OCR
- * @access  Protégé (authentification requise)
- * @body    JSON { 
- *            date: String, 
- *            invoiceNumber: String, 
- *            supplier: String, 
- *            amountHT: Number, 
- *            tva: Number, 
- *            amountTTC: Number, 
- *            accountDebitCode: String, 
- *            accountCreditCode: String,
- *            invoiceType: String
- *          }
- * ✅ ALIGNÉ avec le frontend
- */
-router.post(
-    '/validate-and-create',
-    authenticateToken,
-    ocrController.validateAndCreateEntry
-);
-
-/**
- * @route   GET /api/ocr/history
- * @desc    Récupère l'historique des documents scannés
- * @access  Protégé (authentification requise)
- * @query   companyId?: Number
- */
-router.get(
-    '/history',
-    authenticateToken,
-    ocrController.getHistory
-);
-
-/**
- * @route   DELETE /api/ocr/:id
- * @desc    Supprime un document scanné de l'historique
- * @access  Protégé (authentification requise)
- * @params  id: Number (ID du document)
- */
-router.delete(
-    '/:id',
-    authenticateToken,
-    ocrController.deleteDocument
-);
-
-// =============================================================================
-// GESTION D'ERREURS MULTER
-// =============================================================================
-
-/**
- * Middleware de gestion des erreurs d'upload
- */
+// Gestion erreurs Multer
 router.use((error, req, res, next) => {
-    // Erreurs spécifiques Multer
     if (error instanceof multer.MulterError) {
         console.error('🚨 [Multer Error]', error.code, ':', error.message);
         
-        // Limite de taille dépassée
         if (error.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({
                 success: false,
@@ -201,7 +66,6 @@ router.use((error, req, res, next) => {
             });
         }
         
-        // Trop de fichiers
         if (error.code === 'LIMIT_FILE_COUNT') {
             return res.status(400).json({
                 success: false,
@@ -209,14 +73,12 @@ router.use((error, req, res, next) => {
             });
         }
         
-        // Autre erreur Multer
         return res.status(400).json({
             success: false,
             message: `Erreur upload : ${error.message}`
         });
     }
     
-    // Erreurs générales (type de fichier, etc.)
     if (error) {
         console.error('🚨 [Upload Error]', error.message);
         console.error('🔍 [Upload Error Stack]', error.stack);
@@ -227,7 +89,6 @@ router.use((error, req, res, next) => {
         });
     }
     
-    // Pas d'erreur, continuer
     next();
 });
 
