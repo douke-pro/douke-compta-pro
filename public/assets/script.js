@@ -721,22 +721,62 @@ async function fetchDashboardData(endpoint) {
 
 // =============================================================================
 // FICHIER : public/assets/script.js
-// BLOC : MODULE OCR COMPLET - VERSION V3.0 FINALE
+// BLOC : MODULE OCR COMPLET - VERSION V4.0 FINALE
 // Date : 2026-03-22
 //
-// ✅ FIX 1 : loadAccountsForOCR → endpoint ocr/accounts (plus accounting/accounts)
-// ✅ FIX 2 : filterAccountsByInvoiceType → NOUVELLE fonction, filtre SYSCOHADA strict
-// ✅ FIX 3 : openInvoiceScanner → onchange sur #ocr-invoice-type
-// ✅ FIX 4 : handleOCRValidation → companyId résolu proprement + bouton réactivé
-// ✅ FIX 5 : processInvoiceFile → companyId envoyé dans l'URL de l'upload
+// ✅ FIX 1 : loadAccountsForOCR → lecture du <select> menu comme source de vérité
+// ✅ FIX 2 : processInvoiceFile → même résolution companyId robuste
+// ✅ FIX 3 : handleOCRValidation → même résolution companyId robuste
+// ✅ FIX 4 : endpoint → ocr/accounts (plus accounting/accounts)
+// ✅ FIX 5 : filterAccountsByInvoiceType → filtre SYSCOHADA strict
+// ✅ FIX 6 : openInvoiceScanner → onchange sur select type de facture
 // ✅ CONSERVÉ : handleInvoiceDrop, handleInvoiceUpload, displayOCRResults intacts
 //
-// ⚠️ INSTRUCTION : Dans script.js, rechercher le commentaire :
-//       "// 📷 MODULE DE NUMÉRISATION - FONCTIONS PRINCIPALES"
-//    et remplacer TOUT ce qui suit jusqu'à la ligne :
-//       console.log('✅ [OCR] Fonctions chargées avec succès');
-//    par ce fichier en entier.
+// ⚠️ INSTRUCTION DE REMPLACEMENT :
+//    Dans script.js, rechercher la ligne :
+//        // 📷 MODULE DE NUMÉRISATION - FONCTIONS PRINCIPALES
+//    Sélectionner TOUT depuis cette ligne jusqu'à :
+//        console.log('✅ [OCR] Fonctions chargées avec succès');
+//    Et remplacer par CE FICHIER EN ENTIER.
 // =============================================================================
+
+
+// =============================================================================
+// 🔧 UTILITAIRE INTERNE : résolution du companyId actif
+// Lit d'abord le <select> du menu dossier — source de vérité absolue
+// Évite le bug où appState.currentCompanyId vaut la company par défaut du login
+// =============================================================================
+
+function _resolveActiveCompanyId() {
+    // 1. Le <select> du menu dossier — valeur visible à l'écran = vérité absolue
+    const menuSelect = document.getElementById('company-select-menu');
+    if (menuSelect && menuSelect.value && parseInt(menuSelect.value) > 0) {
+        const id = parseInt(menuSelect.value);
+        console.log(`🏢 [_resolveActiveCompanyId] Via menu select: ${id}`);
+        return id;
+    }
+
+    // 2. currentCompanyId mis à jour par handleCompanyChange
+    if (appState.currentCompanyId && appState.currentCompanyId > 0) {
+        console.log(`🏢 [_resolveActiveCompanyId] Via appState.currentCompanyId: ${appState.currentCompanyId}`);
+        return appState.currentCompanyId;
+    }
+
+    // 3. selectedCompanyId (mis à jour au changement de dossier)
+    if (appState.user?.selectedCompanyId && appState.user.selectedCompanyId > 0) {
+        console.log(`🏢 [_resolveActiveCompanyId] Via selectedCompanyId: ${appState.user.selectedCompanyId}`);
+        return appState.user.selectedCompanyId;
+    }
+
+    // 4. companyId natif Odoo de l'utilisateur — dernier recours
+    if (appState.user?.companyId && appState.user.companyId > 0) {
+        console.log(`🏢 [_resolveActiveCompanyId] Via user.companyId: ${appState.user.companyId}`);
+        return appState.user.companyId;
+    }
+
+    console.error('❌ [_resolveActiveCompanyId] Aucune company résolue');
+    return null;
+}
 
 
 // =============================================================================
@@ -746,13 +786,22 @@ async function fetchDashboardData(endpoint) {
 
 // =============================================================================
 // FONCTION 1 : openInvoiceScanner
-// ✅ FIX : onchange="window.filterAccountsByInvoiceType()" sur le select type
+// ✅ FIX 6 : onchange="window.filterAccountsByInvoiceType()" sur le select type
 // ✅ FIX : labels dynamiques id="label-debit" et id="label-credit"
-// ✅ FIX : PDF accepté dans le input file
+// ✅ FIX : id="ocr-submit-btn" sur le bouton pour pouvoir le désactiver
 // =============================================================================
 
 window.openInvoiceScanner = function() {
     console.log('📷 [openInvoiceScanner] Ouverture du scanner...');
+
+    // Vérifier qu'une company est bien sélectionnée avant d'ouvrir
+    const companyId = _resolveActiveCompanyId();
+    if (!companyId) {
+        NotificationManager.show('Veuillez sélectionner un dossier client avant de numériser.', 'warning');
+        return;
+    }
+
+    console.log(`📷 [openInvoiceScanner] Company active: ${companyId}`);
 
     const scannerHTML = `
         <div class="space-y-6">
@@ -804,7 +853,7 @@ window.openInvoiceScanner = function() {
 
                         <form id="ocr-validation-form" onsubmit="window.handleOCRValidation(event)" class="space-y-4">
 
-                            <!-- ✅ FIX : onchange recalibre les comptes selon le type -->
+                            <!-- ✅ FIX 6 : onchange recalibre les comptes selon le type -->
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                                     Type de Facture <span class="text-danger">*</span>
@@ -859,7 +908,7 @@ window.openInvoiceScanner = function() {
                                 </div>
                             </div>
 
-                            <!-- ✅ Labels dynamiques mis à jour par filterAccountsByInvoiceType() -->
+                            <!-- Labels dynamiques mis à jour par filterAccountsByInvoiceType() -->
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                                     <span id="label-debit">Compte Débit — Charge (60x–68x)</span>
@@ -924,34 +973,26 @@ window.openInvoiceScanner = function() {
 
 // =============================================================================
 // FONCTION 2 : loadAccountsForOCR
-// ✅ FIX 1 : endpoint → ocr/accounts  (plus accounting/accounts)
-// ✅ FIX 2 : stocke les comptes dans window._ocrAccounts
-// ✅ FIX 3 : suppression du fallback hardcodé sur company 2
-// ✅ FIX 4 : appelle filterAccountsByInvoiceType() après chargement
+// ✅ FIX 1 : _resolveActiveCompanyId() lit le <select> menu en priorité absolue
+// ✅ FIX 4 : endpoint → ocr/accounts
+// ✅ FIX 5 : stocke dans window._ocrAccounts + appelle filterAccountsByInvoiceType()
 // =============================================================================
 
 async function loadAccountsForOCR() {
     console.log('🚀 [loadAccountsForOCR] === DÉBUT ===');
 
-    // Résolution de la company active — priorité : selectedCompanyId > currentCompanyId > userCompanyId
-   const companyId = appState.currentCompanyId          // company du menu sélecteur
-    || appState.user?.selectedCompanyId
-    || appState.user?.companyId;
-
-    console.log('🏢 [loadAccountsForOCR] Company utilisée:', companyId, '| appState:', {
-        currentCompanyId:  appState.currentCompanyId,
-        selectedCompanyId: appState.user?.selectedCompanyId,
-        userCompanyId:     appState.user?.companyId
-    });
+    // ✅ FIX 1 : source de vérité = le <select> du menu dossier
+    const companyId = _resolveActiveCompanyId();
 
     if (!companyId) {
-        console.error('❌ [loadAccountsForOCR] Aucune company détectée');
         NotificationManager.show('Aucune entreprise active — impossible de charger les comptes.', 'error');
         return;
     }
 
+    console.log(`🏢 [loadAccountsForOCR] Company résolue: ${companyId}`);
+
     try {
-        // ✅ FIX 1 : endpoint correct → /api/ocr/accounts
+        // ✅ FIX 4 : endpoint correct → /api/ocr/accounts
         const response = await apiFetch(`ocr/accounts?companyId=${companyId}`);
 
         console.log('📊 [loadAccountsForOCR] Réponse:', {
@@ -965,11 +1006,11 @@ async function loadAccountsForOCR() {
             return;
         }
 
-        // ✅ FIX 2 : stockage global pour filterAccountsByInvoiceType()
+        // ✅ FIX 5 : stockage global pour filterAccountsByInvoiceType()
         window._ocrAccounts = response.data;
         console.log(`✅ [loadAccountsForOCR] ${response.data.length} comptes stockés`);
 
-        // ✅ FIX 4 : filtre initial selon le type par défaut (fournisseur)
+        // Appliquer le filtre initial selon le type par défaut (fournisseur)
         window.filterAccountsByInvoiceType();
 
         NotificationManager.show(`${response.data.length} comptes chargés`, 'success', 2000);
@@ -982,7 +1023,7 @@ async function loadAccountsForOCR() {
 
 
 // =============================================================================
-// FONCTION 3 : filterAccountsByInvoiceType  ← NOUVELLE FONCTION
+// FONCTION 3 : filterAccountsByInvoiceType
 // ✅ Appelée au chargement ET à chaque changement du select #ocr-invoice-type
 // ✅ Filtre SYSCOHADA révisé strict :
 //
@@ -1075,7 +1116,7 @@ window.filterAccountsByInvoiceType = function() {
 
 // =============================================================================
 // FONCTION 4 : handleInvoiceDrop
-// ✅ INCHANGÉE — conservée telle quelle
+// ✅ INCHANGÉE
 // =============================================================================
 
 window.handleInvoiceDrop = function(event) {
@@ -1096,7 +1137,7 @@ window.handleInvoiceDrop = function(event) {
 
 // =============================================================================
 // FONCTION 5 : handleInvoiceUpload
-// ✅ INCHANGÉE — conservée telle quelle
+// ✅ INCHANGÉE
 // =============================================================================
 
 window.handleInvoiceUpload = function(event) {
@@ -1109,8 +1150,7 @@ window.handleInvoiceUpload = function(event) {
 
 // =============================================================================
 // FONCTION 6 : processInvoiceFile
-// ✅ FIX 5 : companyId transmis dans l'URL de l'upload (query param)
-//            Odoo multi-company a besoin du companyId même pour l'upload
+// ✅ FIX 2 : _resolveActiveCompanyId() pour l'URL d'upload
 // ✅ CONSERVÉ : toute la logique de gestion d'erreurs robuste
 // =============================================================================
 
@@ -1119,7 +1159,7 @@ async function processInvoiceFile(file) {
     console.log('📄 [processInvoiceFile] Fichier:', file.name, '| Type:', file.type, '| Taille:', file.size, 'octets');
 
     // Validation taille
-    const maxSize = 10 * 1024 * 1024; // 10 MB
+    const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
         NotificationManager.show('Fichier trop volumineux (max 10 MB)', 'error');
         return;
@@ -1138,10 +1178,14 @@ async function processInvoiceFile(file) {
     if (dropzone)    dropzone.classList.add('hidden');
     if (loadingZone) loadingZone.classList.remove('hidden');
 
-    // ✅ FIX 5 : résoudre le companyId pour l'envoyer dans l'URL
-    const companyId = appState.currentCompanyId          // company du menu sélecteur
-    || appState.user?.selectedCompanyId
-    || appState.user?.companyId;
+    // ✅ FIX 2 : résolution robuste du companyId
+    const companyId = _resolveActiveCompanyId();
+    if (!companyId) {
+        NotificationManager.show('Aucune entreprise active. Impossible de traiter le document.', 'error');
+        if (dropzone)    dropzone.classList.remove('hidden');
+        if (loadingZone) loadingZone.classList.add('hidden');
+        return;
+    }
 
     console.log('🚀 [processInvoiceFile] Company ID:', companyId);
     console.log('🚀 [processInvoiceFile] Token:', appState.token ? 'PRÉSENT' : 'MANQUANT');
@@ -1150,7 +1194,7 @@ async function processInvoiceFile(file) {
         const formData = new FormData();
         formData.append('file', file);
 
-        // ✅ FIX 5 : companyId dans l'URL pour que le backend l'identifie
+        // companyId dans l'URL pour que le backend l'identifie correctement
         const uploadUrl = `${API_BASE_URL}/ocr/process?companyId=${companyId}`;
         console.log('🚀 [processInvoiceFile] URL upload:', uploadUrl);
 
@@ -1168,7 +1212,7 @@ async function processInvoiceFile(file) {
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
             const textResponse = await response.text();
-            console.error('❌ [processInvoiceFile] Réponse non-JSON (premiers 500 chars):', textResponse.substring(0, 500));
+            console.error('❌ [processInvoiceFile] Réponse non-JSON:', textResponse.substring(0, 500));
             throw new Error(`Le serveur a retourné une erreur non-JSON (Status: ${response.status})`);
         }
 
@@ -1177,7 +1221,6 @@ async function processInvoiceFile(file) {
 
         if (!response.ok || !data.success) {
             const errorMsg = data.message || data.error || `Erreur HTTP ${response.status}`;
-            console.error('❌ [processInvoiceFile] Erreur serveur:', errorMsg);
             throw new Error(errorMsg);
         }
 
@@ -1186,10 +1229,8 @@ async function processInvoiceFile(file) {
 
     } catch (error) {
         console.error('❌ [processInvoiceFile] Erreur:', error.message);
-
         NotificationManager.show(`Erreur OCR : ${error.message}`, 'error');
 
-        // Réinitialiser l'interface
         if (dropzone)    dropzone.classList.remove('hidden');
         if (loadingZone) loadingZone.classList.add('hidden');
     }
@@ -1198,15 +1239,14 @@ async function processInvoiceFile(file) {
 
 // =============================================================================
 // FONCTION 7 : displayOCRResults
-// ✅ INCHANGÉE — conservée telle quelle
+// ✅ INCHANGÉE — conservée et robustifiée
 // =============================================================================
 
 function displayOCRResults(ocrData, file) {
     console.log('📊 [displayOCRResults] Données reçues:', ocrData);
 
-    // Masquer loading, afficher résultats
-    const loadingZone  = document.getElementById('ocr-loading-zone');
-    const resultZone   = document.getElementById('ocr-result-zone');
+    const loadingZone = document.getElementById('ocr-loading-zone');
+    const resultZone  = document.getElementById('ocr-result-zone');
     if (loadingZone) loadingZone.classList.add('hidden');
     if (resultZone)  resultZone.classList.remove('hidden');
 
@@ -1250,10 +1290,10 @@ function displayOCRResults(ocrData, file) {
 
 // =============================================================================
 // FONCTION 8 : handleOCRValidation
-// ✅ FIX 4a : companyId résolu proprement (selectedCompanyId en priorité)
-// ✅ FIX 4b : validation locale avant envoi (comptes vides bloqués ici)
-// ✅ FIX 4c : bouton réactivé en cas d'erreur + message d'erreur backend précis
-// ✅ FIX 4d : move_id affiché dans la notification de succès
+// ✅ FIX 3 : _resolveActiveCompanyId() pour le companyId envoyé à Odoo
+// ✅ FIX : validation locale avant envoi
+// ✅ FIX : bouton réactivé en cas d'erreur
+// ✅ FIX : move_id affiché dans la notification de succès
 // =============================================================================
 
 window.handleOCRValidation = async function(event) {
@@ -1261,21 +1301,21 @@ window.handleOCRValidation = async function(event) {
 
     console.log('💾 [handleOCRValidation] === DÉBUT VALIDATION ===');
 
-    // ✅ FIX 4a : résolution complète de la company
-    const companyId = appState.currentCompanyId          // company du menu sélecteur
-    || appState.user?.selectedCompanyId
-    || appState.user?.companyId;
+    // ✅ FIX 3 : résolution robuste — lit le menu dossier en priorité
+    const companyId = _resolveActiveCompanyId();
 
     if (!companyId) {
         NotificationManager.show("Aucune entreprise active. Impossible de créer l'écriture.", 'error');
         return;
     }
 
+    console.log(`🏢 [handleOCRValidation] Company résolue: ${companyId}`);
+
     const invoiceType       = document.getElementById('ocr-invoice-type')?.value;
     const accountDebitCode  = document.getElementById('ocr-account-debit')?.value;
     const accountCreditCode = document.getElementById('ocr-account-credit')?.value;
 
-    // ✅ FIX 4b : validation locale avant envoi
+    // Validation locale avant envoi
     if (!accountDebitCode) {
         NotificationManager.show('Veuillez sélectionner un compte débit.', 'warning');
         return;
@@ -1300,7 +1340,7 @@ window.handleOCRValidation = async function(event) {
 
     console.log('💾 [handleOCRValidation] Données envoyées:', formData);
 
-    // ✅ FIX 4c : désactiver le bouton pendant l'envoi
+    // Désactiver le bouton pendant l'envoi
     const submitBtn = document.getElementById('ocr-submit-btn');
     if (submitBtn) {
         submitBtn.disabled = true;
@@ -1318,7 +1358,6 @@ window.handleOCRValidation = async function(event) {
         console.log('📊 [handleOCRValidation] Réponse:', response);
 
         if (response.success) {
-            // ✅ FIX 4d : afficher le move_id retourné par Odoo
             const moveId = response.data?.move_id;
             NotificationManager.show(
                 moveId
@@ -1336,7 +1375,6 @@ window.handleOCRValidation = async function(event) {
             }
 
         } else {
-            // ✅ FIX 4c : message d'erreur backend précis (ex: incohérence SYSCOHADA)
             throw new Error(response.message || 'Erreur inconnue lors de la création');
         }
 
@@ -1344,7 +1382,7 @@ window.handleOCRValidation = async function(event) {
         console.error('❌ [handleOCRValidation] Erreur:', error.message);
         NotificationManager.show(`Erreur : ${error.message}`, 'error', 8000);
 
-        // ✅ FIX 4c : réactiver le bouton en cas d'erreur
+        // Réactiver le bouton en cas d'erreur
         if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = "<i class='fas fa-check-circle mr-2'></i>Valider et Créer l'Écriture";
