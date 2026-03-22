@@ -1,15 +1,24 @@
 // ============================================
 // CONTROLLER : Rapports Financiers
-// Description : Logique métier des états financiers
-// Version : PRODUCTION COMPLETE - Users depuis Odoo (pas de JOIN users PostgreSQL)
+// Version : V2.0 CORRIGÉE
+// Date : 2026-03-22
+//
+// ✅ FIX 1 : Chemin odooService corrigé (../services/odooService)
+// ✅ FIX 2 : notificationsService.send() remplacé par notifications Odoo directes
+//            → plus de blocage SMTP / timeout qui ferme la session
+// ✅ FIX 3 : Chaque appel notification entouré d'un try/catch isolé
+// ✅ FIX 4 : getDashboardStats utilise req.user.profile (cohérent avec le reste)
+// ✅ FIX 5 : setImmediate protégé — ne bloque plus la réponse HTTP
 // ============================================
 
-const pool = require('../services/dbService');
-const odooReportsService = require('../services/odooReportsService');
-const pdfGeneratorService = require('../services/pdfGenerator');
-const notificationsService = require('../services/notifications');
-const path = require('path');
-const fs = require('fs').promises;
+const pool                 = require('../services/dbService');
+const odooReportsService   = require('../services/odooReportsService');
+const pdfGeneratorService  = require('../services/pdfGenerator');
+const path                 = require('path');
+const fs                   = require('fs').promises;
+
+// ✅ FIX 1 : Import direct depuis le bon chemin
+const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
 
 // ============================================
 // HELPERS
@@ -27,13 +36,8 @@ const checkAccessToRequest = async (requestId, userId, userRole) => {
 
     const request = result.rows[0];
 
-    if (userRole === 'admin') {
-        return request;
-    }
-
-    if (userRole === 'collaborateur') {
-        return request;
-    }
+    if (userRole === 'admin' || userRole === 'ADMIN') return request;
+    if (userRole === 'collaborateur' || userRole === 'COLLABORATEUR') return request;
 
     if (request.requested_by !== userId) {
         throw new Error('Acces refuse a cette demande');
@@ -42,22 +46,104 @@ const checkAccessToRequest = async (requestId, userId, userRole) => {
     return request;
 };
 
+// ============================================
+// ✅ FIX 2 : Notification via Odoo mail.message
+// Remplace notificationsService.send() qui bloquait sur SMTP timeout
+// Utilise exactement la même logique que notificationsController.js
+// ============================================
+
+const sendOdooNotification = async ({ odooUserId, title, message, link }) => {
+    try {
+        // Récupérer le partner_id du destinataire
+        const userData = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.users',
+            method: 'read',
+            args: [[odooUserId], ['partner_id']],
+            kwargs: {}
+        });
+
+        if (!userData || !userData[0]?.partner_id) {
+            console.warn(`⚠️ [sendOdooNotification] Partner introuvable pour user ${odooUserId}`);
+            return false;
+        }
+
+        const partnerId = userData[0].partner_id[0];
+
+        // Récupérer le partner_id de l'admin (expéditeur)
+        const adminData = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.users',
+            method: 'read',
+            args: [[ADMIN_UID_INT], ['partner_id']],
+            kwargs: {}
+        });
+
+        const adminPartnerId = adminData[0]?.partner_id ? adminData[0].partner_id[0] : null;
+        if (!adminPartnerId) {
+            console.warn('⚠️ [sendOdooNotification] Partner admin introuvable');
+            return false;
+        }
+
+        // Créer le message Odoo
+        const messageId = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'mail.message',
+            method: 'create',
+            args: [{
+                message_type: 'notification',
+                subtype_id: 1,
+                body: `<div style="font-family:Arial,sans-serif;padding:16px;">
+                         <h3 style="color:#2563eb;margin:0 0 10px 0;">${title}</h3>
+                         <p style="color:#374151;margin:0 0 10px 0;">${message}</p>
+                         ${link ? `<a href="${link}" style="color:#2563eb;">Voir la demande →</a>` : ''}
+                       </div>`,
+                subject: title,
+                author_id: adminPartnerId,
+                needaction: true,
+                partner_ids: [[6, 0, [partnerId]]]
+            }],
+            kwargs: {}
+        });
+
+        // Créer la notification mail.notification
+        await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'mail.notification',
+            method: 'create',
+            args: [{
+                mail_message_id: messageId,
+                res_partner_id: partnerId,
+                notification_type: 'inbox',
+                is_read: false,
+                notification_status: 'sent'
+            }],
+            kwargs: {}
+        });
+
+        console.log(`✅ [sendOdooNotification] Notification envoyée à user ${odooUserId} (partner ${partnerId})`);
+        return true;
+
+    } catch (error) {
+        // ✅ FIX 3 : Jamais bloquant — erreur logguée mais ne remonte pas
+        console.warn(`⚠️ [sendOdooNotification] Échec pour user ${odooUserId}: ${error.message}`);
+        return false;
+    }
+};
+
 /**
  * Notifier les collaborateurs et admins d'une nouvelle demande
- * Les users sont dans Odoo, pas dans PostgreSQL
  */
 const notifyNewRequest = async (requestId, companyId) => {
     try {
-        const { odooExecuteKw, ADMIN_UID_INT } = require('./odooService');
-
-        // Recuperer les users internes Odoo (non-portail, actifs)
+        // ✅ FIX 1 : odooExecuteKw déjà importé en haut du fichier
         const odooUsers = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.users',
             method: 'search_read',
             args: [[
                 ['active', '=', true],
-                ['share', '=', false] // false = user interne (pas portail)
+                ['share', '=', false]
             ]],
             kwargs: {
                 fields: ['id', 'name', 'email'],
@@ -65,41 +151,43 @@ const notifyNewRequest = async (requestId, companyId) => {
             }
         });
 
-        console.log(`[notifyNewRequest] ${odooUsers.length} users Odoo trouves`);
+        console.log(`[notifyNewRequest] ${odooUsers.length} users Odoo trouvés`);
 
-        // Enregistrer et envoyer une notification par destinataire
         for (const recipient of odooUsers) {
             // Sauvegarder en base PostgreSQL
-            await pool.query(
-                `INSERT INTO financial_reports_notifications 
-                 (report_request_id, recipient_user_id, notification_type, metadata)
-                 VALUES ($1, $2, 'request_created', $3)`,
-                [
-                    requestId,
-                    recipient.id,
-                    JSON.stringify({
-                        company_id: companyId,
-                        recipient_name: recipient.name,
-                        recipient_email: recipient.email
-                    })
-                ]
-            );
+            try {
+                await pool.query(
+                    `INSERT INTO financial_reports_notifications 
+                     (report_request_id, recipient_user_id, notification_type, metadata)
+                     VALUES ($1, $2, 'request_created', $3)`,
+                    [
+                        requestId,
+                        recipient.id,
+                        JSON.stringify({
+                            company_id: companyId,
+                            recipient_name: recipient.name,
+                            recipient_email: recipient.email
+                        })
+                    ]
+                );
+            } catch (dbError) {
+                console.warn(`⚠️ [notifyNewRequest] Erreur DB pour user ${recipient.id}: ${dbError.message}`);
+            }
 
-            // Envoyer notification temps reel
-            await notificationsService.send({
-                userId: recipient.id,
-                type: 'financial_report_request',
-                title: 'Nouvelle demande d\'etats financiers',
-                message: `Une demande d'etats financiers a ete creee (ID: ${requestId})`,
+            // ✅ FIX 2 : Notification Odoo sans SMTP
+            await sendOdooNotification({
+                odooUserId: recipient.id,
+                title: 'Nouvelle demande d\'états financiers',
+                message: `Une demande d'états financiers a été créée (ID: ${requestId})`,
                 link: `/reports/${requestId}`
             });
         }
 
-        console.log(`[notifyNewRequest] ${odooUsers.length} destinataires notifies pour demande ${requestId}`);
+        console.log(`[notifyNewRequest] ${odooUsers.length} destinataires notifiés pour demande ${requestId}`);
 
     } catch (error) {
+        // ✅ FIX 3 : Ne bloque jamais la création de la demande
         console.error('[notifyNewRequest] Erreur:', error.message);
-        // Ne pas bloquer la creation de la demande si notification echoue
     }
 };
 
@@ -109,11 +197,11 @@ const notifyNewRequest = async (requestId, companyId) => {
 
 /**
  * POST /api/reports/request
- * Creer une demande d'etats financiers
+ * Créer une demande d'états financiers
  */
 exports.createRequest = async (req, res) => {
     const client = await pool.connect();
-    
+
     try {
         const {
             company_id,
@@ -124,9 +212,9 @@ exports.createRequest = async (req, res) => {
             notes
         } = req.body;
 
-        const userId = req.user.id;
+        const userId   = req.user.id;
         const userEmail = req.user.email || '';
-        const userName = req.user.name || req.user.username || userEmail;
+        const userName  = req.user.name || req.user.username || userEmail;
 
         const validSystems = [
             'SYSCOHADA_NORMAL',
@@ -139,7 +227,7 @@ exports.createRequest = async (req, res) => {
         if (!validSystems.includes(accounting_system)) {
             return res.status(400).json({
                 success: false,
-                message: 'Systeme comptable invalide',
+                message: 'Système comptable invalide',
                 valid_systems: validSystems
             });
         }
@@ -147,14 +235,14 @@ exports.createRequest = async (req, res) => {
         if (!period_start || !period_end) {
             return res.status(400).json({
                 success: false,
-                message: 'Les dates de debut et fin sont obligatoires'
+                message: 'Les dates de début et fin sont obligatoires'
             });
         }
 
         if (new Date(period_start) > new Date(period_end)) {
             return res.status(400).json({
                 success: false,
-                message: 'La date de debut doit etre anterieure a la date de fin'
+                message: 'La date de début doit être antérieure à la date de fin'
             });
         }
 
@@ -174,12 +262,13 @@ exports.createRequest = async (req, res) => {
 
         await client.query('COMMIT');
 
-        // Notifier les collaborateurs/admins (async, ne pas bloquer)
+        // ✅ FIX 5 : setImmediate — ne bloque pas la réponse HTTP
+        // La réponse est envoyée immédiatement, les notifications se font en arrière-plan
         setImmediate(() => notifyNewRequest(newRequest.id, company_id));
 
         res.status(201).json({
             success: true,
-            message: 'Demande d\'etats financiers creee avec succes',
+            message: 'Demande d\'états financiers créée avec succès',
             data: newRequest
         });
 
@@ -188,7 +277,7 @@ exports.createRequest = async (req, res) => {
         console.error('Erreur createRequest:', error);
         res.status(500).json({
             success: false,
-            message: 'Erreur lors de la creation de la demande',
+            message: 'Erreur lors de la création de la demande',
             error: error.message
         });
     } finally {
@@ -198,7 +287,6 @@ exports.createRequest = async (req, res) => {
 
 /**
  * GET /api/reports/my-requests
- * Historique des demandes de l'utilisateur
  */
 exports.getMyRequests = async (req, res) => {
     try {
@@ -242,7 +330,7 @@ exports.getMyRequests = async (req, res) => {
         console.error('Erreur getMyRequests:', error);
         res.status(500).json({
             success: false,
-            message: 'Erreur lors de la recuperation des demandes',
+            message: 'Erreur lors de la récupération des demandes',
             error: error.message
         });
     }
@@ -250,20 +338,17 @@ exports.getMyRequests = async (req, res) => {
 
 /**
  * GET /api/reports/:id
- * Details d'une demande
  */
 exports.getRequestDetails = async (req, res) => {
     try {
         const requestId = req.params.id;
-        const userId = req.user.id;
-        const userRole = req.user.role;
+        const userId    = req.user.id;
+        const userRole  = req.user.profile || req.user.role || 'USER';
 
         const request = await checkAccessToRequest(requestId, userId, userRole);
 
         const detailsResult = await pool.query(
-            `SELECT r.*
-             FROM financial_reports_requests r
-             WHERE r.id = $1`,
+            'SELECT r.* FROM financial_reports_requests r WHERE r.id = $1',
             [requestId]
         );
 
@@ -283,20 +368,19 @@ exports.getRequestDetails = async (req, res) => {
 
 /**
  * DELETE /api/reports/:id/cancel
- * Annuler une demande
  */
 exports.cancelRequest = async (req, res) => {
     try {
         const requestId = req.params.id;
-        const userId = req.user.id;
-        const userRole = req.user.role;
+        const userId    = req.user.id;
+        const userRole  = req.user.profile || req.user.role || 'USER';
 
         const request = await checkAccessToRequest(requestId, userId, userRole);
 
         if (!['pending', 'processing'].includes(request.status)) {
             return res.status(400).json({
                 success: false,
-                message: 'Cette demande ne peut plus etre annulee (deja validee ou envoyee)'
+                message: 'Cette demande ne peut plus être annulée (déjà validée ou envoyée)'
             });
         }
 
@@ -307,23 +391,16 @@ exports.cancelRequest = async (req, res) => {
             [requestId]
         );
 
-        res.json({
-            success: true,
-            message: 'Demande annulee avec succes'
-        });
+        res.json({ success: true, message: 'Demande annulée avec succès' });
 
     } catch (error) {
         console.error('Erreur cancelRequest:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
  * GET /api/reports/pending
- * Demandes en attente (COLLABORATEUR/ADMIN)
  */
 exports.getPendingRequests = async (req, res) => {
     try {
@@ -355,103 +432,55 @@ exports.getPendingRequests = async (req, res) => {
         }
 
         const result = await pool.query(query, params);
-
-        res.json({
-            success: true,
-            data: result.rows
-        });
+        res.json({ success: true, data: result.rows });
 
     } catch (error) {
         console.error('Erreur getPendingRequests:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
  * GET /api/reports/all
- * Toutes les demandes avec filtres (COLLABORATEUR/ADMIN)
  */
 exports.getAllRequests = async (req, res) => {
     try {
         const {
-            limit = 50,
-            offset = 0,
-            status,
-            company_id,
-            accounting_system,
-            start_date,
-            end_date
+            limit = 50, offset = 0,
+            status, company_id, accounting_system,
+            start_date, end_date
         } = req.query;
 
-        let query = `
-            SELECT r.*
-            FROM financial_reports_requests r
-            WHERE 1=1
-        `;
-
+        let query  = `SELECT r.* FROM financial_reports_requests r WHERE 1=1`;
         const params = [];
 
-        if (status) {
-            params.push(status);
-            query += ` AND r.status = $${params.length}`;
-        }
-
-        if (company_id) {
-            params.push(company_id);
-            query += ` AND r.company_id = $${params.length}`;
-        }
-
-        if (accounting_system) {
-            params.push(accounting_system);
-            query += ` AND r.accounting_system = $${params.length}`;
-        }
-
-        if (start_date) {
-            params.push(start_date);
-            query += ` AND r.requested_at >= $${params.length}`;
-        }
-
-        if (end_date) {
-            params.push(end_date);
-            query += ` AND r.requested_at <= $${params.length}`;
-        }
+        if (status)            { params.push(status);            query += ` AND r.status = $${params.length}`; }
+        if (company_id)        { params.push(company_id);        query += ` AND r.company_id = $${params.length}`; }
+        if (accounting_system) { params.push(accounting_system); query += ` AND r.accounting_system = $${params.length}`; }
+        if (start_date)        { params.push(start_date);        query += ` AND r.requested_at >= $${params.length}`; }
+        if (end_date)          { params.push(end_date);          query += ` AND r.requested_at <= $${params.length}`; }
 
         query += ` ORDER BY r.requested_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
         params.push(limit, offset);
 
         const result = await pool.query(query, params);
-
-        res.json({
-            success: true,
-            data: result.rows,
-            pagination: {
-                limit: parseInt(limit),
-                offset: parseInt(offset)
-            }
-        });
+        res.json({ success: true, data: result.rows, pagination: { limit: parseInt(limit), offset: parseInt(offset) } });
 
     } catch (error) {
         console.error('Erreur getAllRequests:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
  * POST /api/reports/:id/generate
- * Generer les rapports depuis Odoo
  */
 exports.generateReports = async (req, res) => {
     const client = await pool.connect();
 
     try {
         const requestId = req.params.id;
-        const userId = req.user.id;
+        const userId    = req.user.id;
 
         const requestResult = await client.query(
             'SELECT * FROM financial_reports_requests WHERE id = $1',
@@ -459,33 +488,32 @@ exports.generateReports = async (req, res) => {
         );
 
         if (requestResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Demande introuvable'
-            });
+            return res.status(404).json({ success: false, message: 'Demande introuvable' });
         }
 
         const request = requestResult.rows[0];
 
         if (!['pending', 'error'].includes(request.status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cette demande a deja ete traitee'
-            });
+            return res.status(400).json({ success: false, message: 'Cette demande a déjà été traitée' });
         }
 
         await client.query('BEGIN');
-
         await client.query(
             `UPDATE financial_reports_requests 
              SET status = 'processing', processed_by = $1, processed_at = NOW()
              WHERE id = $2`,
             [userId, requestId]
         );
-
         await client.query('COMMIT');
 
-        // Lancer la generation en arriere-plan
+        // ✅ FIX 5 : Réponse immédiate — génération en arrière-plan
+        res.json({
+            success: true,
+            message: 'Génération des rapports en cours...',
+            data: { request_id: requestId, status: 'processing' }
+        });
+
+        // ✅ FIX 3 : Tout le bloc async est protégé par try/catch
         setImmediate(async () => {
             try {
                 const odooData = await odooReportsService.extractFinancialData(
@@ -503,49 +531,34 @@ exports.generateReports = async (req, res) => {
 
                 await pool.query(
                     `UPDATE financial_reports_requests 
-                     SET status = 'generated', 
-                         pdf_files = $1, 
-                         odoo_data = $2,
-                         updated_at = NOW()
+                     SET status = 'generated', pdf_files = $1, odoo_data = $2, updated_at = NOW()
                      WHERE id = $3`,
                     [JSON.stringify(pdfFiles), JSON.stringify(odooData), requestId]
                 );
 
-                await notificationsService.send({
-                    userId: request.requested_by,
-                    type: 'financial_report_generated',
-                    title: 'Etats financiers generes',
-                    message: 'Vos etats financiers ont ete generes et sont en attente de validation',
+                // ✅ FIX 2 : Notification Odoo — pas d'email SMTP
+                await sendOdooNotification({
+                    odooUserId: request.requested_by,
+                    title: 'États financiers générés',
+                    message: 'Vos états financiers ont été générés et sont en attente de validation.',
                     link: `/reports/${requestId}`
                 });
 
             } catch (error) {
-                console.error('Erreur generation rapports:', error);
-
+                console.error('Erreur génération rapports:', error);
                 await pool.query(
                     `UPDATE financial_reports_requests 
-                     SET status = 'error', 
-                         error_message = $1,
-                         updated_at = NOW()
+                     SET status = 'error', error_message = $1, updated_at = NOW()
                      WHERE id = $2`,
                     [error.message, requestId]
                 );
             }
         });
 
-        res.json({
-            success: true,
-            message: 'Generation des rapports en cours...',
-            data: { request_id: requestId, status: 'processing' }
-        });
-
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Erreur generateReports:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     } finally {
         client.release();
     }
@@ -553,12 +566,11 @@ exports.generateReports = async (req, res) => {
 
 /**
  * PATCH /api/reports/:id/validate
- * Valider les rapports generes
  */
 exports.validateReports = async (req, res) => {
     try {
         const requestId = req.params.id;
-        const userId = req.user.id;
+        const userId    = req.user.id;
         const { notes } = req.body;
 
         const requestResult = await pool.query(
@@ -567,48 +579,30 @@ exports.validateReports = async (req, res) => {
         );
 
         if (requestResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Demande introuvable'
-            });
+            return res.status(404).json({ success: false, message: 'Demande introuvable' });
         }
 
-        const request = requestResult.rows[0];
-
-        if (request.status !== 'generated') {
-            return res.status(400).json({
-                success: false,
-                message: 'Les rapports doivent d\'abord etre generes'
-            });
+        if (requestResult.rows[0].status !== 'generated') {
+            return res.status(400).json({ success: false, message: 'Les rapports doivent d\'abord être générés' });
         }
 
         await pool.query(
             `UPDATE financial_reports_requests 
-             SET status = 'validated', 
-                 validated_by = $1, 
-                 validated_at = NOW(),
-                 notes = COALESCE($2, notes)
+             SET status = 'validated', validated_by = $1, validated_at = NOW(), notes = COALESCE($2, notes)
              WHERE id = $3`,
             [userId, notes, requestId]
         );
 
-        res.json({
-            success: true,
-            message: 'Rapports valides avec succes'
-        });
+        res.json({ success: true, message: 'Rapports validés avec succès' });
 
     } catch (error) {
         console.error('Erreur validateReports:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
  * POST /api/reports/:id/send
- * Envoyer les rapports au user
  */
 exports.sendReportsToUser = async (req, res) => {
     try {
@@ -620,53 +614,40 @@ exports.sendReportsToUser = async (req, res) => {
         );
 
         if (requestResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Demande introuvable'
-            });
+            return res.status(404).json({ success: false, message: 'Demande introuvable' });
         }
 
         const request = requestResult.rows[0];
 
         if (request.status !== 'validated') {
-            return res.status(400).json({
-                success: false,
-                message: 'Les rapports doivent d\'abord etre valides'
-            });
+            return res.status(400).json({ success: false, message: 'Les rapports doivent d\'abord être validés' });
         }
 
         await pool.query(
-            `UPDATE financial_reports_requests 
-             SET status = 'sent', sent_at = NOW()
-             WHERE id = $1`,
+            `UPDATE financial_reports_requests SET status = 'sent', sent_at = NOW() WHERE id = $1`,
             [requestId]
         );
 
-        await notificationsService.send({
-            userId: request.requested_by,
-            type: 'financial_report_ready',
-            title: 'Etats financiers disponibles',
-            message: 'Vos etats financiers sont prets et disponibles au telechargement',
-            link: `/reports/${requestId}`
+        // ✅ FIX 2 : Notification Odoo — pas d'email SMTP
+        setImmediate(async () => {
+            await sendOdooNotification({
+                odooUserId: request.requested_by,
+                title: 'États financiers disponibles',
+                message: 'Vos états financiers sont prêts et disponibles au téléchargement.',
+                link: `/reports/${requestId}`
+            });
         });
 
-        res.json({
-            success: true,
-            message: 'Rapports envoyes avec succes'
-        });
+        res.json({ success: true, message: 'Rapports envoyés avec succès' });
 
     } catch (error) {
         console.error('Erreur sendReportsToUser:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
  * GET /api/reports/:id/preview
- * Apercu des donnees avant generation PDF
  */
 exports.previewReportData = async (req, res) => {
     try {
@@ -678,20 +659,13 @@ exports.previewReportData = async (req, res) => {
         );
 
         if (requestResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Demande introuvable'
-            });
+            return res.status(404).json({ success: false, message: 'Demande introuvable' });
         }
 
         const request = requestResult.rows[0];
 
         if (request.odoo_data) {
-            return res.json({
-                success: true,
-                data: request.odoo_data,
-                cached: true
-            });
+            return res.json({ success: true, data: request.odoo_data, cached: true });
         }
 
         const odooData = await odooReportsService.extractFinancialData(
@@ -702,44 +676,31 @@ exports.previewReportData = async (req, res) => {
         );
 
         await pool.query(
-            `UPDATE financial_reports_requests 
-             SET odoo_data = $1 
-             WHERE id = $2`,
+            `UPDATE financial_reports_requests SET odoo_data = $1 WHERE id = $2`,
             [JSON.stringify(odooData), requestId]
         );
 
-        res.json({
-            success: true,
-            data: odooData,
-            cached: false
-        });
+        res.json({ success: true, data: odooData, cached: false });
 
     } catch (error) {
         console.error('Erreur previewReportData:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
  * POST /api/reports/:id/regenerate
- * Sauvegarder les modifications et regenerer les PDFs
  */
 exports.regenerateReportsWithEdits = async (req, res) => {
     const client = await pool.connect();
 
     try {
-        const requestId = req.params.id;
+        const requestId    = req.params.id;
         const { edited_data } = req.body;
-        const userId = req.user.id;
+        const userId       = req.user.id;
 
         if (!edited_data) {
-            return res.status(400).json({
-                success: false,
-                message: 'Donnees editees manquantes'
-            });
+            return res.status(400).json({ success: false, message: 'Données éditées manquantes' });
         }
 
         const requestResult = await client.query(
@@ -748,10 +709,7 @@ exports.regenerateReportsWithEdits = async (req, res) => {
         );
 
         if (requestResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Demande introuvable'
-            });
+            return res.status(404).json({ success: false, message: 'Demande introuvable' });
         }
 
         const request = requestResult.rows[0];
@@ -759,7 +717,7 @@ exports.regenerateReportsWithEdits = async (req, res) => {
         if (!['processing', 'generated'].includes(request.status)) {
             return res.status(400).json({
                 success: false,
-                message: 'Cette demande ne peut plus etre modifiee (statut actuel : ' + request.status + ')'
+                message: 'Cette demande ne peut plus être modifiée (statut actuel : ' + request.status + ')'
             });
         }
 
@@ -767,68 +725,61 @@ exports.regenerateReportsWithEdits = async (req, res) => {
 
         const odooData = request.odoo_data || {};
 
-        if (edited_data.actif) {
+        if (edited_data.actif && odooData.bilan?.actif) {
             Object.keys(edited_data.actif).forEach(key => {
-                if (odooData.bilan && odooData.bilan.actif && odooData.bilan.actif[key]) {
-                    odooData.bilan.actif[key].balance = parseFloat(edited_data.actif[key]);
-                }
+                if (odooData.bilan.actif[key]) odooData.bilan.actif[key].balance = parseFloat(edited_data.actif[key]);
             });
         }
-
-        if (edited_data.passif) {
+        if (edited_data.passif && odooData.bilan?.passif) {
             Object.keys(edited_data.passif).forEach(key => {
-                if (odooData.bilan && odooData.bilan.passif && odooData.bilan.passif[key]) {
-                    odooData.bilan.passif[key].balance = parseFloat(edited_data.passif[key]);
-                }
+                if (odooData.bilan.passif[key]) odooData.bilan.passif[key].balance = parseFloat(edited_data.passif[key]);
             });
         }
-
-        if (edited_data.charges) {
+        if (edited_data.charges && odooData.compte_resultat?.charges) {
             Object.keys(edited_data.charges).forEach(key => {
-                if (odooData.compte_resultat && odooData.compte_resultat.charges && odooData.compte_resultat.charges[key]) {
-                    odooData.compte_resultat.charges[key].balance = parseFloat(edited_data.charges[key]);
-                }
+                if (odooData.compte_resultat.charges[key]) odooData.compte_resultat.charges[key].balance = parseFloat(edited_data.charges[key]);
             });
         }
-
-        if (edited_data.produits) {
+        if (edited_data.produits && odooData.compte_resultat?.produits) {
             Object.keys(edited_data.produits).forEach(key => {
-                if (odooData.compte_resultat && odooData.compte_resultat.produits && odooData.compte_resultat.produits[key]) {
-                    odooData.compte_resultat.produits[key].balance = parseFloat(edited_data.produits[key]);
-                }
+                if (odooData.compte_resultat.produits[key]) odooData.compte_resultat.produits[key].balance = parseFloat(edited_data.produits[key]);
             });
         }
 
         if (odooData.bilan) {
             odooData.bilan.totaux = {
-                actif: Object.values(odooData.bilan.actif).reduce((sum, cat) => sum + Math.abs(cat.balance), 0),
-                passif: Object.values(odooData.bilan.passif).reduce((sum, cat) => sum + Math.abs(cat.balance), 0)
+                actif:  Object.values(odooData.bilan.actif).reduce((s, c) => s + Math.abs(c.balance), 0),
+                passif: Object.values(odooData.bilan.passif).reduce((s, c) => s + Math.abs(c.balance), 0)
             };
             odooData.bilan.totaux.difference = Math.abs(odooData.bilan.totaux.actif - odooData.bilan.totaux.passif);
         }
 
         if (odooData.compte_resultat) {
-            const totalCharges = Object.values(odooData.compte_resultat.charges).reduce((sum, cat) => sum + Math.abs(cat.balance), 0);
-            const totalProduits = Object.values(odooData.compte_resultat.produits).reduce((sum, cat) => sum + Math.abs(cat.balance), 0);
+            const totalCharges  = Object.values(odooData.compte_resultat.charges).reduce((s, c) => s + Math.abs(c.balance), 0);
+            const totalProduits = Object.values(odooData.compte_resultat.produits).reduce((s, c) => s + Math.abs(c.balance), 0);
             odooData.compte_resultat.totaux = {
                 charges: totalCharges,
                 produits: totalProduits,
                 resultat: totalProduits - totalCharges,
-                resultat_label: (totalProduits - totalCharges) >= 0 ? 'Benefice' : 'Perte'
+                resultat_label: (totalProduits - totalCharges) >= 0 ? 'Bénéfice' : 'Perte'
             };
         }
 
         await client.query(
-            `UPDATE financial_reports_requests 
-             SET odoo_data = $1, 
-                 updated_at = NOW()
-             WHERE id = $2`,
+            `UPDATE financial_reports_requests SET odoo_data = $1, updated_at = NOW() WHERE id = $2`,
             [JSON.stringify(odooData), requestId]
         );
 
         await client.query('COMMIT');
 
-        // Lancer la regeneration des PDFs en arriere-plan
+        // ✅ FIX 5 : Réponse immédiate
+        res.json({
+            success: true,
+            message: 'Modifications sauvegardées. Régénération des PDFs en cours...',
+            data: { request_id: requestId, status: 'processing' }
+        });
+
+        // ✅ FIX 3 : Génération en arrière-plan protégée
         setImmediate(async () => {
             try {
                 const pdfFiles = await pdfGeneratorService.generateAllReports(
@@ -839,50 +790,33 @@ exports.regenerateReportsWithEdits = async (req, res) => {
 
                 await pool.query(
                     `UPDATE financial_reports_requests 
-                     SET status = 'generated', 
-                         pdf_files = $1,
-                         processed_by = $2,
-                         processed_at = NOW(),
-                         updated_at = NOW()
+                     SET status = 'generated', pdf_files = $1, processed_by = $2,
+                         processed_at = NOW(), updated_at = NOW()
                      WHERE id = $3`,
                     [JSON.stringify(pdfFiles), userId, requestId]
                 );
 
-                await notificationsService.send({
-                    userId: request.requested_by,
-                    type: 'financial_report_regenerated',
-                    title: 'Etats financiers mis a jour',
-                    message: 'Vos etats financiers modifies ont ete regeneres avec succes',
+                // ✅ FIX 2 : Notification Odoo
+                await sendOdooNotification({
+                    odooUserId: request.requested_by,
+                    title: 'États financiers mis à jour',
+                    message: 'Vos états financiers modifiés ont été régénérés avec succès.',
                     link: `/reports/${requestId}`
                 });
 
             } catch (error) {
-                console.error('Erreur regeneration PDFs:', error);
-
+                console.error('Erreur régénération PDFs:', error);
                 await pool.query(
-                    `UPDATE financial_reports_requests 
-                     SET status = 'error', 
-                         error_message = $1,
-                         updated_at = NOW()
-                     WHERE id = $2`,
+                    `UPDATE financial_reports_requests SET status = 'error', error_message = $1, updated_at = NOW() WHERE id = $2`,
                     [error.message, requestId]
                 );
             }
         });
 
-        res.json({
-            success: true,
-            message: 'Modifications sauvegardees. Regeneration des PDFs en cours...',
-            data: { request_id: requestId, status: 'processing' }
-        });
-
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Erreur regenerateReportsWithEdits:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     } finally {
         client.release();
     }
@@ -890,21 +824,17 @@ exports.regenerateReportsWithEdits = async (req, res) => {
 
 /**
  * GET /api/reports/:id/download/:fileType
- * Telecharger un fichier PDF
  */
 exports.downloadPDF = async (req, res) => {
     try {
         const { id: requestId, fileType } = req.params;
-        const userId = req.user.id;
-        const userRole = req.user.role;
+        const userId   = req.user.id;
+        const userRole = req.user.profile || req.user.role || 'USER';
 
         const request = await checkAccessToRequest(requestId, userId, userRole);
 
         if (!request.pdf_files || !request.pdf_files[fileType]) {
-            return res.status(404).json({
-                success: false,
-                message: 'Fichier PDF introuvable'
-            });
+            return res.status(404).json({ success: false, message: 'Fichier PDF introuvable' });
         }
 
         const filePath = path.join(__dirname, '../../', request.pdf_files[fileType]);
@@ -912,68 +842,57 @@ exports.downloadPDF = async (req, res) => {
         try {
             await fs.access(filePath);
         } catch {
-            return res.status(404).json({
-                success: false,
-                message: 'Fichier PDF introuvable sur le serveur'
-            });
+            return res.status(404).json({ success: false, message: 'Fichier PDF introuvable sur le serveur' });
         }
 
         res.download(filePath);
 
     } catch (error) {
         console.error('Erreur downloadPDF:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 // ============================================
-// STATISTIQUES
+// ✅ FIX 4 : STATISTIQUES — req.user.profile cohérent avec le reste du projet
 // ============================================
 
 /**
  * GET /api/reports/stats
- * Statistiques pour le dashboard (COLLABORATEUR/ADMIN)
  */
 exports.getDashboardStats = async (req, res) => {
     try {
-        const userRole = req.user.role || req.user.profile || 'user';
+        // ✅ FIX 4 : profile en priorité (cohérent avec protect middleware)
+        const userRole = req.user.profile || req.user.role || 'USER';
 
         console.log('[getDashboardStats] User:', req.user.email, 'Role:', userRole);
 
         const stats = await pool.query(`
             SELECT 
-                COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+                COUNT(*) FILTER (WHERE status = 'pending')    as pending_count,
                 COUNT(*) FILTER (WHERE status = 'processing') as processing_count,
-                COUNT(*) FILTER (WHERE status = 'validated') as validated_count,
-                COUNT(*) FILTER (WHERE status = 'sent') as sent_count
+                COUNT(*) FILTER (WHERE status = 'validated')  as validated_count,
+                COUNT(*) FILTER (WHERE status = 'sent')       as sent_count
             FROM financial_reports_requests
             WHERE status NOT IN ('cancelled', 'error')
         `);
 
         const result = {
-            pending_count: parseInt(stats.rows[0].pending_count) || 0,
+            pending_count:    parseInt(stats.rows[0].pending_count)    || 0,
             processing_count: parseInt(stats.rows[0].processing_count) || 0,
-            validated_count: parseInt(stats.rows[0].validated_count) || 0,
-            sent_count: parseInt(stats.rows[0].sent_count) || 0
+            validated_count:  parseInt(stats.rows[0].validated_count)  || 0,
+            sent_count:       parseInt(stats.rows[0].sent_count)       || 0
         };
 
         console.log('[getDashboardStats] Stats:', result);
 
-        res.json({
-            status: 'success',
-            data: result
-        });
+        res.json({ status: 'success', data: result });
 
     } catch (error) {
         console.error('[getDashboardStats] Erreur:', error.message);
-        console.error('Stack:', error.stack);
-
         res.status(500).json({
             status: 'error',
-            message: 'Erreur lors de la recuperation des statistiques du dashboard',
+            message: 'Erreur lors de la récupération des statistiques',
             error: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
@@ -981,39 +900,32 @@ exports.getDashboardStats = async (req, res) => {
 
 /**
  * GET /api/reports/stats/summary
- * Statistiques globales detaillees (ADMIN)
  */
 exports.getReportsStats = async (req, res) => {
     try {
         const stats = await pool.query(`
             SELECT 
-                COUNT(*) as total_requests,
-                COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
-                COUNT(*) FILTER (WHERE status = 'processing') as processing_count,
-                COUNT(*) FILTER (WHERE status = 'generated') as generated_count,
-                COUNT(*) FILTER (WHERE status = 'validated') as validated_count,
-                COUNT(*) FILTER (WHERE status = 'sent') as sent_count,
-                COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled_count,
-                COUNT(*) FILTER (WHERE status = 'error') as error_count,
-                COUNT(DISTINCT company_id) as unique_companies,
-                COUNT(*) FILTER (WHERE accounting_system = 'SYSCOHADA_NORMAL') as syscohada_normal_count,
-                COUNT(*) FILTER (WHERE accounting_system = 'SYSCOHADA_MINIMAL') as syscohada_minimal_count,
-                COUNT(*) FILTER (WHERE accounting_system = 'SYCEBNL_NORMAL') as sycebnl_normal_count,
-                COUNT(*) FILTER (WHERE accounting_system = 'SYCEBNL_ALLEGE') as sycebnl_allege_count,
-                COUNT(*) FILTER (WHERE accounting_system = 'PCG_FRENCH') as pcg_french_count
+                COUNT(*)                                                          as total_requests,
+                COUNT(*) FILTER (WHERE status = 'pending')                        as pending_count,
+                COUNT(*) FILTER (WHERE status = 'processing')                     as processing_count,
+                COUNT(*) FILTER (WHERE status = 'generated')                      as generated_count,
+                COUNT(*) FILTER (WHERE status = 'validated')                      as validated_count,
+                COUNT(*) FILTER (WHERE status = 'sent')                           as sent_count,
+                COUNT(*) FILTER (WHERE status = 'cancelled')                      as cancelled_count,
+                COUNT(*) FILTER (WHERE status = 'error')                          as error_count,
+                COUNT(DISTINCT company_id)                                        as unique_companies,
+                COUNT(*) FILTER (WHERE accounting_system = 'SYSCOHADA_NORMAL')   as syscohada_normal_count,
+                COUNT(*) FILTER (WHERE accounting_system = 'SYSCOHADA_MINIMAL')  as syscohada_minimal_count,
+                COUNT(*) FILTER (WHERE accounting_system = 'SYCEBNL_NORMAL')     as sycebnl_normal_count,
+                COUNT(*) FILTER (WHERE accounting_system = 'SYCEBNL_ALLEGE')     as sycebnl_allege_count,
+                COUNT(*) FILTER (WHERE accounting_system = 'PCG_FRENCH')         as pcg_french_count
             FROM financial_reports_requests
         `);
 
-        res.json({
-            success: true,
-            data: stats.rows[0]
-        });
+        res.json({ success: true, data: stats.rows[0] });
 
     } catch (error) {
         console.error('Erreur getReportsStats:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
