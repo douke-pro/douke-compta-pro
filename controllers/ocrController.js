@@ -1,11 +1,13 @@
 // =============================================================================
 // FICHIER : controllers/ocrController.js
-// Version : V3.0 FINAL - ODOO 19 MULTI-COMPANY - BUGS FIXES
+// Version : V4.0 FINAL - ODOO 19 MULTI-COMPANY
 // Date : 2026-03-22
-// ✅ FIX 1 : Filtre company_ids sur search_read des comptes comptables
-// ✅ FIX 2 : allowed_company_ids + force_company dans kwargs du create account.move
-// ✅ FIX 3 : Validation du sens comptable SYSCOHADA selon invoiceType
-// ✅ FIX 4 : Décomposition correcte HT + TVA dans les lignes d'écriture
+//
+// ✅ FIX DÉFINITIF : context.company_id ajouté sur toutes les recherches
+//    account.account — identique à getDashboardData (accountingController.js)
+//    qui charge 1142 comptes avec succès.
+//    Sans context.company_id, Odoo résout les enregistrements dans le contexte
+//    de la company par défaut de l'admin → company_ids ne matche rien.
 // =============================================================================
 
 const tesseract = require('tesseract.js');
@@ -32,32 +34,23 @@ exports.uploadAndScan = async (req, res) => {
 
         if (!req.user) {
             console.error('❌ [uploadAndScan] Utilisateur non authentifié');
-            return res.status(401).json({
-                success: false,
-                message: 'Authentification requise'
-            });
+            return res.status(401).json({ success: false, message: 'Authentification requise' });
         }
 
-        const companyId = req.validatedCompanyId ||
-            req.user.companyId ||
-            req.user.currentCompanyId ||
-            req.user.entrepriseContextId ||
-            req.user.company_id ||
-            req.body.companyId ||
-            req.body.company_id ||
-            parseInt(req.query.companyId);
+        // ✅ Query string en priorité — le frontend envoie ?companyId=X
+        const companyId = parseInt(req.query.companyId)
+            || req.validatedCompanyId
+            || req.user.companyId
+            || req.user.currentCompanyId
+            || req.user.entrepriseContextId
+            || req.user.company_id
+            || req.body.companyId
+            || req.body.company_id;
 
         console.log('🏢 [uploadAndScan] Company ID final:', companyId);
 
         if (!companyId) {
             console.error('❌ [uploadAndScan] Company ID manquant après tous les fallbacks');
-            console.error('❌ [uploadAndScan] Détails:', {
-                validatedCompanyId: req.validatedCompanyId,
-                userCompanyId: req.user.companyId,
-                userCurrentCompanyId: req.user.currentCompanyId,
-                bodyCompanyId: req.body.companyId,
-                queryCompanyId: req.query.companyId
-            });
             return res.status(400).json({
                 success: false,
                 message: 'Company ID manquant. Veuillez sélectionner une entreprise.'
@@ -69,10 +62,7 @@ exports.uploadAndScan = async (req, res) => {
 
         if (!file) {
             console.error('❌ [uploadAndScan] Aucun fichier fourni');
-            return res.status(400).json({
-                success: false,
-                message: 'Aucun fichier fourni'
-            });
+            return res.status(400).json({ success: false, message: 'Aucun fichier fourni' });
         }
 
         filePath = file.path;
@@ -89,19 +79,13 @@ exports.uploadAndScan = async (req, res) => {
 
         if (OCR_ENGINE === 'tesseract') {
             console.log('🔍 [OCR] Utilisation de Tesseract.js...');
-
-            const { data } = await tesseract.recognize(
-                filePath,
-                'fra',
-                {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            console.log(`📊 [Tesseract] Progression: ${(m.progress * 100).toFixed(0)}%`);
-                        }
+            const { data } = await tesseract.recognize(filePath, 'fra', {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        console.log(`📊 [Tesseract] Progression: ${(m.progress * 100).toFixed(0)}%`);
                     }
                 }
-            );
-
+            });
             extractedText = data.text;
             console.log('✅ [OCR] Texte extrait (premiers 200 caractères):', extractedText.substring(0, 200));
 
@@ -112,7 +96,6 @@ exports.uploadAndScan = async (req, res) => {
         }
 
         const parsedData = parseInvoiceText(extractedText);
-
         console.log('📋 [OCR] Données parsées:', parsedData);
 
         await fs.unlink(filePath);
@@ -122,33 +105,26 @@ exports.uploadAndScan = async (req, res) => {
             success: true,
             message: 'Document analysé avec succès',
             data: {
-                date: parsedData.date,
+                date:           parsedData.date,
                 invoice_number: parsedData.invoiceNumber,
-                supplier: parsedData.supplier,
-                amount_ht: parsedData.amountHT,
-                tva: parsedData.tva,
-                amount_ttc: parsedData.amountTTC,
-                tva_rate: parsedData.tvaRate,
-                confidence: parsedData.confidence
+                supplier:       parsedData.supplier,
+                amount_ht:      parsedData.amountHT,
+                tva:            parsedData.tva,
+                amount_ttc:     parsedData.amountTTC,
+                tva_rate:       parsedData.tvaRate,
+                confidence:     parsedData.confidence
             }
         });
 
     } catch (error) {
         console.error('🚨 [uploadAndScan] Erreur:', error.message);
         console.error('🚨 [uploadAndScan] Stack:', error.stack);
-
         if (filePath) {
-            try {
-                await fs.unlink(filePath);
-            } catch (unlinkError) {
+            try { await fs.unlink(filePath); } catch (unlinkError) {
                 console.error('⚠️ [OCR] Erreur suppression fichier:', unlinkError.message);
             }
         }
-
-        res.status(500).json({
-            success: false,
-            message: `Erreur OCR: ${error.message}`
-        });
+        res.status(500).json({ success: false, message: `Erreur OCR: ${error.message}` });
     }
 };
 
@@ -165,7 +141,6 @@ function parseInvoiceText(text) {
     let date = null;
     const dateRegex = /(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})/g;
     const dateMatches = cleanText.match(dateRegex);
-
     if (dateMatches && dateMatches.length > 0) {
         const rawDate = dateMatches[0];
         const parts = rawDate.split(/[\/\-\.]/);
@@ -173,54 +148,36 @@ function parseInvoiceText(text) {
             date = `${parts[2]}-${parts[1]}-${parts[0]}`;
         }
     }
-
-    if (!date) {
-        date = new Date().toISOString().split('T')[0];
-    }
-
+    if (!date) date = new Date().toISOString().split('T')[0];
     console.log('📅 [Parse] Date détectée:', date);
 
     // NUMÉRO FACTURE
     let invoiceNumber = null;
     const invoiceRegex = /(FAC|FACT|FACTURE|INV|INVOICE|N°|No\.?)\s*[:\-]?\s*([A-Z0-9\-]+)/gi;
     const invoiceMatch = cleanText.match(invoiceRegex);
-
     if (invoiceMatch && invoiceMatch.length > 0) {
         invoiceNumber = invoiceMatch[0].trim();
     }
-
     console.log('🔢 [Parse] N° facture détecté:', invoiceNumber);
 
     // FOURNISSEUR
     const lines = text.split('\n').filter(l => l.trim().length > 3);
-    let supplier = lines.slice(0, 3)
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .substring(0, 100)
-        .trim();
-
+    let supplier = lines.slice(0, 3).join(' ').replace(/\s+/g, ' ').substring(0, 100).trim();
     supplier = supplier.replace(/[^\w\s\-\.]/g, '');
-
     console.log('🏢 [Parse] Fournisseur détecté:', supplier);
 
     // MONTANTS
     const amountRegex = /(\d{1,3}(?:[\s\.]\d{3})*(?:[,\.]\d{2})?)/g;
     const amounts = cleanText.match(amountRegex);
-
-    let amountHT = 0;
-    let tva = 0;
-    let amountTTC = 0;
+    let amountHT = 0, tva = 0, amountTTC = 0;
 
     if (amounts && amounts.length >= 1) {
         const parsedAmounts = amounts.map(a => parseAmount(a)).filter(a => a > 0);
-
         console.log('💰 [Parse] Montants détectés:', parsedAmounts);
 
         if (parsedAmounts.length > 0) {
             parsedAmounts.sort((a, b) => b - a);
-
             amountTTC = parsedAmounts[0];
-
             if (parsedAmounts.length >= 3) {
                 amountHT = parsedAmounts[2];
                 tva = parsedAmounts[1];
@@ -233,31 +190,26 @@ function parseInvoiceText(text) {
             }
         }
     }
-
     console.log('💵 [Parse] Montants finaux:', { amountHT, tva, amountTTC });
 
     // TAUX TVA
     let tvaRate = 18;
     const tvaRegex = /TVA\s*:?\s*(\d{1,2}[,\.]?\d{0,2})\s*%/gi;
     const tvaMatch = cleanText.match(tvaRegex);
-
     if (tvaMatch) {
         const rateStr = tvaMatch[0].match(/(\d{1,2}[,\.]?\d{0,2})/);
-        if (rateStr) {
-            tvaRate = parseFloat(rateStr[0].replace(',', '.'));
-        }
+        if (rateStr) tvaRate = parseFloat(rateStr[0].replace(',', '.'));
     }
-
     console.log('📊 [Parse] Taux TVA détecté:', tvaRate, '%');
 
     return {
-        date: date,
-        invoiceNumber: invoiceNumber,
-        supplier: supplier,
-        amountHT: Math.round(amountHT * 100) / 100,
-        tva: Math.round(tva * 100) / 100,
-        amountTTC: Math.round(amountTTC * 100) / 100,
-        tvaRate: tvaRate,
+        date,
+        invoiceNumber,
+        supplier,
+        amountHT:  Math.round(amountHT  * 100) / 100,
+        tva:       Math.round(tva        * 100) / 100,
+        amountTTC: Math.round(amountTTC  * 100) / 100,
+        tvaRate,
         confidence: calculateConfidence({ date, invoiceNumber, supplier, amountTTC })
     };
 }
@@ -279,16 +231,13 @@ function calculateConfidence(data) {
 }
 
 // =============================================================================
-// ✅ FIX 3 : VALIDATION DU SENS COMPTABLE SYSCOHADA
-// Vérifie que les comptes envoyés par le frontend sont cohérents
-// avec le type de facture (client ou fournisseur)
+// VALIDATION DU SENS COMPTABLE SYSCOHADA
 // =============================================================================
 
 function validateAccountCoherence(invoiceType, accountDebitCode, accountCreditCode) {
     const errors = [];
 
     if (invoiceType === 'client') {
-        // Facture CLIENT (vente) : Débit 411xx, Crédit 70x/71x/72x/75x
         if (!accountDebitCode.startsWith('411')) {
             errors.push(`Facture client : le compte débit doit être un compte client (411...). Reçu : "${accountDebitCode}"`);
         }
@@ -298,7 +247,6 @@ function validateAccountCoherence(invoiceType, accountDebitCode, accountCreditCo
             errors.push(`Facture client : le compte crédit doit être un compte de produits (70x à 77x). Reçu : "${accountCreditCode}"`);
         }
     } else {
-        // Facture FOURNISSEUR (achat) : Débit 60x/61x/62x/63x/64x/65x, Crédit 401xx
         const validSupplierDebitPrefixes = ['60', '61', '62', '63', '64', '65', '66', '67', '68'];
         const debitOk = validSupplierDebitPrefixes.some(p => accountDebitCode.startsWith(p));
         if (!debitOk) {
@@ -321,45 +269,33 @@ exports.validateAndCreateEntry = async (req, res) => {
         console.log('🚀 [validateAndCreateEntry] === DÉBUT VALIDATION ===');
         console.log('📦 [validateAndCreateEntry] Body:', JSON.stringify(req.body, null, 2));
 
-        const companyId = req.validatedCompanyId ||
-            req.user?.companyId ||
-            req.user?.currentCompanyId ||
-            req.body?.companyId ||
-            parseInt(req.query.companyId);
+        // ✅ req.body.companyId en priorité — c'est ce que le frontend envoie
+        const companyId = parseInt(req.body?.companyId)
+            || req.validatedCompanyId
+            || req.user?.companyId
+            || req.user?.currentCompanyId
+            || parseInt(req.query.companyId);
 
         console.log('🏢 [validateAndCreateEntry] Company ID:', companyId);
 
         if (!companyId) {
             console.error('❌ [validateAndCreateEntry] Company ID manquant');
-            return res.status(400).json({
-                success: false,
-                message: 'Company ID manquant'
-            });
+            return res.status(400).json({ success: false, message: 'Company ID manquant' });
         }
 
         const {
-            date,
-            invoiceNumber,
-            supplier,
-            amountHT,
-            tva,
-            amountTTC,
-            accountDebitCode,
-            accountCreditCode,
-            invoiceType
+            date, invoiceNumber, supplier,
+            amountHT, tva, amountTTC,
+            accountDebitCode, accountCreditCode, invoiceType
         } = req.body;
 
         const userEmail = req.user.email;
 
         console.log('✅ [validateAndCreateEntry] Création écriture:', {
             type: invoiceType || 'fournisseur',
-            invoiceNumber,
-            supplier,
-            amountTTC,
-            user: userEmail,
-            companyId,
-            accountDebitCode,
-            accountCreditCode
+            invoiceNumber, supplier, amountTTC,
+            user: userEmail, companyId,
+            accountDebitCode, accountCreditCode
         });
 
         // VALIDATIONS CHAMPS OBLIGATOIRES
@@ -370,24 +306,16 @@ exports.validateAndCreateEntry = async (req, res) => {
                 message: 'Date, numéro de facture et fournisseur/client requis'
             });
         }
-
         if (!amountTTC || amountTTC <= 0) {
             console.error('❌ [validateAndCreateEntry] Montant invalide:', amountTTC);
-            return res.status(400).json({
-                success: false,
-                message: 'Montant TTC invalide'
-            });
+            return res.status(400).json({ success: false, message: 'Montant TTC invalide' });
         }
-
         if (!accountDebitCode || !accountCreditCode) {
             console.error('❌ [validateAndCreateEntry] Comptes manquants:', { accountDebitCode, accountCreditCode });
-            return res.status(400).json({
-                success: false,
-                message: 'Codes des comptes comptables requis'
-            });
+            return res.status(400).json({ success: false, message: 'Codes des comptes comptables requis' });
         }
 
-        // ✅ FIX 3 : VALIDATION DU SENS COMPTABLE SYSCOHADA
+        // VALIDATION SYSCOHADA
         const typeNormalized = (invoiceType || 'fournisseur').toLowerCase().trim();
         console.log('🔍 [validateAndCreateEntry] Validation cohérence SYSCOHADA, type:', typeNormalized);
 
@@ -417,6 +345,7 @@ exports.validateAndCreateEntry = async (req, res) => {
                 fields: ['id', 'name', 'code'],
                 limit: 1,
                 context: {
+                    company_id:           companyId,   // ✅ ajouté
                     allowed_company_ids: [companyId]
                 }
             }
@@ -433,7 +362,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         const journalId = journals[0].id;
         console.log('✅ [validateAndCreateEntry] Journal trouvé:', journals[0].name, `(ID: ${journalId})`);
 
-        // ✅ FIX 1 : RECHERCHE COMPTE DÉBIT — filtre company_ids pour isoler la bonne entreprise
+        // ✅ RECHERCHE COMPTE DÉBIT — context identique à getDashboardData
         console.log('🔍 [validateAndCreateEntry] Recherche compte débit:', accountDebitCode);
 
         const accountDebitSearch = await odooExecuteKw({
@@ -442,12 +371,13 @@ exports.validateAndCreateEntry = async (req, res) => {
             method: 'search_read',
             args: [[
                 ['code', '=', accountDebitCode],
-                ['company_ids', 'in', [companyId]]   // ✅ FIX 1 : filtre réel par company
+                ['company_ids', 'in', [companyId]]
             ]],
             kwargs: {
                 fields: ['id', 'name', 'code'],
                 limit: 1,
                 context: {
+                    company_id:           companyId,   // ✅ CLÉ MANQUANTE ajoutée
                     allowed_company_ids: [companyId]
                 }
             }
@@ -464,7 +394,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         const accountDebitId = accountDebitSearch[0].id;
         console.log('✅ [validateAndCreateEntry] Compte débit trouvé:', accountDebitSearch[0].code, '-', accountDebitSearch[0].name, `(ID: ${accountDebitId})`);
 
-        // ✅ FIX 1 : RECHERCHE COMPTE CRÉDIT — filtre company_ids pour isoler la bonne entreprise
+        // ✅ RECHERCHE COMPTE CRÉDIT — context identique à getDashboardData
         console.log('🔍 [validateAndCreateEntry] Recherche compte crédit:', accountCreditCode);
 
         const accountCreditSearch = await odooExecuteKw({
@@ -473,12 +403,13 @@ exports.validateAndCreateEntry = async (req, res) => {
             method: 'search_read',
             args: [[
                 ['code', '=', accountCreditCode],
-                ['company_ids', 'in', [companyId]]   // ✅ FIX 1 : filtre réel par company
+                ['company_ids', 'in', [companyId]]
             ]],
             kwargs: {
                 fields: ['id', 'name', 'code'],
                 limit: 1,
                 context: {
+                    company_id:           companyId,   // ✅ CLÉ MANQUANTE ajoutée
                     allowed_company_ids: [companyId]
                 }
             }
@@ -495,7 +426,7 @@ exports.validateAndCreateEntry = async (req, res) => {
         const accountCreditId = accountCreditSearch[0].id;
         console.log('✅ [validateAndCreateEntry] Compte crédit trouvé:', accountCreditSearch[0].code, '-', accountCreditSearch[0].name, `(ID: ${accountCreditId})`);
 
-        // ✅ FIX 4 : CALCUL CORRECT DES MONTANTS HT / TVA / TTC
+        // CALCUL MONTANTS
         const montantTTC = parseFloat(amountTTC);
         const montantHT  = amountHT && parseFloat(amountHT) > 0
             ? parseFloat(amountHT)
@@ -506,41 +437,25 @@ exports.validateAndCreateEntry = async (req, res) => {
 
         console.log('💰 [validateAndCreateEntry] Montants utilisés:', { montantHT, montantTVA, montantTTC });
 
-        // ✅ CONSTRUCTION DES LIGNES D'ÉCRITURE SYSCOHADA
-        // Pour une facture fournisseur :
-        //   Ligne 1 : Débit compte charge (60x) = montant HT
-        //   Ligne 2 : Débit compte TVA déductible (4456) = montant TVA
-        //   Ligne 3 : Crédit compte fournisseur (401) = montant TTC
-        //
-        // Pour une facture client :
-        //   Ligne 1 : Débit compte client (411) = montant TTC
-        //   Ligne 2 : Crédit compte produit (70x) = montant HT
-        //   Ligne 3 : Crédit compte TVA collectée (4457) = montant TVA
-        //
-        // ⚠️ Note : les comptes TVA (4456/4457) ne sont pas encore gérés ici
-        // car le frontend n'envoie qu'un débit et un crédit.
-        // L'écriture est donc simplifiée TTC (sans ventilation TVA).
-        // Pour une ventilation complète, il faudra ajouter accountTvaCode dans le body.
-
         const partnerLabel = typeNormalized === 'client' ? 'Client' : 'Fournisseur';
 
         const moveData = {
             company_id: companyId,
             journal_id: journalId,
-            date: date,
-            ref: invoiceNumber,
-            narration: `Facture ${supplier} - Numérisée automatiquement (${partnerLabel})`,
+            date:       date,
+            ref:        invoiceNumber,
+            narration:  `Facture ${supplier} - Numérisée automatiquement (${partnerLabel})`,
             line_ids: [
                 [0, 0, {
                     account_id: accountDebitId,
-                    name: `${typeNormalized === 'client' ? 'Vente' : 'Achat'} - ${supplier}`,
-                    debit: montantTTC,
+                    name:   `${typeNormalized === 'client' ? 'Vente' : 'Achat'} - ${supplier}`,
+                    debit:  montantTTC,
                     credit: 0.0
                 }],
                 [0, 0, {
                     account_id: accountCreditId,
-                    name: `${partnerLabel} - ${supplier}`,
-                    debit: 0.0,
+                    name:   `${partnerLabel} - ${supplier}`,
+                    debit:  0.0,
                     credit: montantTTC
                 }]
             ]
@@ -548,9 +463,7 @@ exports.validateAndCreateEntry = async (req, res) => {
 
         console.log('📝 [validateAndCreateEntry] Données écriture:', JSON.stringify(moveData, null, 2));
 
-        // ✅ FIX 2 : CRÉATION ÉCRITURE ODOO 19 MULTI-COMPANY
-        // allowed_company_ids + force_company sont OBLIGATOIRES en Odoo 19
-        // pour que le create soit accepté dans la bonne company
+        // CRÉATION ÉCRITURE ODOO 19
         const moveId = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
@@ -558,8 +471,9 @@ exports.validateAndCreateEntry = async (req, res) => {
             args: [moveData],
             kwargs: {
                 context: {
-                    allowed_company_ids: [companyId],   // ✅ FIX 2
-                    force_company: companyId             // ✅ FIX 2
+                    company_id:           companyId,
+                    allowed_company_ids: [companyId],
+                    force_company:        companyId
                 }
             }
         });
@@ -578,15 +492,15 @@ exports.validateAndCreateEntry = async (req, res) => {
             success: true,
             message: 'Écriture comptable créée avec succès',
             data: {
-                move_id: moveId,
+                move_id:        moveId,
                 invoice_number: invoiceNumber,
-                partner: supplier,
-                amount_ttc: montantTTC,
-                amount_ht: montantHT,
-                tva: montantTVA,
-                type: typeNormalized,
+                partner:        supplier,
+                amount_ttc:     montantTTC,
+                amount_ht:      montantHT,
+                tva:            montantTVA,
+                type:           typeNormalized,
                 accounts: {
-                    debit: `${accountDebitSearch[0].code} - ${accountDebitSearch[0].name}`,
+                    debit:  `${accountDebitSearch[0].code} - ${accountDebitSearch[0].name}`,
                     credit: `${accountCreditSearch[0].code} - ${accountCreditSearch[0].name}`
                 }
             }
@@ -595,7 +509,6 @@ exports.validateAndCreateEntry = async (req, res) => {
     } catch (error) {
         console.error('🚨 [validateAndCreateEntry] Erreur:', error.message);
         console.error('🚨 [validateAndCreateEntry] Stack:', error.stack);
-
         res.status(500).json({
             success: false,
             message: `Erreur lors de la création de l'écriture: ${error.message}`
@@ -604,26 +517,22 @@ exports.validateAndCreateEntry = async (req, res) => {
 };
 
 // =============================================================================
-// HISTORIQUE — récupère les écritures OCR depuis Odoo directement
+// HISTORIQUE
 // =============================================================================
 
 exports.getHistory = async (req, res) => {
     try {
-        const companyId = req.validatedCompanyId ||
-            req.user?.companyId ||
-            req.user?.currentCompanyId ||
-            parseInt(req.query.companyId);
+        const companyId = parseInt(req.query.companyId)
+            || req.validatedCompanyId
+            || req.user?.companyId
+            || req.user?.currentCompanyId;
 
         if (!companyId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Company ID manquant'
-            });
+            return res.status(400).json({ success: false, message: 'Company ID manquant' });
         }
 
         console.log('📚 [getHistory] Récupération pour company:', companyId);
 
-        // Récupère les 50 dernières écritures de la company avec la mention "Numérisée automatiquement"
         const moves = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.move',
@@ -637,24 +546,18 @@ exports.getHistory = async (req, res) => {
                 limit: 50,
                 order: 'date desc',
                 context: {
+                    company_id:           companyId,
                     allowed_company_ids: [companyId]
                 }
             }
         });
 
         console.log(`✅ [getHistory] ${moves?.length || 0} écritures trouvées`);
-
-        res.json({
-            success: true,
-            data: moves || []
-        });
+        res.json({ success: true, data: moves || [] });
 
     } catch (error) {
         console.error('🚨 [getHistory] Erreur:', error.message);
-        res.status(500).json({
-            success: false,
-            message: "Erreur lors de la récupération de l'historique"
-        });
+        res.status(500).json({ success: false, message: "Erreur lors de la récupération de l'historique" });
     }
 };
 
@@ -665,32 +568,22 @@ exports.getHistory = async (req, res) => {
 exports.deleteDocument = async (req, res) => {
     try {
         const documentId = req.params.id;
-        const companyId = req.validatedCompanyId ||
-            req.user?.companyId ||
-            req.user?.currentCompanyId ||
-            parseInt(req.query.companyId);
+        const companyId = parseInt(req.query.companyId)
+            || req.validatedCompanyId
+            || req.user?.companyId
+            || req.user?.currentCompanyId;
 
         if (!companyId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Company ID manquant'
-            });
+            return res.status(400).json({ success: false, message: 'Company ID manquant' });
         }
 
         console.log('🗑️ [deleteDocument] Document:', documentId, '| Company:', companyId);
-
-        res.json({
-            success: true,
-            message: 'Document supprimé avec succès'
-        });
+        res.json({ success: true, message: 'Document supprimé avec succès' });
 
     } catch (error) {
         console.error('🚨 [deleteDocument] Erreur:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Erreur lors de la suppression du document'
-        });
+        res.status(500).json({ success: false, message: 'Erreur lors de la suppression du document' });
     }
 };
 
-console.log('✅ [ocrController] Module V3.0 chargé avec succès');
+console.log('✅ [ocrController] Module V4.0 chargé avec succès');
