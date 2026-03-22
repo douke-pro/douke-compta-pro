@@ -166,30 +166,123 @@ function parseInvoiceText(text) {
     supplier = supplier.replace(/[^\w\s\-\.]/g, '');
     console.log('🏢 [Parse] Fournisseur détecté:', supplier);
 
-    // MONTANTS
-    const amountRegex = /(\d{1,3}(?:[\s\.]\d{3})*(?:[,\.]\d{2})?)/g;
-    const amounts = cleanText.match(amountRegex);
+    // ==========================================================================
+    // MONTANTS — parsing intelligent avec contexte et filtres
+    //
+    // Stratégie :
+    // 1. Chercher d'abord les montants AVEC contexte (TTC, HT, TVA, TOTAL...)
+    //    → résultats les plus fiables
+    // 2. Fallback : chercher tous les montants numériques plausibles
+    //    → avec limite max 99 999 999 pour exclure RCCM/IFU/téléphones
+    // ==========================================================================
+
     let amountHT = 0, tva = 0, amountTTC = 0;
 
-    if (amounts && amounts.length >= 1) {
-        const parsedAmounts = amounts.map(a => parseAmount(a)).filter(a => a > 0);
-        console.log('💰 [Parse] Montants détectés:', parsedAmounts);
+    // Nettoyage : supprimer les séquences RCCM, IFU, téléphone du texte
+    // pour éviter que leurs chiffres soient pris comme montants
+    const cleanedForAmounts = cleanText
+        .replace(/RCCM\s*:?\s*[\w\/\s\-]+/gi, ' ')
+        .replace(/IFU\s*:?\s*[\d\s]+/gi, ' ')
+        .replace(/\+\d{3}[\s\d]+/g, ' ')       // numéros de téléphone
+        .replace(/\b\d{13,}\b/g, ' ')           // tout nombre > 13 chiffres (NIF/SIRET)
+        .replace(/\b20\d{2}\b/g, ' ');          // années (2021, 2022...)
 
-        if (parsedAmounts.length > 0) {
-            parsedAmounts.sort((a, b) => b - a);
-            amountTTC = parsedAmounts[0];
-            if (parsedAmounts.length >= 3) {
-                amountHT = parsedAmounts[2];
-                tva = parsedAmounts[1];
-            } else if (parsedAmounts.length === 2) {
-                amountHT = parsedAmounts[1];
-                tva = amountTTC - amountHT;
-            } else {
-                amountHT = amountTTC / 1.18;
-                tva = amountTTC - amountHT;
+    console.log('🧹 [Parse] Texte nettoyé pour montants (200 chars):', cleanedForAmounts.substring(0, 200));
+
+    // ÉTAPE 1 : montants avec contexte explicite (priorité maximale)
+    const contextPatterns = [
+        // TTC / NET À PAYER / TOTAL TTC
+        { key: 'ttc',  regex: /(?:TTC|NET\s+[AÀ]\s+PAYER|TOTAL\s+TTC|MONTANT\s+TTC)\s*:?\s*([\d\s\.,]+)/gi },
+        // HT / MONTANT HT / TOTAL HT
+        { key: 'ht',   regex: /(?:HT|MONTANT\s+HT|TOTAL\s+HT|SOUS[\s-]*TOTAL)\s*:?\s*([\d\s\.,]+)/gi },
+        // TVA
+        { key: 'tva',  regex: /(?:TVA|T\.V\.A)\s*(?:\d{1,2}\s*%\s*)?:?\s*([\d\s\.,]+)/gi },
+        // TOTAL seul (fallback)
+        { key: 'total', regex: /(?:^|\s)TOTAL\s*:?\s*([\d\s\.,]+)/gim },
+    ];
+
+    const contextAmounts = { ttc: [], ht: [], tva: [], total: [] };
+
+    for (const { key, regex } of contextPatterns) {
+        let match;
+        while ((match = regex.exec(cleanedForAmounts)) !== null) {
+            const val = parseAmount(match[1]);
+            // Montant plausible : entre 100 et 99 999 999
+            if (val >= 100 && val <= 99999999) {
+                contextAmounts[key].push(val);
             }
         }
     }
+
+    console.log('💡 [Parse] Montants contextuels:', contextAmounts);
+
+    // Assignation depuis le contexte
+    if (contextAmounts.ttc.length > 0) {
+        amountTTC = Math.max(...contextAmounts.ttc);
+    }
+    if (contextAmounts.ht.length > 0) {
+        amountHT = Math.max(...contextAmounts.ht);
+    }
+    if (contextAmounts.tva.length > 0) {
+        tva = Math.max(...contextAmounts.tva);
+    }
+
+    // ÉTAPE 2 : fallback si contexte insuffisant
+    // Chercher tous les montants numériques plausibles dans le texte nettoyé
+    if (amountTTC === 0) {
+        console.log('🔄 [Parse] Fallback : recherche montants sans contexte...');
+
+        // Regex stricte : nombre avec séparateurs de milliers ou décimales
+        // Format africain : 1 696 000 ou 1.696.000 ou 1696000 ou 2 246 750
+        const fallbackRegex = /\b(\d{1,3}(?:[\s\.]\d{3})+(?:[,\.]\d{2})?|\d{4,8}(?:[,\.]\d{2})?)\b/g;
+        const fallbackAmounts = [];
+        let m;
+
+        while ((m = fallbackRegex.exec(cleanedForAmounts)) !== null) {
+            const val = parseAmount(m[1]);
+            // Plausible : entre 1 000 et 99 999 999
+            if (val >= 1000 && val <= 99999999) {
+                fallbackAmounts.push(val);
+            }
+        }
+
+        // Dédoublonner et trier
+        const unique = [...new Set(fallbackAmounts)].sort((a, b) => b - a);
+        console.log('💰 [Parse] Montants fallback filtrés:', unique);
+
+        if (unique.length > 0) {
+            amountTTC = unique[0];
+
+            if (unique.length >= 3) {
+                // Prendre HT = 3ème plus grand, TVA = 2ème
+                amountHT = unique[2];
+                tva      = unique[1];
+            } else if (unique.length === 2) {
+                amountHT = unique[1];
+                tva      = amountTTC - amountHT;
+            } else {
+                amountHT = Math.round((amountTTC / 1.18) * 100) / 100;
+                tva      = amountTTC - amountHT;
+            }
+        }
+    }
+
+    // ÉTAPE 3 : cohérence HT + TVA = TTC
+    // Si on a TTC et HT mais pas TVA → calculer TVA
+    if (amountTTC > 0 && amountHT > 0 && tva === 0) {
+        tva = Math.round((amountTTC - amountHT) * 100) / 100;
+    }
+    // Si on a TTC et TVA mais pas HT → calculer HT
+    if (amountTTC > 0 && tva > 0 && amountHT === 0) {
+        amountHT = Math.round((amountTTC - tva) * 100) / 100;
+    }
+    // Si HT > TTC (incohérence) → swap
+    if (amountHT > amountTTC && amountTTC > 0) {
+        console.warn('⚠️ [Parse] HT > TTC, correction swap');
+        [amountHT, amountTTC] = [amountTTC, amountHT];
+        tva = Math.round((amountTTC - amountHT) * 100) / 100;
+    }
+
     console.log('💵 [Parse] Montants finaux:', { amountHT, tva, amountTTC });
 
     // TAUX TVA
