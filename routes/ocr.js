@@ -83,7 +83,7 @@ router.get('/accounts', authenticateToken, async (req, res) => {
             method: 'search_read',
             args: [[
                 ['company_ids', 'in', [companyId]],   // ✅ Filtre réel multi-company
-                ['deprecated', '=', false]             // Exclure les comptes désactivés
+                ['active', '=', true]             
             ]],
             kwargs: {
                 fields: ['id', 'code', 'name', 'account_type'],
