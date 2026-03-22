@@ -1,10 +1,12 @@
 // =============================================================================
 // FICHIER : routes/ocr.js
-// Version : V3.0 - ODOO 19 MULTI-COMPANY
+// Version : V4.0 FINAL - ODOO 19 MULTI-COMPANY
 // Date : 2026-03-22
-// ✅ FIX : Ajout route GET /accounts pour charger le plan comptable par company
-// ✅ FIX : Support PDF ajouté dans Multer (converti en image côté controller)
-// ✅ Conservation : gestion erreurs Multer complète
+//
+// ✅ FIX DÉFINITIF GET /accounts :
+//    1. context.company_id ajouté — identique à getDashboardData qui fonctionne
+//    2. Filtre ['active','=',true] supprimé — inutile et potentiellement bloquant
+//    3. Query string ?companyId prioritaire sur req.user.companyId
 // =============================================================================
 
 const express  = require('express');
@@ -31,9 +33,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage: storage,
-    limits: {
-        fileSize: 10 * 1024 * 1024,   // 10 MB max
-    },
+    limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         console.log('📋 [Multer] Fichier reçu:', file.originalname, '|', file.mimetype);
 
@@ -41,7 +41,7 @@ const upload = multer({
             'image/jpeg',
             'image/jpg',
             'image/png',
-            'application/pdf'   // ✅ PDF accepté
+            'application/pdf'
         ];
 
         if (allowedTypes.includes(file.mimetype)) {
@@ -55,17 +55,21 @@ const upload = multer({
 });
 
 // =============================================================================
-// ✅ NOUVELLE ROUTE : GET /accounts
-// Charge le plan comptable de la company depuis Odoo
-// Utilisée par le frontend pour afficher les comptes dans les sélecteurs
+// ROUTE : GET /accounts
+// Charge le plan comptable depuis Odoo
+// ✅ Context IDENTIQUE à getDashboardData (accountingController.js) qui charge
+//    1142 comptes avec succès : company_id + allowed_company_ids
+// ✅ Query string ?companyId en priorité — évite que req.user.companyId
+//    (company 7 technique de l'admin) écrase la company réellement sélectionnée
 // =============================================================================
 
 router.get('/accounts', authenticateToken, async (req, res) => {
     try {
-        const companyId = req.validatedCompanyId ||
-            req.user?.companyId ||
-            req.user?.currentCompanyId ||
-            parseInt(req.query.companyId);
+        // ✅ Query string en priorité absolue
+        const companyId = parseInt(req.query.companyId)
+            || req.validatedCompanyId
+            || req.user?.currentCompanyId
+            || req.user?.companyId;
 
         console.log('📒 [GET /accounts] Company ID:', companyId);
 
@@ -76,19 +80,20 @@ router.get('/accounts', authenticateToken, async (req, res) => {
             });
         }
 
-        // ✅ Filtre company_ids pour isoler les comptes de la bonne entreprise
+        // ✅ Requête IDENTIQUE à getDashboardData — prouvée fonctionnelle avec 1142 comptes
         const accounts = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.account',
             method: 'search_read',
             args: [[
-                ['company_ids', 'in', [companyId]],   // ✅ Filtre réel multi-company
-                ['active', '=', true]             
+                ['company_ids', 'in', [companyId]]
+                // ✅ PAS de filtre 'active' — getDashboardData n'en a pas et ça marche
             ]],
             kwargs: {
                 fields: ['id', 'code', 'name', 'account_type'],
                 order:  'code asc',
                 context: {
+                    company_id:           companyId,   // ✅ CLÉ MANQUANTE ajoutée
                     allowed_company_ids: [companyId]
                 }
             }
@@ -114,17 +119,10 @@ router.get('/accounts', authenticateToken, async (req, res) => {
 // ROUTES OCR
 // =============================================================================
 
-// Upload et scan du document
-router.post('/process', authenticateToken, upload.single('file'), ocrController.uploadAndScan);
-
-// Validation et création de l'écriture dans Odoo
+router.post('/process',             authenticateToken, upload.single('file'), ocrController.uploadAndScan);
 router.post('/validate-and-create', authenticateToken, ocrController.validateAndCreateEntry);
-
-// Historique des documents numérisés
-router.get('/history', authenticateToken, ocrController.getHistory);
-
-// Suppression d'un document
-router.delete('/:id', authenticateToken, ocrController.deleteDocument);
+router.get('/history',              authenticateToken, ocrController.getHistory);
+router.delete('/:id',               authenticateToken, ocrController.deleteDocument);
 
 // =============================================================================
 // GESTION ERREURS MULTER
@@ -140,14 +138,12 @@ router.use((error, req, res, next) => {
                 message: 'Le fichier ne doit pas dépasser 10 MB'
             });
         }
-
         if (error.code === 'LIMIT_FILE_COUNT') {
             return res.status(400).json({
                 success: false,
                 message: 'Un seul fichier autorisé à la fois'
             });
         }
-
         return res.status(400).json({
             success: false,
             message: `Erreur upload : ${error.message}`
@@ -165,6 +161,6 @@ router.use((error, req, res, next) => {
     next();
 });
 
-console.log('✅ [routes/ocr] Routes V3.0 chargées avec succès');
+console.log('✅ [routes/ocr] Routes V4.0 chargées avec succès');
 
 module.exports = router;
