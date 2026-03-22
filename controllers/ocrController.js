@@ -486,7 +486,36 @@ exports.validateAndCreateEntry = async (req, res) => {
             });
         }
 
-        console.log(`✅ [validateAndCreateEntry] Écriture créée avec succès dans Odoo: ID ${moveId}`);
+        console.log(`✅ [validateAndCreateEntry] Écriture créée (brouillon) dans Odoo: ID ${moveId}`);
+
+        // ✅ VALIDATION DE L'ÉCRITURE — action_post() pour passer de 'draft' à 'posted'
+        // Sans cette étape, l'écriture existe dans Odoo mais reste invisible
+        // dans les journaux et les rapports (état brouillon)
+        console.log(`🔄 [validateAndCreateEntry] Validation de l'écriture ID ${moveId}...`);
+
+        try {
+            await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'account.move',
+                method: 'action_post',
+                args: [[moveId]],
+                kwargs: {
+                    context: {
+                        company_id:           companyId,
+                        allowed_company_ids: [companyId],
+                        force_company:        companyId
+                    }
+                }
+            });
+            console.log(`✅ [validateAndCreateEntry] Écriture ID ${moveId} validée (posted) avec succès`);
+        } catch (postError) {
+            // Si la validation échoue, l'écriture existe quand même en brouillon
+            // On log l'erreur mais on ne bloque pas la réponse
+            console.warn(`⚠️ [validateAndCreateEntry] Écriture créée mais non validée: ${postError.message}`);
+            console.warn('⚠️ Elle est visible dans Odoo en état brouillon');
+        }
+
+        console.log(`✅ [validateAndCreateEntry] Opération complète pour écriture ID ${moveId}`);
 
         res.json({
             success: true,
