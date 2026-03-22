@@ -212,7 +212,7 @@ exports.createRequest = async (req, res) => {
             notes
         } = req.body;
 
-        const userId   = req.user.id;
+        const userId   = req.user.odooUid;
         const userEmail = req.user.email || '';
         const userName  = req.user.name || req.user.username || userEmail;
 
@@ -290,7 +290,7 @@ exports.createRequest = async (req, res) => {
  */
 exports.getMyRequests = async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user.odooUid;
         const { limit = 50, offset = 0, status } = req.query;
 
         let query = `
@@ -342,7 +342,7 @@ exports.getMyRequests = async (req, res) => {
 exports.getRequestDetails = async (req, res) => {
     try {
         const requestId = req.params.id;
-        const userId    = req.user.id;
+        const userId    = req.user.odooUid;
         const userRole  = req.user.profile || req.user.role || 'USER';
 
         const request = await checkAccessToRequest(requestId, userId, userRole);
@@ -372,7 +372,7 @@ exports.getRequestDetails = async (req, res) => {
 exports.cancelRequest = async (req, res) => {
     try {
         const requestId = req.params.id;
-        const userId    = req.user.id;
+        const userId    = req.user.odooUid;
         const userRole  = req.user.profile || req.user.role || 'USER';
 
         const request = await checkAccessToRequest(requestId, userId, userRole);
@@ -480,7 +480,7 @@ exports.generateReports = async (req, res) => {
 
     try {
         const requestId = req.params.id;
-        const userId    = req.user.id;
+        const userId    = req.user.odooUid;
 
         const requestResult = await client.query(
             'SELECT * FROM financial_reports_requests WHERE id = $1',
@@ -570,7 +570,7 @@ exports.generateReports = async (req, res) => {
 exports.validateReports = async (req, res) => {
     try {
         const requestId = req.params.id;
-        const userId    = req.user.id;
+        const userId    = req.user.odooUid;
         const { notes } = req.body;
 
         const requestResult = await pool.query(
@@ -697,7 +697,7 @@ exports.regenerateReportsWithEdits = async (req, res) => {
     try {
         const requestId    = req.params.id;
         const { edited_data } = req.body;
-        const userId       = req.user.id;
+        const userId       = req.user.odooUid;
 
         if (!edited_data) {
             return res.status(400).json({ success: false, message: 'Données éditées manquantes' });
@@ -828,7 +828,7 @@ exports.regenerateReportsWithEdits = async (req, res) => {
 exports.downloadPDF = async (req, res) => {
     try {
         const { id: requestId, fileType } = req.params;
-        const userId   = req.user.id;
+        const userId   = req.user.odooUid;
         const userRole = req.user.profile || req.user.role || 'USER';
 
         const request = await checkAccessToRequest(requestId, userId, userRole);
