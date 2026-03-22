@@ -934,9 +934,9 @@ async function loadAccountsForOCR() {
     console.log('🚀 [loadAccountsForOCR] === DÉBUT ===');
 
     // Résolution de la company active — priorité : selectedCompanyId > currentCompanyId > userCompanyId
-    const companyId = appState.user?.selectedCompanyId
-        || appState.currentCompanyId
-        || appState.user?.companyId;
+   const companyId = appState.currentCompanyId          // company du menu sélecteur
+    || appState.user?.selectedCompanyId
+    || appState.user?.companyId;
 
     console.log('🏢 [loadAccountsForOCR] Company utilisée:', companyId, '| appState:', {
         currentCompanyId:  appState.currentCompanyId,
@@ -1139,9 +1139,9 @@ async function processInvoiceFile(file) {
     if (loadingZone) loadingZone.classList.remove('hidden');
 
     // ✅ FIX 5 : résoudre le companyId pour l'envoyer dans l'URL
-    const companyId = appState.user?.selectedCompanyId
-        || appState.currentCompanyId
-        || appState.user?.companyId;
+    const companyId = appState.currentCompanyId          // company du menu sélecteur
+    || appState.user?.selectedCompanyId
+    || appState.user?.companyId;
 
     console.log('🚀 [processInvoiceFile] Company ID:', companyId);
     console.log('🚀 [processInvoiceFile] Token:', appState.token ? 'PRÉSENT' : 'MANQUANT');
@@ -1262,9 +1262,9 @@ window.handleOCRValidation = async function(event) {
     console.log('💾 [handleOCRValidation] === DÉBUT VALIDATION ===');
 
     // ✅ FIX 4a : résolution complète de la company
-    const companyId = appState.user?.selectedCompanyId
-        || appState.currentCompanyId
-        || appState.user?.companyId;
+    const companyId = appState.currentCompanyId          // company du menu sélecteur
+    || appState.user?.selectedCompanyId
+    || appState.user?.companyId;
 
     if (!companyId) {
         NotificationManager.show("Aucune entreprise active. Impossible de créer l'écriture.", 'error');
