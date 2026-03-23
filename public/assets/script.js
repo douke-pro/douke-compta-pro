@@ -2960,8 +2960,9 @@ window.openRequestFinancialReportsModal = function() {
                 </label>
                 <select id="report-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                     <option value="">-- Sélectionner --</option>
-                    <option value="SYSCOHADA_NORMAL">SYSCOHADA Normal (Bilan + CR + TFT + Annexes)</option>
-                    <option value="SYSCOHADA_MINIMAL">SYSCOHADA Minimal (Bilan + CR)</option>
+                    <option value="">-- Sélectionner --</option>
+                    <option value="SYSCOHADA_NORMAL">SYSCOHADA Complet (Bilan + CR + TFT + Annexes)</option>
+                    <option value="SYSCOHADA_MINIMAL">SYSCOHADA Simplifié (Bilan + CR)</option>
                     <option value="SYCEBNL_NORMAL">SYCEBNL Normal (Associations/ONG)</option>
                     <option value="SYCEBNL_ALLEGE">SYCEBNL Allégé</option>
                     <option value="PCG_FRENCH">Plan Comptable Général (France)</option>
