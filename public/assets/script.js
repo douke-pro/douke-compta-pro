@@ -3018,31 +3018,31 @@ window.openRequestFinancialReportsModal = function() {
 
 window.submitFinancialReportRequest = async function(event) {
     event.preventDefault();
-    
+
     const data = {
-        company_id: appState.currentCompanyId,
+        company_id:        appState.currentCompanyId,
         accounting_system: document.getElementById('report-type').value,
-        period_start: document.getElementById('period-start').value,
-        period_end: document.getElementById('period-end').value,
-        fiscal_year: new Date(document.getElementById('period-start').value).getFullYear(),
-        notes: document.getElementById('report-notes').value
+        period_start:      document.getElementById('period-start').value,
+        period_end:        document.getElementById('period-end').value,
+        fiscal_year:       new Date(document.getElementById('period-start').value).getFullYear(),
+        notes:             document.getElementById('report-notes').value
     };
-    
+
     try {
         NotificationManager.show('Envoi de la demande...', 'info');
-        
+
         const response = await apiFetch('reports/request', {
             method: 'POST',
             body: JSON.stringify(data)
         });
-        
+
         if (response.success) {
             NotificationManager.show('✅ Demande envoyée avec succès !', 'success');
             ModalManager.close();
             window.loadMyFinancialReportsPreview();
-            if (isAdminOrCollab()) {
-                window.loadPendingFinancialReportsPreview();
-                window.loadReportsStats();
+            if (typeof isAdminOrCollab === 'function' && isAdminOrCollab()) {
+                window.loadPendingFinancialReportsPreview?.();
+                window.loadReportsStats?.();
             }
         } else {
             throw new Error(response.message || 'Erreur lors de l\'envoi');
