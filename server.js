@@ -198,4 +198,14 @@ app.listen(PORT, async () => {
     console.log("=".repeat(60));
 
     await initDB();
+
+    // ✅ KEEP-ALIVE
+    if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+        setInterval(() => {
+            fetch(`https://douke-compta-pro.onrender.com/api/health`)
+                .then(() => console.log('🔄 [Keep-alive] Ping OK'))
+                .catch(() => {});
+        }, 10 * 60 * 1000);
+        console.log('✅ [Keep-alive] Activé — service ne dormira plus');
+    }
 });
