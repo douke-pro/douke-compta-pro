@@ -14,6 +14,7 @@
 const pool               = require('../services/dbService');
 const odooReportsService = require('../services/odooReportsService');
 const pdfGeneratorService= require('../services/pdfGenerator');
+const emailService       = require('../services/emailService');
 const path               = require('path');
 const fs                 = require('fs').promises;
 
