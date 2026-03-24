@@ -241,7 +241,13 @@ const restrictTo = (...roles) => {
  */
 const checkRole = (roles) => {
     return (req, res, next) => {
-        console.log('🔴 [checkRole] userRole:', req.user?.role, '| profile:', req.user?.profile, '| allowed:', roles);
+        if (!req.user) {
+            return res.status(401).json({ 
+                success: false,
+                status: 'error',
+                error: 'Non authentifié.' 
+            });
+        }
 
         const userRole = (req.user.role || '').toLowerCase();
         const allowedRoles = roles.map(r => r.toLowerCase());
