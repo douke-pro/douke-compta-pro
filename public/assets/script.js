@@ -14,13 +14,14 @@ const API_BASE_URL = 'https://douke-compta-pro.onrender.com/api';
 const IS_PROD = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
 // État central de l'application (ESSENTIEL POUR L'ISOLATION)
-let appState = {
+window.appState = {
     isAuthenticated: false,
     token: null,
     user: null, 
     currentCompanyId: null,
     currentCompanyName: null,
 };
+const appState = window.appState; // garde la compatibilité interne
 
 // --- 2. GESTIONNAIRES D'INTERFACE (UI Managers) ---
 
