@@ -8418,12 +8418,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (token) {
         console.log('✅ Token détecté, chargement du dashboard...');
+        appState.token = token;
+        appState.isAuthenticated = true;
     } else {
         console.log('❌ Pas de token, affichage de la connexion');
     }
     
     attachGlobalListeners();
-    checkAuthAndRender();
+    renderAppView();
 });
 
 
