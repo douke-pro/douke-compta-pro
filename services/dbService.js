@@ -28,23 +28,19 @@ if (connectionString.startsWith('https://')) {
 const pool = new Pool({
     connectionString,
 
-    // SSL obligatoire en production (Render PostgreSQL)
-    ssl: process.env.NODE_ENV === 'production'
-        ? { rejectUnauthorized: false }
-        : false,
+    // SSL Supabase — compatible Session Pooler et Transaction Pooler
+    ssl: { rejectUnauthorized: false },
 
-    // Taille du pool réduite pour le plan Free Render (max 25 connexions)
-    max: 5,
+    // Taille du pool adaptée Supabase Free (max 15 connexions directes)
+    max: 3,
 
-    // Délai avant de fermer une connexion inactive (10s au lieu de 30s)
-    // Évite les connexions "zombie" sur Render Free
-    idleTimeoutMillis: 10000,
+    // Supabase coupe les connexions idle après 60s — on anticipe
+    idleTimeoutMillis: 30000,
 
-    // Timeout pour obtenir une connexion du pool
-    connectionTimeoutMillis: 15000,
+    // Timeout de connexion généreux pour cold start Supabase
+    connectionTimeoutMillis: 30000,
 
     // Maintien actif des connexions TCP
-    // Évite les déconnexions silencieuses du réseau
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
 });
