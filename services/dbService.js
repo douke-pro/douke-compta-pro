@@ -28,19 +28,12 @@ if (connectionString.startsWith('https://')) {
 const pool = new Pool({
     connectionString,
 
-    // SSL Supabase — compatible Session Pooler et Transaction Pooler
+    // SSL Supabase — rejectUnauthorized false gère le certificat auto-signé
     ssl: { rejectUnauthorized: false },
 
-    // Taille du pool adaptée Supabase Free (max 15 connexions directes)
     max: 3,
-
-    // Supabase coupe les connexions idle après 60s — on anticipe
     idleTimeoutMillis: 30000,
-
-    // Timeout de connexion généreux pour cold start Supabase
     connectionTimeoutMillis: 30000,
-
-    // Maintien actif des connexions TCP
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
 });
