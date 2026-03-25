@@ -21,7 +21,7 @@ window.appState = {
     currentCompanyId: null,
     currentCompanyName: null,
 };
-const appState = window.appState; // garde la compatibilité interne
+let appState = window.appState;
 
 // --- 2. GESTIONNAIRES D'INTERFACE (UI Managers) ---
 
