@@ -123,6 +123,14 @@ exports.createRequest = async (req, res) => {
             data:    newRequest
         });
 
+        console.log('📋 [createRequest] Body reçu:', {
+    company_id,
+    accounting_system,
+    period_start,
+    period_end,
+    fiscal_year,
+    notes: notes ? 'présent' : 'absent'
+});
         // ✅ Notification email en arrière-plan — ne bloque JAMAIS la réponse
         setImmediate(async () => {
             try {
