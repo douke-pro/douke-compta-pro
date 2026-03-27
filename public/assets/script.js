@@ -11786,14 +11786,10 @@ function stopNotificationPolling() {
     
     // Charger les aperçus au démarrage (si rôle approprié)
    window.onAppReady = window.onAppReady || [];
-   window.onAppReady.push(function() {
+window.onAppReady.push(function() {
     const userRole = appState.user?.role;
     if (userRole === 'admin' || userRole === 'collaborateur') {
         window.loadPendingFinancialReportsPreview();
     }
     window.loadMyFinancialReportsPreview();
 });
-    
-    console.log('✅ [scriptReports] Module initialisé avec succès');
-    
-})();
