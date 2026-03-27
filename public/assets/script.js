@@ -2856,7 +2856,7 @@ window.loadMyFinancialReportsPreview = async function() {
     if (!previewContainer) return;
 
     // Garde-fou — ne pas appeler sans token ni companyId
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const token = localStorage.getItem('douke_auth_token');
     if (!token || !appState.currentCompanyId) {
         console.warn('⚠️ [loadMyFinancialReportsPreview] Token ou companyId absent — appel annulé');
         previewContainer.innerHTML = `
