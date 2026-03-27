@@ -8420,23 +8420,50 @@ function attachGlobalListeners() {
     }
 }
 
-// ✅ CORRECTION CRITIQUE : Vérifier le token AVANT d'initialiser
-document.addEventListener('DOMContentLoaded', () => {
+// ✅ CORRECTION CRITIQUE : Vérifier le token ET recharger l'utilisateur
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Application Doukè Compta Pro - Démarrage V14');
     console.log('📍 Vérification du token...');
-    
+
     const token = localStorage.getItem('douke_auth_token');
     console.log('🔑 Token présent ?', token ? 'OUI' : 'NON');
-    
+
+    attachGlobalListeners();
+
     if (token) {
-        console.log('✅ Token détecté, chargement du dashboard...');
+        console.log('✅ Token détecté, rechargement utilisateur...');
         appState.token = token;
-        appState.isAuthenticated = true;
+
+        try {
+            const response = await apiFetch('auth/me', { method: 'GET' });
+
+            if (response && response.data) {
+                appState.user               = response.data;
+                appState.isAuthenticated    = true;
+                appState.currentCompanyId   = response.data.defaultCompany?.id
+                                           || response.data.selectedCompanyId
+                                           || null;
+                appState.currentCompanyName = response.data.defaultCompany?.name || null;
+                appState.user.selectedCompanyId = appState.currentCompanyId;
+                appState.user.companiesList     = response.data.companiesList || [];
+
+                console.log('✅ Utilisateur rechargé:', appState.user.name,
+                            '| Company:', appState.currentCompanyId);
+            } else {
+                throw new Error('Réponse auth/me invalide');
+            }
+
+        } catch (e) {
+            console.warn('⚠️ Token invalide ou expiré:', e.message);
+            localStorage.removeItem('douke_auth_token');
+            appState.token           = null;
+            appState.isAuthenticated = false;
+        }
+
     } else {
         console.log('❌ Pas de token, affichage de la connexion');
     }
-    
-    attachGlobalListeners();
+
     renderAppView();
 });
 
