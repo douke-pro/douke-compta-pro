@@ -2854,12 +2854,25 @@ window.loadReportsStats = async function() {
 window.loadMyFinancialReportsPreview = async function() {
     const previewContainer = document.getElementById('my-requests-preview');
     if (!previewContainer) return;
-    
+
+    // Garde-fou — ne pas appeler sans token ni companyId
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token || !appState.currentCompanyId) {
+        console.warn('⚠️ [loadMyFinancialReportsPreview] Token ou companyId absent — appel annulé');
+        previewContainer.innerHTML = `
+            <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
+                <i class="fas fa-inbox mr-1"></i>
+                Aucune demande
+            </div>
+        `;
+        return;
+    }
+
     try {
         console.log('📋 [loadMyFinancialReportsPreview] Chargement...');
-        
+
         const response = await apiFetch('reports/my-requests?limit=3', { method: 'GET' });
-        
+
         if (response.success && response.data && response.data.length > 0) {
             const html = response.data.map(req => `
                 <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
@@ -2875,7 +2888,7 @@ window.loadMyFinancialReportsPreview = async function() {
                     </p>
                 </div>
             `).join('');
-            
+
             previewContainer.innerHTML = html;
         } else {
             previewContainer.innerHTML = `
