@@ -3021,13 +3021,12 @@ window.submitFinancialReportRequest = async function(event) {
     event.preventDefault();
 
     const data = {
-        company_id:        appState.currentCompanyId,
-        accounting_system: document.getElementById('report-type').value,
-        period_start:      document.getElementById('period-start').value,
-        period_end:        document.getElementById('period-end').value,
-        fiscal_year:       new Date(document.getElementById('period-start').value).getFullYear(),
-        notes:             document.getElementById('report-notes').value
-    };
+    company_id:        appState.currentCompanyId,
+    accounting_system: document.getElementById('report-type').value,
+    period_start:      document.getElementById('period-start').value,
+    period_end:        document.getElementById('period-end').value,
+    notes:             document.getElementById('report-notes').value
+};
 
     try {
         NotificationManager.show('Envoi de la demande...', 'info');
