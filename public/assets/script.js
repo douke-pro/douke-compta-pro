@@ -417,17 +417,24 @@ function createCompanySelectMenu(companies) {
 window.handleCompanyChange = async function (newCompanyId) { 
     const newId = parseInt(newCompanyId);
     const newCompany = appState.user.companiesList.find(c => c.id === newId);
-
     if (newCompany) {
         appState.currentCompanyId = newId;
         appState.currentCompanyName = newCompany.name;
         appState.user.selectedCompanyId = newId; 
-
         document.getElementById('current-company-name').textContent = appState.currentCompanyName;
         document.getElementById('context-message').textContent = `Comptabilité Analytique : ${appState.currentCompanyName}`;
         NotificationManager.show(`Dossier actif changé : ${appState.currentCompanyName}`, 'info');
-
         loadContentArea('dashboard', 'Tableau de Bord');
+
+        // ✅ Recharger les previews rapports avec le nouveau companyId
+        try {
+            window.loadMyFinancialReportsPreview?.();
+            if (typeof isAdminOrCollab === 'function' && isAdminOrCollab()) {
+                window.loadPendingFinancialReportsPreview?.();
+            }
+        } catch (e) {
+            console.error('[handleCompanyChange] Erreur rechargement rapports:', e);
+        }
     }
 };
 
