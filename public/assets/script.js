@@ -2871,7 +2871,7 @@ window.loadMyFinancialReportsPreview = async function() {
     try {
         console.log('📋 [loadMyFinancialReportsPreview] Chargement...');
 
-        const response = await apiFetch('reports/my-requests?limit=3', { method: 'GET' });
+        const response = await apiFetch(`reports/my-requests?companyId=${appState.currentCompanyId}&limit=3`, { method: 'GET' });
 
         if (response.success && response.data && response.data.length > 0) {
             const html = response.data.map(req => `
