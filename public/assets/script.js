@@ -185,14 +185,25 @@ async function handleLogin(event) {
         appState.currentCompanyId = response.data.defaultCompany.id;
         appState.currentCompanyName = response.data.defaultCompany.name;
         appState.user.selectedCompanyId = response.data.defaultCompany.id;
-
         localStorage.setItem('douke_auth_token', appState.token);
         
         NotificationManager.show(`Connexion Réussie. Bienvenue, ${appState.user.name}.`);
         renderAppView();
-        
+
+        // ✅ Déclencher les callbacks des modules en attente (scriptReports, etc.)
+        // Exécuté après renderAppView() pour garantir que le DOM et appState sont prêts
+        if (Array.isArray(window.onAppReady)) {
+            window.onAppReady.forEach(fn => {
+                try { fn(); } catch (e) {
+                    console.error('[onAppReady] Erreur dans un callback:', e);
+                }
+            });
+            window.onAppReady = [];
+        }
+
     } catch (error) {
-        document.getElementById('password').value = ''; 
+        console.error('[handleLogin] Erreur:', error);
+        document.getElementById('password').value = '';
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
