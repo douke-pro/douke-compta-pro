@@ -3051,26 +3051,37 @@ window.openRequestFinancialReportsModal = function() {
 window.submitFinancialReportRequest = async function(event) {
     event.preventDefault();
 
+    // ✅ Garde défensive — session invalide ou companyId absent
+    if (!appState.currentCompanyId) {
+        NotificationManager.show('Session invalide. Veuillez vous reconnecter.', 'error');
+        console.error('[submitFinancialReportRequest] appState.currentCompanyId est null ou undefined');
+        return;
+    }
+
     const data = {
-    company_id:        appState.currentCompanyId,
-    accounting_system: document.getElementById('report-type').value,
-    period_start:      document.getElementById('period-start').value,
-    period_end:        document.getElementById('period-end').value,
-    notes:             document.getElementById('report-notes').value
-};
+        company_id:        appState.currentCompanyId,
+        accounting_system: document.getElementById('report-type').value,
+        period_start:      document.getElementById('period-start').value,
+        period_end:        document.getElementById('period-end').value,
+        notes:             document.getElementById('report-notes').value
+    };
+
+    // ✅ Garde — champs obligatoires du formulaire
+    if (!data.accounting_system || !data.period_start || !data.period_end) {
+        NotificationManager.show('Veuillez remplir tous les champs obligatoires.', 'error');
+        return;
+    }
 
     try {
         NotificationManager.show('Envoi de la demande...', 'info');
-
         const response = await apiFetch('reports/request', {
             method: 'POST',
             body: JSON.stringify(data)
         });
-
         if (response.success) {
             NotificationManager.show('✅ Demande envoyée avec succès !', 'success');
             ModalManager.close();
-            window.loadMyFinancialReportsPreview();
+            window.loadMyFinancialReportsPreview?.();
             if (typeof isAdminOrCollab === 'function' && isAdminOrCollab()) {
                 window.loadPendingFinancialReportsPreview?.();
                 window.loadReportsStats?.();
