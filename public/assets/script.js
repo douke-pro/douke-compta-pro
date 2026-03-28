@@ -11795,12 +11795,17 @@ function stopNotificationPolling() {
     // INITIALISATION
     // =============================================================================
     
-    // Charger les aperçus au démarrage (si rôle approprié)
    window.onAppReady = window.onAppReady || [];
-window.onAppReady.push(function() {
-    const userRole = appState.user?.role;
-    if (userRole === 'admin' || userRole === 'collaborateur') {
-        window.loadPendingFinancialReportsPreview();
-    }
-    window.loadMyFinancialReportsPreview();
-});
+    window.onAppReady.push(function() {
+        const userRole = appState.user?.role;
+        if (userRole === 'admin' || userRole === 'collaborateur') {
+            window.loadPendingFinancialReportsPreview();
+        }
+        window.loadMyFinancialReportsPreview();
+    });
+
+// ✅ AJOUTER CES LIGNES — fermeture de la IIFE
+})();
+
+console.log('✅ [scriptReports] Module initialisé avec succès');
+  
