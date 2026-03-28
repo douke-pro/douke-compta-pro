@@ -2980,122 +2980,6 @@ window.loadPendingFinancialReportsPreview = async function() {
 };
 
 // =============================================================================
-// 4. MODAL - CRÉER UNE DEMANDE (USER/ADMIN/COLLAB)
-// =============================================================================
-
-window.openRequestFinancialReportsModal = function() {
-    const modalContent = `
-        <form id="request-reports-form" onsubmit="window.submitFinancialReportRequest(event)" class="space-y-6">
-            <div>
-                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                    Type d'états financiers <span class="text-danger">*</span>
-                </label>
-                <select id="report-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                    <option value="">-- Sélectionner --</option>
-                    <option value="">-- Sélectionner --</option>
-                    <option value="SYSCOHADA_NORMAL">SYSCOHADA Complet (Bilan + CR + TFT + Annexes)</option>
-                    <option value="SYSCOHADA_MINIMAL">SYSCOHADA Simplifié (Bilan + CR)</option>
-                    <option value="SYCEBNL_NORMAL">SYCEBNL Normal (Associations/ONG)</option>
-                    <option value="SYCEBNL_ALLEGE">SYCEBNL Allégé</option>
-                    <option value="PCG_FRENCH">Plan Comptable Général (France)</option>
-                </select>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Période (Début) <span class="text-danger">*</span>
-                    </label>
-                    <input type="date" id="period-start" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Période (Fin) <span class="text-danger">*</span>
-                    </label>
-                    <input type="date" id="period-end" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                </div>
-            </div>
-            
-            <div>
-                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                    Notes / Instructions (Optionnel)
-                </label>
-                <textarea id="report-notes" rows="4" 
-                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
-                    placeholder="Ex: J'ai besoin de ces états pour un audit bancaire..."></textarea>
-            </div>
-            
-            <div class="bg-info/10 border-l-4 border-info p-4 rounded-xl">
-                <p class="text-sm text-gray-700 dark:text-gray-300">
-                    <i class="fas fa-info-circle text-info mr-2"></i>
-                    Votre demande sera traitée dans un délai de <strong>48h ouvrées</strong>.
-                </p>
-            </div>
-            
-            <div class="flex justify-end gap-3 pt-6 border-t">
-                <button type="button" onclick="ModalManager.close()"
-                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
-                    Annuler
-                </button>
-                <button type="submit"
-                    class="px-6 py-3 bg-info text-white font-bold rounded-xl hover:bg-info/90 transition-colors">
-                    <i class="fas fa-paper-plane mr-2"></i>Envoyer la Demande
-                </button>
-            </div>
-        </form>
-    `;
-    
-    ModalManager.open('📋 Demander des États Financiers', modalContent);
-};
-
-window.submitFinancialReportRequest = async function(event) {
-    event.preventDefault();
-
-    // ✅ Garde défensive — session invalide ou companyId absent
-    if (!appState.currentCompanyId) {
-        NotificationManager.show('Session invalide. Veuillez vous reconnecter.', 'error');
-        console.error('[submitFinancialReportRequest] appState.currentCompanyId est null ou undefined');
-        return;
-    }
-
-    const data = {
-        company_id:        appState.currentCompanyId,
-        accounting_system: document.getElementById('report-type').value,
-        period_start:      document.getElementById('period-start').value,
-        period_end:        document.getElementById('period-end').value,
-        notes:             document.getElementById('report-notes').value
-    };
-
-    // ✅ Garde — champs obligatoires du formulaire
-    if (!data.accounting_system || !data.period_start || !data.period_end) {
-        NotificationManager.show('Veuillez remplir tous les champs obligatoires.', 'error');
-        return;
-    }
-
-    try {
-        NotificationManager.show('Envoi de la demande...', 'info');
-        const response = await apiFetch('reports/request', {
-            method: 'POST',
-            body: JSON.stringify(data)
-        });
-        if (response.success) {
-            NotificationManager.show('✅ Demande envoyée avec succès !', 'success');
-            ModalManager.close();
-            window.loadMyFinancialReportsPreview?.();
-            if (typeof isAdminOrCollab === 'function' && isAdminOrCollab()) {
-                window.loadPendingFinancialReportsPreview?.();
-                window.loadReportsStats?.();
-            }
-        } else {
-            throw new Error(response.message || 'Erreur lors de l\'envoi');
-        }
-    } catch (error) {
-        console.error('❌ [submitFinancialReportRequest] Erreur:', error);
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
-    }
-};
-
-// =============================================================================
 // 5. LISTE COMPLÈTE DES DEMANDES (USER)
 // =============================================================================
 
@@ -11329,69 +11213,70 @@ function stopNotificationPolling() {
      * Ouvre la modal de demande d'états financiers
      */
     window.openRequestFinancialReportsModal = function() {
-        console.log('📋 [openRequestFinancialReportsModal] Ouverture modal');
-        
-        const modalHTML = `
-            <form id="request-financial-reports-form" onsubmit="window.submitFinancialReportRequest(event)" class="space-y-6">
+    console.log('📋 [openRequestFinancialReportsModal] Ouverture modal');
+
+    const modalHTML = `
+        <form id="request-financial-reports-form" onsubmit="window.submitFinancialReportRequest(event)" class="space-y-6">
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    Type d'états financiers <span class="text-danger">*</span>
+                </label>
+                <select id="report-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    <option value="">-- Sélectionner --</option>
+                    <option value="SYSCOHADA_NORMAL">SYSCOHADA Complet (Bilan + CR + TFT + Annexes)</option>
+                    <option value="SYSCOHADA_MINIMAL">SYSCOHADA Simplifié (Bilan + CR)</option>
+                    <option value="SYCEBNL_NORMAL">SYCEBNL Normal (Associations/ONG)</option>
+                    <option value="SYCEBNL_ALLEGE">SYCEBNL Allégé</option>
+                    <option value="PCG_FRENCH">Plan Comptable Général (France)</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Type d'états financiers <span class="text-danger">*</span>
+                        Période (Début) <span class="text-danger">*</span>
                     </label>
-                    <select id="report-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                        <option value="">-- Sélectionner --</option>
-                        <option value="syscohada-complet">SYSCOHADA Complet (Bilan + CR + TFT + Annexes)</option>
-                        <option value="syscohada-simplifie">SYSCOHADA Simplifié (Bilan + CR)</option>
-                        <option value="sycebnl">SYCEBNL (Associations/ONG)</option>
-                        <option value="pcg">Plan Comptable Général (France)</option>
-                    </select>
+                    <input type="date" id="period-start" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                            Période (Début) <span class="text-danger">*</span>
-                        </label>
-                        <input type="date" id="period-start" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                            Période (Fin) <span class="text-danger">*</span>
-                        </label>
-                        <input type="date" id="period-end" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                    </div>
-                </div>
-                
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Notes / Instructions (Optionnel)
+                        Période (Fin) <span class="text-danger">*</span>
                     </label>
-                    <textarea id="report-notes" rows="4" 
-                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
-                        placeholder="Ex: J'ai besoin de ces états pour un audit bancaire..."></textarea>
+                    <input type="date" id="period-end" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                 </div>
-                
-                <div class="bg-info/10 border-l-4 border-info p-4 rounded-xl">
-                    <p class="text-sm text-gray-700 dark:text-gray-300">
-                        <i class="fas fa-info-circle text-info mr-2"></i>
-                        Votre demande sera traitée par un collaborateur dans un délai de <strong>48h ouvrées</strong>.
-                    </p>
-                </div>
-                
-                <div class="flex justify-end gap-3 pt-6 border-t">
-                    <button type="button" onclick="ModalManager.close()"
-                        class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
-                        Annuler
-                    </button>
-                    <button type="submit"
-                        class="px-6 py-3 bg-info text-white font-bold rounded-xl hover:bg-info/90 transition-colors">
-                        <i class="fas fa-paper-plane mr-2"></i>Envoyer la Demande
-                    </button>
-                </div>
-            </form>
-        `;
-        
-        ModalManager.open('📋 Demander des États Financiers', modalHTML);
-    };
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    Notes / Instructions (Optionnel)
+                </label>
+                <textarea id="report-notes" rows="4"
+                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="Ex: J'ai besoin de ces états pour un audit bancaire..."></textarea>
+            </div>
+
+            <div class="bg-info/10 border-l-4 border-info p-4 rounded-xl">
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    <i class="fas fa-info-circle text-info mr-2"></i>
+                    Votre demande sera traitée par un collaborateur dans un délai de <strong>48h ouvrées</strong>.
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-6 border-t">
+                <button type="button" onclick="ModalManager.close()"
+                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+                    Annuler
+                </button>
+                <button type="submit"
+                    class="px-6 py-3 bg-info text-white font-bold rounded-xl hover:bg-info/90 transition-colors">
+                    <i class="fas fa-paper-plane mr-2"></i>Envoyer la Demande
+                </button>
+            </div>
+        </form>
+    `;
+
+    ModalManager.open('📋 Demander des États Financiers', modalHTML);
+};
     
     /**
      * Soumet une demande d'états financiers
