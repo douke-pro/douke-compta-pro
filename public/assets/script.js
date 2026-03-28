@@ -11359,39 +11359,49 @@ function stopNotificationPolling() {
      * Soumet une demande d'états financiers
      */
     window.submitFinancialReportRequest = async function(event) {
-        event.preventDefault();
-        
-        const data = {
-            companyId: appState.currentCompanyId,
-            reportType: document.getElementById('report-type').value,
-            periodStart: document.getElementById('period-start').value,
-            periodEnd: document.getElementById('period-end').value,
-            notes: document.getElementById('report-notes').value
-        };
-        
-        try {
-            NotificationManager.show('Envoi de la demande...', 'info');
-            
-            const response = await apiFetch('reports/request', {
-                method: 'POST',
-                body: JSON.stringify(data)
-            });
-            
-            if (response.status === 'success') {
-                NotificationManager.show('✅ Demande envoyée avec succès !', 'success');
-                ModalManager.close();
-                
-                // Recharger la liste des demandes
-                window.loadMyFinancialReportsPreview();
-            } else {
-                throw new Error(response.error || 'Erreur lors de l\'envoi');
-            }
-            
-        } catch (error) {
-            console.error('❌ [submitFinancialReportRequest] Erreur:', error);
-            NotificationManager.show(`Erreur : ${error.message}`, 'error');
-        }
+    event.preventDefault();
+
+    // ✅ Garde défensive
+    if (!appState.currentCompanyId) {
+        NotificationManager.show('Session invalide. Veuillez vous reconnecter.', 'error');
+        return;
+    }
+
+    const data = {
+        company_id:        appState.currentCompanyId,
+        accounting_system: document.getElementById('report-type').value,
+        period_start:      document.getElementById('period-start').value,
+        period_end:        document.getElementById('period-end').value,
+        notes:             document.getElementById('report-notes').value
     };
+
+    // ✅ Garde — champs obligatoires
+    if (!data.accounting_system || !data.period_start || !data.period_end) {
+        NotificationManager.show('Veuillez remplir tous les champs obligatoires.', 'error');
+        return;
+    }
+
+    try {
+        NotificationManager.show('Envoi de la demande...', 'info');
+
+        const response = await apiFetch('reports/request', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        if (response.success) {
+            NotificationManager.show('✅ Demande envoyée avec succès !', 'success');
+            ModalManager.close();
+            window.loadMyFinancialReportsPreview?.();
+        } else {
+            throw new Error(response.message || 'Erreur lors de l\'envoi');
+        }
+
+    } catch (error) {
+        console.error('❌ [submitFinancialReportRequest] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
     
     /**
      * Charge l'aperçu des dernières demandes de l'utilisateur
