@@ -83,9 +83,16 @@ exports.createRequest = async (req, res) => {
         const userName  = req.user.name || userEmail;
 
         console.log('📋 [createRequest] userId (odooUid):', userId);
+console.log('📋 [createRequest] Body reçu:', JSON.stringify({
+    company_id,
+    accounting_system,
+    period_start,
+    period_end,
+    fiscal_year,
+    notes: notes ? 'présent' : 'absent'
+}));
 
-        const validSystems = ['SYSCOHADA_NORMAL','SYSCOHADA_MINIMAL','SYCEBNL_NORMAL','SYCEBNL_ALLEGE','PCG_FRENCH'];
-
+const validSystems = ['SYSCOHADA_NORMAL','SYSCOHADA_MINIMAL','SYCEBNL_NORMAL','SYCEBNL_ALLEGE','PCG_FRENCH'];
         if (!validSystems.includes(accounting_system)) {
             return res.status(400).json({ success: false, message: 'Système comptable invalide', valid_systems: validSystems });
         }
