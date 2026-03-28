@@ -6389,7 +6389,7 @@ window.viewRequestDetails = async function(requestId) {
 function generateRequestDetailsHTML(request) {
     const statusConfig = getStatusConfig(request.status);
     const systemLabel = getSystemLabel(request.accounting_system);
-    const userRole = appState.user?.role || 'user';
+    const userRole = (appState.user?.role || 'user').toLowerCase();
     
     return `
         <div class="p-6">
@@ -11460,7 +11460,7 @@ function stopNotificationPolling() {
      * Charge l'aperçu des demandes en attente (Admin/Collab uniquement)
      */
     window.loadPendingFinancialReportsPreview = async function() {
-        const userRole = appState.user?.role || 'user';
+        const userRole = (appState.user?.role || 'user').toLowerCase();
         
         if (userRole !== 'admin' && userRole !== 'collaborateur') {
             console.warn('⚠️ [loadPendingFinancialReportsPreview] Accès refusé');
@@ -11507,7 +11507,7 @@ function stopNotificationPolling() {
      * Affiche la liste complète des demandes en attente (Admin/Collab uniquement)
      */
     window.loadPendingFinancialReports = async function() {
-        const userRole = appState.user?.role || 'user';
+        const userRole = (appState.user?.role || 'user').toLowerCase();
         
         if (userRole !== 'admin' && userRole !== 'collaborateur') {
             NotificationManager.show('Accès refusé', 'error');
@@ -11537,7 +11537,7 @@ function stopNotificationPolling() {
      * Ouvre l'éditeur d'état financier (Admin/Collab uniquement)
      */
     window.editFinancialReport = async function(requestId) {
-        const userRole = appState.user?.role || 'user';
+        const userRole = (appState.user?.role || 'user').toLowerCase();
         
         if (userRole !== 'admin' && userRole !== 'collaborateur') {
             NotificationManager.show('Accès refusé', 'error');
@@ -11567,7 +11567,7 @@ function stopNotificationPolling() {
      * Valide un état financier (Admin/Collab uniquement)
      */
     window.validateFinancialReport = async function(requestId) {
-        const userRole = appState.user?.role || 'user';
+        const userRole = (appState.user?.role || 'user').toLowerCase();
         
         if (userRole !== 'admin' && userRole !== 'collaborateur') {
             NotificationManager.show('Accès refusé', 'error');
