@@ -5286,25 +5286,6 @@ window.loadMyFinancialReportsPreview = async function() {
     }
 };
 
-/**
- * Charger un aperçu des demandes en attente (Collaborateur/Admin)
- */
-window.loadPendingFinancialReportsPreview = async function() {
-    try {
-        const response = await apiFetch('reports/pending?limit=3', { method: 'GET' });
-        
-        if (response.success && response.data.length > 0) {
-            const html = response.data.map(req => generateRequestPreviewItem(req, true)).join('');
-            document.getElementById('pending-requests-preview').innerHTML = html;
-        } else {
-            document.getElementById('pending-requests-preview').innerHTML = `
-                <p class="text-sm text-gray-500 dark:text-gray-400 italic">Aucune demande en attente.</p>
-            `;
-        }
-    } catch (error) {
-        console.error('Erreur chargement demandes en attente:', error);
-    }
-};
 
 /**
  * Générer un item d'aperçu de demande
