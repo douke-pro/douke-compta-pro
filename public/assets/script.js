@@ -11392,53 +11392,7 @@ function stopNotificationPolling() {
     // FONCTIONS ADMIN / COLLABORATEUR
     // =============================================================================
     
-    /**
-     * Charge l'aperçu des demandes en attente (Admin/Collab uniquement)
-     */
-    window.loadPendingFinancialReportsPreview = async function() {
-        const userRole = (appState.user?.role || 'user').toLowerCase();
-        
-        if (userRole !== 'admin' && userRole !== 'collaborateur') {
-            console.warn('⚠️ [loadPendingFinancialReportsPreview] Accès refusé');
-            return;
-        }
-        
-        try {
-            const response = await apiFetch(`reports/pending?limit=3`, {
-                method: 'GET'
-            });
-            
-            if (response.status === 'success') {
-                reportsState.pendingRequests = response.data || [];
-                
-                const container = document.getElementById('pending-requests-preview');
-                if (!container) return;
-                
-                if (reportsState.pendingRequests.length === 0) {
-                    container.innerHTML = `
-                        <p class="text-xs text-gray-500 italic">Aucune demande urgente</p>
-                    `;
-                } else {
-                    container.innerHTML = reportsState.pendingRequests.map(req => `
-                        <div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-xs border-l-4 border-warning">
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold">${req.client_name} - ${req.report_type}</span>
-                                <span class="text-warning font-bold">${getDaysAgo(req.created_at)}j</span>
-                            </div>
-                            <p class="text-gray-600 dark:text-gray-400">Demandé le ${new Date(req.created_at).toLocaleDateString('fr-FR')}</p>
-                            <button onclick="window.editFinancialReport(${req.id})" 
-                                class="mt-2 text-xs bg-warning text-white px-3 py-1 rounded-full hover:bg-warning/90">
-                                <i class="fas fa-edit mr-1"></i>Traiter
-                            </button>
-                        </div>
-                    `).join('');
-                }
-            }
-        } catch (error) {
-            console.error('❌ [loadPendingFinancialReportsPreview] Erreur:', error);
-        }
-    };
-    
+   
     /**
      * Affiche la liste complète des demandes en attente (Admin/Collab uniquement)
      */
