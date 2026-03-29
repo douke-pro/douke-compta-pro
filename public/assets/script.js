@@ -3680,29 +3680,7 @@ window.sendReportsToClient = async function(requestId) {
 // 8. FONCTIONS DÉTAILS ET TÉLÉCHARGEMENTS
 // =============================================================================
 
-/**
- * ✅ FONCTION COMPLÈTE : Voir les détails d'une demande
- */
-window.viewRequestDetails = async function(requestId) {
-    try {
-        NotificationManager.show('Chargement des détails...', 'info');
-        
-        const response = await apiFetch(`reports/${requestId}`, {
-            method: 'GET'
-        });
-        
-        if (response.success) {
-            const request = response.data;
-            const modalHTML = generateRequestDetailsHTML(request);
-            ModalManager.open('📋 Détails de la Demande', modalHTML);
-        } else {
-            throw new Error(response.message || 'Erreur lors du chargement');
-        }
-    } catch (error) {
-        console.error('❌ [viewRequestDetails] Erreur:', error);
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
-    }
-};
+
 
 /**
  * ✅ Générer le HTML des détails
@@ -6286,110 +6264,7 @@ window.viewRequestDetails = async function(requestId) {
     }
 };
 
-/**
- * Générer le HTML des détails d'une demande
- */
-function generateRequestDetailsHTML(request) {
-    const statusConfig = getStatusConfig(request.status);
-    const systemLabel = getSystemLabel(request.accounting_system);
-    const userRole = (appState.user?.role || 'user').toLowerCase();
-    
-    return `
-        <div class="p-6">
-            <!-- En-tête avec badge de statut -->
-            <div class="bg-gradient-to-r from-info/10 to-primary/10 dark:from-info/20 dark:to-primary/20 p-6 rounded-2xl mb-6 border border-info/30">
-                <div class="flex items-start justify-between mb-4">
-                    <div>
-                        <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2">
-                            Demande #${String(request.id).padStart(5, '0')}
-                        </h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            <i class="fas fa-building text-primary mr-2"></i>
-                            ${request.company_name || appState.currentCompanyName}
-                        </p>
-                    </div>
-                    <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold ${statusConfig.bgClass} ${statusConfig.textClass} shadow-lg">
-                        <i class="${statusConfig.icon} mr-2"></i>
-                        ${statusConfig.label}
-                    </span>
-                </div>
-                
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Système Comptable</p>
-                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
-                            <i class="fas fa-book text-info mr-1"></i>
-                            ${systemLabel}
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Période</p>
-                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
-                            <i class="fas fa-calendar text-success mr-1"></i>
-                            ${new Date(request.period_start).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })} - 
-                            ${new Date(request.period_end).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Exercice Fiscal</p>
-                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
-                            ${request.fiscal_year || 'Non spécifié'}
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Date de Demande</p>
-                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
-                            ${new Date(request.requested_at).toLocaleDateString('fr-FR')}
-                        </p>
-                    </div>
-                </div>
-            </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Colonne Gauche : Timeline -->
-                <div class="lg:col-span-1">
-                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                        <i class="fas fa-stream text-primary mr-2"></i>
-                        Historique
-                    </h4>
-                    ${generateRequestTimeline(request)}
-                </div>
-
-                <!-- Colonne Droite : Documents et Actions -->
-                <div class="lg:col-span-2 space-y-6">
-                    <!-- Documents PDF -->
-                    ${generatePDFDocumentsSection(request)}
-                    
-                    <!-- Notes -->
-                    ${request.notes ? generateNotesSection(request.notes) : ''}
-                    
-                    <!-- Erreur (si applicable) -->
-                    ${request.error_message ? generateErrorSection(request.error_message) : ''}
-                    
-                    <!-- Actions selon le rôle et le statut -->
-                    ${generateRequestActionsSection(request, userRole)}
-                </div>
-            </div>
-
-            <!-- Boutons en bas -->
-            <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-between">
-                <button onclick="ModalManager.close()" 
-                    class="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <i class="fas fa-times mr-2"></i>
-                    Fermer
-                </button>
-                
-                ${['validated', 'sent'].includes(request.status) && request.pdf_files ? `
-                    <button onclick="window.downloadAllReports(${request.id})" 
-                        class="px-6 py-3 bg-gradient-to-r from-success to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all transform hover:scale-105">
-                        <i class="fas fa-download mr-2"></i>
-                        Télécharger Tous les Rapports
-                    </button>
-                ` : ''}
-            </div>
-        </div>
-    `;
-}
 
 /**
  * Générer la timeline de la demande
