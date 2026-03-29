@@ -2491,7 +2491,7 @@ function getUserProfile() {
 }
 
 function isAdminOrCollab() {
-    const role = (appState.user?.role || '').toLowerCase();
+    const role = (appState.user?.role || appState.user?.profile || '').toLowerCase();
     return role === 'admin' || role === 'collaborateur';
 }
 
