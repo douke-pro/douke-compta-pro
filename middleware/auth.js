@@ -252,10 +252,8 @@ const checkRole = (roles) => {
         const userRole = (req.user.role || '').toLowerCase();
         const allowedRoles = roles.map(r => r.toLowerCase());
 
-        // LOG TEMPORAIRE DE DIAGNOSTIC
-        console.log(`🔍 [checkRole] email:${req.user.email} role:"${req.user.role}" → userRole:"${userRole}" allowedRoles:[${allowedRoles}] → granted:${allowedRoles.includes(userRole)}`);
-
         if (!allowedRoles.includes(userRole)) {
+
             console.warn(`⚠️ [checkRole] Accès refusé: ${req.user.email} (role: ${userRole}) → Requis: ${allowedRoles.join(', ')}`);
             return res.status(403).json({ 
                 success: false,
