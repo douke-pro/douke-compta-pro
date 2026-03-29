@@ -242,13 +242,17 @@ const restrictTo = (...roles) => {
 const checkRole = (roles) => {
     return (req, res, next) => {
         if (!req.user) {
-            return res.status(401).json({ ... });
+            return res.status(401).json({ 
+                success: false,
+                status: 'error',
+                error: 'Non authentifié.' 
+            });
         }
 
         const userRole = (req.user.role || '').toLowerCase();
         const allowedRoles = roles.map(r => r.toLowerCase());
 
-        // LOG TEMPORAIRE
+        // LOG TEMPORAIRE DE DIAGNOSTIC
         console.log(`🔍 [checkRole] email:${req.user.email} role:"${req.user.role}" → userRole:"${userRole}" allowedRoles:[${allowedRoles}] → granted:${allowedRoles.includes(userRole)}`);
 
         if (!allowedRoles.includes(userRole)) {
