@@ -2869,64 +2869,6 @@ window.loadReportsStats = async function() {
     }
 };
 
-window.loadMyFinancialReportsPreview = async function() {
-    const previewContainer = document.getElementById('my-requests-preview');
-    if (!previewContainer) return;
-
-    // Garde-fou — ne pas appeler sans token ni companyId
-    localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token || !appState.currentCompanyId) {
-        console.warn('⚠️ [loadMyFinancialReportsPreview] Token ou companyId absent — appel annulé');
-        previewContainer.innerHTML = `
-            <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
-                <i class="fas fa-inbox mr-1"></i>
-                Aucune demande
-            </div>
-        `;
-        return;
-    }
-
-    try {
-        console.log('📋 [loadMyFinancialReportsPreview] Chargement...');
-
-        const response = await apiFetch(`reports/my-requests?companyId=${appState.currentCompanyId}&limit=3`, { method: 'GET' });
-
-        if (response.success && response.data && response.data.length > 0) {
-            const html = response.data.map(req => `
-                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                     onclick="window.viewRequestDetails(${req.id})">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">${req.accounting_system || 'État financier'}</span>
-                        <span class="px-2 py-0.5 text-xs font-bold rounded-full ${getStatusClass(req.status)}">
-                            ${getStatusLabel(req.status)}
-                        </span>
-                    </div>
-                    <p class="text-xs text-gray-600 dark:text-gray-400">
-                        ${req.requested_at ? new Date(req.requested_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
-                    </p>
-                </div>
-            `).join('');
-
-            previewContainer.innerHTML = html;
-        } else {
-            previewContainer.innerHTML = `
-                <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
-                    <i class="fas fa-inbox mr-1"></i>
-                    Aucune demande récente
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('❌ [loadMyFinancialReportsPreview] Erreur:', error);
-        previewContainer.innerHTML = `
-            <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
-                <i class="fas fa-inbox mr-1"></i>
-                Aucune demande
-            </div>
-        `;
-    }
-};
-
 window.loadPendingFinancialReportsPreview = async function() {
     if (!isAdminOrCollab()) return;
     
@@ -5213,7 +5155,9 @@ window.loadMyFinancialReportsPreview = async function() {
     const previewContainer = document.getElementById('my-requests-preview');
     if (!previewContainer) return;
 
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    // ✅ CORRECTION — clé exacte utilisée dans handleLogin
+    const token = localStorage.getItem('douke_auth_token');
+
     if (!token || !appState.currentCompanyId) {
         console.warn('⚠️ [loadMyFinancialReportsPreview] Token ou companyId absent — appel annulé');
         previewContainer.innerHTML = `
@@ -5227,24 +5171,31 @@ window.loadMyFinancialReportsPreview = async function() {
 
     try {
         console.log('📋 [loadMyFinancialReportsPreview] Chargement...');
-        const response = await apiFetch(`reports/my-requests?companyId=${appState.currentCompanyId}&limit=3`, { method: 'GET' });
+
+        const response = await apiFetch(
+            `reports/my-requests?companyId=${appState.currentCompanyId}&limit=3`,
+            { method: 'GET' }
+        );
 
         if (response.success && response.data && response.data.length > 0) {
-            const html = response.data.map(req => `
+            previewContainer.innerHTML = response.data.map(req => `
                 <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                      onclick="window.viewRequestDetails(${req.id})">
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">${req.accounting_system || 'État financier'}</span>
+                        <span class="text-sm font-semibold text-gray-900 dark:text-white">
+                            ${req.accounting_system || 'État financier'}
+                        </span>
                         <span class="px-2 py-0.5 text-xs font-bold rounded-full ${getStatusClass(req.status)}">
                             ${getStatusLabel(req.status)}
                         </span>
                     </div>
                     <p class="text-xs text-gray-600 dark:text-gray-400">
-                        ${req.requested_at ? new Date(req.requested_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
+                        ${req.requested_at
+                            ? new Date(req.requested_at).toLocaleDateString('fr-FR')
+                            : 'Date inconnue'}
                     </p>
                 </div>
             `).join('');
-            previewContainer.innerHTML = html;
         } else {
             previewContainer.innerHTML = `
                 <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
@@ -5253,17 +5204,17 @@ window.loadMyFinancialReportsPreview = async function() {
                 </div>
             `;
         }
+
     } catch (error) {
         console.error('❌ [loadMyFinancialReportsPreview] Erreur:', error);
         previewContainer.innerHTML = `
             <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
-                <i class="fas fa-inbox mr-1"></i>
-                Aucune demande
+                <i class="fas fa-exclamation-circle mr-1 text-danger"></i>
+                Erreur de chargement
             </div>
         `;
     }
 };
-
 
 /**
  * Générer un item d'aperçu de demande
