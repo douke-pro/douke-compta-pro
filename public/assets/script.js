@@ -8182,19 +8182,15 @@ function attachGlobalListeners() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Application Doukè Compta Pro - Démarrage V14');
     console.log('📍 Vérification du token...');
-
     const token = localStorage.getItem('douke_auth_token');
     console.log('🔑 Token présent ?', token ? 'OUI' : 'NON');
-
     attachGlobalListeners();
 
     if (token) {
         console.log('✅ Token détecté, rechargement utilisateur...');
         appState.token = token;
-
         try {
             const response = await apiFetch('auth/me', { method: 'GET' });
-
             if (response && response.data) {
                 appState.user               = response.data;
                 appState.isAuthenticated    = true;
@@ -8204,27 +8200,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                 appState.currentCompanyName = response.data.defaultCompany?.name || null;
                 appState.user.selectedCompanyId = appState.currentCompanyId;
                 appState.user.companiesList     = response.data.companiesList || [];
-
                 console.log('✅ Utilisateur rechargé:', appState.user.name,
                             '| Company:', appState.currentCompanyId);
             } else {
                 throw new Error('Réponse auth/me invalide');
             }
-
         } catch (e) {
             console.warn('⚠️ Token invalide ou expiré:', e.message);
             localStorage.removeItem('douke_auth_token');
             appState.token           = null;
             appState.isAuthenticated = false;
         }
-
     } else {
         console.log('❌ Pas de token, affichage de la connexion');
     }
 
     renderAppView();
-});
 
+    // ✅ AJOUT — déclencher onAppReady si l'utilisateur est authentifié
+    // Couvre la reconnexion automatique par token (pas seulement handleLogin)
+    if (appState.isAuthenticated && Array.isArray(window.onAppReady)) {
+        window.onAppReady.forEach(fn => {
+            try { fn(); } catch (e) {
+                console.error('[onAppReady] Erreur dans un callback:', e);
+            }
+        });
+        window.onAppReady = [];
+    }
+});
 
 // =============================================================================
 // MODULE PARAMÈTRES - VERSION V16 PROFESSIONNELLE
