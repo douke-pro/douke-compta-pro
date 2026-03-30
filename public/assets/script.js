@@ -5130,25 +5130,6 @@ function getReportTitle(reportId) {
  */
 
 /**
- * Charger les statistiques (Admin/Collab)
- */
-window.loadReportsStats = async function() {
-    try {
-        const response = await apiFetch('reports/stats', { method: 'GET' });
-        
-        if (response.success) {
-            const stats = response.data;
-            document.getElementById('stats-pending').textContent = stats.pending_count || 0;
-            document.getElementById('stats-processing').textContent = stats.processing_count || 0;
-            document.getElementById('stats-validated').textContent = stats.validated_count || 0;
-            document.getElementById('stats-sent').textContent = stats.sent_count || 0;
-        }
-    } catch (error) {
-        console.error('Erreur chargement stats:', error);
-    }
-};
-
-/**
  * Charger un aperçu des dernières demandes de l'utilisateur
  */
 window.loadMyFinancialReportsPreview = async function() {
