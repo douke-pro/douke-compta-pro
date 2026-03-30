@@ -522,9 +522,9 @@ async function loadContentArea(contentId, title) {
           break;
                 
             case 'reports':
-                content = generateReportsMenuHTML();
+                contentArea.innerHTML = generateReportsMenuHTML();
                 window.initFinancialReportsModule();
-                break;
+                return;
                 
             case 'manual-entry':
                 contentArea.innerHTML = generateManualEntryFormHTML();
