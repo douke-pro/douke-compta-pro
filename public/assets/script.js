@@ -5292,22 +5292,6 @@ function getStatusConfig(status) {
     return configs[status] || configs['pending'];
 }
 
-/**
- * Initialiser le module au chargement de la page Rapports
- */
-window.initFinancialReportsModule = function() {
-    const userRole = appState.user?.role || 'user';
-    
-    // Charger les stats si Admin/Collab
-    if (userRole === 'admin' || userRole === 'collaborateur') {
-        window.loadReportsStats();
-        window.loadPendingFinancialReportsPreview();
-    }
-    
-    // Charger l'aperçu des demandes de l'utilisateur
-    window.loadMyFinancialReportsPreview();
-};
-
 // ========================================================================
 // MODAL : DEMANDE D'ÉTATS FINANCIERS (ÉTAPE 6)
 // ========================================================================
