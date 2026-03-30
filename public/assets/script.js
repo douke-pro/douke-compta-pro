@@ -3628,91 +3628,86 @@ window.sendReportsToClient = async function(requestId) {
  * ✅ Générer le HTML des détails
  */
 function generateRequestDetailsHTML(request) {
+    const statusConfig = getStatusConfig(request.status);
+    const systemLabel = getSystemLabel(request.accounting_system);
+    const userRole = (appState.user?.role || appState.user?.profile || 'user').toLowerCase();
+    
     return `
-        <div class="space-y-6">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Statut</p>
-                    <span class="px-3 py-1 rounded-full text-sm font-bold ${getStatusClass(request.status)}">
-                        ${getStatusLabel(request.status)}
+        <div class="p-6">
+            <div class="bg-gradient-to-r from-info/10 to-primary/10 dark:from-info/20 dark:to-primary/20 p-6 rounded-2xl mb-6 border border-info/30">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2">
+                            Demande #${String(request.id).padStart(5, '0')}
+                        </h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                            <i class="fas fa-building text-primary mr-2"></i>
+                            ${request.company_name || appState.currentCompanyName}
+                        </p>
+                    </div>
+                    <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold ${statusConfig.bgClass} ${statusConfig.textClass} shadow-lg">
+                        <i class="${statusConfig.icon} mr-2"></i>
+                        ${statusConfig.label}
                     </span>
                 </div>
-                <div>
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Type</p>
-                    <p class="text-gray-900 dark:text-white">${getAccountingSystemLabel(request.accounting_system)}</p>
-                </div>
-                <div>
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Période</p>
-                    <p class="text-gray-900 dark:text-white">
-                        ${new Date(request.period_start).toLocaleDateString('fr-FR')} - 
-                        ${new Date(request.period_end).toLocaleDateString('fr-FR')}
-                    </p>
-                </div>
-                <div>
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Exercice Fiscal</p>
-                    <p class="text-gray-900 dark:text-white">${request.fiscal_year || 'N/A'}</p>
-                </div>
-                <div>
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Demandé le</p>
-                    <p class="text-gray-900 dark:text-white">${new Date(request.requested_at).toLocaleDateString('fr-FR')}</p>
-                </div>
-                <div>
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Demandé par</p>
-                    <p class="text-gray-900 dark:text-white">${request.requested_by_name || 'N/A'}</p>
-                </div>
-                ${request.processed_at ? `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Traité le</p>
-                        <p class="text-gray-900 dark:text-white">${new Date(request.processed_at).toLocaleDateString('fr-FR')}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Système Comptable</p>
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                            <i class="fas fa-book text-info mr-1"></i>
+                            ${systemLabel}
+                        </p>
                     </div>
                     <div>
-                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Traité par</p>
-                        <p class="text-gray-900 dark:text-white">${request.processed_by_name || 'N/A'}</p>
-                    </div>
-                ` : ''}
-                ${request.validated_at ? `
-                    <div>
-                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Validé le</p>
-                        <p class="text-gray-900 dark:text-white">${new Date(request.validated_at).toLocaleDateString('fr-FR')}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Période</p>
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                            <i class="fas fa-calendar text-success mr-1"></i>
+                            ${new Date(request.period_start).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })} - 
+                            ${new Date(request.period_end).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                        </p>
                     </div>
                     <div>
-                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Validé par</p>
-                        <p class="text-gray-900 dark:text-white">${request.validated_by_name || 'N/A'}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Exercice Fiscal</p>
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                            ${request.fiscal_year || 'Non spécifié'}
+                        </p>
                     </div>
-                ` : ''}
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Date de Demande</p>
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                            ${new Date(request.requested_at).toLocaleDateString('fr-FR')}
+                        </p>
+                    </div>
+                </div>
             </div>
-            
-            ${request.notes ? `
-                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Notes</p>
-                    <p class="text-gray-900 dark:text-white">${request.notes}</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1">
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-stream text-primary mr-2"></i>
+                        Historique
+                    </h4>
+                    ${generateRequestTimeline(request)}
                 </div>
-            ` : ''}
-            
-            ${request.pdf_files ? `
-                <div>
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">Fichiers Générés</p>
-                    <div class="grid grid-cols-2 gap-2">
-                        ${Object.entries(request.pdf_files).map(([type, path]) => `
-                            <button onclick="window.downloadPDF(${request.id}, '${type}')"
-                                class="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                                <i class="fas fa-file-pdf text-danger"></i>
-                                <span class="text-sm font-medium">${type.replace('_', ' ').toUpperCase()}</span>
-                            </button>
-                        `).join('')}
-                    </div>
+                <div class="lg:col-span-2 space-y-6">
+                    ${generatePDFDocumentsSection(request)}
+                    ${request.notes ? generateNotesSection(request.notes) : ''}
+                    ${request.error_message ? generateErrorSection(request.error_message) : ''}
+                    ${generateRequestActionsSection(request, userRole)}
                 </div>
-            ` : ''}
-            
-            <div class="flex justify-end gap-3 pt-6 border-t">
-                <button onclick="ModalManager.close()"
-                    class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
+            </div>
+
+            <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+                <button onclick="ModalManager.close()" 
+                    class="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-times mr-2"></i>
                     Fermer
                 </button>
-                ${isAdminOrCollab() && (request.status === 'processing' || request.status === 'generated') ? `
-                    <button onclick="window.editFinancialReport(${request.id})"
-                        class="px-6 py-3 bg-warning text-white font-bold rounded-xl hover:bg-warning/90 transition-colors">
-                        <i class="fas fa-edit mr-2"></i>Éditer
+                ${['validated', 'sent'].includes(request.status) && request.pdf_files ? `
+                    <button onclick="window.downloadAllReports(${request.id})" 
+                        class="px-6 py-3 bg-gradient-to-r from-success to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all transform hover:scale-105">
+                        <i class="fas fa-download mr-2"></i>
+                        Télécharger Tous les Rapports
                     </button>
                 ` : ''}
             </div>
