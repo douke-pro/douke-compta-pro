@@ -23,9 +23,36 @@ const { odooExecuteKw, ADMIN_UID_INT } = require('./odooService');
  * Odoo exige 'YYYY-MM-DD' sans timezone
  * Entrée acceptée : '2026-03-06', '2026-03-06T00:00:00.000Z', Date object
  */
+// ✅ VERSION ROBUSTE — gère string ET objet Date
 function formatDateForOdoo(dateStr) {
     if (!dateStr) return dateStr;
-    return String(dateStr).substring(0, 10);
+    
+    // Si c'est déjà un objet Date JavaScript
+    if (dateStr instanceof Date) {
+        const year  = dateStr.getFullYear();
+        const month = String(dateStr.getMonth() + 1).padStart(2, '0');
+        const day   = String(dateStr.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // Si c'est une string ISO avec timezone ex: '2026-03-06T00:00:00.000Z'
+    // ou déjà propre ex: '2026-03-06'
+    const str = String(dateStr);
+    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+        return str.substring(0, 10);
+    }
+    
+    // Dernier recours — parser et reformater
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+        const year  = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, '0');
+        const day   = String(parsed.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    console.error('[formatDateForOdoo] Format de date non reconnu:', dateStr);
+    return String(dateStr);
 }
 
 // =============================================================================
