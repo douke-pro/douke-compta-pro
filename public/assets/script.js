@@ -6499,7 +6499,7 @@ function generateRequestActionsSection(request, userRole) {
     }
     
     // COLLABORATEUR/ADMIN : Actions de traitement
-    if ((userRole === 'collaborateur' || userRole === 'admin')) {
+    if (userRole === 'collaborateur' || userRole === 'admin') {
         if (request.status === 'pending') {
             actions.push(`
                 <button onclick="window.startProcessingRequest(${request.id})" 
@@ -6540,6 +6540,17 @@ function generateRequestActionsSection(request, userRole) {
             `);
         }
     }
+
+    // TOUS RÔLES : Masquer une demande annulée ou en erreur
+    if (request.status === 'cancelled' || request.status === 'error') {
+        actions.push(`
+            <button onclick="window.dismissCancelledRequest(${request.id})" 
+                class="w-full bg-gray-500 text-white py-3 px-4 rounded-xl font-semibold hover:bg-gray-600 transition-colors">
+                <i class="fas fa-trash-alt mr-2"></i>
+                Masquer cette demande
+            </button>
+        `);
+    }
     
     if (actions.length === 0) {
         return '';
@@ -6558,7 +6569,35 @@ function generateRequestActionsSection(request, userRole) {
     `;
 }
 
-/**
+window.dismissCancelledRequest = function(requestId) {
+    const allPreviews = document.querySelectorAll('#my-requests-preview > div');
+    allPreviews.forEach(card => {
+        const onclickAttr = card.getAttribute('onclick') || '';
+        if (onclickAttr.includes(`viewRequestDetails(${requestId})`)) {
+            card.style.transition = 'opacity 0.3s ease, max-height 0.3s ease';
+            card.style.opacity = '0';
+            card.style.maxHeight = '0';
+            card.style.overflow = 'hidden';
+            setTimeout(() => {
+                card.remove();
+                const remaining = document.querySelectorAll('#my-requests-preview > div');
+                if (remaining.length === 0) {
+                    const container = document.getElementById('my-requests-preview');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="text-center text-xs text-gray-500 dark:text-gray-400 py-3">
+                                <i class="fas fa-inbox mr-1"></i>
+                                Aucune demande récente
+                            </div>
+                        `;
+                    }
+                }
+            }, 300);
+        }
+    });
+    ModalManager.close();
+};
+
  * Prévisualiser un PDF dans un modal
  */
 window.previewPDF = function(url, title) {
