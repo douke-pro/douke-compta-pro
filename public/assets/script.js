@@ -6598,6 +6598,7 @@ window.dismissCancelledRequest = function(requestId) {
     ModalManager.close();
 };
 
+ /**
  * Prévisualiser un PDF dans un modal
  */
 window.previewPDF = function(url, title) {
