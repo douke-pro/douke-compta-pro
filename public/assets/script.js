@@ -5815,12 +5815,17 @@ window.fetchMyFinancialReports = async function(page = 1) {
     const tbody = document.getElementById('my-requests-tbody');
     const emptyMessage = document.getElementById('my-requests-empty');
     
+    // ✅ GARDE — éléments DOM requis absents = on sort silencieusement
+    if (!loader || !tableContainer || !tbody || !emptyMessage) {
+        console.warn('⚠️ [fetchMyFinancialReports] Éléments DOM absents — appel ignoré');
+        return;
+    }
+    
     // Afficher le loader
     loader.classList.remove('hidden');
     tableContainer.classList.add('hidden');
     
     try {
-        // Récupérer les filtres
         const filters = {
             limit: 20,
             offset: (page - 1) * 20,
@@ -5829,7 +5834,6 @@ window.fetchMyFinancialReports = async function(page = 1) {
             start_date: document.getElementById('filter-date-start')?.value || ''
         };
         
-        // Construire la query string
         const queryParams = new URLSearchParams();
         Object.entries(filters).forEach(([key, value]) => {
             if (value) queryParams.append(key, value);
@@ -5843,10 +5847,8 @@ window.fetchMyFinancialReports = async function(page = 1) {
             const requests = response.data;
             const pagination = response.pagination;
             
-            // Mettre à jour les statistiques
             updateMyRequestsStats(requests);
             
-            // Afficher les demandes
             if (requests.length === 0) {
                 tableContainer.classList.add('hidden');
                 emptyMessage.classList.remove('hidden');
@@ -5854,8 +5856,6 @@ window.fetchMyFinancialReports = async function(page = 1) {
                 tbody.innerHTML = requests.map(req => generateMyRequestRow(req)).join('');
                 tableContainer.classList.remove('hidden');
                 emptyMessage.classList.add('hidden');
-                
-                // Mettre à jour la pagination
                 updatePagination(pagination, page);
             }
             
@@ -5866,16 +5866,50 @@ window.fetchMyFinancialReports = async function(page = 1) {
     } catch (error) {
         console.error('Erreur chargement demandes:', error);
         NotificationManager.show(`Erreur : ${error.message}`, 'error', 5000);
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="px-6 py-12 text-center">
-                    <i class="fas fa-exclamation-triangle text-4xl text-danger mb-3"></i>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Impossible de charger les demandes</p>
-                </td>
-            </tr>
-        `;
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center">
+                        <i class="fas fa-exclamation-triangle text-4xl text-danger mb-3"></i>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Impossible de charger les demandes</p>
+                    </td>
+                </tr>
+            `;
+        }
     } finally {
-        loader.classList.add('hidden');
+        if (loader) loader.classList.add('hidden');
+    }
+};
+
+
+window.startProcessingRequest = async function(requestId) {
+    if (!confirm('Commencer le traitement de cette demande ? Les rapports seront générés automatiquement depuis Odoo.')) {
+        return;
+    }
+    
+    try {
+        NotificationManager.show('🔄 Génération des rapports en cours...', 'info', 5000);
+        
+        const response = await apiFetch(`reports/${requestId}/generate`, {
+            method: 'POST'
+        });
+        
+        if (response.success) {
+            NotificationManager.show('✅ Génération démarrée avec succès !', 'success', 5000);
+            ModalManager.close();
+            
+            // ✅ CORRECTION — preview uniquement
+            // fetchMyFinancialReports dépend d'éléments DOM du modal qui n'existe plus
+            window.loadPendingFinancialReportsPreview?.();
+            window.loadMyFinancialReportsPreview?.();
+
+        } else {
+            throw new Error(response.message || 'Erreur lors du démarrage');
+        }
+        
+    } catch (error) {
+        console.error('Erreur:', error);
+        NotificationManager.show(`❌ Erreur : ${error.message}`, 'error', 5000);
     }
 };
 
