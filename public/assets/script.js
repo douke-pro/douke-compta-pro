@@ -6579,13 +6579,11 @@ window.startProcessingRequest = async function(requestId) {
             NotificationManager.show('✅ Génération démarrée avec succès !', 'success', 5000);
             ModalManager.close();
             
-            // Rafraîchir si on est sur la liste
-            if (typeof window.fetchMyFinancialReports === 'function') {
-                window.fetchMyFinancialReports();
-            }
-            if (typeof window.loadPendingFinancialReports === 'function') {
-                window.loadPendingFinancialReports();
-            }
+            // ✅ CORRECTION — preview uniquement, pas fetchMyFinancialReports
+            // fetchMyFinancialReports dépend d'éléments DOM du modal qui n'existe plus
+            window.loadPendingFinancialReportsPreview?.();
+            window.loadMyFinancialReportsPreview?.();
+
         } else {
             throw new Error(response.message || 'Erreur lors du démarrage');
         }
