@@ -11200,7 +11200,7 @@ function stopNotificationPolling() {
      * Affiche la liste complète des demandes en attente (Admin/Collab uniquement)
      */
     window.loadPendingFinancialReports = async function() {
-        const userRole = (appState.user?.role || 'user').toLowerCase();
+        const userRole = (appState.user?.role || appState.user?.profile || 'user').toLowerCase();
         
         if (userRole !== 'admin' && userRole !== 'collaborateur') {
             NotificationManager.show('Accès refusé', 'error');
@@ -11230,7 +11230,7 @@ function stopNotificationPolling() {
      * Ouvre l'éditeur d'état financier (Admin/Collab uniquement)
      */
     window.editFinancialReport = async function(requestId) {
-        const userRole = (appState.user?.role || 'user').toLowerCase();
+        const userRole = (appState.user?.role || appState.user?.profile || 'user').toLowerCase();
         
         if (userRole !== 'admin' && userRole !== 'collaborateur') {
             NotificationManager.show('Accès refusé', 'error');
@@ -11260,7 +11260,7 @@ function stopNotificationPolling() {
      * Valide un état financier (Admin/Collab uniquement)
      */
     window.validateFinancialReport = async function(requestId) {
-        const userRole = (appState.user?.role || 'user').toLowerCase();
+        const userRole = (appState.user?.role || appState.user?.profile || 'user').toLowerCase();
         
         if (userRole !== 'admin' && userRole !== 'collaborateur') {
             NotificationManager.show('Accès refusé', 'error');
