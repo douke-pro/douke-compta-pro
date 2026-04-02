@@ -3630,7 +3630,13 @@ window.sendReportsToClient = async function(requestId) {
 function generateRequestDetailsHTML(request) {
     const statusConfig = getStatusConfig(request.status);
     const systemLabel = getSystemLabel(request.accounting_system);
-    const userRole = (appState.user?.role || appState.user?.profile || 'user').toLowerCase();
+
+    // ✅ CORRECTION — lit profile si role absent
+    const userRole = (
+        appState.user?.role ||
+        appState.user?.profile ||
+        'user'
+    ).toLowerCase();
     
     return `
         <div class="p-6">
