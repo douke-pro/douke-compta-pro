@@ -6671,6 +6671,7 @@ window.startProcessingRequest = async function(requestId) {
 /**
  * 🔧 NOUVEAU : Ouvrir le modal d'édition/régénération des rapports
  */
+let editedData = {};
 window.openEditReportsModal = async function(requestId) {
     try {
         // Charger les détails de la demande et les données Odoo
