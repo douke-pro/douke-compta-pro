@@ -6677,7 +6677,6 @@ window.startProcessingRequest = async function(requestId) {
 /**
  * 🔧 NOUVEAU : Ouvrir le modal d'édition/régénération des rapports
  */
-let editedData = {};
 window.openEditReportsModal = async function(requestId) {
     try {
         NotificationManager.show('Chargement des données...', 'info', 3000);
