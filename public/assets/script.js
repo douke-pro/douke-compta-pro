@@ -7074,13 +7074,12 @@ window.validateFinancialReports = async function(requestId) {
             NotificationManager.show('✅ Rapports validés avec succès !', 'success', 5000);
             ModalManager.close();
             
-            // Rafraîchir
-            if (typeof window.fetchMyFinancialReports === 'function') {
-                window.fetchMyFinancialReports();
-            }
-            if (typeof window.loadPendingFinancialReports === 'function') {
-                window.loadPendingFinancialReports();
-            }
+            // ✅ CORRECTION — preview uniquement, pas fetchMyFinancialReports
+            // fetchMyFinancialReports dépend d'éléments DOM du modal qui n'existe plus
+            window.loadPendingFinancialReportsPreview?.();
+            window.loadMyFinancialReportsPreview?.();
+            window.loadReportsStats?.();
+
         } else {
             throw new Error(response.message || 'Erreur lors de la validation');
         }
@@ -7090,7 +7089,6 @@ window.validateFinancialReports = async function(requestId) {
         NotificationManager.show(`❌ Erreur : ${error.message}`, 'error', 5000);
     }
 };
-
 /**
  * Envoyer les rapports au client
  */
