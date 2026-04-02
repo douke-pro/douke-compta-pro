@@ -6674,13 +6674,49 @@ window.startProcessingRequest = async function(requestId) {
 let editedData = {};
 window.openEditReportsModal = async function(requestId) {
     try {
-        // Charger les détails de la demande et les données Odoo
+        NotificationManager.show('Chargement des données...', 'info', 3000);
+
         const response = await apiFetch(`reports/${requestId}/preview`, { method: 'GET' });
         
         if (response.success) {
-            const requestData = response.data;
-            const modalContent = generateEditReportsModalHTML(requestId, requestData);
-            ModalManager.open(`✏️ Modifier les Rapports - Demande #${String(requestId).padStart(5, '0')}`, modalContent, 'max-w-6xl');
+            const data = response.data;
+
+            // ✅ Initialiser editedData avec les valeurs Odoo existantes
+            // Ainsi recalculateTotals affiche les bons totaux dès l'ouverture
+            editedData = {};
+
+            if (data.bilan?.actif) {
+                editedData.actif = {};
+                Object.entries(data.bilan.actif).forEach(([key, cat]) => {
+                    editedData.actif[key] = Math.abs(cat.balance || 0);
+                });
+            }
+            if (data.bilan?.passif) {
+                editedData.passif = {};
+                Object.entries(data.bilan.passif).forEach(([key, cat]) => {
+                    editedData.passif[key] = Math.abs(cat.balance || 0);
+                });
+            }
+            if (data.compte_resultat?.charges) {
+                editedData.charges = {};
+                Object.entries(data.compte_resultat.charges).forEach(([key, cat]) => {
+                    editedData.charges[key] = Math.abs(cat.balance || 0);
+                });
+            }
+            if (data.compte_resultat?.produits) {
+                editedData.produits = {};
+                Object.entries(data.compte_resultat.produits).forEach(([key, cat]) => {
+                    editedData.produits[key] = Math.abs(cat.balance || 0);
+                });
+            }
+
+            const modalContent = generateEditReportsModalHTML(requestId, data);
+            ModalManager.open(
+                `✏️ Modifier les Rapports - Demande #${String(requestId).padStart(5, '0')}`,
+                modalContent,
+                'max-w-6xl'
+            );
+
         } else {
             throw new Error(response.message || 'Impossible de charger les données');
         }
