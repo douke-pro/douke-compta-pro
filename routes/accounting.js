@@ -175,4 +175,102 @@ router.get('/accounts', authenticateToken, async (req, res) => {
     }
 });
 
+// =============================================================================
+// EXERCICES FISCAUX — Odoo account.fiscal.year
+// =============================================================================
+
+/**
+ * GET /api/accounting/fiscal-years?companyId=X
+ * Récupère les exercices fiscaux depuis Odoo
+ */
+router.get('/fiscal-years', authenticateToken, async (req, res) => {
+    try {
+        const companyId = parseInt(req.query.companyId) ||
+                         req.user.currentCompanyId ||
+                         req.user.companyId;
+
+        if (!companyId) {
+            return res.status(400).json({ success: false, error: 'companyId requis' });
+        }
+
+        const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+
+        console.log(`📅 [fiscal-years] Récupération exercices pour company ${companyId}`);
+
+        const fiscalYears = await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'account.fiscal.year',
+            method: 'search_read',
+            args:   [[['company_id', '=', companyId]]],
+            kwargs: {
+                fields: ['id', 'name', 'date_from', 'date_to', 'company_id'],
+                order:  'date_from DESC',
+                context: { allowed_company_ids: [companyId] }
+            }
+        });
+
+        console.log(`✅ [fiscal-years] ${fiscalYears.length} exercices trouvés`);
+
+        res.json({ success: true, data: fiscalYears });
+
+    } catch (error) {
+        console.error('❌ [fiscal-years] Erreur:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/accounting/fiscal-years
+ * Crée un exercice fiscal dans Odoo
+ */
+router.post('/fiscal-years', authenticateToken, async (req, res) => {
+    try {
+        const { companyId, name, date_from, date_to } = req.body;
+
+        if (!companyId || !name || !date_from || !date_to) {
+            return res.status(400).json({
+                success: false,
+                error: 'companyId, name, date_from et date_to sont requis'
+            });
+        }
+
+        if (new Date(date_from) >= new Date(date_to)) {
+            return res.status(400).json({
+                success: false,
+                error: 'date_from doit être antérieure à date_to'
+            });
+        }
+
+        const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+
+        console.log(`📅 [fiscal-years/create] Création exercice ${name} pour company ${companyId}`);
+
+        const newId = await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'account.fiscal.year',
+            method: 'create',
+            args:   [{
+                name:       name,
+                date_from:  date_from,
+                date_to:    date_to,
+                company_id: parseInt(companyId)
+            }],
+            kwargs: {
+                context: { allowed_company_ids: [parseInt(companyId)] }
+            }
+        });
+
+        console.log(`✅ [fiscal-years/create] Exercice créé ID: ${newId}`);
+
+        res.status(201).json({
+            success: true,
+            data: { id: newId, name, date_from, date_to }
+        });
+
+    } catch (error) {
+        console.error('❌ [fiscal-years/create] Erreur:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;
