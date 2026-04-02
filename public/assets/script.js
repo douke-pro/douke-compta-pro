@@ -121,41 +121,53 @@ function cleanUrlJoin(base, path) {
 
 async function apiFetch(endpoint, options = {}) {
     const url = cleanUrlJoin(API_BASE_URL, endpoint); 
-
     const headers = {
         'Content-Type': 'application/json',
         ...options.headers
     };
-
     if (appState.token) {
         headers['Authorization'] = `Bearer ${appState.token}`;
     }
-
     try {
         const response = await fetch(url, {
             ...options,
             headers: headers
         });
-
         const data = await response.json();
-
         if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
+            if (response.status === 401) {
+                // ✅ 401 uniquement — token absent, invalide ou expiré
                 if (data.error && data.error.includes('expirée')) {
                     NotificationManager.show('Session expirée. Reconnexion requise.', 'warning', 8000);
+                } else if (data.errorCode === 'TOKEN_EXPIRED') {
+                    NotificationManager.show('Session expirée. Reconnexion requise.', 'warning', 8000);
                 } else {
-                    NotificationManager.show(`Accès refusé: ${data.error || 'Erreur serveur.'}`, 'error');
+                    NotificationManager.show('Session invalide. Reconnexion requise.', 'warning', 8000);
                 }
                 handleLogout(true);
+                throw new Error(data.error || 'Session expirée');
             }
-            throw new Error(data.error || `Erreur HTTP ${response.status}`);
+
+            if (response.status === 403) {
+                // ✅ 403 — permission insuffisante, NE PAS déconnecter
+                // L'utilisateur est connecté mais n'a pas accès à cette ressource
+                const errorMsg = data.error || data.message || 'Accès refusé à cette ressource.';
+                NotificationManager.show(`Accès refusé : ${errorMsg}`, 'error', 5000);
+                throw new Error(errorMsg);
+            }
+
+            // ✅ Autres erreurs HTTP
+            throw new Error(data.error || data.message || `Erreur HTTP ${response.status}`);
         }
-
         return data;
-
     } catch (error) {
         console.error('Erreur API Fetch:', error);
-        if (!error.message.includes('Accès refusé')) {
+        // ✅ Ne pas afficher de double notification si déjà gérée
+        if (
+            !error.message.includes('Accès refusé') &&
+            !error.message.includes('Session') &&
+            !error.message.includes('expirée')
+        ) {
             NotificationManager.show(error.message, 'error');
         }
         throw error;
