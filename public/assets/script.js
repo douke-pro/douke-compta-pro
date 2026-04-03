@@ -10845,74 +10845,92 @@ document.addEventListener('click', function(event) {
  * Ouvre la modal de modification de l'année fiscale
  */
 window.openFiscalYearModal = async function() {
-    console.log('📅 [openFiscalYearModal] Chargement des exercices fiscaux...');
-
-    // Afficher un loader pendant le chargement
+    console.log('📅 [openFiscalYearModal] Chargement des exercices fiscaux Odoo...');
+ 
+    // Afficher un loader immédiatement
     ModalManager.open('📅 Exercices Fiscaux', `
         <div class="text-center py-12">
             <div class="loading-spinner mx-auto mb-4"></div>
-            <p class="text-gray-500">Chargement des exercices depuis Odoo...</p>
+            <p class="text-gray-500 font-bold">Chargement depuis Odoo...</p>
         </div>
     `);
-
+ 
     try {
         const response = await apiFetch(
             `accounting/fiscal-years?companyId=${appState.currentCompanyId}`,
             { method: 'GET' }
         );
-
-        const fiscalYears = response.data || [];
-        const currentYear = document.getElementById('fiscal-year-text')?.textContent || '2026';
-
+ 
+        const fiscalYears  = response.data || [];
+        const activeName   = appState.fiscalYear?.name ||
+                             document.getElementById('fiscal-year-text')?.textContent ||
+                             '';
+ 
+        // ✅ Générer la liste des exercices existants
         const fiscalYearsHTML = fiscalYears.length > 0
-            ? fiscalYears.map(fy => `
-                <div class="flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all
-                    ${fy.name === currentYear
-                        ? 'border-primary bg-primary/5'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-primary/50'}"
-                    onclick="window.selectFiscalYear('${fy.name}', '${fy.date_from}', '${fy.date_to}')">
-                    <div>
-                        <p class="font-black text-gray-900 dark:text-white text-lg">${fy.name}</p>
-                        <p class="text-sm text-gray-500">
-                            ${new Date(fy.date_from).toLocaleDateString('fr-FR')} →
-                            ${new Date(fy.date_to).toLocaleDateString('fr-FR')}
-                        </p>
+            ? fiscalYears.map(fy => {
+                const isActive = fy.name === activeName ||
+                                 (appState.fiscalYear?.dateFrom === fy.date_from);
+                return `
+                    <div onclick="window.selectFiscalYear('${fy.name}', '${fy.date_from}', '${fy.date_to}')"
+                        class="flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all
+                        ${isActive
+                            ? 'border-primary bg-primary/5 shadow-md'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-gray-700'}">
+                        <div>
+                            <p class="font-black text-gray-900 dark:text-white text-lg">${fy.name}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                <i class="fas fa-calendar mr-1"></i>
+                                ${new Date(fy.date_from).toLocaleDateString('fr-FR')}
+                                &nbsp;→&nbsp;
+                                ${new Date(fy.date_to).toLocaleDateString('fr-FR')}
+                            </p>
+                        </div>
+                        ${isActive
+                            ? '<span class="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full">Actif</span>'
+                            : '<span class="text-gray-300 dark:text-gray-600"><i class="fas fa-chevron-right"></i></span>'}
                     </div>
-                    ${fy.name === currentYear
-                        ? '<span class="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full">Actif</span>'
-                        : ''}
-                </div>
-            `).join('')
-            : `<p class="text-center text-gray-500 py-4">Aucun exercice fiscal trouvé dans Odoo</p>`;
-
+                `;
+            }).join('')
+            : `<div class="text-center py-6 text-gray-500 dark:text-gray-400">
+                <i class="fas fa-calendar-times text-3xl mb-3 text-gray-300"></i>
+                <p class="font-bold">Aucun exercice fiscal dans Odoo</p>
+                <p class="text-xs mt-1">Créez votre premier exercice ci-dessous</p>
+               </div>`;
+ 
         const modalHTML = `
             <div class="space-y-6">
-
-                <!-- Liste des exercices existants -->
+ 
+                <!-- LISTE DES EXERCICES EXISTANTS -->
                 <div>
-                    <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider">
+                    <h4 class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
                         <i class="fas fa-list mr-2 text-primary"></i>
-                        Exercices Existants — Sélectionnez pour activer
+                        Exercices dans Odoo — Cliquez pour activer
                     </h4>
-                    <div class="space-y-3 max-h-64 overflow-y-auto">
+                    <div class="space-y-3 max-h-72 overflow-y-auto pr-1">
                         ${fiscalYearsHTML}
                     </div>
                 </div>
-
+ 
+                <!-- SÉPARATEUR -->
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                    <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4 uppercase tracking-wider">
+                    <h4 class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
                         <i class="fas fa-plus-circle mr-2 text-success"></i>
-                        Créer un Nouvel Exercice Fiscal
+                        Créer un Nouvel Exercice dans Odoo
                     </h4>
+ 
                     <div class="space-y-4">
+                        <!-- NOM -->
                         <div>
                             <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                                 Nom de l'exercice <span class="text-danger">*</span>
                             </label>
                             <input type="text" id="new-fy-name"
-                                placeholder="Ex: Exercice 2022, 2022..."
-                                class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                placeholder="Ex: Exercice 2022"
+                                class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success">
                         </div>
+ 
+                        <!-- DATES -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
@@ -10920,7 +10938,7 @@ window.openFiscalYearModal = async function() {
                                 </label>
                                 <input type="date" id="new-fy-start"
                                     value="2022-01-01"
-                                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success">
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
@@ -10928,33 +10946,139 @@ window.openFiscalYearModal = async function() {
                                 </label>
                                 <input type="date" id="new-fy-end"
                                     value="2022-12-31"
-                                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-success">
                             </div>
                         </div>
+ 
                         <button onclick="window.createFiscalYear()"
-                            class="w-full py-3 bg-success text-white font-bold rounded-xl hover:bg-success/90 transition-colors">
-                            <i class="fas fa-plus mr-2"></i>Créer dans Odoo
+                            class="w-full py-3 bg-success text-white font-bold rounded-xl hover:bg-success/90 transition-colors shadow-md">
+                            <i class="fas fa-plus mr-2"></i>Créer dans Odoo et Activer
                         </button>
                     </div>
                 </div>
-
-                <div class="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+ 
+                <!-- BOUTON FERMER -->
+                <div class="flex justify-end pt-2 border-t border-gray-200 dark:border-gray-700">
                     <button onclick="ModalManager.close()"
-                        class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
-                        Fermer
+                        class="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-times mr-2"></i>Fermer
                     </button>
                 </div>
             </div>
         `;
-
+ 
         ModalManager.open('📅 Exercices Fiscaux', modalHTML);
-
+ 
     } catch (error) {
         console.error('❌ [openFiscalYearModal] Erreur:', error);
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+        NotificationManager.show(`Erreur chargement exercices : ${error.message}`, 'error');
         ModalManager.close();
     }
 };
+ 
+ 
+// ✅ Sélectionner et activer un exercice fiscal
+window.selectFiscalYear = function(name, dateFrom, dateTo) {
+    // Stocker dans appState
+    appState.fiscalYear = { name, dateFrom, dateTo };
+ 
+    // Mettre à jour le badge dans le header
+    const badge = document.getElementById('fiscal-year-text');
+    if (badge) badge.textContent = name;
+ 
+    // Mettre à jour le badge de période dans le formulaire de saisie si visible
+    const periodBadge = document.getElementById('period-badge');
+    if (periodBadge) {
+        periodBadge.innerHTML = `
+            <i class="fas fa-calendar-check mr-1"></i>
+            ${new Date(dateFrom).toLocaleDateString('fr-FR')} — ${new Date(dateTo).toLocaleDateString('fr-FR')}
+        `;
+        periodBadge.className = 'px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100 shadow-sm flex items-center gap-2';
+    }
+ 
+    // Mettre à jour le champ date dans le formulaire si visible
+    const entryDate = document.getElementById('entry-date');
+    if (entryDate) {
+        entryDate.min   = dateFrom;
+        entryDate.max   = dateTo;
+        entryDate.value = dateFrom;
+    }
+ 
+    NotificationManager.show(
+        `✅ Exercice fiscal actif : ${name} (${new Date(dateFrom).toLocaleDateString('fr-FR')} → ${new Date(dateTo).toLocaleDateString('fr-FR')})`,
+        'success',
+        5000
+    );
+ 
+    ModalManager.close();
+    console.log('✅ [selectFiscalYear] Exercice actif:', appState.fiscalYear);
+};
+ 
+ 
+// ✅ Créer un nouvel exercice fiscal dans Odoo
+window.createFiscalYear = async function() {
+    const name     = document.getElementById('new-fy-name')?.value?.trim();
+    const dateFrom = document.getElementById('new-fy-start')?.value;
+    const dateTo   = document.getElementById('new-fy-end')?.value;
+ 
+    // Validations
+    if (!name || !dateFrom || !dateTo) {
+        NotificationManager.show('Remplissez tous les champs obligatoires', 'error');
+        return;
+    }
+    if (new Date(dateFrom) >= new Date(dateTo)) {
+        NotificationManager.show('La date de début doit être antérieure à la date de fin', 'error');
+        return;
+    }
+    if (!appState.currentCompanyId) {
+        NotificationManager.show('Aucune entreprise active sélectionnée', 'error');
+        return;
+    }
+ 
+    try {
+        NotificationManager.show('Création de l\'exercice dans Odoo...', 'info', 4000);
+ 
+        const response = await apiFetch('accounting/fiscal-years', {
+            method: 'POST',
+            body: JSON.stringify({
+                companyId: appState.currentCompanyId,
+                name,
+                date_from: dateFrom,
+                date_to:   dateTo
+            })
+        });
+ 
+        if (response.success) {
+            NotificationManager.show(
+                `✅ Exercice "${name}" créé dans Odoo`,
+                'success',
+                5000
+            );
+            // Activer automatiquement le nouvel exercice
+            window.selectFiscalYear(name, dateFrom, dateTo);
+        } else {
+            throw new Error(response.error || 'Erreur lors de la création');
+        }
+ 
+    } catch (error) {
+        console.error('❌ [createFiscalYear] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
+ 
+ 
+// ✅ Conserver saveFiscalYear pour compatibilité avec l'ancien bouton HTML
+window.saveFiscalYear = async function() {
+    const newYear = document.getElementById('fiscal-year-input')?.value;
+    if (!newYear || newYear < 2020 || newYear > 2099) {
+        NotificationManager.show('Année invalide', 'error');
+        return;
+    }
+    const dateFrom = `${newYear}-01-01`;
+    const dateTo   = `${newYear}-12-31`;
+    window.selectFiscalYear(String(newYear), dateFrom, dateTo);
+};
+
 
 // ✅ Sélectionner un exercice fiscal existant
 window.selectFiscalYear = function(name, dateFrom, dateTo) {
