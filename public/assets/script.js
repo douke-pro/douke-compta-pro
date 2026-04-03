@@ -1428,23 +1428,24 @@ console.log('✅ [OCR] Fonctions chargées avec succès');
 // JOURNAL (AVEC AMÉLIORATIONS)
 // =================================================================
 
+// =================================================================
+// JOURNAL (AVEC AMÉLIORATIONS)
+// =================================================================
+
 /**
- * 🔧 AMÉLIORATION: Récupère les journaux ET les écritures avec filtres
+ * Récupère les journaux ET les écritures avec filtres
  */
 async function fetchJournalData(endpoint) {
     const companyId = appState.currentCompanyId;
     const companyFilter = `?companyId=${companyId}`;
     
     try {
-        // 1️⃣ Récupérer la liste des journaux pour le filtre
         const journalsResponse = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
         const journals = journalsResponse.data || [];
         
-        // 2️⃣ Récupérer les écritures
         const entriesResponse = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
         const entries = entriesResponse.data?.entries || entriesResponse.data || [];
         
-        // 3️⃣ Générer le HTML avec filtres
         return generateJournalWithFiltersHTML(entries, journals);
         
     } catch (e) {
@@ -1454,64 +1455,126 @@ async function fetchJournalData(endpoint) {
 }
 
 /**
- * 🔧 AMÉLIORATION: Génère le HTML avec filtres (Type/Journal/Période)
+ * Génère le HTML avec filtres étendus :
+ * - Type d'affichage
+ * - Journal
+ * - Numéro de compte (autocomplétion)
+ * - Période Du/Au avec valeur par défaut = exercice fiscal actif
+ * - Raccourcis période
  */
 function generateJournalWithFiltersHTML(entries, journals) {
-    // Options du menu déroulant journaux
-    const journalOptions = journals.map(j => 
+    const journalOptions = journals.map(j =>
         `<option value="${j.id}">${j.name} (${j.code})</option>`
     ).join('');
-    
-    // En-tête avec filtres
+
+    // Période par défaut = exercice fiscal actif ou année en cours
+    const activeFY    = window.appState?.fiscalYear || appState?.fiscalYear || null;
+    const defaultFrom = activeFY ? activeFY.dateFrom : `${new Date().getFullYear()}-01-01`;
+    const defaultTo   = activeFY ? activeFY.dateTo   : new Date().toISOString().split('T')[0];
+
     const filtersHTML = `
         <div class="mb-6 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
             <h3 class="text-2xl font-black text-secondary mb-4">
                 <i class="fas fa-filter mr-2"></i> Filtres
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            <!-- Ligne 1 : Type / Journal / Compte -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
                 <!-- Filtre par Type -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                         Type d'affichage
                     </label>
-                    <select id="view-type-filter" onchange="window.handleViewTypeChange(this.value)" 
+                    <select id="view-type-filter" onchange="window.handleViewTypeChange(this.value)"
                         class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
                         <option value="entries">📋 Écritures Comptables</option>
                         <option value="journals">📖 Liste des Journaux</option>
                     </select>
                 </div>
-                
+
                 <!-- Filtre par Journal -->
                 <div id="journal-filter-container">
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                         Filtrer par Journal
                     </label>
-                    <select id="journal-filter" onchange="window.handleJournalFilter(this.value)" 
+                    <select id="journal-filter"
                         class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
                         <option value="">Tous les journaux</option>
                         ${journalOptions}
                     </select>
                 </div>
-                
-                <!-- Filtre par Période -->
+
+                <!-- Filtre par Numéro de Compte -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Période
+                        Numéro de compte
                     </label>
-                    <select id="period-filter" onchange="window.handlePeriodFilter(this.value)" 
-                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                        <option value="all">Toutes les périodes</option>
-                        <option value="today">Aujourd'hui</option>
-                        <option value="week">Cette semaine</option>
-                        <option value="month">Ce mois</option>
-                        <option value="year">Cette année</option>
-                    </select>
+                    <input type="text" id="account-filter"
+                        placeholder="Ex: 401100, 601..."
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                        list="journal-accounts-list">
+                    <datalist id="journal-accounts-list">
+                        ${(window.allChartOfAccounts || []).map(a =>
+                            `<option value="${a.code}">${a.code} — ${a.name}</option>`
+                        ).join('')}
+                    </datalist>
                 </div>
+            </div>
+
+            <!-- Ligne 2 : Période Du/Au + Bouton Appliquer -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Période — Du
+                    </label>
+                    <input type="date" id="date-from-filter"
+                        value="${defaultFrom}"
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Période — Au
+                    </label>
+                    <input type="date" id="date-to-filter"
+                        value="${defaultTo}"
+                        class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                </div>
+                <div>
+                    <button onclick="window.handleJournalApplyFilters()"
+                        class="w-full p-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors">
+                        <i class="fas fa-search mr-2"></i> Appliquer les filtres
+                    </button>
+                </div>
+            </div>
+
+            <!-- Raccourcis période -->
+            <div class="flex flex-wrap gap-2 mt-3">
+                <span class="text-xs font-bold text-gray-500 self-center">Raccourcis :</span>
+                <button onclick="window.handleJournalQuickPeriod('today')"
+                    class="px-3 py-1 text-xs font-bold border border-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Aujourd'hui
+                </button>
+                <button onclick="window.handleJournalQuickPeriod('week')"
+                    class="px-3 py-1 text-xs font-bold border border-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Cette semaine
+                </button>
+                <button onclick="window.handleJournalQuickPeriod('month')"
+                    class="px-3 py-1 text-xs font-bold border border-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Ce mois
+                </button>
+                <button onclick="window.handleJournalQuickPeriod('fiscal')"
+                    class="px-3 py-1 text-xs font-bold border border-primary/30 text-primary rounded-full hover:bg-primary/10 transition-colors">
+                    <i class="fas fa-calendar-alt mr-1"></i>Exercice actif
+                </button>
+                <button onclick="window.handleJournalQuickPeriod('all')"
+                    class="px-3 py-1 text-xs font-bold border border-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Tout
+                </button>
             </div>
         </div>
     `;
-    
-    // Conteneur pour les résultats
+
     const resultsHTML = `
         <div id="journal-results-container" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
             <h3 class="text-2xl font-black text-secondary mb-4">
@@ -1522,12 +1585,12 @@ function generateJournalWithFiltersHTML(entries, journals) {
             </div>
         </div>
     `;
-    
+
     return filtersHTML + resultsHTML;
 }
 
 /**
- * 🔧 AMÉLIORATION: Affiche Journal + N° Opération
+ * Génère le tableau HTML des écritures
  */
 function generateJournalHTML(entries) {
     if (!entries || entries.length === 0) {
@@ -1535,21 +1598,19 @@ function generateJournalHTML(entries) {
     }
 
     const tableRows = entries.map(entry => {
-        const numero = entry.name || `#${entry.id}`;  // ← N° opération
-        const journal = entry.journal || 'N/A';  // ← Nom du journal
+        const numero    = entry.name || `#${entry.id}`;
+        const journal   = entry.journal || 'N/A';
         const narration = entry.libelle || `Écriture #${entry.id}`;
-        const debit = (entry.debit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
-        const credit = (entry.credit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
-        
+        const debit     = (entry.debit  || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
+        const credit    = (entry.credit || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' });
+
         let statusClass = 'text-gray-500';
-        if (entry.status === 'Validé') {
-            statusClass = 'text-success';
-        } else if (entry.status === 'Brouillon') {
-            statusClass = 'text-warning';
-        }
+        if (entry.status === 'Validé')    statusClass = 'text-success';
+        else if (entry.status === 'Brouillon') statusClass = 'text-warning';
 
         return `
-            <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer" onclick="window.handleDrillDown(${entry.id}, 'Journal')">
+            <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                onclick="window.handleDrillDown(${entry.id}, 'Journal')">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-gray-100">${numero}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${entry.date}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">${journal}</td>
@@ -1566,13 +1627,13 @@ function generateJournalHTML(entries) {
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-800">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Opération</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Journal</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Libellé</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Débit</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Crédit</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Opération</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Journal</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Libellé</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Débit</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Crédit</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1584,44 +1645,38 @@ function generateJournalHTML(entries) {
 }
 
 // =================================================================
-// HANDLERS DES FILTRES (NOUVELLES FONCTIONS GLOBALES)
+// HANDLERS DES FILTRES
 // =================================================================
 
 /**
- * 🔧 AMÉLIORATION: Change le type d'affichage (Écritures vs Journaux)
+ * Change le type d'affichage (Écritures vs Journaux)
  */
 window.handleViewTypeChange = async function(viewType) {
-    const companyId = appState.currentCompanyId;
+    const companyId     = appState.currentCompanyId;
     const companyFilter = `?companyId=${companyId}`;
-    
-    const container = document.getElementById('journal-results-container');
+
+    const container      = document.getElementById('journal-results-container');
     const tableContainer = document.getElementById('journal-table-container');
-    
+
     if (!container || !tableContainer) return;
-    
+
     try {
         if (viewType === 'journals') {
-            // Afficher la liste des journaux
             container.querySelector('h3').innerHTML = '<i class="fas fa-book mr-2"></i> Liste des Journaux';
-            
+
             const response = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
-            const journals = response.data || [];
-            
+            const journals  = response.data || [];
+
             tableContainer.innerHTML = generateJournalsListHTML(journals);
-            
-            // Cacher le filtre par journal (pas utile ici)
             document.getElementById('journal-filter-container').style.display = 'none';
-            
+
         } else {
-            // Afficher les écritures
             container.querySelector('h3').innerHTML = '<i class="fas fa-book mr-2"></i> Écritures Comptables';
-            
+
             const response = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
-            const entries = response.data?.entries || response.data || [];
-            
+            const entries   = response.data?.entries || response.data || [];
+
             tableContainer.innerHTML = generateJournalHTML(entries);
-            
-            // Réafficher le filtre par journal
             document.getElementById('journal-filter-container').style.display = 'block';
         }
     } catch (error) {
@@ -1630,92 +1685,117 @@ window.handleViewTypeChange = async function(viewType) {
 };
 
 /**
- * 🔧 AMÉLIORATION: Filtre les écritures par journal
+ * Applique tous les filtres simultanément :
+ * journal + dates Du/Au + numéro de compte
  */
-window.handleJournalFilter = async function(journalId) {
-    const companyId = appState.currentCompanyId;
+window.handleJournalApplyFilters = async function() {
+    const companyId  = appState.currentCompanyId;
+    const journalId  = document.getElementById('journal-filter')?.value       || '';
+    const dateFrom   = document.getElementById('date-from-filter')?.value     || '';
+    const dateTo     = document.getElementById('date-to-filter')?.value       || '';
+    const accountNum = document.getElementById('account-filter')?.value?.trim() || '';
+
     let endpoint = `accounting/journal?companyId=${companyId}`;
-    
-    if (journalId) {
-        endpoint += `&journal_id=${journalId}`;
-    }
-    
+    if (journalId)  endpoint += `&journal_id=${journalId}`;
+    if (dateFrom)   endpoint += `&date_from=${dateFrom}`;
+    if (dateTo)     endpoint += `&date_to=${dateTo}`;
+    if (accountNum) endpoint += `&account_code=${encodeURIComponent(accountNum)}`;
+
     try {
         const response = await apiFetch(endpoint, { method: 'GET' });
-        const entries = response.data?.entries || response.data || [];
-        
+        let entries = response.data?.entries || response.data || [];
+
+        // Filtrage local par numéro de compte en complément
+        if (accountNum) {
+            entries = entries.filter(e =>
+                (e.account_code && e.account_code.startsWith(accountNum)) ||
+                (e.lines && e.lines.some(l => l.account_code?.startsWith(accountNum)))
+            );
+        }
+
         const tableContainer = document.getElementById('journal-table-container');
         if (tableContainer) {
             tableContainer.innerHTML = generateJournalHTML(entries);
         }
-        
-        NotificationManager.show(`Filtré: ${entries.length} écriture(s)`, 'info');
+
+        NotificationManager.show(`${entries.length} écriture(s) trouvée(s)`, 'info');
     } catch (error) {
+        console.error('❌ [handleJournalApplyFilters]', error);
         NotificationManager.show('Erreur lors du filtrage.', 'error');
     }
 };
 
 /**
- * 🔧 AMÉLIORATION: Filtre les écritures par période
+ * Raccourcis période — met à jour les champs Du/Au et déclenche le filtre
  */
-window.handlePeriodFilter = async function(period) {
-    const companyId = appState.currentCompanyId;
-    let endpoint = `accounting/journal?companyId=${companyId}`;
-    
-    // Calcul des dates selon la période
-    const today = new Date();
+window.handleJournalQuickPeriod = function(period) {
+    const today    = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const activeFY = window.appState?.fiscalYear || appState?.fiscalYear || null;
+
     let dateFrom = null;
-    let dateTo = today.toISOString().split('T')[0];
-    
-    switch(period) {
+    let dateTo   = todayStr;
+
+    switch (period) {
         case 'today':
-            dateFrom = dateTo;
+            dateFrom = todayStr;
             break;
-        case 'week':
-            const weekAgo = new Date(today);
-            weekAgo.setDate(today.getDate() - 7);
-            dateFrom = weekAgo.toISOString().split('T')[0];
+        case 'week': {
+            const d = new Date(today);
+            d.setDate(today.getDate() - 7);
+            dateFrom = d.toISOString().split('T')[0];
             break;
-        case 'month':
-            const monthAgo = new Date(today);
-            monthAgo.setMonth(today.getMonth() - 1);
-            dateFrom = monthAgo.toISOString().split('T')[0];
+        }
+        case 'month': {
+            const d = new Date(today);
+            d.setMonth(today.getMonth() - 1);
+            dateFrom = d.toISOString().split('T')[0];
             break;
-        case 'year':
-            dateFrom = `${today.getFullYear()}-01-01`;
+        }
+        case 'fiscal':
+            dateFrom = activeFY ? activeFY.dateFrom : `${today.getFullYear()}-01-01`;
+            dateTo   = activeFY ? activeFY.dateTo   : todayStr;
+            break;
+        case 'all':
+            dateFrom = '';
+            dateTo   = '';
             break;
         default:
             dateFrom = null;
-            dateTo = null;
     }
-    
-    if (dateFrom) {
-        endpoint += `&date_from=${dateFrom}&date_to=${dateTo}`;
-    }
-    
-    try {
-        const response = await apiFetch(endpoint, { method: 'GET' });
-        const entries = response.data?.entries || response.data || [];
-        
-        const tableContainer = document.getElementById('journal-table-container');
-        if (tableContainer) {
-            tableContainer.innerHTML = generateJournalHTML(entries);
-        }
-        
-        NotificationManager.show(`${entries.length} écriture(s) trouvée(s)`, 'info');
-    } catch (error) {
-        NotificationManager.show('Erreur lors du filtrage par période.', 'error');
-    }
+
+    const fromInput = document.getElementById('date-from-filter');
+    const toInput   = document.getElementById('date-to-filter');
+    if (fromInput) fromInput.value = dateFrom || '';
+    if (toInput)   toInput.value   = dateTo   || '';
+
+    window.handleJournalApplyFilters();
 };
 
 /**
- * 🔧 AMÉLIORATION: Génère le HTML de la liste des journaux
+ * Filtre par journal — conservé pour compatibilité
+ */
+window.handleJournalFilter = async function(journalId) {
+    const select = document.getElementById('journal-filter');
+    if (select) select.value = journalId;
+    window.handleJournalApplyFilters();
+};
+
+/**
+ * Filtre par période (ancien select) — conservé pour compatibilité
+ */
+window.handlePeriodFilter = async function(period) {
+    window.handleJournalQuickPeriod(period);
+};
+
+/**
+ * Génère le HTML de la liste des journaux (vue Journaux)
  */
 function generateJournalsListHTML(journals) {
     if (!journals || journals.length === 0) {
         return '<p class="text-center text-gray-500 mt-4">Aucun journal trouvé.</p>';
     }
-    
+
     const cards = journals.map(journal => `
         <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-primary hover:shadow-lg transition-shadow cursor-pointer"
              onclick="window.handleJournalClick('${journal.id}', '${journal.name}')">
@@ -1732,20 +1812,22 @@ function generateJournalsListHTML(journals) {
             </div>
         </div>
     `).join('');
-    
+
     return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${cards}</div>`;
 }
 
 /**
- * 🔧 AMÉLIORATION: Gère le clic sur un journal
+ * Clic sur un journal — bascule vers la vue Écritures filtrée
  */
 window.handleJournalClick = function(journalId, journalName) {
-    // Basculer vers la vue "Écritures" et filtrer par ce journal
-    document.getElementById('view-type-filter').value = 'entries';
-    document.getElementById('journal-filter').value = journalId;
-    
+    const viewSelect = document.getElementById('view-type-filter');
+    const journalSelect = document.getElementById('journal-filter');
+
+    if (viewSelect)    viewSelect.value    = 'entries';
+    if (journalSelect) journalSelect.value = journalId;
+
     window.handleViewTypeChange('entries').then(() => {
-        window.handleJournalFilter(journalId);
+        window.handleJournalApplyFilters();
         NotificationManager.show(`Affichage des écritures du journal: ${journalName}`, 'info');
     });
 };
