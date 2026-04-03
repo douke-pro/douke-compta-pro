@@ -7969,23 +7969,18 @@ function generateDashboardWelcomeHTML(companyName, role) {
 // =============================================================================
  
 function generateManualEntryFormHTML() {
-    // ✅ Lire l'exercice fiscal actif depuis appState
-    const fiscalYear = appState.fiscalYear || null;
-    const minDate    = fiscalYear ? fiscalYear.dateFrom : '2020-01-01';
-    const maxDate    = fiscalYear ? fiscalYear.dateTo   : `${new Date().getFullYear()}-12-31`;
- 
-    // Date par défaut = début de l'exercice actif ou aujourd'hui
-    const today        = new Date().toISOString().split('T')[0];
-    const activeFY     = appState.fiscalYear || null;
-    const minDate      = activeFY ? activeFY.dateFrom : '2020-01-01';
-    const maxDate      = activeFY ? activeFY.dateTo   : `${new Date().getFullYear()}-12-31`;
-    const defaultDate  = activeFY ? activeFY.dateFrom : today;
- 
+    // ✅ Lire l'exercice fiscal actif depuis appState — UNE SEULE FOIS
+    const today       = new Date().toISOString().split('T')[0];
+    const fiscalYear  = appState.fiscalYear || null;
+    const minDate     = fiscalYear ? fiscalYear.dateFrom : '2020-01-01';
+    const maxDate     = fiscalYear ? fiscalYear.dateTo   : `${new Date().getFullYear()}-12-31`;
+    const defaultDate = fiscalYear ? fiscalYear.dateFrom : today;
+
     // Label de la période affichée dans le badge
     const periodLabel = fiscalYear
         ? `${new Date(fiscalYear.dateFrom).toLocaleDateString('fr-FR')} — ${new Date(fiscalYear.dateTo).toLocaleDateString('fr-FR')}`
         : 'Aucun exercice fiscal sélectionné';
- 
+
     return `
         <div class="max-w-6xl mx-auto">
             <div class="flex justify-between items-center mb-8">
@@ -8007,12 +8002,12 @@ function generateManualEntryFormHTML() {
                     ` : ''}
                 </div>
             </div>
- 
+
             <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-100">
                 <form id="journalEntryForm" class="space-y-6">
- 
+
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-gray-100">
- 
+
                         <!-- DATE D'ÉCRITURE — encadrée par l'exercice fiscal -->
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">
@@ -8031,7 +8026,7 @@ function generateManualEntryFormHTML() {
                                 → ${new Date(maxDate).toLocaleDateString('fr-FR')}
                             </p>
                         </div>
- 
+
                         <!-- JOURNAL -->
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Journal</label>
@@ -8041,7 +8036,7 @@ function generateManualEntryFormHTML() {
                                 <option value="">Chargement...</option>
                             </select>
                         </div>
- 
+
                         <!-- RÉFÉRENCE -->
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Référence</label>
@@ -8051,7 +8046,7 @@ function generateManualEntryFormHTML() {
                                 required>
                         </div>
                     </div>
- 
+
                     <!-- EN-TÊTES DES LIGNES -->
                     <div class="grid grid-cols-12 gap-3 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">
                         <div class="col-span-2">Compte</div>
@@ -8060,17 +8055,17 @@ function generateManualEntryFormHTML() {
                         <div class="col-span-2 text-right">Crédit</div>
                         <div class="col-span-1"></div>
                     </div>
- 
+
                     <!-- LIGNES D'ÉCRITURE -->
                     <div id="lines-container" class="space-y-3 min-h-[150px]"></div>
- 
+
                     <!-- ACTIONS ET TOTAL -->
                     <div class="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-gray-100 gap-4">
                         <button type="button" onclick="window.addLineToEntry()"
                             class="group bg-gray-100 text-secondary font-bold py-3 px-6 rounded-xl hover:bg-secondary hover:text-white transition-all shadow-sm">
                             <i class="fas fa-plus-circle mr-2"></i> Ajouter ligne
                         </button>
- 
+
                         <div class="flex flex-col items-end">
                             <div id="total-balance"
                                 class="text-lg font-black p-3 rounded-xl transition-all shadow-inner">
@@ -8084,7 +8079,7 @@ function generateManualEntryFormHTML() {
                         </div>
                     </div>
                 </form>
- 
+
                 <div id="entry-message" class="mt-6 text-center p-4 rounded-xl hidden"></div>
             </div>
         </div>
