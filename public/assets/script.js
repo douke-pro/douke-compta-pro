@@ -7971,7 +7971,7 @@ function generateDashboardWelcomeHTML(companyName, role) {
 function generateManualEntryFormHTML() {
     // ✅ Lire l'exercice fiscal actif depuis appState — UNE SEULE FOIS
     const today       = new Date().toISOString().split('T')[0];
-    const fiscalYear  = appState.fiscalYear || null;
+    const fiscalYear  = window.appState.fiscalYear || appState.fiscalYear || null;
     const minDate     = fiscalYear ? fiscalYear.dateFrom : '2020-01-01';
     const maxDate     = fiscalYear ? fiscalYear.dateTo   : `${new Date().getFullYear()}-12-31`;
     const defaultDate = fiscalYear ? fiscalYear.dateFrom : today;
