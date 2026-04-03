@@ -10984,7 +10984,8 @@ window.openFiscalYearModal = async function() {
 window.selectFiscalYear = function(name, dateFrom, dateTo) {
 
     // 1. Stocker dans appState
-    appState.fiscalYear = { name, dateFrom, dateTo };
+    appState.fiscalYear        = { name, dateFrom, dateTo };
+    window.appState.fiscalYear = { name, dateFrom, dateTo };
 
     // 2. Mettre à jour le badge année dans le header
     const badge = document.getElementById('fiscal-year-text');
