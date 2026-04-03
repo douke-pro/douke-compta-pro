@@ -10975,16 +10975,22 @@ window.openFiscalYearModal = async function() {
 };
  
  
+// ============================================================================
+// GESTION DES EXERCICES FISCAUX
+// Version : FINALE — sans doublon, robuste
+// ============================================================================
+
 // ✅ Sélectionner et activer un exercice fiscal
 window.selectFiscalYear = function(name, dateFrom, dateTo) {
-    // Stocker dans appState
+
+    // 1. Stocker dans appState
     appState.fiscalYear = { name, dateFrom, dateTo };
- 
-    // Mettre à jour le badge dans le header
+
+    // 2. Mettre à jour le badge année dans le header
     const badge = document.getElementById('fiscal-year-text');
     if (badge) badge.textContent = name;
- 
-    // Mettre à jour le badge de période dans le formulaire de saisie si visible
+
+    // 3. Mettre à jour le badge de période dans le formulaire si visible
     const periodBadge = document.getElementById('period-badge');
     if (periodBadge) {
         periodBadge.innerHTML = `
@@ -10993,32 +10999,43 @@ window.selectFiscalYear = function(name, dateFrom, dateTo) {
         `;
         periodBadge.className = 'px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100 shadow-sm flex items-center gap-2';
     }
- 
-    // Mettre à jour le champ date dans le formulaire si visible
+
+    // 4. Mettre à jour le champ date dans le formulaire si visible
     const entryDate = document.getElementById('entry-date');
     if (entryDate) {
         entryDate.min   = dateFrom;
         entryDate.max   = dateTo;
         entryDate.value = dateFrom;
+        // Mettre à jour le texte de période sous le champ
+        const periodText = entryDate.nextElementSibling;
+        if (periodText) {
+            periodText.textContent = `Période : ${new Date(dateFrom).toLocaleDateString('fr-FR')} → ${new Date(dateTo).toLocaleDateString('fr-FR')}`;
+        }
     }
- 
+
+    // 5. Si le formulaire de saisie manuelle est ouvert, le recharger
+    // pour appliquer les nouvelles bornes de date correctement
+    if (document.getElementById('entry-date')) {
+        loadContentArea('manual-entry', 'Passer une Écriture');
+    }
+
     NotificationManager.show(
         `✅ Exercice fiscal actif : ${name} (${new Date(dateFrom).toLocaleDateString('fr-FR')} → ${new Date(dateTo).toLocaleDateString('fr-FR')})`,
         'success',
         5000
     );
- 
+
     ModalManager.close();
     console.log('✅ [selectFiscalYear] Exercice actif:', appState.fiscalYear);
 };
- 
- 
+
+
 // ✅ Créer un nouvel exercice fiscal dans Odoo
 window.createFiscalYear = async function() {
     const name     = document.getElementById('new-fy-name')?.value?.trim();
     const dateFrom = document.getElementById('new-fy-start')?.value;
     const dateTo   = document.getElementById('new-fy-end')?.value;
- 
+
     // Validations
     if (!name || !dateFrom || !dateTo) {
         NotificationManager.show('Remplissez tous les champs obligatoires', 'error');
@@ -11032,10 +11049,10 @@ window.createFiscalYear = async function() {
         NotificationManager.show('Aucune entreprise active sélectionnée', 'error');
         return;
     }
- 
+
     try {
         NotificationManager.show('Création de l\'exercice dans Odoo...', 'info', 4000);
- 
+
         const response = await apiFetch('accounting/fiscal-years', {
             method: 'POST',
             body: JSON.stringify({
@@ -11045,7 +11062,7 @@ window.createFiscalYear = async function() {
                 date_to:   dateTo
             })
         });
- 
+
         if (response.success) {
             NotificationManager.show(
                 `✅ Exercice "${name}" créé dans Odoo`,
@@ -11057,98 +11074,21 @@ window.createFiscalYear = async function() {
         } else {
             throw new Error(response.error || 'Erreur lors de la création');
         }
- 
+
     } catch (error) {
         console.error('❌ [createFiscalYear] Erreur:', error);
         NotificationManager.show(`Erreur : ${error.message}`, 'error');
     }
 };
- 
- 
-// ✅ Conserver saveFiscalYear pour compatibilité avec l'ancien bouton HTML
+
+
+// ✅ Compatibilité avec l'ancien bouton HTML (redirige vers selectFiscalYear)
 window.saveFiscalYear = async function() {
     const newYear = document.getElementById('fiscal-year-input')?.value;
     if (!newYear || newYear < 2020 || newYear > 2099) {
         NotificationManager.show('Année invalide', 'error');
         return;
     }
-    const dateFrom = `${newYear}-01-01`;
-    const dateTo   = `${newYear}-12-31`;
-    window.selectFiscalYear(String(newYear), dateFrom, dateTo);
-};
-
-
-// ✅ Sélectionner un exercice fiscal existant
-window.selectFiscalYear = function(name, dateFrom, dateTo) {
-    // Sauvegarder dans appState
-    appState.fiscalYear = {
-        name:     name,
-        dateFrom: dateFrom,
-        dateTo:   dateTo
-    };
-
-    // Mettre à jour le badge dans le header
-    const badge = document.getElementById('fiscal-year-text');
-    if (badge) badge.textContent = name;
-
-    // Mettre à jour l'en-tête de la saisie manuelle si visible
-    const periodHeader = document.querySelector('[data-fiscal-period]');
-    if (periodHeader) {
-        periodHeader.textContent =
-            `${new Date(dateFrom).toLocaleDateString('fr-FR')} - ${new Date(dateTo).toLocaleDateString('fr-FR')}`;
-    }
-
-    NotificationManager.show(`Exercice fiscal actif : ${name}`, 'success');
-    ModalManager.close();
-
-    console.log(`✅ [selectFiscalYear] Exercice sélectionné:`, appState.fiscalYear);
-};
-
-// ✅ Créer un nouvel exercice fiscal dans Odoo
-window.createFiscalYear = async function() {
-    const name     = document.getElementById('new-fy-name')?.value?.trim();
-    const dateFrom = document.getElementById('new-fy-start')?.value;
-    const dateTo   = document.getElementById('new-fy-end')?.value;
-
-    if (!name || !dateFrom || !dateTo) {
-        NotificationManager.show('Remplissez tous les champs', 'error');
-        return;
-    }
-
-    if (new Date(dateFrom) >= new Date(dateTo)) {
-        NotificationManager.show('La date de début doit être antérieure à la date de fin', 'error');
-        return;
-    }
-
-    try {
-        NotificationManager.show('Création en cours...', 'info', 3000);
-
-        const response = await apiFetch('accounting/fiscal-years', {
-            method: 'POST',
-            body: JSON.stringify({
-                companyId: appState.currentCompanyId,
-                name,
-                date_from: dateFrom,
-                date_to:   dateTo
-            })
-        });
-
-        if (response.success) {
-            NotificationManager.show(`✅ Exercice "${name}" créé dans Odoo`, 'success');
-            // Sélectionner automatiquement le nouvel exercice
-            window.selectFiscalYear(name, dateFrom, dateTo);
-        }
-
-    } catch (error) {
-        console.error('❌ [createFiscalYear] Erreur:', error);
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
-    }
-};
-
-// ✅ Conserver saveFiscalYear pour compatibilité (redirige vers selectFiscalYear)
-window.saveFiscalYear = async function() {
-    const newYear = document.getElementById('fiscal-year-input')?.value;
-    if (!newYear) return;
     const dateFrom = `${newYear}-01-01`;
     const dateTo   = `${newYear}-12-31`;
     window.selectFiscalYear(String(newYear), dateFrom, dateTo);
