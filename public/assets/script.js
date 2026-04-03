@@ -7769,41 +7769,90 @@ window.exportReport = function(reportId, reportTitle) {
 // =================================================================
 // PLAN COMPTABLE
 // =================================================================
-
+ 
 async function fetchChartOfAccountsData(endpoint) {
     const response = await apiFetch(endpoint, { method: 'GET' });
     return generateChartOfAccountsHTML(response.data);
 }
-
+ 
 function generateChartOfAccountsHTML(accounts) {
     if (!accounts || accounts.length === 0) {
-         return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
-            <div class="p-8 text-center text-info"><i class="fas fa-info-circle fa-2x mb-3"></i><p class="font-bold">Aucun compte trouvé pour ce dossier client.</p></div>
-            <button onclick="showCreateAccountModal()" class="bg-success text-white py-2 px-4 rounded-xl font-bold hover:bg-success-dark transition-colors mt-4">
+        return `
+            <h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
+            <div class="p-8 text-center text-info">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <p class="font-bold">Aucun compte trouvé pour ce dossier client.</p>
+            </div>
+            <button onclick="showCreateAccountModal()"
+                class="bg-success text-white py-2 px-4 rounded-xl font-bold hover:bg-success-dark transition-colors mt-4">
                 <i class="fas fa-plus-circle mr-2"></i> Ajouter Compte
             </button>`;
     }
-
-    const rows = accounts.map(account => `
-        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-            <td class="px-6 py-3 font-bold">${account.code}</td>
-            <td class="px-6 py-3">${account.name}</td>
-            <td class="px-6 py-3">${account.account_type || account.type}</td>
-            <td class="px-6 py-3 text-right font-black">${(account.balance || 0).toLocaleString('fr-FR')}</td>
-            <td class="px-6 py-3">
-                <button onclick="showCreateAccountModal(${account.id}, {code: '${account.code}', name: '${account.name}', type: '${account.account_type || account.type}'})" 
-                    class="text-primary hover:text-primary-dark font-bold">Modifier</button>
-            </td>
-        </tr>
-    `).join('');
-
-    return `<h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
-        <div class="flex justify-between items-center mb-4">
-            <p class="text-sm text-gray-500">Affiche les comptes de la compagnie: **${appState.currentCompanyName}**.</p>
-            <button onclick="showCreateAccountModal()" class="bg-success text-white py-2 px-4 rounded-xl font-bold hover:bg-success-dark transition-colors">
-                <i class="fas fa-plus-circle mr-2"></i> Ajouter Compte
-            </button>
+ 
+    // Stocker les comptes pour le filtrage local
+    window._chartAccountsCache = accounts;
+ 
+    const rows = accounts.map(account => generateAccountRow(account)).join('');
+ 
+    return `
+        <h3 class="text-3xl font-black text-secondary mb-6 fade-in">Plan Comptable SYSCOHADA</h3>
+ 
+        <!-- Barre de filtres -->
+        <div class="flex flex-col md:flex-row gap-3 mb-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
+ 
+            <!-- Filtre Code -->
+            <div class="flex-1">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Code compte</label>
+                <input type="text" id="coa-code-filter"
+                    placeholder="Ex: 101, 401..."
+                    oninput="window.handleCoaFilter()"
+                    class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 text-sm"
+                    list="coa-codes-datalist">
+                <datalist id="coa-codes-datalist">
+                    ${accounts.map(a =>
+                        `<option value="${a.code}">${a.code} — ${a.name}</option>`
+                    ).join('')}
+                </datalist>
+            </div>
+ 
+            <!-- Filtre Intitulé -->
+            <div class="flex-1">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Intitulé du compte</label>
+                <input type="text" id="coa-name-filter"
+                    placeholder="Ex: Fournisseurs, Capital..."
+                    oninput="window.handleCoaFilter()"
+                    class="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 text-sm"
+                    list="coa-names-datalist">
+                <datalist id="coa-names-datalist">
+                    ${accounts.map(a =>
+                        `<option value="${a.name}">${a.code} — ${a.name}</option>`
+                    ).join('')}
+                </datalist>
+            </div>
+ 
+            <!-- Bouton reset -->
+            <div class="flex items-end">
+                <button onclick="window.handleCoaReset()"
+                    class="p-3 border border-gray-300 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-bold">
+                    <i class="fas fa-times mr-1"></i> Réinitialiser
+                </button>
+            </div>
+ 
+            <!-- Bouton ajouter -->
+            <div class="flex items-end">
+                <button onclick="showCreateAccountModal()"
+                    class="p-3 bg-success text-white rounded-xl font-bold hover:bg-success-dark transition-colors text-sm">
+                    <i class="fas fa-plus-circle mr-1"></i> Ajouter
+                </button>
+            </div>
         </div>
+ 
+        <!-- Compteur résultats -->
+        <p id="coa-count" class="text-xs text-gray-400 mb-3">
+            ${accounts.length} compte(s) — Compagnie : <strong>${appState.currentCompanyName}</strong>
+        </p>
+ 
+        <!-- Tableau -->
         <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
             <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -7815,77 +7864,173 @@ function generateChartOfAccountsHTML(accounts) {
                         <th scope="col" class="px-6 py-3">Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="coa-table-body">
                     ${rows}
                 </tbody>
             </table>
         </div>`;
 }
-
+ 
+/**
+ * Génère une ligne du tableau Plan Comptable
+ * avec data-attributes pour le filtrage local
+ */
+function generateAccountRow(account) {
+    const type = account.account_type || account.type || '—';
+    const safeName = account.name.replace(/'/g, "\\'");
+    return `
+        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            data-code="${account.code.toLowerCase()}"
+            data-name="${account.name.toLowerCase()}">
+            <td class="px-6 py-3 font-bold">${account.code}</td>
+            <td class="px-6 py-3">${account.name}</td>
+            <td class="px-6 py-3">${type}</td>
+            <td class="px-6 py-3 text-right font-black">${(account.balance || 0).toLocaleString('fr-FR')}</td>
+            <td class="px-6 py-3">
+                <button onclick="showCreateAccountModal(${account.id}, {code: '${account.code}', name: '${safeName}', type: '${type}'})"
+                    class="text-primary hover:text-primary-dark font-bold">Modifier</button>
+            </td>
+        </tr>`;
+}
+ 
+/**
+ * Filtrage instantané du Plan Comptable par code et/ou intitulé
+ */
+window.handleCoaFilter = function() {
+    const codeVal = (document.getElementById('coa-code-filter')?.value || '').toLowerCase().trim();
+    const nameVal = (document.getElementById('coa-name-filter')?.value || '').toLowerCase().trim();
+ 
+    const rows = document.querySelectorAll('#coa-table-body tr');
+    let visible = 0;
+ 
+    rows.forEach(row => {
+        const code = row.dataset.code || '';
+        const name = row.dataset.name || '';
+ 
+        const matchCode = !codeVal || code.startsWith(codeVal);
+        const matchName = !nameVal || name.includes(nameVal);
+ 
+        if (matchCode && matchName) {
+            row.style.display = '';
+            visible++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+ 
+    const counter = document.getElementById('coa-count');
+    if (counter) {
+        counter.innerHTML = `${visible} compte(s) affiché(s) — Compagnie : <strong>${appState.currentCompanyName}</strong>`;
+    }
+};
+ 
+/**
+ * Réinitialise les filtres du Plan Comptable
+ */
+window.handleCoaReset = function() {
+    const codeInput = document.getElementById('coa-code-filter');
+    const nameInput = document.getElementById('coa-name-filter');
+    if (codeInput) codeInput.value = '';
+    if (nameInput) nameInput.value = '';
+    window.handleCoaFilter();
+};
+ 
+/**
+ * Ouvre le modal de création ou modification d'un compte
+ */
 window.showCreateAccountModal = function(accountId = null, currentData = {}) {
     const title = accountId ? "Modifier le Compte" : "Créer un Nouveau Compte";
-    
+ 
     const htmlContent = `
         <form id="create-account-form" onsubmit="handleCreateAccountSubmit(event)">
             <input type="hidden" id="account-id" value="${accountId || ''}">
             <div class="mb-4">
-                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Code du Compte (ex: 601000)</label>
+                <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">
+                    Code du Compte (ex: 601000)
+                </label>
                 <input type="text" id="account-code" required
-                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" 
-                    pattern="[0-9]{6,}" title="Code numérique de 6 chiffres minimum" value="${currentData.code || ''}">
+                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                    pattern="[0-9]{6,}" title="Code numérique de 6 chiffres minimum"
+                    value="${currentData.code || ''}">
             </div>
             <div class="mb-4">
                 <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Libellé</label>
                 <input type="text" id="account-name" required
-                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" value="${currentData.name || ''}">
+                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
+                    value="${currentData.name || ''}">
             </div>
             <div class="mb-6">
                 <label class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Type de Compte</label>
-                <select id="account-type" required class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
-                    <option value="asset_other">Actif (Classe 2/3)</option>
-                    <option value="liability_other">Passif (Classe 4)</option>
+                <select id="account-type" required
+                    class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                    <option value="asset_receivable">Créances clients (401)</option>
+                    <option value="asset_cash">Trésorerie / Banque (5)</option>
+                    <option value="asset_current">Actif Court Terme (3/4)</option>
+                    <option value="asset_non_current">Actif Long Terme (2)</option>
+                    <option value="asset_fixed">Immobilisations (2)</option>
+                    <option value="liability_payable">Dettes fournisseurs (401)</option>
+                    <option value="liability_credit_card">Carte de crédit</option>
+                    <option value="liability_current">Passif Court Terme (4)</option>
+                    <option value="liability_non_current">Passif Long Terme (1/4)</option>
+                    <option value="equity">Capitaux Propres (1)</option>
+                    <option value="equity_unaffected">Résultat non affecté</option>
                     <option value="income">Produit (Classe 7)</option>
+                    <option value="income_other">Autre Produit</option>
                     <option value="expense">Charge (Classe 6)</option>
-                    <option value="equity">Capitaux Propres (Classe 1)</option>
+                    <option value="expense_depreciation">Amortissement</option>
+                    <option value="expense_direct_cost">Coût direct</option>
+                    <option value="off_balance">Hors Bilan</option>
                 </select>
             </div>
-            <button type="submit" class="w-full bg-primary text-white font-bold p-3 rounded-xl hover:bg-primary-dark transition-colors">
+            <button type="submit"
+                class="w-full bg-primary text-white font-bold p-3 rounded-xl hover:bg-primary-dark transition-colors">
                 ${accountId ? 'Modifier le Compte' : 'Créer le Compte'}
             </button>
         </form>
     `;
+ 
     ModalManager.open(title, htmlContent);
+ 
     if (currentData.type) {
-        document.getElementById('account-type').value = currentData.type;
+        setTimeout(() => {
+            const sel = document.getElementById('account-type');
+            if (sel) sel.value = currentData.type;
+        }, 50);
     }
 };
-
+ 
+/**
+ * Soumet le formulaire de création/modification de compte
+ * Types compatibles Odoo 17+ / Odoo 19
+ */
 window.handleCreateAccountSubmit = async function(event) {
     event.preventDefault();
+ 
     const accountId = document.getElementById('account-id').value;
-    const isEdit = accountId !== '';
-    
+    const isEdit    = accountId !== '';
+ 
     const data = {
-        id: accountId ? parseInt(accountId) : undefined,
-        code: document.getElementById('account-code').value,
-        name: document.getElementById('account-name').value,
-        type: document.getElementById('account-type').value,
+        id:        accountId ? parseInt(accountId) : undefined,
+        code:      document.getElementById('account-code').value,
+        name:      document.getElementById('account-name').value,
+        type:      document.getElementById('account-type').value,
         companyId: appState.currentCompanyId
     };
-
+ 
     try {
         const method = isEdit ? 'PUT' : 'POST';
-        const msg = isEdit ? 'Modification du compte en cours...' : 'Création du compte en cours...';
+        const msg    = isEdit ? 'Modification du compte en cours...' : 'Création du compte en cours...';
         NotificationManager.show(msg, 'info');
-
-        await apiFetch('accounting/chart-of-accounts', { 
-            method: method, 
-            body: JSON.stringify(data) 
+ 
+        await apiFetch('accounting/chart-of-accounts', {
+            method: method,
+            body:   JSON.stringify(data)
         });
-
+ 
         NotificationManager.show(`Compte ${data.code} enregistré avec succès !`, 'success');
         ModalManager.close();
-        loadContentArea('chart-of-accounts', 'Plan Comptable'); 
+        loadContentArea('chart-of-accounts', 'Plan Comptable');
+ 
     } catch (error) {
         NotificationManager.show(`Échec de l'opération : ${error.message}`, 'error', 10000);
     }
