@@ -7975,8 +7975,11 @@ function generateManualEntryFormHTML() {
     const maxDate    = fiscalYear ? fiscalYear.dateTo   : `${new Date().getFullYear()}-12-31`;
  
     // Date par défaut = début de l'exercice actif ou aujourd'hui
-    const today       = new Date().toISOString().split('T')[0];
-    const defaultDate = fiscalYear ? fiscalYear.dateFrom : today;
+    const today        = new Date().toISOString().split('T')[0];
+    const activeFY     = appState.fiscalYear || null;
+    const minDate      = activeFY ? activeFY.dateFrom : '2020-01-01';
+    const maxDate      = activeFY ? activeFY.dateTo   : `${new Date().getFullYear()}-12-31`;
+    const defaultDate  = activeFY ? activeFY.dateFrom : today;
  
     // Label de la période affichée dans le badge
     const periodLabel = fiscalYear
