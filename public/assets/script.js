@@ -8199,13 +8199,28 @@ window.initializeManualEntryLogic = async function() {
 
         window.allChartOfAccounts = accRes.data || [];
         
-        if (configRes.status === 'success' && configRes.fiscal_period) {
-            const { start_date, end_date } = configRes.fiscal_period;
-            dateInput.min = start_date;
-            dateInput.max = end_date;
-            dateInput.value = end_date < new Date().toISOString().split('T')[0] ? end_date : new Date().toISOString().split('T')[0];
-            periodBadge.innerHTML = `<i class="fas fa-lock-open mr-2"></i> ${new Date(start_date).toLocaleDateString()} - ${new Date(end_date).toLocaleDateString()}`;
-        }
+        // ✅ Priorité à l'exercice fiscal sélectionné manuellement dans appState
+const activeFY   = window.appState.fiscalYear || appState.fiscalYear || null;
+const startDate  = activeFY ? activeFY.dateFrom
+                 : (configRes.status === 'success' && configRes.fiscal_period?.start_date)
+                   ? configRes.fiscal_period.start_date
+                   : '2020-01-01';
+const endDate    = activeFY ? activeFY.dateTo
+                 : (configRes.status === 'success' && configRes.fiscal_period?.end_date)
+                   ? configRes.fiscal_period.end_date
+                   : new Date().toISOString().split('T')[0];
+
+dateInput.min   = startDate;
+dateInput.max   = endDate;
+dateInput.value = activeFY ? activeFY.dateFrom
+                : (endDate < new Date().toISOString().split('T')[0] ? endDate : new Date().toISOString().split('T')[0]);
+
+if (periodBadge) {
+    periodBadge.innerHTML = `<i class="fas fa-calendar-check mr-1"></i> ${new Date(startDate).toLocaleDateString('fr-FR')} — ${new Date(endDate).toLocaleDateString('fr-FR')}`;
+    periodBadge.className = activeFY
+        ? 'px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100 shadow-sm flex items-center gap-2'
+        : 'px-4 py-2 bg-warning/10 text-warning rounded-full text-xs font-bold border border-warning/30 shadow-sm flex items-center gap-2';
+}
 
         const dl = document.getElementById('accounts-list');
         dl.innerHTML = window.allChartOfAccounts.map(a => `<option value="${a.code}">${a.name}</option>`).join('');
