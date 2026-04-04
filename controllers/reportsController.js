@@ -196,6 +196,10 @@ exports.getMyRequests = async (req, res) => {
 // GET /api/reports/:id
 // ============================================
 
+// ============================================
+// GET /api/reports/:id
+// ============================================
+
 exports.getRequestDetails = async (req, res) => {
     try {
         const userId   = req.user.odooUid;
@@ -206,7 +210,30 @@ exports.getRequestDetails = async (req, res) => {
             'SELECT * FROM financial_reports_requests WHERE id = $1',
             [req.params.id]
         );
-        res.json({ success: true, data: result.rows[0] });
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Demande introuvable' });
+        }
+
+        const request = result.rows[0];
+
+        // ✅ Enrichissement avec le nom réel de l'entreprise depuis Odoo
+        try {
+            const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+            const companyData = await odooExecuteKw({
+                uid:    ADMIN_UID_INT,
+                model:  'res.company',
+                method: 'read',
+                args:   [[request.company_id], ['name']],
+                kwargs: {}
+            });
+            request.company_name = companyData?.[0]?.name || null;
+        } catch (odooErr) {
+            console.warn('⚠️ [getRequestDetails] Enrichissement Odoo échoué:', odooErr.message);
+            request.company_name = null;
+        }
+
+        res.json({ success: true, data: request });
 
     } catch (error) {
         console.error('Erreur getRequestDetails:', error.message);
@@ -216,7 +243,6 @@ exports.getRequestDetails = async (req, res) => {
         });
     }
 };
-
 // ============================================
 // DELETE /api/reports/:id/cancel
 // ============================================
