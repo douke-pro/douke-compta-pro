@@ -6465,34 +6465,14 @@ function generatePDFDocumentsSection(request) {
             </div>
         `;
     }
-    
+
     const documentsConfig = {
-        'bilan': { 
-            label: 'Bilan Comptable', 
-            icon: 'fas fa-balance-scale', 
-            color: 'text-blue-600',
-            bgColor: 'bg-blue-50 dark:bg-blue-900/20'
-        },
-        'compte_resultat': { 
-            label: 'Compte de Résultat', 
-            icon: 'fas fa-chart-line', 
-            color: 'text-green-600',
-            bgColor: 'bg-green-50 dark:bg-green-900/20'
-        },
-        'tft': { 
-            label: 'Tableau des Flux de Trésorerie', 
-            icon: 'fas fa-money-bill-wave', 
-            color: 'text-purple-600',
-            bgColor: 'bg-purple-50 dark:bg-purple-900/20'
-        },
-        'annexes': { 
-            label: 'Notes Annexes', 
-            icon: 'fas fa-file-alt', 
-            color: 'text-orange-600',
-            bgColor: 'bg-orange-50 dark:bg-orange-900/20'
-        }
+        'bilan':           { label: 'Bilan Comptable',                  icon: 'fas fa-balance-scale',   color: 'text-blue-600',   bgColor: 'bg-blue-50 dark:bg-blue-900/20'   },
+        'compte_resultat': { label: 'Compte de Résultat',               icon: 'fas fa-chart-line',       color: 'text-green-600',  bgColor: 'bg-green-50 dark:bg-green-900/20'  },
+        'tft':             { label: 'Tableau des Flux de Trésorerie',   icon: 'fas fa-money-bill-wave',  color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-900/20'},
+        'annexes':         { label: 'Notes Annexes',                    icon: 'fas fa-file-alt',         color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-900/20'}
     };
-    
+
     return `
         <div>
             <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
@@ -6500,17 +6480,17 @@ function generatePDFDocumentsSection(request) {
                 Documents Générés
             </h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${Object.entries(request.pdf_files).map(([type, url]) => {
-                    const config = documentsConfig[type] || { 
-                        label: type, 
-                        icon: 'fas fa-file', 
+                ${Object.keys(request.pdf_files).map(type => {
+                    const config = documentsConfig[type] || {
+                        label: type,
+                        icon: 'fas fa-file',
                         color: 'text-gray-600',
                         bgColor: 'bg-gray-50 dark:bg-gray-800'
                     };
-                    
+
                     return `
                         <div class="group ${config.bgColor} p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all cursor-pointer"
-                             onclick="window.previewPDF('${url}', '${config.label}')">
+                             onclick="window.previewPDF(${request.id}, '${type}', '${config.label}')">
                             <div class="flex items-start justify-between">
                                 <div class="flex items-center flex-1">
                                     <div class="w-12 h-12 ${config.bgColor} rounded-lg flex items-center justify-center mr-3">
@@ -6526,17 +6506,16 @@ function generatePDFDocumentsSection(request) {
                                     </div>
                                 </div>
                                 <div class="flex space-x-2">
-                                    <button onclick="event.stopPropagation(); window.previewPDF('${url}', '${config.label}')" 
+                                    <button onclick="event.stopPropagation(); window.previewPDF(${request.id}, '${type}', '${config.label}')"
                                         class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-gray-700 transition-colors"
                                         title="Aperçu">
                                         <i class="fas fa-eye text-info"></i>
                                     </button>
-                                    <a href="${url}" download 
-                                        onclick="event.stopPropagation()"
+                                    <button onclick="event.stopPropagation(); window.downloadSinglePDF(${request.id}, '${type}', '${config.label}')"
                                         class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-gray-700 transition-colors"
                                         title="Télécharger">
                                         <i class="fas fa-download text-success"></i>
-                                    </a>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -6547,9 +6526,7 @@ function generatePDFDocumentsSection(request) {
     `;
 }
 
-/**
- * Section Notes
- */
+
 function generateNotesSection(notes) {
     return `
         <div>
