@@ -615,18 +615,17 @@ exports.downloadPDF = async (req, res) => {
         const userRole = req.user.profile || req.user.role || 'USER';
         const request  = await checkAccessToRequest(req.params.id, userId, userRole);
 
-        if (!request.pdf_files?.[req.params.fileType]) {
-            return res.status(404).json({ success: false, message: 'Fichier PDF introuvable' });
+        const base64 = request.pdf_files?.[req.params.fileType];
+
+        if (!base64) {
+            return res.status(404).json({ success: false, message: 'PDF introuvable ou non encore généré' });
         }
 
-        const filePath = path.join(__dirname, '../../', request.pdf_files[req.params.fileType]);
-        try {
-            await fs.access(filePath);
-        } catch {
-            return res.status(404).json({ success: false, message: 'Fichier introuvable sur le serveur' });
-        }
-
-        res.download(filePath);
+        const buffer = Buffer.from(base64, 'base64');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${req.params.id}_${req.params.fileType}.pdf"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.send(buffer);
 
     } catch (error) {
         console.error('Erreur downloadPDF:', error.message);
