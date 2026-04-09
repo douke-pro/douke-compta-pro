@@ -1,10 +1,11 @@
 // =============================================================================
 // FICHIER : controllers/accountingController.js
-// Version : V18 — Nom réel de l'émetteur dans les écritures
+// Version : V19 — Vrai émetteur extrait du champ ref/narration dans getEntryDetails
 // Corrections appliquées :
-//   ✅ FIX-EMETTEUR : createJournalEntry — ref et narration avec nom réel
-//   ✅ FIX-EMETTEUR : handleCaisseEntry  — ref avec nom réel
-//   ✅ Conservation : toute la logique V17 (Dashboard, Balance, Grand Livre...)
+//   ✅ FIX-EMETTEUR V2 : getEntryDetails — extrait le vrai nom depuis ref/narration
+//   ✅ FIX-EMETTEUR V1 : createJournalEntry — ref et narration avec nom réel
+//   ✅ FIX-EMETTEUR V1 : handleCaisseEntry  — ref avec nom réel
+//   ✅ Conservation    : toute la logique V18 intacte
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -57,7 +58,7 @@ exports.getFiscalConfig = async (req, res) => {
         console.error('🚨 getFiscalConfig Error:', error.message);
         const currentYear = new Date().getFullYear();
         res.json({
-            status:       'success',
+            status:        'success',
             fiscal_period: {
                 start_date: `${currentYear}-01-01`,
                 end_date:   `${currentYear}-12-31`
@@ -93,9 +94,9 @@ exports.getFinancialReport = async (req, res) => {
             model:  'account.move.line',
             method: 'search_read',
             args:   [[
-                ['company_id', 'in', [companyId]],
+                ['company_id',           'in', [companyId]],
                 ['analytic_distribution', 'in', [analyticId.toString()]],
-                ['parent_state', '=', 'posted']
+                ['parent_state',         '=',  'posted']
             ]],
             kwargs: {
                 fields:  ['account_id', 'debit', 'credit', 'date', 'name'],
@@ -104,21 +105,17 @@ exports.getFinancialReport = async (req, res) => {
         });
 
         let report = {
-            chiffreAffaires:      0,
-            chargesExploitation:  0,
-            tresorerie:           0,
-            resultat:             0
+            chiffreAffaires:     0,
+            chargesExploitation: 0,
+            tresorerie:          0,
+            resultat:            0
         };
 
         moveLines.forEach(line => {
             const accountCode = line.account_id ? line.account_id[1] : '';
-            if (accountCode.startsWith('7')) {
-                report.chiffreAffaires += (line.credit - line.debit);
-            } else if (accountCode.startsWith('6')) {
-                report.chargesExploitation += (line.debit - line.credit);
-            } else if (accountCode.startsWith('5')) {
-                report.tresorerie += (line.debit - line.credit);
-            }
+            if      (accountCode.startsWith('7')) { report.chiffreAffaires     += (line.credit - line.debit); }
+            else if (accountCode.startsWith('6')) { report.chargesExploitation += (line.debit  - line.credit); }
+            else if (accountCode.startsWith('5')) { report.tresorerie          += (line.debit  - line.credit); }
         });
 
         report.resultat = report.chiffreAffaires - report.chargesExploitation;
@@ -126,7 +123,7 @@ exports.getFinancialReport = async (req, res) => {
         if (systemType === 'SMT') {
             return res.json({
                 systeme: 'Minimal de Trésorerie (SMT)',
-                flux:    {
+                flux: {
                     encaissements: report.chiffreAffaires,
                     decaissements: report.chargesExploitation,
                     soldeNet:      report.tresorerie
@@ -135,8 +132,8 @@ exports.getFinancialReport = async (req, res) => {
         }
 
         res.json({
-            systeme:  'Normal (Comptabilité d\'engagement)',
-            donnees:  report
+            systeme: 'Normal (Comptabilité d\'engagement)',
+            donnees: report
         });
 
     } catch (error) {
@@ -162,13 +159,9 @@ exports.getDashboardData = async (req, res) => {
         console.log(`   User: ${req.user ? req.user.email : 'N/A'}`);
 
         if (!companyId || !ADMIN_UID_INT) {
-            return res.status(400).json({
-                status: 'error',
-                error:  'companyId requis.'
-            });
+            return res.status(400).json({ status: 'error', error: 'companyId requis.' });
         }
 
-        // ── 1. Comptes pour KPIs ─────────────────────────────────────────────
         const accounts = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.account',
@@ -182,17 +175,16 @@ exports.getDashboardData = async (req, res) => {
 
         console.log(`✅ ${accounts.length} comptes récupérés`);
 
-        // ── 2. Calcul des KPIs ───────────────────────────────────────────────
-        let cashBalance  = 0;
-        let totalIncome  = 0;
+        let cashBalance   = 0;
+        let totalIncome   = 0;
         let totalExpenses = 0;
         let shortTermDebt = 0;
 
         accounts.forEach(account => {
             const code    = account.code || '';
             const balance = account.current_balance || 0;
-            if (code.startsWith('5')) { cashBalance   += balance; }
-            else if (code.startsWith('7')) { totalIncome  += Math.abs(balance); }
+            if      (code.startsWith('5')) { cashBalance   += balance; }
+            else if (code.startsWith('7')) { totalIncome   += Math.abs(balance); }
             else if (code.startsWith('6')) { totalExpenses += Math.abs(balance); }
             else if (code.startsWith('4')) { shortTermDebt += Math.abs(balance); }
         });
@@ -200,18 +192,16 @@ exports.getDashboardData = async (req, res) => {
         const netProfit   = totalIncome - totalExpenses;
         const grossMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100) : 0;
 
-        // ── 3. Écritures récentes ────────────────────────────────────────────
         let recentLines = [];
-
         try {
             recentLines = await odooExecuteKw({
                 uid:    ADMIN_UID_INT,
                 model:  'account.move.line',
                 method: 'search_read',
                 args:   [[
-                    ['company_id',    '=', companyId],
-                    ['parent_state',  '=', 'posted'],
-                    ['account_id',    '!=', false],
+                    ['company_id',   '=', companyId],
+                    ['parent_state', '=', 'posted'],
+                    ['account_id',   '!=', false],
                     '|',
                     ['debit',  '>', 0],
                     ['credit', '>', 0]
@@ -223,15 +213,12 @@ exports.getDashboardData = async (req, res) => {
                     context: { company_id: companyId, allowed_company_ids: [companyId] }
                 }
             });
-
             console.log(`✅ ${recentLines.length} lignes récupérées`);
-
         } catch (lineError) {
             console.error('⚠️ Erreur récupération lignes:', lineError.message);
             recentLines = [];
         }
 
-        // ── 4. Formatage écritures ───────────────────────────────────────────
         const recentEntries = recentLines.map(line => ({
             id:      line.id,
             date:    line.date,
@@ -407,7 +394,6 @@ exports.createJournalEntry = async (req, res) => {
         const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
         const { journal_code, date, reference, lines } = req.body;
 
-        // ✅ FIX-EMETTEUR : Récupérer le vrai nom depuis req.user (mis dans token par loginUser)
         const emetteurName  = req.user?.name  || req.user?.email || 'Utilisateur';
         const emetteurEmail = req.user?.email || '';
 
@@ -427,7 +413,6 @@ exports.createJournalEntry = async (req, res) => {
             });
         }
 
-        // ── 1. Mapping journal_code → journal_id ─────────────────────────────
         const journalSearch = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.journal',
@@ -447,7 +432,6 @@ exports.createJournalEntry = async (req, res) => {
         const journalName = journalSearch[0].name;
         console.log(`✅ Journal: ${journalName} (ID: ${journalId})`);
 
-        // ── 2. Mapping account_code → account_id ─────────────────────────────
         const lineIds = await Promise.all(
             lines.map(async (line, idx) => {
                 const accountCode = line.account_code;
@@ -475,20 +459,18 @@ exports.createJournalEntry = async (req, res) => {
             })
         );
 
-        // ── 3. Création de l'écriture ─────────────────────────────────────────
-        // ✅ FIX-EMETTEUR : ref et narration contiennent le vrai nom
         const refLabel = reference
             ? `${reference} | Par : ${emetteurName}`
             : `Écriture - Par : ${emetteurName}`;
 
         const moveData = {
-            company_id:  companyId,
-            journal_id:  journalId,
-            date:        date,
-            ref:         refLabel,                          // ✅ nom émetteur dans ref
-            narration:   `Saisie par : ${emetteurName} (${emetteurEmail})`, // ✅ tracabilité
-            move_type:   'entry',
-            line_ids:    lineIds
+            company_id: companyId,
+            journal_id: journalId,
+            date:       date,
+            ref:        refLabel,
+            narration:  `Saisie par : ${emetteurName} (${emetteurEmail})`,
+            move_type:  'entry',
+            line_ids:   lineIds
         };
 
         const moveId = await odooExecuteKw({
@@ -501,7 +483,6 @@ exports.createJournalEntry = async (req, res) => {
 
         console.log(`✅ Écriture créée: ID=${moveId}`);
 
-        // ── 4. Validation ─────────────────────────────────────────────────────
         await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.move',
@@ -512,7 +493,6 @@ exports.createJournalEntry = async (req, res) => {
 
         console.log('✅ Écriture validée');
 
-        // ── 5. Récupération du nom de l'écriture ──────────────────────────────
         const moveRecord = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.move',
@@ -754,8 +734,8 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             totals.total_credit   += acc.credit;
         });
 
-        const closingBalance = (totals.opening_debit + totals.total_debit) -
-                               (totals.opening_credit + totals.total_credit);
+        const closingBalance  = (totals.opening_debit + totals.total_debit) -
+                                (totals.opening_credit + totals.total_credit);
         totals.closing_debit  = closingBalance > 0 ? closingBalance : 0;
         totals.closing_credit = closingBalance < 0 ? Math.abs(closingBalance) : 0;
 
@@ -797,9 +777,9 @@ exports.getGeneralLedger = async (req, res) => {
             ['parent_state', '=', 'posted']
         ];
 
-        if (date_from)    domain.push(['date', '>=', date_from]);
-        if (date_to)      domain.push(['date', '<=', date_to]);
-        if (journal_ids)  domain.push(['journal_id', 'in', journal_ids.split(',').map(Number)]);
+        if (date_from)   domain.push(['date', '>=', date_from]);
+        if (date_to)     domain.push(['date', '<=', date_to]);
+        if (journal_ids) domain.push(['journal_id', 'in', journal_ids.split(',').map(Number)]);
 
         const lines = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
@@ -815,7 +795,7 @@ exports.getGeneralLedger = async (req, res) => {
 
         console.log(`📋 ${lines.length} lignes récupérées`);
 
-        const accountIds = [...new Set(lines.map(l => l.account_id?.[0]).filter(Boolean))];
+        const accountIds   = [...new Set(lines.map(l => l.account_id?.[0]).filter(Boolean))];
         const accountsInfo = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.account',
@@ -829,7 +809,7 @@ exports.getGeneralLedger = async (req, res) => {
             accountsMap[acc.id] = { code: acc.code, name: acc.name, account_type: acc.account_type };
         });
 
-        const moveIds = [...new Set(lines.map(l => l.move_id?.[0]).filter(Boolean))];
+        const moveIds   = [...new Set(lines.map(l => l.move_id?.[0]).filter(Boolean))];
         const movesInfo = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.move',
@@ -844,8 +824,8 @@ exports.getGeneralLedger = async (req, res) => {
         const ledger = {};
 
         lines.forEach(line => {
-            const accountId  = line.account_id?.[0];
-            if (!accountId)  return;
+            const accountId   = line.account_id?.[0];
+            if (!accountId) return;
             const accountInfo = accountsMap[accountId];
             if (!accountInfo) return;
 
@@ -898,6 +878,7 @@ exports.getGeneralLedger = async (req, res) => {
 
 // =============================================================================
 // 9. DÉTAILS D'UNE ÉCRITURE
+// ✅ FIX-EMETTEUR V2 : extrait le vrai émetteur depuis ref/narration
 // =============================================================================
 
 /**
@@ -927,12 +908,13 @@ exports.getEntryDetails = async (req, res) => {
             return res.status(403).json({ error: 'Accès refusé.' });
         }
 
+        // ✅ FIX-EMETTEUR V2 : ajout de 'narration' dans les champs lus
         const moveData = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.move',
             method: 'read',
             args:   [[moveId], [
-                'name', 'date', 'ref', 'journal_id', 'state',
+                'name', 'date', 'ref', 'narration', 'journal_id', 'state',
                 'amount_total', 'line_ids', 'create_date', 'write_date',
                 'create_uid', 'write_uid'
             ]],
@@ -968,8 +950,23 @@ exports.getEntryDetails = async (req, res) => {
             partner:      line.partner_id ? line.partner_id[1] : null
         }));
 
-        const totalDebit  = formattedLines.reduce((sum, l) => sum + l.debit, 0);
+        const totalDebit  = formattedLines.reduce((sum, l) => sum + l.debit,  0);
         const totalCredit = formattedLines.reduce((sum, l) => sum + l.credit, 0);
+
+        // ✅ FIX-EMETTEUR V2 : extraction du vrai émetteur depuis ref ou narration
+        // Format ref stocké    : "REFERENCE | Par : NOM"  ou "Écriture - Par : NOM"
+        // Format narration     : "Saisie par : NOM (email)"
+        const refValue       = move.ref       || '';
+        const narrationValue = move.narration || '';
+
+        const emetteurFromRef       = refValue.match(/Par\s*:\s*(.+)$/i);
+        const emetteurFromNarration = narrationValue.match(/Saisie par\s*:\s*([^(]+)/i);
+
+        const vraiEmetteur = emetteurFromRef
+            ? emetteurFromRef[1].trim()
+            : emetteurFromNarration
+                ? emetteurFromNarration[1].trim()
+                : (move.create_uid ? move.create_uid[1] : 'N/A');
 
         res.status(200).json({
             status: 'success',
@@ -992,8 +989,8 @@ exports.getEntryDetails = async (req, res) => {
                 metadata: {
                     created_at: move.create_date,
                     updated_at: move.write_date,
-                    created_by: move.create_uid ? move.create_uid[1] : 'N/A',
-                    updated_by: move.write_uid ? move.write_uid[1] : 'N/A'
+                    created_by: vraiEmetteur,   // ✅ vrai émetteur
+                    updated_by: vraiEmetteur    // ✅ vrai émetteur
                 }
             }
         });
@@ -1018,7 +1015,6 @@ exports.handleCaisseEntry = async (req, res) => {
         const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
         const { type, contraAccountCode, libelle, amount } = req.body;
 
-        // ✅ FIX-EMETTEUR : Récupérer le vrai nom depuis req.user
         const emetteurName  = req.user?.name  || req.user?.email || 'Utilisateur';
         const emetteurEmail = req.user?.email || '';
 
@@ -1038,7 +1034,6 @@ exports.handleCaisseEntry = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'Le montant doit être positif.' });
         }
 
-        // ── Recherche compte contrepartie ─────────────────────────────────────
         const contraAccountSearch = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.account',
@@ -1056,7 +1051,6 @@ exports.handleCaisseEntry = async (req, res) => {
 
         const contraAccountId = contraAccountSearch[0].id;
 
-        // ── Recherche compte caisse ───────────────────────────────────────────
         const caisseAccountSearch = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.account',
@@ -1074,7 +1068,6 @@ exports.handleCaisseEntry = async (req, res) => {
 
         const caisseAccountId = caisseAccountSearch[0].id;
 
-        // ── Recherche journal caisse ──────────────────────────────────────────
         const journalSearch = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.journal',
@@ -1092,27 +1085,24 @@ exports.handleCaisseEntry = async (req, res) => {
 
         const journalId = journalSearch[0].id;
 
-        // ── Construction des lignes ───────────────────────────────────────────
         let lineIds;
         if (type === 'RECETTE') {
             lineIds = [
-                [0, 0, { account_id: caisseAccountId,  name: libelle, debit: parseFloat(amount), credit: 0 }],
-                [0, 0, { account_id: contraAccountId,  name: libelle, debit: 0, credit: parseFloat(amount) }]
+                [0, 0, { account_id: caisseAccountId, name: libelle, debit: parseFloat(amount), credit: 0 }],
+                [0, 0, { account_id: contraAccountId, name: libelle, debit: 0, credit: parseFloat(amount) }]
             ];
         } else {
             lineIds = [
-                [0, 0, { account_id: contraAccountId,  name: libelle, debit: parseFloat(amount), credit: 0 }],
-                [0, 0, { account_id: caisseAccountId,  name: libelle, debit: 0, credit: parseFloat(amount) }]
+                [0, 0, { account_id: contraAccountId, name: libelle, debit: parseFloat(amount), credit: 0 }],
+                [0, 0, { account_id: caisseAccountId, name: libelle, debit: 0, credit: parseFloat(amount) }]
             ];
         }
 
-        // ── Création de l'écriture ────────────────────────────────────────────
-        // ✅ FIX-EMETTEUR : ref contient le vrai nom de l'émetteur
         const moveData = {
             company_id: companyId,
             journal_id: journalId,
             date:       new Date().toISOString().split('T')[0],
-            ref:        `${type} - ${libelle} | Par : ${emetteurName}`,  // ✅ nom émetteur
+            ref:        `${type} - ${libelle} | Par : ${emetteurName}`,
             narration:  `Saisie par : ${emetteurName} (${emetteurEmail})`,
             move_type:  'entry',
             line_ids:   lineIds
@@ -1126,7 +1116,6 @@ exports.handleCaisseEntry = async (req, res) => {
             kwargs: { context: { allowed_company_ids: [companyId] } }
         });
 
-        // ── Validation ────────────────────────────────────────────────────────
         await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.move',
@@ -1135,7 +1124,6 @@ exports.handleCaisseEntry = async (req, res) => {
             kwargs: { context: { allowed_company_ids: [companyId] } }
         });
 
-        // ── Récupération du nom de l'écriture ─────────────────────────────────
         const moveRecord = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.move',
@@ -1223,14 +1211,14 @@ exports.getBalanceSheet = async (req, res) => {
 
         const bilan = {
             actif: {
-                immobilise: { label: 'ACTIF IMMOBILISÉ',  accounts: [], total: 0 },
-                circulant:  { label: 'ACTIF CIRCULANT',   accounts: [], total: 0 },
-                tresorerie: { label: 'TRÉSORERIE-ACTIF',  accounts: [], total: 0 }
+                immobilise: { label: 'ACTIF IMMOBILISÉ',   accounts: [], total: 0 },
+                circulant:  { label: 'ACTIF CIRCULANT',    accounts: [], total: 0 },
+                tresorerie: { label: 'TRÉSORERIE-ACTIF',   accounts: [], total: 0 }
             },
             passif: {
-                capitaux:   { label: 'CAPITAUX PROPRES',  accounts: [], total: 0 },
-                dettes:     { label: 'DETTES FINANCIÈRES',accounts: [], total: 0 },
-                tresorerie: { label: 'TRÉSORERIE-PASSIF', accounts: [], total: 0 }
+                capitaux:   { label: 'CAPITAUX PROPRES',   accounts: [], total: 0 },
+                dettes:     { label: 'DETTES FINANCIÈRES', accounts: [], total: 0 },
+                tresorerie: { label: 'TRÉSORERIE-PASSIF',  accounts: [], total: 0 }
             }
         };
 
@@ -1266,8 +1254,8 @@ exports.getBalanceSheet = async (req, res) => {
             }
         });
 
-        const totalActif  = bilan.actif.immobilise.total  + bilan.actif.circulant.total  + bilan.actif.tresorerie.total;
-        const totalPassif = bilan.passif.capitaux.total + bilan.passif.dettes.total + bilan.passif.tresorerie.total;
+        const totalActif  = bilan.actif.immobilise.total + bilan.actif.circulant.total  + bilan.actif.tresorerie.total;
+        const totalPassif = bilan.passif.capitaux.total  + bilan.passif.dettes.total    + bilan.passif.tresorerie.total;
 
         console.log('✅ Bilan généré');
 
