@@ -6701,33 +6701,54 @@ window.dismissCancelledRequest = function(requestId) {
  /**
  * Prévisualiser un PDF dans un modal
  */
-window.previewPDF = function(url, title) {
-    const previewContent = `
-        <div class="p-6">
-            <div class="bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden" style="height: 600px;">
-                <iframe src="${url}" 
-                    class="w-full h-full border-0"
-                    title="${title}">
-                </iframe>
-            </div>
-            <div class="mt-4 flex justify-between">
-                <button onclick="ModalManager.close()" 
-                    class="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <i class="fas fa-times mr-2"></i>
-                    Fermer
-                </button>
-                <a href="${url}" download 
-                    class="px-6 py-3 bg-success text-white rounded-xl font-semibold hover:bg-success/90 transition-colors">
-                    <i class="fas fa-download mr-2"></i>
-                    Télécharger
-                </a>
-            </div>
-        </div>
-    `;
-    
-    ModalManager.open(`📄 ${title}`, previewContent, 'max-w-5xl');
-};
+window.previewPDF = async function(requestId, fileType, title) {
+    try {
+        NotificationManager.show('Chargement du PDF...', 'info');
 
+        const response = await fetch(
+            `${window.API_BASE_URL || ''}/api/reports/${requestId}/download/${fileType}`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${appState.token || localStorage.getItem('douke_auth_token')}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error('PDF introuvable ou non encore généré');
+        }
+
+        const blob      = await response.blob();
+        const blobUrl   = URL.createObjectURL(blob);
+
+        const previewContent = `
+            <div class="p-6">
+                <div class="bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden" style="height: 600px;">
+                    <iframe src="${blobUrl}"
+                        class="w-full h-full border-0"
+                        title="${title}">
+                    </iframe>
+                </div>
+                <div class="mt-4 flex justify-between">
+                    <button onclick="ModalManager.close(); URL.revokeObjectURL('${blobUrl}');"
+                        class="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-times mr-2"></i>Fermer
+                    </button>
+                    <a href="${blobUrl}" download="${requestId}_${fileType}.pdf"
+                        class="px-6 py-3 bg-success text-white rounded-xl font-semibold hover:bg-success/90 transition-colors">
+                        <i class="fas fa-download mr-2"></i>Télécharger
+                    </a>
+                </div>
+            </div>
+        `;
+
+        ModalManager.open(`📄 ${title}`, previewContent, 'max-w-5xl');
+
+    } catch (error) {
+        console.error('❌ [previewPDF] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
 /**
  * ============================================
  * ACTIONS COLLABORATEUR/ADMIN
