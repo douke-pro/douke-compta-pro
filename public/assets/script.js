@@ -6526,6 +6526,37 @@ function generatePDFDocumentsSection(request) {
     `;
 }
 
+window.downloadSinglePDF = async function(requestId, fileType, title) {
+    try {
+        NotificationManager.show('Téléchargement en cours...', 'info');
+
+        const response = await fetch(
+            `/api/reports/${requestId}/download/${fileType}`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${appState.token || localStorage.getItem('douke_auth_token')}`
+                }
+            }
+        );
+
+        if (!response.ok) throw new Error('PDF introuvable');
+
+        const blob     = await response.blob();
+        const blobUrl  = URL.createObjectURL(blob);
+        const a        = document.createElement('a');
+        a.href         = blobUrl;
+        a.download     = `${requestId}_${fileType}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+
+        NotificationManager.show('✅ Téléchargement réussi', 'success');
+    } catch (error) {
+        console.error('❌ [downloadSinglePDF] Erreur:', error);
+        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+    }
+};
 
 function generateNotesSection(notes) {
     return `
