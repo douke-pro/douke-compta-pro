@@ -50,14 +50,15 @@ const protect = async (req, res, next) => {
         
         // Injecter les données utilisateur dans req
         req.user = {
-            odooUid: decoded.odooUid,
-            email: decoded.email,
-            role: decoded.role || 'USER',
-            profile: decoded.profile || decoded.role || 'USER',
-            selectedCompanyId: decoded.selectedCompanyId,
-            companyId: decoded.companyId || decoded.selectedCompanyId,  // ✅ AJOUT
-            currentCompanyId: decoded.currentCompanyId || decoded.selectedCompanyId  // ✅ AJOUT
-        };
+    odooUid:           decoded.odooUid,
+    email:             decoded.email,
+    name:              decoded.name || decoded.email || 'Utilisateur', // ✅ AJOUT
+    role:              decoded.role || 'USER',
+    profile:           decoded.profile || decoded.role || 'USER',
+    selectedCompanyId: decoded.selectedCompanyId,
+    companyId:         decoded.companyId || decoded.selectedCompanyId,
+    currentCompanyId:  decoded.currentCompanyId || decoded.selectedCompanyId
+};
 
         console.log('✅ [protect] Utilisateur authentifié:', req.user.email);
         next();
