@@ -273,4 +273,23 @@ router.post('/fiscal-years', authenticateToken, async (req, res) => {
     }
 });
 
+// =============================================================================
+// ROUTES CLÔTURE FISCALE — closingController.js
+// =============================================================================
+const closingController = require('../controllers/closingController');
+
+// Lecture
+router.get ('/closing/status',     authMiddleware, closingController.getClosingStatus);
+router.get ('/closing/pre-checks', authMiddleware, closingController.runPreChecks);
+router.get ('/closing/audit-log',  authMiddleware, closingController.getAuditLog);
+
+// Flux normal de clôture (dans l'ordre)
+router.post('/closing/post-result', authMiddleware, closingController.postResultEntry);
+router.post('/closing/lock',        authMiddleware, closingController.lockFiscalYear);
+router.post('/closing/finalize',    authMiddleware, closingController.finalizeClosing);
+
+// Flux correction (admin uniquement)
+router.post('/closing/unlock',  authMiddleware, closingController.unlockFiscalYear);
+router.post('/closing/relock',  authMiddleware, closingController.relockFiscalYear);
+
 module.exports = router;
