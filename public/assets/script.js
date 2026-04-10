@@ -2813,6 +2813,9 @@ function generateReportsMenuHTML() {
                 </div>
             </div>
 
+            <!-- ============================================================ -->
+            <!-- SECTION 1 : ÉTATS FINANCIERS OFFICIELS                       -->
+            <!-- ============================================================ -->
             <div class="mb-10">
                 <div class="flex items-center mb-6">
                     <div class="flex-1 border-t-2 border-primary"></div>
@@ -2876,6 +2879,9 @@ function generateReportsMenuHTML() {
                 `}
             </div>
 
+            <!-- ============================================================ -->
+            <!-- SECTION 2 : RAPPORTS INTERACTIFS                             -->
+            <!-- ============================================================ -->
             <div>
                 <div class="flex items-center mb-6">
                     <div class="flex-1 border-t-2 border-info"></div>
@@ -2923,6 +2929,40 @@ function generateReportsMenuHTML() {
                     )}
                 </div>
             </div>
+
+            <!-- ============================================================ -->
+            <!-- SECTION 3 : CLÔTURE FISCALE (ADMIN UNIQUEMENT)              -->
+            <!-- ============================================================ -->
+            ${isAdmin ? `
+                <div class="mt-10">
+                    <div class="flex items-center mb-6">
+                        <div class="flex-1 border-t-2 border-danger"></div>
+                        <h4 class="px-4 text-xl font-black text-danger uppercase tracking-wider">
+                            <i class="fas fa-lock mr-2"></i>
+                            Clôture Fiscale
+                        </h4>
+                        <div class="flex-1 border-t-2 border-danger"></div>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-danger p-4 rounded-lg mb-6">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-exclamation-triangle text-danger text-xl mt-1"></i>
+                            <div>
+                                <p class="text-sm font-bold text-gray-900 dark:text-white mb-1">
+                                    Opération comptable irréversible
+                                </p>
+                                <p class="text-xs text-gray-700 dark:text-gray-300">
+                                    La clôture verrouille l'exercice dans Odoo. Le déverrouillage reste possible avec piste d'audit complète.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="window.openClosingWizard()"
+                        class="w-full py-4 bg-danger text-white font-black rounded-2xl hover:bg-red-700 transition-colors text-lg shadow-lg">
+                        <i class="fas fa-lock mr-3"></i>
+                        Démarrer la Clôture de l'Exercice Fiscal
+                    </button>
+                </div>
+            ` : ''}
 
             <style>
                 details[open] .details-icon {
