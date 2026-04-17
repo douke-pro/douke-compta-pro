@@ -368,54 +368,123 @@ exports.runPreChecks = async (req, res) => {
 // =============================================================================
 // 3. POST /api/closing/post-result
 // =============================================================================
+// =============================================================================
+// 3. POST /api/closing/post-result
+// ✅ V1.3 — Validation stricte, gestion d'erreur robuste, transaction sécurisée
+// =============================================================================
 exports.postResultEntry = async (req, res) => {
+    const client = await pool.connect(); // Pour transaction atomique
+    
     try {
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉTAPE 1 : VALIDATION STRICTE DES DONNÉES
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        // Normalisation des entrées
         const companyId    = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
-        const fiscalYear   = parseInt(req.body.fiscal_year) || new Date().getFullYear();
+        const fiscalYear   = parseInt(req.body.fiscal_year);
         const resultAmount = parseFloat(req.body.result_amount);
-        const resultType   = req.body.result_type;
+        const resultType   = String(req.body.result_type || '').toLowerCase().trim();
         const emetteur     = req.user?.name || req.user?.email || 'Admin';
 
-        if (!companyId || isNaN(resultAmount) || !resultType) {
+        // Validation companyId
+        if (!companyId || isNaN(companyId) || companyId <= 0) {
             return res.status(400).json({
                 status : 'error',
-                error  : 'Données incomplètes : companyId, result_amount, result_type requis.'
+                error  : 'companyId invalide (entier positif requis)',
+                field  : 'companyId',
+                value  : req.body.companyId || req.body.company_id
             });
         }
 
+        // Validation fiscalYear
+        if (!fiscalYear || isNaN(fiscalYear) || fiscalYear < 2000 || fiscalYear > 2100) {
+            return res.status(400).json({
+                status : 'error',
+                error  : 'fiscal_year invalide (année entre 2000 et 2100 requise)',
+                field  : 'fiscal_year',
+                value  : req.body.fiscal_year
+            });
+        }
+
+        // Validation resultAmount
+        if (isNaN(resultAmount) || resultAmount <= 0) {
+            return res.status(400).json({
+                status : 'error',
+                error  : 'result_amount invalide (nombre strictement positif requis)',
+                field  : 'result_amount',
+                value  : req.body.result_amount
+            });
+        }
+
+        // Validation resultType
         if (!['profit', 'loss'].includes(resultType)) {
             return res.status(400).json({
                 status : 'error',
-                error  : 'result_type invalide — valeurs acceptées : profit | loss'
+                error  : `result_type invalide : "${req.body.result_type}" (valeurs acceptées : "profit" ou "loss")`,
+                field  : 'result_type',
+                value  : req.body.result_type
             });
         }
 
-        if (resultAmount <= 0) {
-            return res.status(400).json({
-                status : 'error',
-                error  : 'result_amount doit être positif.'
-            });
-        }
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉTAPE 2 : VÉRIFICATION ÉTAT DE CLÔTURE (AVEC LOCK TRANSACTIONNEL)
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        await client.query('BEGIN');
 
-        // Vérifier qu'une clôture n'existe pas déjà à ce stade
-        const existing = await pool.queryWithRetry(
-            `SELECT status FROM fiscal_year_closings
-             WHERE company_id = $1 AND fiscal_year = $2 LIMIT 1`,
+        const existing = await client.query(
+            `SELECT status, result_move_name, result_move_id
+             FROM fiscal_year_closings
+             WHERE company_id = $1 AND fiscal_year = $2
+             FOR UPDATE`, // ✅ Lock pour éviter race condition
             [companyId, fiscalYear]
         );
 
-        if (existing.rows.length > 0 &&
-            ['result_posted', 'locked', 'closed'].includes(existing.rows[0].status)) {
-            return res.status(409).json({
+        // Bloquer si déjà clôturé
+        if (existing.rows.length > 0) {
+            const currentStatus = existing.rows[0].status;
+            
+            if (['result_posted', 'locked', 'closed'].includes(currentStatus)) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({
+                    status : 'error',
+                    error  : `L'écriture de résultat pour l'exercice ${fiscalYear} existe déjà.`,
+                    details : {
+                        current_status : currentStatus,
+                        existing_move  : existing.rows[0].result_move_name,
+                        move_id        : existing.rows[0].result_move_id
+                    }
+                });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉTAPE 3 : RÉCUPÉRATION DES RESSOURCES ODOO
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        const yearEnd = `${fiscalYear}-12-31`;
+        
+        // Récupération journal avec timeout
+        let journalId;
+        try {
+            journalId = await Promise.race([
+                getMiscJournalId(companyId),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout récupération journal (15s)')), 15000)
+                )
+            ]);
+        } catch (journalErr) {
+            await client.query('ROLLBACK');
+            console.error('🚨 [postResultEntry] Échec récupération journal:', journalErr.message);
+            return res.status(500).json({
                 status : 'error',
-                error  : `L'écriture de résultat pour ${fiscalYear} existe déjà (statut: ${existing.rows[0].status}).`
+                error  : `Impossible de récupérer le journal des opérations diverses : ${journalErr.message}`,
+                hint   : 'Vérifiez qu\'un journal de type "general" existe dans Odoo pour cette entreprise.'
             });
         }
 
-        const yearEnd   = `${fiscalYear}-12-31`;
-        const journalId = await getMiscJournalId(companyId);
-
-        // Comptes selon bénéfice ou perte
+        // Détermination des comptes selon profit/loss
         let debitAccountCode, creditAccountCode;
         if (resultType === 'profit') {
             // Bénéfice : Débit 999999 (solde le pivot) / Crédit 130100
@@ -427,9 +496,37 @@ exports.postResultEntry = async (req, res) => {
             creditAccountCode = ACCOUNTS.RESULT_UNAFFECTED;
         }
 
-        const debitAccountId  = await getAccountId(debitAccountCode,  companyId);
-        const creditAccountId = await getAccountId(creditAccountCode, companyId);
+        // Récupération IDs comptes avec timeout
+        let debitAccountId, creditAccountId;
+        try {
+            [debitAccountId, creditAccountId] = await Promise.all([
+                Promise.race([
+                    getAccountId(debitAccountCode, companyId),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error(`Timeout compte ${debitAccountCode}`)), 10000)
+                    )
+                ]),
+                Promise.race([
+                    getAccountId(creditAccountCode, companyId),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error(`Timeout compte ${creditAccountCode}`)), 10000)
+                    )
+                ])
+            ]);
+        } catch (accountErr) {
+            await client.query('ROLLBACK');
+            console.error('🚨 [postResultEntry] Échec récupération comptes:', accountErr.message);
+            return res.status(500).json({
+                status : 'error',
+                error  : `Compte comptable manquant : ${accountErr.message}`,
+                hint   : `Vérifiez que les comptes ${debitAccountCode} et ${creditAccountCode} existent dans le plan comptable Odoo.`
+            });
+        }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉTAPE 4 : CRÉATION DE L'ÉCRITURE DANS ODOO
+        // ═══════════════════════════════════════════════════════════════════════
+        
         const libelle  = `Affectation résultat ${fiscalYear} — ${resultType === 'profit' ? 'Bénéfice' : 'Perte'}`;
         const moveData = {
             company_id : companyId,
@@ -454,56 +551,139 @@ exports.postResultEntry = async (req, res) => {
             ]
         };
 
-        const moveId = await odooExecuteKw({
-            uid    : ADMIN_UID_INT,
-            model  : 'account.move',
-            method : 'create',
-            args   : [moveData],
-            kwargs : { context: { allowed_company_ids: [companyId] } }
-        });
+        // Création avec timeout
+        let moveId;
+        try {
+            moveId = await Promise.race([
+                odooExecuteKw({
+                    uid    : ADMIN_UID_INT,
+                    model  : 'account.move',
+                    method : 'create',
+                    args   : [moveData],
+                    kwargs : { context: { allowed_company_ids: [companyId] } }
+                }),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout création écriture (20s)')), 20000)
+                )
+            ]);
+        } catch (createErr) {
+            await client.query('ROLLBACK');
+            console.error('🚨 [postResultEntry] Échec création écriture:', createErr.message);
+            return res.status(500).json({
+                status : 'error',
+                error  : `Échec création de l'écriture dans Odoo : ${createErr.message}`
+            });
+        }
 
-        await odooExecuteKw({
-            uid    : ADMIN_UID_INT,
-            model  : 'account.move',
-            method : 'action_post',
-            args   : [[moveId]],
-            kwargs : { context: { allowed_company_ids: [companyId] } }
-        });
+        // Validation (post) de l'écriture
+        try {
+            await Promise.race([
+                odooExecuteKw({
+                    uid    : ADMIN_UID_INT,
+                    model  : 'account.move',
+                    method : 'action_post',
+                    args   : [[moveId]],
+                    kwargs : { context: { allowed_company_ids: [companyId] } }
+                }),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout validation écriture (15s)')), 15000)
+                )
+            ]);
+        } catch (postErr) {
+            // ⚠️ L'écriture existe mais n'est pas validée — tentative de suppression
+            console.error('🚨 [postResultEntry] Échec validation:', postErr.message);
+            
+            try {
+                await odooExecuteKw({
+                    uid    : ADMIN_UID_INT,
+                    model  : 'account.move',
+                    method : 'unlink',
+                    args   : [[moveId]],
+                    kwargs : {}
+                });
+                console.log(`🗑️  [postResultEntry] Écriture ${moveId} supprimée (validation échouée)`);
+            } catch (unlinkErr) {
+                console.error('🚨 [postResultEntry] Impossible de supprimer l\'écriture en brouillon:', unlinkErr.message);
+            }
 
-        const moveRecord = await odooExecuteKw({
-            uid    : ADMIN_UID_INT,
-            model  : 'account.move',
-            method : 'read',
-            args   : [[moveId], ['name']],
-            kwargs : {}
-        });
-        const moveName = moveRecord?.[0]?.name || `MISC-${moveId}`;
+            await client.query('ROLLBACK');
+            return res.status(500).json({
+                status : 'error',
+                error  : `L'écriture a été créée mais sa validation a échoué : ${postErr.message}`,
+                hint   : 'Vérifiez l\'écriture manuellement dans Odoo (peut être en brouillon).',
+                move_id : moveId
+            });
+        }
 
-        // Sauvegarder dans Supabase
-        await pool.queryWithRetry(
-            `INSERT INTO fiscal_year_closings
-                (company_id, fiscal_year, status, result_amount, result_type,
-                 result_move_id, result_move_name, debit_account, credit_account,
-                 initiated_by, initiated_at)
-             VALUES ($1, $2, 'result_posted', $3, $4, $5, $6, $7, $8, $9, NOW())
-             ON CONFLICT (company_id, fiscal_year)
-             DO UPDATE SET
-                status           = 'result_posted',
-                result_amount    = $3,
-                result_type      = $4,
-                result_move_id   = $5,
-                result_move_name = $6,
-                debit_account    = $7,
-                credit_account   = $8,
-                initiated_by     = $9`,
-            [
-                companyId, fiscalYear, resultAmount, resultType,
-                moveId, moveName, debitAccountCode, creditAccountCode,
-                emetteur
-            ]
-        );
+        // Récupération du nom de l'écriture
+        let moveName;
+        try {
+            const moveRecord = await Promise.race([
+                odooExecuteKw({
+                    uid    : ADMIN_UID_INT,
+                    model  : 'account.move',
+                    method : 'read',
+                    args   : [[moveId], ['name']],
+                    kwargs : {}
+                }),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout lecture nom écriture')), 10000)
+                )
+            ]);
+            moveName = moveRecord?.[0]?.name || `MISC/${fiscalYear}/${moveId}`;
+        } catch (readErr) {
+            console.warn('⚠️ [postResultEntry] Impossible de lire le nom:', readErr.message);
+            moveName = `MISC/${fiscalYear}/${moveId}`;
+        }
 
-        await writeAuditLog({
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉTAPE 5 : SAUVEGARDE DANS SUPABASE
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        if (existing.rows.length === 0) {
+            // INSERT (première fois)
+            await client.query(
+                `INSERT INTO fiscal_year_closings
+                    (company_id, fiscal_year, status, result_amount, result_type,
+                     result_move_id, result_move_name, debit_account, credit_account,
+                     initiated_by, initiated_at)
+                 VALUES ($1, $2, 'result_posted', $3, $4, $5, $6, $7, $8, $9, NOW())`,
+                [
+                    companyId, fiscalYear, resultAmount, resultType,
+                    moveId, moveName, debitAccountCode, creditAccountCode,
+                    emetteur
+                ]
+            );
+        } else {
+            // UPDATE (clôture existante en état 'open')
+            await client.query(
+                `UPDATE fiscal_year_closings
+                 SET status           = 'result_posted',
+                     result_amount    = $1,
+                     result_type      = $2,
+                     result_move_id   = $3,
+                     result_move_name = $4,
+                     debit_account    = $5,
+                     credit_account   = $6,
+                     initiated_by     = $7,
+                     initiated_at     = NOW()
+                 WHERE company_id = $8 AND fiscal_year = $9`,
+                [
+                    resultAmount, resultType, moveId, moveName,
+                    debitAccountCode, creditAccountCode, emetteur,
+                    companyId, fiscalYear
+                ]
+            );
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉTAPE 6 : AUDIT ET COMMIT
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        await client.query('COMMIT');
+
+        // Audit (après commit pour éviter rollback si échec audit)
+        const auditResult = await writeAuditLog({
             companyId,
             fiscalYear,
             action       : 'RESULT_POSTED',
@@ -519,8 +699,16 @@ exports.postResultEntry = async (req, res) => {
             ipAddress : getClientIp(req)
         });
 
+        if (!auditResult?.success) {
+            console.warn('⚠️ [postResultEntry] Audit échoué mais opération effectuée:', auditResult?.error);
+        }
+
         console.log(`✅ [postResultEntry] ${moveName} validée — Exercice ${fiscalYear} — ${emetteur}`);
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉTAPE 7 : RÉPONSE SUCCÈS
+        // ═══════════════════════════════════════════════════════════════════════
+        
         res.status(201).json({
             status      : 'success',
             move_id     : moveId,
@@ -530,18 +718,32 @@ exports.postResultEntry = async (req, res) => {
             amount      : resultAmount,
             debit       : debitAccountCode,
             credit      : creditAccountCode,
-            message     : `Écriture ${moveName} créée et validée par ${emetteur}.`
+            message     : `Écriture ${moveName} créée et validée par ${emetteur}.`,
+            audit       : auditResult?.success ? 'ok' : 'partial'
         });
 
     } catch (err) {
-        console.error('🚨 [postResultEntry]', err.message);
+        // Rollback en cas d'erreur non gérée
+        try {
+            await client.query('ROLLBACK');
+        } catch (rollbackErr) {
+            console.error('🚨 [postResultEntry] Échec ROLLBACK:', rollbackErr.message);
+        }
+
+        console.error('🚨 [postResultEntry] Erreur critique:', err.message, err.stack);
+        
         res.status(500).json({
             status : 'error',
-            error  : `Échec affectation résultat : ${err.message}`
+            error  : `Échec affectation résultat : ${err.message}`,
+            type   : err.name,
+            hint   : 'Consultez les logs serveur pour plus de détails.'
         });
+
+    } finally {
+        // Toujours libérer la connexion
+        client.release();
     }
 };
-
 // =============================================================================
 // 4. POST /api/closing/lock
 // ✅ CORRECTION V1.2 : comparaison lock date normalisée
