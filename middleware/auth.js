@@ -280,4 +280,29 @@ module.exports = {
     checkRole,
 };
 
+const jwt = require('jsonwebtoken');
+
+const protect = async (req, res, next) => {
+    // ... code existant
+};
+
+const isAdmin = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({
+            status: 'error',
+            error: 'Authentification requise'
+        });
+    }
+
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+        return res.status(403).json({
+            status: 'error',
+            error: 'Action réservée aux administrateurs'
+        });
+    }
+
+    next();
+};
+
+module.exports = { protect, isAdmin };
 console.log('✅ [middleware/auth] Chargé avec succès');
