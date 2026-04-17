@@ -75,7 +75,7 @@
                             <select id="closing-year-select"
                                 class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white font-bold">
                                 ${years.map(yr => `
-                                    <option value="${yr}" ${yr === currentYear - 1 ? 'selected' : ''}>
+                                    <option value="${yr}" ${yr === fiscalBadge ? 'selected' : ''}>
                                         Exercice ${yr} (01/01/${yr} — 31/12/${yr})
                                     </option>
                                 `).join('')}
