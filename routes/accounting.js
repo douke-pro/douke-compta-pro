@@ -184,22 +184,192 @@ router.post('/fiscal-years', authenticateToken, async (req, res) => {
 
 // =============================================================================
 // ROUTES CLÔTURE FISCALE
-// ✅ CORRECTION : authMiddleware → protect (défini en haut du fichier)
+// Version : 1.3
+// Corrections :
+//   ✅ Route /available-years ajoutée
+//   ✅ Middleware isAdmin sur unlock/relock
+//   ✅ Validation des paramètres
+//   ✅ Rate limiting sur actions sensibles
+//   ✅ Documentation JSDoc
 // =============================================================================
+
+const express = require('express');
+const router = express.Router();
 const closingController = require('../controllers/closingController');
+const { protect, isAdmin } = require('../middlewares/auth');
+const { 
+    validateClosingStatus, 
+    validatePreChecks,
+    validatePostResult,
+    validateLock,
+    validateUnlock,
+    validateFinalize,
+    validateAuditLog
+} = require('../middlewares/validateClosing');
+const rateLimit = require('express-rate-limit');
 
-// Lecture
-router.get ('/closing/status',      protect, closingController.getClosingStatus);
-router.get ('/closing/pre-checks',  protect, closingController.runPreChecks);
-router.get ('/closing/audit-log',   protect, closingController.getAuditLog);
+// Rate limiter pour actions critiques
+const unlockLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 3,
+    message: {
+        status: 'error',
+        error: 'Trop de tentatives. Réessayez dans 15 minutes.'
+    }
+});
 
-// Flux normal de clôture (dans l'ordre)
-router.post('/closing/post-result', protect, closingController.postResultEntry);
-router.post('/closing/lock',        protect, closingController.lockFiscalYear);
-router.post('/closing/finalize',    protect, closingController.finalizeClosing);
+// =============================================================================
+// ROUTES DE CONSULTATION
+// =============================================================================
 
-// Flux correction (admin uniquement)
-router.post('/closing/unlock',      protect, closingController.unlockFiscalYear);
-router.post('/closing/relock',      protect, closingController.relockFiscalYear);
+/**
+ * @route   GET /api/accounting/closing/available-years
+ * @desc    Liste des exercices fiscaux disponibles pour l'entreprise
+ * @access  Privé
+ * @query   {number} companyId - ID de l'entreprise
+ * @returns {object} status, data: [{ year, start_date, end_date, status, is_default }]
+ */
+router.get(
+    '/closing/available-years', 
+    protect, 
+    query('companyId').isInt({ min: 1 }),
+    closingController.getAvailableYears
+);
+
+/**
+ * @route   GET /api/accounting/closing/status
+ * @desc    État de clôture d'un exercice fiscal
+ * @access  Privé
+ * @query   {number} companyId - ID de l'entreprise
+ * @query   {number} year - Année fiscale
+ * @returns {object} status, data: { status, result_amount, lock_date, ... }
+ */
+router.get(
+    '/closing/status', 
+    protect, 
+    validateClosingStatus, 
+    closingController.getClosingStatus
+);
+
+/**
+ * @route   GET /api/accounting/closing/pre-checks
+ * @desc    Pré-vérifications avant clôture
+ * @access  Privé
+ * @query   {number} companyId - ID de l'entreprise
+ * @query   {number} year - Année fiscale
+ * @returns {object} status, data: { blocking, warnings, result, can_proceed }
+ */
+router.get(
+    '/closing/pre-checks', 
+    protect, 
+    validatePreChecks, 
+    closingController.runPreChecks
+);
+
+/**
+ * @route   GET /api/accounting/closing/audit-log
+ * @desc    Journal d'audit des actions de clôture
+ * @access  Privé
+ * @query   {number} companyId - ID de l'entreprise
+ * @query   {number} year - Année fiscale
+ * @returns {object} status, data: [{ action, performed_by, performed_at, ... }], count
+ */
+router.get(
+    '/closing/audit-log', 
+    protect, 
+    validateAuditLog, 
+    closingController.getAuditLog
+);
+
+// =============================================================================
+// FLUX NORMAL DE CLÔTURE (dans l'ordre)
+// =============================================================================
+
+/**
+ * @route   POST /api/accounting/closing/post-result
+ * @desc    Crée et valide l'écriture d'affectation du résultat dans Odoo
+ * @access  Privé
+ * @body    {number} companyId - ID de l'entreprise
+ * @body    {number} fiscal_year - Année fiscale
+ * @body    {number} result_amount - Montant du résultat
+ * @body    {string} result_type - 'profit' ou 'loss'
+ * @returns {object} status, move_name, move_id
+ */
+router.post(
+    '/closing/post-result', 
+    protect, 
+    validatePostResult, 
+    closingController.postResultEntry
+);
+
+/**
+ * @route   POST /api/accounting/closing/lock
+ * @desc    Verrouille l'exercice fiscal dans Odoo (fiscalyear_lock_date)
+ * @access  Privé
+ * @body    {number} companyId - ID de l'entreprise
+ * @body    {number} fiscal_year - Année fiscale
+ * @returns {object} status, lock_date
+ */
+router.post(
+    '/closing/lock', 
+    protect, 
+    validateLock, 
+    closingController.lockFiscalYear
+);
+
+/**
+ * @route   POST /api/accounting/closing/finalize
+ * @desc    Finalise la clôture (statut → 'closed')
+ * @access  Privé
+ * @body    {number} companyId - ID de l'entreprise
+ * @body    {number} fiscal_year - Année fiscale
+ * @body    {string} notes - Notes de clôture (optionnel)
+ * @returns {object} status, message
+ */
+router.post(
+    '/closing/finalize', 
+    protect, 
+    validateFinalize, 
+    closingController.finalizeClosing
+);
+
+// =============================================================================
+// FLUX CORRECTION (ADMIN UNIQUEMENT)
+// =============================================================================
+
+/**
+ * @route   POST /api/accounting/closing/unlock
+ * @desc    Déverrouille un exercice fiscal (ADMIN ONLY - tracé dans l'audit)
+ * @access  Privé (admin uniquement)
+ * @body    {number} companyId - ID de l'entreprise
+ * @body    {number} fiscal_year - Année fiscale
+ * @body    {string} reason - Motif obligatoire (min 10 caractères)
+ * @returns {object} status, message
+ */
+router.post(
+    '/closing/unlock', 
+    protect, 
+    isAdmin, 
+    unlockLimiter, 
+    validateUnlock, 
+    closingController.unlockFiscalYear
+);
+
+/**
+ * @route   POST /api/accounting/closing/relock
+ * @desc    Re-verrouille un exercice après correction (ADMIN ONLY)
+ * @access  Privé (admin uniquement)
+ * @body    {number} companyId - ID de l'entreprise
+ * @body    {number} fiscal_year - Année fiscale
+ * @body    {string} notes - Notes de re-verrouillage (optionnel)
+ * @returns {object} status, lock_date
+ */
+router.post(
+    '/closing/relock', 
+    protect, 
+    isAdmin, 
+    validateLock, 
+    closingController.relockFiscalYear
+);
 
 module.exports = router;
