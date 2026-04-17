@@ -24,10 +24,12 @@
     // STATE LOCAL
     // =========================================================================
     const closingState = {
-        fiscalYear : new Date().getFullYear() - 1,
-        preChecks  : null,
-        status     : null
-    };
+    fiscalYear : parseInt(
+        document.getElementById('fiscal-year-text')?.textContent?.trim()
+    ) || new Date().getFullYear(),
+    preChecks  : null,
+    status     : null
+};
 
     // Toujours lire depuis appState — protection multi-entreprise
     function getCompanyId() {
