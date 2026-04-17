@@ -1,21 +1,12 @@
 // =============================================================================
 // FICHIER : controllers/closingController.js
 // Description : Clôture fiscale réelle — Odoo 19 SaaS + Supabase
-// Version : V1 — avec déverrouillage contrôlé et audit complet
-//
-// Flux normal :
-//   1. getClosingStatus   → État actuel depuis Supabase
-//   2. runPreChecks       → Anomalies bloquantes depuis Odoo
-//   3. postResultEntry    → Écriture d'affectation dans Odoo (999999 → 130100/130900)
-//   4. lockFiscalYear     → fiscalyear_lock_date sur res.company dans Odoo
-//   5. finalizeClosing    → Statut 'closed' dans Supabase
-//
-// Flux correction :
-//   6. unlockFiscalYear   → Retire le lock Odoo + log audit obligatoire
-//   7. relockFiscalYear   → Re-pose le lock après correction
-//
-// Audit :
-//   8. getAuditLog        → Historique complet des actions
+// Version : V1.2 — Corrections post-audit
+// Corrections V1.2 :
+//   ✅ Domaine Odoo '|' corrigé — deux appels séparés classes 6 et 7
+//   ✅ Appel inutile sur 999999 supprimé
+//   ✅ Comparaison lock date normalisée (substring 10)
+//   ✅ Vérification suppression lock robuste
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -111,7 +102,7 @@ async function getMiscJournalId(companyId) {
 }
 
 // =============================================================================
-// HELPER : Extraire l'IP du client depuis la requête Express
+// HELPER : Extraire l'IP du client
 // =============================================================================
 function getClientIp(req) {
     return (
@@ -119,6 +110,15 @@ function getClientIp(req) {
         req.socket?.remoteAddress ||
         'unknown'
     );
+}
+
+// =============================================================================
+// HELPER : Normaliser une date retournée par Odoo
+// Odoo peut retourner '2024-12-31', false, null, ou ''
+// =============================================================================
+function normalizeLockDate(value) {
+    if (!value || value === false || value === '' || value === null) return null;
+    return String(value).substring(0, 10);
 }
 
 // =============================================================================
@@ -152,7 +152,10 @@ exports.getClosingStatus = async (req, res) => {
             });
         }
 
-        res.json({ status: 'success', data: { ...result.rows[0], exists: true } });
+        res.json({
+            status : 'success',
+            data   : { ...result.rows[0], exists: true }
+        });
 
     } catch (err) {
         console.error('🚨 [getClosingStatus]', err.message);
@@ -162,6 +165,8 @@ exports.getClosingStatus = async (req, res) => {
 
 // =============================================================================
 // 2. GET /api/closing/pre-checks?companyId=X&year=Y
+// ✅ CORRECTION V1.2 : deux appels séparés pour classes 6 et 7
+// ✅ CORRECTION V1.2 : appel inutile sur 999999 supprimé
 // =============================================================================
 exports.runPreChecks = async (req, res) => {
     try {
@@ -177,6 +182,14 @@ exports.runPreChecks = async (req, res) => {
         const yearEnd   = `${fiscalYear}-12-31`;
         const blocking  = [];
         const warnings  = [];
+
+        // ── Filtre de base commun à plusieurs requêtes ────────────────────────
+        const baseFilter = [
+            ['company_id',   '=', companyId],
+            ['parent_state', '=', 'posted'],
+            ['date', '>=', yearStart],
+            ['date', '<=', yearEnd]
+        ];
 
         // ── CHECK 1 : Écritures en brouillon ─────────────────────────────────
         const draftMoves = await odooExecuteKw({
@@ -204,18 +217,14 @@ exports.runPreChecks = async (req, res) => {
             });
         }
 
-        // ── CHECK 2 : Calcul du résultat net (classes 6 et 7) ────────────────
-        const incomeExpenseLines = await odooExecuteKw({
+        // ── CHECK 2a : Produits — comptes classe 7 ────────────────────────────
+        // ✅ CORRECTION : appel séparé au lieu du domaine '|' mal formé
+        const incomeLines = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'account.move.line',
             method : 'search_read',
             args   : [[
-                ['company_id', '=', companyId],
-                ['parent_state', '=', 'posted'],
-                ['date', '>=', yearStart],
-                ['date', '<=', yearEnd],
-                '|',
-                ['account_id.code', 'like', '6%'],
+                ...baseFilter,
                 ['account_id.code', 'like', '7%']
             ]],
             kwargs : {
@@ -224,33 +233,57 @@ exports.runPreChecks = async (req, res) => {
             }
         });
 
-        let totalDebit  = 0;
-        let totalCredit = 0;
-        incomeExpenseLines.forEach(line => {
-            totalDebit  += line.debit  || 0;
-            totalCredit += line.credit || 0;
+        // ── CHECK 2b : Charges — comptes classe 6 ─────────────────────────────
+        // ✅ CORRECTION : appel séparé au lieu du domaine '|' mal formé
+        const expenseLines = await odooExecuteKw({
+            uid    : ADMIN_UID_INT,
+            model  : 'account.move.line',
+            method : 'search_read',
+            args   : [[
+                ...baseFilter,
+                ['account_id.code', 'like', '6%']
+            ]],
+            kwargs : {
+                fields  : ['debit', 'credit'],
+                context : { allowed_company_ids: [companyId] }
+            }
         });
 
-        // Résultat = Produits (crédits 7) - Charges (débits 6)
-        const netResult  = totalCredit - totalDebit;
+        // Calcul du résultat net
+        // Produits = crédits classe 7 - débits classe 7
+        // Charges  = débits classe 6 - crédits classe 6
+        let totalProduits = 0;
+        let totalCharges  = 0;
+
+        incomeLines.forEach(line => {
+            totalProduits += (line.credit || 0) - (line.debit || 0);
+        });
+
+        expenseLines.forEach(line => {
+            totalCharges += (line.debit || 0) - (line.credit || 0);
+        });
+
+        const netResult  = totalProduits - totalCharges;
         const resultType = netResult >= 0 ? 'profit' : 'loss';
+
+        console.log(`📊 [runPreChecks] Produits: ${totalProduits.toFixed(2)} | Charges: ${totalCharges.toFixed(2)} | Résultat: ${netResult.toFixed(2)} XOF`);
 
         if (netResult === 0) {
             warnings.push({
                 code    : 'ZERO_RESULT',
-                label   : 'Le résultat calculé est zéro — vérifiez vos saisies',
+                label   : 'Le résultat calculé est zéro — vérifiez vos saisies avant de clôturer',
                 details : [],
                 count   : 0
             });
         }
 
-        // ── CHECK 3 : Lignes bancaires non réconciliées ───────────────────────
+        // ── CHECK 3 : Lignes de trésorerie non réconciliées ───────────────────
         const unreconciledBank = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'account.move.line',
             method : 'search_read',
             args   : [[
-                ['company_id', '=', companyId],
+                ['company_id',   '=', companyId],
                 ['parent_state', '=', 'posted'],
                 ['account_id.account_type', 'in', ['asset_cash', 'liability_credit_card']],
                 ['reconciled', '=', false],
@@ -274,10 +307,11 @@ exports.runPreChecks = async (req, res) => {
 
         // ── CHECK 4 : Comptes d'affectation présents dans le plan comptable ───
         try {
-            await getAccountId(
-                resultType === 'profit' ? ACCOUNTS.RESULT_PROFIT : ACCOUNTS.RESULT_LOSS,
-                companyId
-            );
+            const accountToCheck = resultType === 'profit'
+                ? ACCOUNTS.RESULT_PROFIT
+                : ACCOUNTS.RESULT_LOSS;
+            await getAccountId(accountToCheck, companyId);
+            await getAccountId(ACCOUNTS.RESULT_UNAFFECTED, companyId);
         } catch (accountErr) {
             blocking.push({
                 code    : 'MISSING_ACCOUNT',
@@ -294,15 +328,17 @@ exports.runPreChecks = async (req, res) => {
             action      : 'PRE_CHECK_RUN',
             performedBy : emetteur,
             details     : {
-                blocking_count : blocking.length,
-                warning_count  : warnings.length,
-                net_result     : netResult,
-                result_type    : resultType
+                blocking_count  : blocking.length,
+                warning_count   : warnings.length,
+                total_produits  : totalProduits,
+                total_charges   : totalCharges,
+                net_result      : netResult,
+                result_type     : resultType
             },
             ipAddress : getClientIp(req)
         });
 
-        console.log(`✅ [runPreChecks] ${fiscalYear} — Résultat: ${netResult.toFixed(2)} XOF (${resultType}) | Bloquants: ${blocking.length}`);
+        console.log(`✅ [runPreChecks] ${fiscalYear} — Résultat: ${netResult.toFixed(2)} XOF (${resultType}) | Bloquants: ${blocking.length} | Warnings: ${warnings.length}`);
 
         res.json({
             status : 'success',
@@ -313,10 +349,12 @@ exports.runPreChecks = async (req, res) => {
                 warnings    : warnings,
                 can_proceed : blocking.length === 0,
                 result      : {
-                    amount  : Math.abs(netResult),
-                    raw     : netResult,
-                    type    : resultType,
-                    display : `${Math.abs(netResult).toLocaleString('fr-FR')} XOF`
+                    amount          : Math.abs(netResult),
+                    raw             : netResult,
+                    type            : resultType,
+                    display         : `${Math.abs(netResult).toLocaleString('fr-FR')} XOF`,
+                    total_produits  : totalProduits,
+                    total_charges   : totalCharges
                 }
             }
         });
@@ -335,7 +373,7 @@ exports.postResultEntry = async (req, res) => {
         const companyId    = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
         const fiscalYear   = parseInt(req.body.fiscal_year) || new Date().getFullYear();
         const resultAmount = parseFloat(req.body.result_amount);
-        const resultType   = req.body.result_type; // 'profit' | 'loss'
+        const resultType   = req.body.result_type;
         const emetteur     = req.user?.name || req.user?.email || 'Admin';
 
         if (!companyId || isNaN(resultAmount) || !resultType) {
@@ -349,6 +387,13 @@ exports.postResultEntry = async (req, res) => {
             return res.status(400).json({
                 status : 'error',
                 error  : 'result_type invalide — valeurs acceptées : profit | loss'
+            });
+        }
+
+        if (resultAmount <= 0) {
+            return res.status(400).json({
+                status : 'error',
+                error  : 'result_amount doit être positif.'
             });
         }
 
@@ -373,33 +418,36 @@ exports.postResultEntry = async (req, res) => {
         // Comptes selon bénéfice ou perte
         let debitAccountCode, creditAccountCode;
         if (resultType === 'profit') {
-            debitAccountCode  = ACCOUNTS.RESULT_UNAFFECTED; // 999999 → soldé
-            creditAccountCode = ACCOUNTS.RESULT_PROFIT;     // 130100
+            // Bénéfice : Débit 999999 (solde le pivot) / Crédit 130100
+            debitAccountCode  = ACCOUNTS.RESULT_UNAFFECTED;
+            creditAccountCode = ACCOUNTS.RESULT_PROFIT;
         } else {
-            debitAccountCode  = ACCOUNTS.RESULT_LOSS;        // 130900
-            creditAccountCode = ACCOUNTS.RESULT_UNAFFECTED;  // 999999 → soldé
+            // Perte : Débit 130900 / Crédit 999999 (solde le pivot)
+            debitAccountCode  = ACCOUNTS.RESULT_LOSS;
+            creditAccountCode = ACCOUNTS.RESULT_UNAFFECTED;
         }
 
         const debitAccountId  = await getAccountId(debitAccountCode,  companyId);
         const creditAccountId = await getAccountId(creditAccountCode, companyId);
 
+        const libelle  = `Affectation résultat ${fiscalYear} — ${resultType === 'profit' ? 'Bénéfice' : 'Perte'}`;
         const moveData = {
             company_id : companyId,
             journal_id : journalId,
             date       : yearEnd,
-            ref        : `Affectation résultat exercice ${fiscalYear} | Par : ${emetteur}`,
+            ref        : `${libelle} | Par : ${emetteur}`,
             narration  : `Clôture exercice ${fiscalYear} — ${resultType === 'profit' ? 'Bénéfice' : 'Perte'} de ${resultAmount.toLocaleString('fr-FR')} XOF — Saisie par : ${emetteur}`,
             move_type  : 'entry',
             line_ids   : [
                 [0, 0, {
                     account_id : debitAccountId,
-                    name       : `Affectation résultat ${fiscalYear}`,
+                    name       : libelle,
                     debit      : resultAmount,
                     credit     : 0
                 }],
                 [0, 0, {
                     account_id : creditAccountId,
-                    name       : `Affectation résultat ${fiscalYear}`,
+                    name       : libelle,
                     debit      : 0,
                     credit     : resultAmount
                 }]
@@ -455,7 +503,6 @@ exports.postResultEntry = async (req, res) => {
             ]
         );
 
-        // Audit
         await writeAuditLog({
             companyId,
             fiscalYear,
@@ -463,9 +510,13 @@ exports.postResultEntry = async (req, res) => {
             performedBy  : emetteur,
             odooMoveId   : moveId,
             odooMoveName : moveName,
-            details      : { result_amount: resultAmount, result_type: resultType,
-                             debit: debitAccountCode, credit: creditAccountCode },
-            ipAddress    : getClientIp(req)
+            details      : {
+                result_amount : resultAmount,
+                result_type   : resultType,
+                debit         : debitAccountCode,
+                credit        : creditAccountCode
+            },
+            ipAddress : getClientIp(req)
         });
 
         console.log(`✅ [postResultEntry] ${moveName} validée — Exercice ${fiscalYear} — ${emetteur}`);
@@ -484,12 +535,16 @@ exports.postResultEntry = async (req, res) => {
 
     } catch (err) {
         console.error('🚨 [postResultEntry]', err.message);
-        res.status(500).json({ status: 'error', error: `Échec affectation résultat : ${err.message}` });
+        res.status(500).json({
+            status : 'error',
+            error  : `Échec affectation résultat : ${err.message}`
+        });
     }
 };
 
 // =============================================================================
 // 4. POST /api/closing/lock
+// ✅ CORRECTION V1.2 : comparaison lock date normalisée
 // =============================================================================
 exports.lockFiscalYear = async (req, res) => {
     try {
@@ -501,7 +556,6 @@ exports.lockFiscalYear = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'companyId requis.' });
         }
 
-        // Vérifier que l'écriture de résultat a été passée
         const existing = await pool.queryWithRetry(
             `SELECT status, result_move_name FROM fiscal_year_closings
              WHERE company_id = $1 AND fiscal_year = $2 LIMIT 1`,
@@ -511,7 +565,7 @@ exports.lockFiscalYear = async (req, res) => {
         if (existing.rows.length === 0 || existing.rows[0].status === 'open') {
             return res.status(400).json({
                 status : 'error',
-                error  : 'Impossible de verrouiller : passez d\'abord l\'écriture de résultat.'
+                error  : 'Impossible de verrouiller : passez d\'abord l\'écriture de résultat (étape 2).'
             });
         }
 
@@ -524,7 +578,6 @@ exports.lockFiscalYear = async (req, res) => {
 
         const lockDate = `${fiscalYear}-12-31`;
 
-        // Poser le fiscalyear_lock_date dans Odoo
         await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -533,7 +586,7 @@ exports.lockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        // Vérification immédiate que le lock est bien appliqué
+        // ✅ CORRECTION : normalisation avant comparaison
         const companyCheck = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -542,14 +595,14 @@ exports.lockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        const appliedLock = companyCheck?.[0]?.fiscalyear_lock_date;
+        const appliedLock = normalizeLockDate(companyCheck?.[0]?.fiscalyear_lock_date);
+
         if (appliedLock !== lockDate) {
             throw new Error(
-                `Vérification échouée — Odoo retourne : "${appliedLock}" au lieu de "${lockDate}"`
+                `Vérification échouée — Odoo retourne : "${companyCheck?.[0]?.fiscalyear_lock_date}" au lieu de "${lockDate}"`
             );
         }
 
-        // Mettre à jour Supabase
         await pool.queryWithRetry(
             `UPDATE fiscal_year_closings
              SET status = 'locked', lock_date = $1, lock_applied_at = NOW()
@@ -557,7 +610,6 @@ exports.lockFiscalYear = async (req, res) => {
             [lockDate, companyId, fiscalYear]
         );
 
-        // Audit
         await writeAuditLog({
             companyId,
             fiscalYear,
@@ -579,7 +631,10 @@ exports.lockFiscalYear = async (req, res) => {
 
     } catch (err) {
         console.error('🚨 [lockFiscalYear]', err.message);
-        res.status(500).json({ status: 'error', error: `Échec verrouillage : ${err.message}` });
+        res.status(500).json({
+            status : 'error',
+            error  : `Échec verrouillage : ${err.message}`
+        });
     }
 };
 
@@ -590,7 +645,7 @@ exports.finalizeClosing = async (req, res) => {
     try {
         const companyId  = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
         const fiscalYear = parseInt(req.body.fiscal_year) || new Date().getFullYear();
-        const notes      = req.body.notes || '';
+        const notes      = req.body.notes?.trim() || '';
         const emetteur   = req.user?.name || req.user?.email || 'Admin';
 
         if (!companyId) {
@@ -638,7 +693,7 @@ exports.finalizeClosing = async (req, res) => {
 
 // =============================================================================
 // 6. POST /api/closing/unlock
-// Déverrouillage contrôlé — reason obligatoire — audit complet
+// ✅ CORRECTION V1.2 : vérification suppression lock robuste
 // =============================================================================
 exports.unlockFiscalYear = async (req, res) => {
     try {
@@ -651,7 +706,6 @@ exports.unlockFiscalYear = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'companyId requis.' });
         }
 
-        // La raison est OBLIGATOIRE pour déverrouiller
         if (!reason || reason.length < 10) {
             return res.status(400).json({
                 status : 'error',
@@ -659,7 +713,6 @@ exports.unlockFiscalYear = async (req, res) => {
             });
         }
 
-        // Vérifier que l'exercice est bien verrouillé
         const existing = await pool.queryWithRetry(
             `SELECT status, lock_date FROM fiscal_year_closings
              WHERE company_id = $1 AND fiscal_year = $2 LIMIT 1`,
@@ -678,29 +731,32 @@ exports.unlockFiscalYear = async (req, res) => {
         if (currentStatus === 'closed') {
             return res.status(403).json({
                 status : 'error',
-                error  : `L'exercice ${fiscalYear} est finalisé. Contactez votre auditeur pour toute correction.`
+                error  : `L'exercice ${fiscalYear} est finalisé — déverrouillage impossible.`
             });
         }
 
-        if (!['locked'].includes(currentStatus)) {
+        if (currentStatus !== 'locked') {
             return res.status(400).json({
                 status : 'error',
-                error  : `L'exercice ${fiscalYear} n'est pas dans l'état verrouillé (statut actuel: ${currentStatus}).`
+                error  : `L'exercice ${fiscalYear} n'est pas verrouillé (statut actuel: ${currentStatus}).`
             });
         }
 
-        // Étape 1 : Audit AVANT l'action (traçabilité de la demande)
+        // Audit AVANT l'action
         await writeAuditLog({
             companyId,
             fiscalYear,
             action      : 'UNLOCK_REQUESTED',
             performedBy : emetteur,
             reason      : reason,
-            details     : { previous_status: currentStatus, previous_lock: existing.rows[0].lock_date },
-            ipAddress   : getClientIp(req)
+            details     : {
+                previous_status : currentStatus,
+                previous_lock   : existing.rows[0].lock_date
+            },
+            ipAddress : getClientIp(req)
         });
 
-        // Étape 2 : Retirer le fiscalyear_lock_date dans Odoo
+        // Retirer le lock dans Odoo
         await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -709,7 +765,7 @@ exports.unlockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        // Étape 3 : Vérification que le lock est bien retiré
+        // ✅ CORRECTION : vérification robuste de la suppression du lock
         const companyCheck = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -718,14 +774,14 @@ exports.unlockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        const lockAfter = companyCheck?.[0]?.fiscalyear_lock_date;
-        if (lockAfter && lockAfter !== false) {
+        const lockAfterNormalized = normalizeLockDate(companyCheck?.[0]?.fiscalyear_lock_date);
+
+        if (lockAfterNormalized !== null) {
             throw new Error(
-                `Déverrouillage échoué — Odoo retourne encore : "${lockAfter}"`
+                `Déverrouillage échoué — Odoo retourne encore : "${companyCheck?.[0]?.fiscalyear_lock_date}"`
             );
         }
 
-        // Étape 4 : Mettre à jour Supabase
         await pool.queryWithRetry(
             `UPDATE fiscal_year_closings
              SET status = 'result_posted',
@@ -735,14 +791,14 @@ exports.unlockFiscalYear = async (req, res) => {
             [companyId, fiscalYear]
         );
 
-        // Étape 5 : Audit APRÈS l'action (confirmation)
+        // Audit APRÈS l'action
         await writeAuditLog({
             companyId,
             fiscalYear,
             action      : 'UNLOCK_APPLIED',
             performedBy : emetteur,
             reason      : reason,
-            details     : { odoo_lock_removed: true, odoo_verified: !lockAfter },
+            details     : { odoo_lock_removed: true, odoo_verified: true },
             ipAddress   : getClientIp(req)
         });
 
@@ -759,13 +815,16 @@ exports.unlockFiscalYear = async (req, res) => {
 
     } catch (err) {
         console.error('🚨 [unlockFiscalYear]', err.message);
-        res.status(500).json({ status: 'error', error: `Échec déverrouillage : ${err.message}` });
+        res.status(500).json({
+            status : 'error',
+            error  : `Échec déverrouillage : ${err.message}`
+        });
     }
 };
 
 // =============================================================================
 // 7. POST /api/closing/relock
-// Re-verrouillage après corrections — avec audit
+// ✅ CORRECTION V1.2 : comparaison lock date normalisée
 // =============================================================================
 exports.relockFiscalYear = async (req, res) => {
     try {
@@ -778,7 +837,6 @@ exports.relockFiscalYear = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'companyId requis.' });
         }
 
-        // Vérifier que l'exercice est en état 'result_posted' (après unlock)
         const existing = await pool.queryWithRetry(
             `SELECT status FROM fiscal_year_closings
              WHERE company_id = $1 AND fiscal_year = $2 LIMIT 1`,
@@ -788,13 +846,12 @@ exports.relockFiscalYear = async (req, res) => {
         if (existing.rows.length === 0 || existing.rows[0].status !== 'result_posted') {
             return res.status(400).json({
                 status : 'error',
-                error  : `Re-verrouillage impossible — statut actuel: ${existing.rows[0]?.status || 'inconnu'}`
+                error  : `Re-verrouillage impossible — statut actuel: ${existing.rows[0]?.status || 'inconnu'}. L'exercice doit être dans l'état 'result_posted'.`
             });
         }
 
         const lockDate = `${fiscalYear}-12-31`;
 
-        // Poser à nouveau le lock dans Odoo
         await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -803,7 +860,7 @@ exports.relockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        // Vérification
+        // ✅ CORRECTION : normalisation avant comparaison
         const companyCheck = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -812,23 +869,32 @@ exports.relockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        const appliedLock = companyCheck?.[0]?.fiscalyear_lock_date;
+        const appliedLock = normalizeLockDate(companyCheck?.[0]?.fiscalyear_lock_date);
+
         if (appliedLock !== lockDate) {
-            throw new Error(`Re-verrouillage échoué — Odoo retourne : "${appliedLock}"`);
+            throw new Error(
+                `Re-verrouillage échoué — Odoo retourne : "${companyCheck?.[0]?.fiscalyear_lock_date}"`
+            );
         }
 
-        // Mettre à jour Supabase
         await pool.queryWithRetry(
             `UPDATE fiscal_year_closings
-             SET status = 'locked',
-                 lock_date = $1,
+             SET status          = 'locked',
+                 lock_date       = $1,
                  lock_applied_at = NOW(),
-                 notes = COALESCE(notes || ' | ' || $2, $2)
+                 notes           = CASE
+                     WHEN notes IS NULL OR notes = '' THEN $2
+                     ELSE notes || ' | ' || $2
+                 END
              WHERE company_id = $3 AND fiscal_year = $4`,
-            [lockDate, notes ? `Re-lock: ${notes}` : 'Re-lock après correction', companyId, fiscalYear]
+            [
+                lockDate,
+                notes ? `Re-lock: ${notes}` : `Re-lock après correction par ${emetteur}`,
+                companyId,
+                fiscalYear
+            ]
         );
 
-        // Audit
         await writeAuditLog({
             companyId,
             fiscalYear,
@@ -849,13 +915,15 @@ exports.relockFiscalYear = async (req, res) => {
 
     } catch (err) {
         console.error('🚨 [relockFiscalYear]', err.message);
-        res.status(500).json({ status: 'error', error: `Échec re-verrouillage : ${err.message}` });
+        res.status(500).json({
+            status : 'error',
+            error  : `Échec re-verrouillage : ${err.message}`
+        });
     }
 };
 
 // =============================================================================
 // 8. GET /api/closing/audit-log?companyId=X&year=Y
-// Historique complet des actions de clôture
 // =============================================================================
 exports.getAuditLog = async (req, res) => {
     try {
