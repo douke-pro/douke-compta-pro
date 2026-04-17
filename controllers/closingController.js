@@ -1160,3 +1160,58 @@ exports.getAuditLog = async (req, res) => {
         res.status(500).json({ status: 'error', error: err.message });
     }
 };
+
+// =============================================================================
+// 9. GET /api/closing/available-years?companyId=X
+// Retourne les exercices disponibles pour clôture
+// =============================================================================
+exports.getAvailableYears = async (req, res) => {
+    try {
+        const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
+
+        if (!companyId) {
+            return res.status(400).json({ status: 'error', error: 'companyId requis.' });
+        }
+
+        const existing = await pool.queryWithRetry(
+            `SELECT fiscal_year, status, result_type, result_amount,
+                    result_move_name, lock_date, closed_at
+             FROM fiscal_year_closings
+             WHERE company_id = $1
+             ORDER BY fiscal_year DESC`,
+            [companyId]
+        );
+
+        const currentYear  = new Date().getFullYear();
+        const prevYear     = currentYear - 1;
+        const existingYears = existing.rows.map(r => r.fiscal_year);
+        const years        = [...existing.rows];
+
+        if (!existingYears.includes(currentYear)) {
+            years.unshift({
+                fiscal_year: currentYear, status: 'open',
+                result_type: null, result_amount: null,
+                result_move_name: null, lock_date: null, closed_at: null
+            });
+        }
+
+        if (!existingYears.includes(prevYear)) {
+            years.push({
+                fiscal_year: prevYear, status: 'open',
+                result_type: null, result_amount: null,
+                result_move_name: null, lock_date: null, closed_at: null
+            });
+        }
+
+        console.log(`✅ [getAvailableYears] ${years.length} exercice(s) pour company ${companyId}`);
+
+        res.json({
+            status: 'success', company_id: companyId,
+            count: years.length, data: years
+        });
+
+    } catch (err) {
+        console.error('🚨 [getAvailableYears]', err.message);
+        res.status(500).json({ status: 'error', error: err.message });
+    }
+};
