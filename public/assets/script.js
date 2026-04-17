@@ -559,8 +559,12 @@ async function loadContentArea(contentId, title) {
                 contentArea.innerHTML = content;
                 return;
             
-            // ✅ CORRECTION #1 : Ajouter "default:" qui manquait
-            default:
+           case 'cloture-annuelle':
+              contentArea.innerHTML = window.generateClosingModuleHTML();
+              await window.initClosingModule(); // ← sans paramètre
+              return;
+
+           default:
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
         }
         
