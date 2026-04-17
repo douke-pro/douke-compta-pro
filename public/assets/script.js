@@ -473,6 +473,7 @@ function getRoleBaseMenus(role) {
     
     if (role === 'ADMIN') {
     menus.push({ id: 'admin-users', name: 'Gestion des Utilisateurs', icon: 'fas fa-users-cog' });
+    menus.push({ id: 'cloture-annuelle', name: 'Clôture Annuelle', icon: 'fas fa-calendar-check' });    
 }
 
 return menus;
