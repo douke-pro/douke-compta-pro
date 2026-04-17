@@ -41,8 +41,16 @@
     // Génère le HTML du panneau principal
     // =========================================================================
     window.generateClosingModuleHTML = function () {
-        const currentYear = new Date().getFullYear();
-        const years       = [currentYear - 2, currentYear - 1, currentYear];
+        const currentYear  = new Date().getFullYear();
+        const fiscalBadge  = parseInt(
+        document.getElementById('fiscal-year-text')?.textContent?.trim()
+) || currentYear;
+
+// Génère 5 années : de (fiscalBadge - 3) à (fiscalBadge + 1)
+   const years = [];
+        for (let y = fiscalBadge - 3; y <= fiscalBadge + 1; y++) {
+        years.push(y);
+}
 
         return `
             <div class="fade-in" id="closing-main-panel">
