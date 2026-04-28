@@ -329,8 +329,6 @@ exports.registerUser = async (req, res) => {
                 active:      true,
                 company_ids: [[6, 0, [companyId]]],
                 company_id:  companyId,
-                // ✅ Groupe de base : utilisateur interne simple (pas admin)
-                sel_groups_1_10_11: 1   // 1 = User, 10 = Portal, 11 = Public — on force User
             }],
             kwargs: {
                 context: {
