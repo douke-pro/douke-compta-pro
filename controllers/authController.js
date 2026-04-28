@@ -1,6 +1,6 @@
 // =============================================================================
 // FICHIER : controllers/authController.js
-// Version : V20 — Nom réel de l'émetteur dans le token JWT
+// Version : V21 — Email DOUKÈ actif + blocage email Odoo + notification admin
 // Corrections appliquées :
 //   ✅ C1   : JWT_SECRET sans fallback dangereux
 //   ✅ FIX1 : Récupération du vrai nom Odoo de l'utilisateur connecté
@@ -8,14 +8,16 @@
 //   ✅ FIX3 : name ajouté dans le token JWT (registerUser)
 //   ✅ E5   : assignCompany ne renvoie plus req.body
 //   ✅ M1   : ADMIN_UID converti en entier
-//   ✅ M3   : Import emailService commenté (service désactivé)
+//   ✅ V21  : no_reset_password:true — bloque l'email Odoo natif
+//   ✅ V21  : sendWelcomeEmail activé — email DOUKÈ envoyé à l'inscription
+//   ✅ V21  : sendNewLoginNotification — admin notifié à chaque connexion
+//   ✅ V21  : Toute nouvelle inscription = rôle USER (jamais ADMIN)
 // =============================================================================
 
 const jwt    = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { odooAuthenticate, odooExecuteKw } = require('../services/odooService');
 const emailService = require('../services/emailService');
-// ✅ M3 : Import commenté jusqu'à configuration SMTP complète
 
 // =============================================================================
 // CONFIGURATION
@@ -69,6 +71,40 @@ const getRealUserName = async (uid, fallback) => {
 };
 
 // =============================================================================
+// HELPER : Récupère l'admin de la company pour notification
+// Retourne null si introuvable ou si c'est l'utilisateur lui-même
+// =============================================================================
+
+const getCompanyAdmin = async (companyId, excludeEmail) => {
+    try {
+        const adminUsers = await odooExecuteKw({
+            uid:    ADMIN_UID,
+            model:  'res.users',
+            method: 'search_read',
+            args:   [[
+                ['company_id', '=', companyId],
+                ['share',      '=', false]        // exclut les utilisateurs portail
+            ]],
+            kwargs: {
+                fields : ['name', 'email'],
+                limit  : 5,
+                order  : 'id ASC'                 // l'admin est généralement le premier créé
+            }
+        });
+
+        if (!adminUsers || adminUsers.length === 0) return null;
+
+        // Trouver un admin dont l'email est différent de celui qui se connecte
+        const admin = adminUsers.find(u => u.email && u.email !== excludeEmail);
+        return admin || null;
+
+    } catch (e) {
+        console.warn('⚠️ [getCompanyAdmin] Impossible de récupérer l\'admin:', e.message);
+        return null;
+    }
+};
+
+// =============================================================================
 // CONNEXION
 // =============================================================================
 
@@ -95,7 +131,6 @@ exports.loginUser = async (req, res) => {
         }
 
         // ── 2. Récupération du vrai nom + entreprises ────────────────────────
-        // ✅ FIX1 : On lit le vrai nom ET les company_ids en un seul appel
         const userData = await odooExecuteKw({
             uid:    ADMIN_UID,
             model:  'res.users',
@@ -112,7 +147,6 @@ exports.loginUser = async (req, res) => {
             throw new Error('L\'utilisateur n\'est pas lié à une compagnie Odoo active.');
         }
 
-        // ✅ FIX1 : Vrai nom Odoo de l'utilisateur connecté
         const realName   = userData[0].name || email;
         const companyIds = userData[0].company_ids;
 
@@ -143,12 +177,11 @@ exports.loginUser = async (req, res) => {
         }
 
         // ── 4. Génération du token JWT ───────────────────────────────────────
-        // ✅ FIX2 : name inclus dans le token pour être disponible dans req.user
         const token = signToken({
             odooUid:           uid,
             email,
             role:              profile,
-            name:              realName,      // ✅ vrai nom de l'utilisateur
+            name:              realName,
             allowedCompanyIds: companiesList.map(c => c.id),
             selectedCompanyId: defaultCompany.id,
             systeme:           defaultCompany.systeme,
@@ -156,13 +189,37 @@ exports.loginUser = async (req, res) => {
 
         console.log(`✅ [loginUser] Connexion réussie: ${realName} (${email}) — ${profile}`);
 
-        // ── 5. Réponse ───────────────────────────────────────────────────────
+        // ── 5. Notification admin — fire-and-forget ──────────────────────────
+        // Ne bloque jamais le login — erreur silencieuse
+        (async () => {
+            try {
+                const admin = await getCompanyAdmin(defaultCompany.id, email);
+                if (admin && admin.email) {
+                    await emailService.sendNewLoginNotification({
+                        adminEmail  : admin.email,
+                        adminName   : admin.name,
+                        userName    : realName,
+                        userEmail   : email,
+                        companyName : defaultCompany.name,
+                        ipAddress   : req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+                                      || req.socket?.remoteAddress
+                                      || 'unknown',
+                        loginAt     : new Date().toISOString()
+                    });
+                    console.log(`✅ [loginUser] Notification admin envoyée à ${admin.email}`);
+                }
+            } catch (notifErr) {
+                console.warn('⚠️ [loginUser] Notification admin échouée (non bloquant):', notifErr.message);
+            }
+        })();
+
+        // ── 6. Réponse ───────────────────────────────────────────────────────
         res.status(200).json({
             status: 'success',
             data: {
                 token,
                 profile,
-                name:           realName,     // ✅ vrai nom dans la réponse
+                name:           realName,
                 email,
                 companiesList,
                 defaultCompany,
@@ -184,6 +241,9 @@ exports.loginUser = async (req, res) => {
 /**
  * Crée un nouvel utilisateur et sa première entreprise dans Odoo
  * @route POST /api/auth/register
+ * ✅ V21 : Toute nouvelle inscription = rôle USER — jamais ADMIN
+ * ✅ V21 : no_reset_password:true — bloque l'email d'invitation Odoo natif
+ * ✅ V21 : sendWelcomeEmail activé — email de bienvenue DOUKÈ envoyé
  */
 exports.registerUser = async (req, res) => {
     const { name, email, password, companyName } = req.body;
@@ -253,7 +313,9 @@ exports.registerUser = async (req, res) => {
         console.log(`✅ Entreprise créée: ID=${companyId}`);
 
         // ── 3. Créer l'utilisateur ───────────────────────────────────────────
-        console.log(`👤 Création de l'utilisateur "${name}"...`);
+        // ✅ V21 : Rôle USER systématique — jamais ADMIN par défaut
+        // ✅ V21 : no_reset_password:true — bloque l'email d'invitation Odoo natif
+        console.log(`👤 Création de l'utilisateur "${name}" avec rôle USER...`);
 
         const newUserId = await odooExecuteKw({
             uid:    ADMIN_UID,
@@ -267,15 +329,23 @@ exports.registerUser = async (req, res) => {
                 active:      true,
                 company_ids: [[6, 0, [companyId]]],
                 company_id:  companyId,
+                // ✅ Groupe de base : utilisateur interne simple (pas admin)
+                sel_groups_1_10_11: 1   // 1 = User, 10 = Portal, 11 = Public — on force User
             }],
-            kwargs: {}
+            kwargs: {
+                context: {
+                    // ✅ V21 : Supprime l'envoi automatique de l'email d'invitation Odoo
+                    no_reset_password   : true,
+                    allowed_company_ids : [companyId]
+                }
+            }
         });
 
         if (!newUserId || typeof newUserId !== 'number') {
             throw new Error('Échec de la création de l\'utilisateur.');
         }
 
-        console.log(`✅ Utilisateur créé: ID=${newUserId}`);
+        console.log(`✅ Utilisateur créé: ID=${newUserId} — Rôle: USER`);
 
         // ── 4. Assigner les groupes de base ──────────────────────────────────
         console.log('🔐 Assignation des groupes de base...');
@@ -306,7 +376,8 @@ exports.registerUser = async (req, res) => {
         }
 
         // ── 5. Générer le JWT ────────────────────────────────────────────────
-        console.log('🔑 Génération du JWT...');
+        // ✅ V21 : role = 'USER' — jamais 'ADMIN' à l'inscription
+        console.log('🔑 Génération du JWT avec rôle USER...');
 
         const defaultCompany = {
             id:       companyId,
@@ -315,24 +386,37 @@ exports.registerUser = async (req, res) => {
             currency: 'XOF'
         };
 
-        // ✅ FIX3 : name inclus dans le token dès l'inscription
         const token = signToken({
             odooUid:           newUserId,
             email,
-            role:              'ADMIN',
-            name:              name,          // ✅ vrai nom de l'inscrit
+            role:              'USER',            // ✅ V21 : USER — jamais ADMIN
+            name:              name,
             allowedCompanyIds: [companyId],
             selectedCompanyId: companyId,
             systeme:           'NORMAL',
         });
 
+        // ── 6. Email de bienvenue DOUKÈ — fire-and-forget ───────────────────
+        // ✅ V21 : Activé — emailService.js est opérationnel avec Resend
+        // Ne bloque jamais la création du compte si l'email échoue
+        emailService.sendWelcomeEmail({
+            toEmail     : email,
+            toName      : name,
+            companyName : companyName,
+            tempPassword: password,
+            role        : 'USER'
+        }).then(result => {
+            if (result.success) {
+                console.log(`✅ [registerUser] Email bienvenue DOUKÈ envoyé à ${email} — ID: ${result.id}`);
+            } else {
+                console.warn(`⚠️ [registerUser] Email bienvenue échoué (non bloquant): ${result.error}`);
+            }
+        }).catch(err => {
+            console.warn('⚠️ [registerUser] Exception email bienvenue (non bloquant):', err.message);
+        });
+
         console.log('✅ [registerUser] FIN - SUCCÈS');
         console.log('='.repeat(70));
-
-        // ── 6. Email de bienvenue (désactivé — TODO: configurer SMTP) ────────
-        // sendWelcomeEmail(email, name, password).catch(err => {
-        //     console.warn('⚠️ Email bienvenue échoué:', err.message);
-        // });
 
         // ── 7. Réponse succès ────────────────────────────────────────────────
         res.status(201).json({
@@ -340,7 +424,7 @@ exports.registerUser = async (req, res) => {
             message: `Instance "${companyName}" créée avec succès ! Connexion automatique en cours...`,
             data: {
                 token,
-                profile:       'ADMIN',
+                profile:       'USER',            // ✅ V21 : USER — jamais ADMIN
                 name,
                 email,
                 companiesList: [defaultCompany],
@@ -383,8 +467,6 @@ exports.assignCompany = async (req, res) => {
 /**
  * Déconnexion forcée
  * @route POST /api/auth/force-logout
- * NOTE : La révocation complète du token (E3) sera ajoutée
- *        après création de la table revoked_tokens sur Supabase.
  */
 exports.forceLogout = async (req, res) => {
     res.status(200).json({
