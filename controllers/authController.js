@@ -16,7 +16,6 @@ const bcrypt = require('bcryptjs');
 const { odooAuthenticate, odooExecuteKw } = require('../services/odooService');
 const emailService = require('../services/emailService');
 // ✅ M3 : Import commenté jusqu'à configuration SMTP complète
-// const { sendWelcomeEmail } = require('../services/emailService');
 
 // =============================================================================
 // CONFIGURATION
