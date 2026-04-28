@@ -2,6 +2,9 @@
   "name": "douke-compta-pro",
   "version": "1.0.0",
   "main": "server.js",
+  "description": "Backend API for DOUKÈ Compta Pro — SYSCOHADA Révisé",
+  "author": "Your Name/Company",
+  "license": "MIT",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
@@ -20,16 +23,20 @@
     "node-fetch": "^3.3.2",
     "pdfkit": "^0.15.0",
     "pg": "^8.13.1",
+    "resend": "^3.2.0",
     "tesseract.js": "^5.0.4",
     "xmlrpc": "^1.3.2"
-  }
-}
-
-{
-  "dependencies": {
-    "express": "^5.1.0"  // REQUIS - serveur HTTP
   },
-  "optionalDependencies": {
-    "resend": "^3.2.0"   // OPTIONNEL - emails (désactiv able)
-  }
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "accounting",
+    "syscohada",
+    "odoo",
+    "api",
+    "nodejs",
+    "express"
+  ]
 }
