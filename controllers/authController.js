@@ -1,6 +1,6 @@
 // =============================================================================
 // FICHIER : controllers/authController.js
-// Version : V21 — Email DOUKÈ actif + blocage email Odoo + notification admin
+// Version : V22 — Notification admin email fixe Resend
 // Corrections appliquées :
 //   ✅ C1   : JWT_SECRET sans fallback dangereux
 //   ✅ FIX1 : Récupération du vrai nom Odoo de l'utilisateur connecté
@@ -10,8 +10,10 @@
 //   ✅ M1   : ADMIN_UID converti en entier
 //   ✅ V21  : no_reset_password:true — bloque l'email Odoo natif
 //   ✅ V21  : sendWelcomeEmail activé — email DOUKÈ envoyé à l'inscription
-//   ✅ V21  : sendNewLoginNotification — admin notifié à chaque connexion
 //   ✅ V21  : Toute nouvelle inscription = rôle USER (jamais ADMIN)
+//   ✅ V22  : ADMIN_NOTIFICATION_EMAIL fixe — indépendant de l'identifiant Odoo
+//             → notification admin à chaque connexion ET à chaque inscription
+//             → getCompanyAdmin conservée mais remplacée par email fixe
 // =============================================================================
 
 const jwt    = require('jsonwebtoken');
@@ -36,6 +38,12 @@ const ADMIN_UID = parseInt(process.env.ODOO_ADMIN_UID, 10);
 if (isNaN(ADMIN_UID)) {
     throw new Error('❌ FATAL: ODOO_ADMIN_UID manquant ou invalide dans les variables d\'environnement.');
 }
+
+// ✅ V22 : Email fixe pour les notifications admin
+// Complètement indépendant de l'identifiant de connexion Odoo de l'admin
+// Modifiable via variable d'environnement Render sans toucher au code
+const ADMIN_NOTIFICATION_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'contact@doukegf.bj';
+const ADMIN_NOTIFICATION_NAME  = process.env.ADMIN_NOTIFICATION_NAME  || 'Administrateur DOUKÈ';
 
 // =============================================================================
 // HELPER : Génère un token JWT
@@ -72,6 +80,7 @@ const getRealUserName = async (uid, fallback) => {
 
 // =============================================================================
 // HELPER : Récupère l'admin de la company pour notification
+// ✅ V22 : Conservé mais non appelé — remplacé par email fixe ADMIN_NOTIFICATION_EMAIL
 // Retourne null si introuvable ou si c'est l'utilisateur lui-même
 // =============================================================================
 
@@ -83,18 +92,17 @@ const getCompanyAdmin = async (companyId, excludeEmail) => {
             method: 'search_read',
             args:   [[
                 ['company_id', '=', companyId],
-                ['share',      '=', false]        // exclut les utilisateurs portail
+                ['share',      '=', false]
             ]],
             kwargs: {
                 fields : ['name', 'email'],
                 limit  : 5,
-                order  : 'id ASC'                 // l'admin est généralement le premier créé
+                order  : 'id ASC'
             }
         });
 
         if (!adminUsers || adminUsers.length === 0) return null;
 
-        // Trouver un admin dont l'email est différent de celui qui se connecte
         const admin = adminUsers.find(u => u.email && u.email !== excludeEmail);
         return admin || null;
 
@@ -189,31 +197,7 @@ exports.loginUser = async (req, res) => {
 
         console.log(`✅ [loginUser] Connexion réussie: ${realName} (${email}) — ${profile}`);
 
-        // ── 5. Notification admin — fire-and-forget ──────────────────────────
-        // Ne bloque jamais le login — erreur silencieuse
-        (async () => {
-            try {
-                const admin = await getCompanyAdmin(defaultCompany.id, email);
-                if (admin && admin.email) {
-                    await emailService.sendNewLoginNotification({
-                        adminEmail  : admin.email,
-                        adminName   : admin.name,
-                        userName    : realName,
-                        userEmail   : email,
-                        companyName : defaultCompany.name,
-                        ipAddress   : req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-                                      || req.socket?.remoteAddress
-                                      || 'unknown',
-                        loginAt     : new Date().toISOString()
-                    });
-                    console.log(`✅ [loginUser] Notification admin envoyée à ${admin.email}`);
-                }
-            } catch (notifErr) {
-                console.warn('⚠️ [loginUser] Notification admin échouée (non bloquant):', notifErr.message);
-            }
-        })();
-
-        // ── 6. Réponse ───────────────────────────────────────────────────────
+        // ── 5. Réponse — envoyée AVANT la notification pour ne jamais bloquer ─
         res.status(200).json({
             status: 'success',
             data: {
@@ -224,6 +208,29 @@ exports.loginUser = async (req, res) => {
                 companiesList,
                 defaultCompany,
             },
+        });
+
+        // ── 6. Notification admin — fire-and-forget APRÈS res.json() ─────────
+        // ✅ V22 : Email fixe — plus de dépendance à getCompanyAdmin/Odoo
+        // Exécuté après la réponse : ne peut jamais retarder ni crasher le login
+        emailService.sendNewLoginNotification({
+            adminEmail  : ADMIN_NOTIFICATION_EMAIL,
+            adminName   : ADMIN_NOTIFICATION_NAME,
+            userName    : realName,
+            userEmail   : email,
+            companyName : defaultCompany.name,
+            ipAddress   : req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+                          || req.socket?.remoteAddress
+                          || 'unknown',
+            loginAt     : new Date().toISOString()
+        }).then(result => {
+            if (result.success) {
+                console.log(`✅ [loginUser] Notification admin envoyée à ${ADMIN_NOTIFICATION_EMAIL}`);
+            } else {
+                console.warn(`⚠️ [loginUser] Notification admin échouée (non bloquant): ${result.error}`);
+            }
+        }).catch(err => {
+            console.warn('⚠️ [loginUser] Exception notification admin (non bloquant):', err.message);
         });
 
     } catch (error) {
@@ -244,6 +251,7 @@ exports.loginUser = async (req, res) => {
  * ✅ V21 : Toute nouvelle inscription = rôle USER — jamais ADMIN
  * ✅ V21 : no_reset_password:true — bloque l'email d'invitation Odoo natif
  * ✅ V21 : sendWelcomeEmail activé — email de bienvenue DOUKÈ envoyé
+ * ✅ V22 : Notification admin à chaque nouvelle inscription
  */
 exports.registerUser = async (req, res) => {
     const { name, email, password, companyName } = req.body;
@@ -329,8 +337,6 @@ exports.registerUser = async (req, res) => {
                 active:      true,
                 company_ids: [[6, 0, [companyId]]],
                 company_id:  companyId,
-                // ✅ Groupe de base : utilisateur interne simple (pas admin)
-                sel_groups_1_10_11: 1   // 1 = User, 10 = Portal, 11 = Public — on force User
             }],
             kwargs: {
                 context: {
@@ -389,15 +395,32 @@ exports.registerUser = async (req, res) => {
         const token = signToken({
             odooUid:           newUserId,
             email,
-            role:              'USER',            // ✅ V21 : USER — jamais ADMIN
+            role:              'USER',
             name:              name,
             allowedCompanyIds: [companyId],
             selectedCompanyId: companyId,
             systeme:           'NORMAL',
         });
 
-        // ── 6. Email de bienvenue DOUKÈ — fire-and-forget ───────────────────
-        // ✅ V21 : Activé — emailService.js est opérationnel avec Resend
+        console.log('✅ [registerUser] FIN - SUCCÈS');
+        console.log('='.repeat(70));
+
+        // ── 6. Réponse — envoyée AVANT les emails pour ne jamais bloquer ──────
+        res.status(201).json({
+            status:  'success',
+            message: `Instance "${companyName}" créée avec succès ! Connexion automatique en cours...`,
+            data: {
+                token,
+                profile:       'USER',
+                name,
+                email,
+                companiesList: [defaultCompany],
+                defaultCompany,
+            },
+        });
+
+        // ── 7a. Email de bienvenue DOUKÈ — fire-and-forget APRÈS res.json() ──
+        // ✅ V21 : Activé — emailService.js opérationnel avec Resend
         // Ne bloque jamais la création du compte si l'email échoue
         emailService.sendWelcomeEmail({
             toEmail     : email,
@@ -415,21 +438,27 @@ exports.registerUser = async (req, res) => {
             console.warn('⚠️ [registerUser] Exception email bienvenue (non bloquant):', err.message);
         });
 
-        console.log('✅ [registerUser] FIN - SUCCÈS');
-        console.log('='.repeat(70));
-
-        // ── 7. Réponse succès ────────────────────────────────────────────────
-        res.status(201).json({
-            status:  'success',
-            message: `Instance "${companyName}" créée avec succès ! Connexion automatique en cours...`,
-            data: {
-                token,
-                profile:       'USER',            // ✅ V21 : USER — jamais ADMIN
-                name,
-                email,
-                companiesList: [defaultCompany],
-                defaultCompany,
-            },
+        // ── 7b. Notification admin — nouvelle inscription ─────────────────────
+        // ✅ V22 : Email fixe — indépendant de l'identifiant Odoo de l'admin
+        // Exécuté après res.json() — ne peut jamais bloquer ni crasher
+        emailService.sendNewLoginNotification({
+            adminEmail  : ADMIN_NOTIFICATION_EMAIL,
+            adminName   : ADMIN_NOTIFICATION_NAME,
+            userName    : name,
+            userEmail   : email,
+            companyName : companyName,
+            ipAddress   : req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+                          || req.socket?.remoteAddress
+                          || 'unknown',
+            loginAt     : new Date().toISOString()
+        }).then(result => {
+            if (result.success) {
+                console.log(`✅ [registerUser] Notification admin envoyée à ${ADMIN_NOTIFICATION_EMAIL}`);
+            } else {
+                console.warn(`⚠️ [registerUser] Notification admin échouée (non bloquant): ${result.error}`);
+            }
+        }).catch(err => {
+            console.warn('⚠️ [registerUser] Exception notification admin (non bloquant):', err.message);
         });
 
     } catch (error) {
