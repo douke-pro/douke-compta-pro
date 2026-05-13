@@ -353,64 +353,95 @@ exports.sendNotification = async (req, res) => {
     }
 };
 
-/**
- * Marque une notification comme lue
- */
 exports.markAsRead = async (req, res) => {
     try {
-        const notificationId = parseInt(req.params.id);
-
-        console.log(`✅ [markAsRead] Notification ${notificationId}`);
-
-        await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'mail.notification',
-            method: 'write',
-            args: [[notificationId], { is_read: true }],
-            kwargs: {}
-        });
-
-        res.json({
-            status: 'success',
-            message: 'Notification marquée comme lue'
-        });
-
+        const rawId         = req.params.id;
+        const userId        = req.user.odooUid;
+ 
+        console.log(`✅ [markAsRead] Notification ${rawId}`);
+ 
+        // Notifications PostgreSQL (préfixe pg_)
+        if (String(rawId).startsWith('pg_')) {
+            const pgId = parseInt(rawId.replace('pg_', ''));
+            await pool.query(
+                `UPDATE app_notifications
+                 SET is_read = TRUE, read_at = NOW()
+                 WHERE id = $1 AND recipient_uid = $2`,
+                [pgId, userId]
+            );
+            return res.json({ status: 'success', message: 'Notification marquée comme lue' });
+        }
+ 
+        // Notifications Odoo (préfixe odoo_ ou ID numérique direct)
+        // La lecture seule fonctionne sur Odoo SaaS — on tente l'écriture
+        // mais on ne fait pas échouer si c'est bloqué
+        try {
+            const odooId = parseInt(String(rawId).replace('odoo_', ''));
+            await odooExecuteKw({
+                uid:    ADMIN_UID_INT,
+                model:  'mail.notification',
+                method: 'write',
+                args:   [[odooId], { is_read: true }],
+                kwargs: {}
+            });
+        } catch (odooErr) {
+            console.warn('⚠️ [markAsRead] Écriture Odoo bloquée (SaaS) — ignoré:', odooErr.message);
+        }
+ 
+        res.json({ status: 'success', message: 'Notification marquée comme lue' });
+ 
     } catch (error) {
         console.error('🚨 [markAsRead] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
-            error: 'Erreur lors de la mise à jour'
+            error:  'Erreur lors de la mise à jour'
         });
     }
 };
-
-/**
- * Supprime une notification
- */
+ 
+// =============================================================================
+// 4. SUPPRIMER UNE NOTIFICATION
+// PostgreSQL uniquement — les notifications Odoo ne sont pas supprimées
+// =============================================================================
+ 
 exports.deleteNotification = async (req, res) => {
     try {
-        const notificationId = parseInt(req.params.id);
-
-        console.log(`🗑️ [deleteNotification] Notification ${notificationId}`);
-
-        await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'mail.notification',
-            method: 'unlink',
-            args: [[notificationId]],
-            kwargs: {}
-        });
-
-        res.json({
-            status: 'success',
-            message: 'Notification supprimée'
-        });
-
+        const rawId  = req.params.id;
+        const userId = req.user.odooUid;
+ 
+        console.log(`🗑️ [deleteNotification] Notification ${rawId}`);
+ 
+        if (String(rawId).startsWith('pg_')) {
+            const pgId = parseInt(rawId.replace('pg_', ''));
+            await pool.query(
+                `DELETE FROM app_notifications
+                 WHERE id = $1 AND recipient_uid = $2`,
+                [pgId, userId]
+            );
+            return res.json({ status: 'success', message: 'Notification supprimée' });
+        }
+ 
+        // Notifications Odoo — tentative non bloquante
+        try {
+            const odooId = parseInt(String(rawId).replace('odoo_', ''));
+            await odooExecuteKw({
+                uid:    ADMIN_UID_INT,
+                model:  'mail.notification',
+                method: 'unlink',
+                args:   [[odooId]],
+                kwargs: {}
+            });
+        } catch (odooErr) {
+            console.warn('⚠️ [deleteNotification] Suppression Odoo bloquée (SaaS) — ignoré:', odooErr.message);
+        }
+ 
+        res.json({ status: 'success', message: 'Notification supprimée' });
+ 
     } catch (error) {
         console.error('🚨 [deleteNotification] Erreur:', error.message);
         res.status(500).json({
             status: 'error',
-            error: 'Erreur lors de la suppression'
+            error:  'Erreur lors de la suppression'
         });
     }
 };
