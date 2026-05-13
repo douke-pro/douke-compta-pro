@@ -11132,13 +11132,18 @@ function updateNotificationCount(count) {
 /**
  * Marque une notification comme lue
  */
-window.markAsRead = function(notificationId) {
-    console.log('✅ [markAsRead] Notification', notificationId, 'marquée comme lue');
-    // TODO: Appel API pour marquer comme lu
-    // await apiFetch(`notifications/${notificationId}/read`, { method: 'PATCH' });
-    
-    // Recharger les notifications
-    loadNotifications();
+window.markAsRead = async function(notificationId) {
+    try {
+        await apiFetch(`notifications/${notificationId}/read`, { method: 'PATCH' });
+        console.log(`✅ [markAsRead] Notification ${notificationId} marquée comme lue`);
+    } catch (error) {
+        console.warn('⚠️ [markAsRead] Erreur (non bloquant):', error.message);
+    } finally {
+        // Recharger dans tous les cas — que l'appel réussisse ou non
+        if (typeof loadNotifications === 'function') {
+            loadNotifications();
+        }
+    }
 };
 
 // Fermer le dropdown si clic extérieur
