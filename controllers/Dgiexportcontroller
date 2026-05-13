@@ -1,0 +1,342 @@
+// =============================================================================
+// FICHIER : controllers/dgiExportController.js
+// Description : Contrôleur Express — Génération export DGI SYSCOHADA
+// Version : V2.0 — read_group Odoo (pas de troncature), calculs SYSCOHADA corrects
+//
+// Route : POST /api/accounting/dgi-export
+// Body  : { companyId: number, fiscalYear: number }
+//
+// Corrections V2.0 vs V1.0 :
+//   ✅ read_group au lieu de search_read → pas de troncature à 80 lignes
+//   ✅ Solde = crédit - débit (pas débit brut = BRUT)
+//   ✅ Séparation BRUT/AMORT via préfixe compte (2xxx vs 28xxx/29xxx)
+//   ✅ Import ADMIN_UID_INT aligné sur odooService.js existant
+// =============================================================================
+
+'use strict';
+
+const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+const { generateDGIExport }            = require('../services/dgiExportService');
+
+// =============================================================================
+// HELPER : Agrégation des soldes par compte via read_group
+// read_group agrège côté Odoo — une seule requête, aucune troncature
+//
+// Retourne : Map { codeCompte: { debit: number, credit: number, solde: number } }
+// solde = credit - debit (convention SYSCOHADA : positif = créditeur)
+// =============================================================================
+async function getBalancesByPrefix(companyId, fiscalYear) {
+    const dateFrom = `${fiscalYear}-01-01`;
+    const dateTo   = `${fiscalYear}-12-31`;
+
+    const groups = await odooExecuteKw({
+        uid    : ADMIN_UID_INT,
+        model  : 'account.move.line',
+        method : 'read_group',
+        args   : [
+            [
+                ['company_id',   '=', companyId],
+                ['parent_state', '=', 'posted'],
+                ['date',         '>=', dateFrom],
+                ['date',         '<=', dateTo]
+            ],
+            ['account_id', 'debit', 'credit'],
+            ['account_id']
+        ],
+        kwargs : {
+            lazy    : false,
+            context : { allowed_company_ids: [companyId] }
+        }
+    });
+
+    const balances = new Map();
+
+    for (const g of groups) {
+        // account_id retourne [id, 'CODE NOM'] en read_group
+        const accountLabel = g.account_id?.[1] || '';
+        // Extraire le code (tout ce qui précède le premier espace)
+        const code  = accountLabel.split(' ')[0] || '';
+        const debit = g.debit  || 0;
+        const cred  = g.credit || 0;
+
+        if (code) {
+            balances.set(code, {
+                debit  : debit,
+                credit : cred,
+                solde  : cred - debit   // positif = créditeur
+            });
+        }
+    }
+
+    console.log(`✅ [dgiExport] ${balances.size} comptes agrégés pour ${fiscalYear}`);
+    return balances;
+}
+
+// =============================================================================
+// HELPER : Somme des soldes de tous les comptes commençant par un préfixe
+// =============================================================================
+function sumSolde(balances, prefix) {
+    let total = 0;
+    for (const [code, data] of balances) {
+        if (code.startsWith(prefix)) {
+            total += data.solde;
+        }
+    }
+    return Math.round(total);
+}
+
+// =============================================================================
+// HELPER : Somme des débits (= BRUT pour comptes d'actif en SYSCOHADA)
+// Pour les comptes d'immobilisations, le BRUT = total des débits cumulés
+// =============================================================================
+function sumDebit(balances, prefix) {
+    let total = 0;
+    for (const [code, data] of balances) {
+        if (code.startsWith(prefix)) {
+            total += data.debit;
+        }
+    }
+    return Math.round(total);
+}
+
+// =============================================================================
+// HELPER : Somme des crédits (= AMORT/DÉPRÉC pour comptes 28x, 29x, 49x)
+// =============================================================================
+function sumCredit(balances, prefix) {
+    let total = 0;
+    for (const [code, data] of balances) {
+        if (code.startsWith(prefix)) {
+            total += data.credit;
+        }
+    }
+    return Math.round(total);
+}
+
+// =============================================================================
+// HELPER : NET actif = BRUT (débits immo) - AMORT (crédits comptes 28x/29x)
+// =============================================================================
+function netActif(balances, prefixBrut, prefixAmort) {
+    return sumDebit(balances, prefixBrut) - sumCredit(balances, prefixAmort);
+}
+
+// =============================================================================
+// CONTRÔLEUR PRINCIPAL
+// =============================================================================
+exports.generateDGIFile = async (req, res) => {
+    const companyId  = req.validatedCompanyId || parseInt(req.body.companyId);
+    const fiscalYear = parseInt(req.body.fiscalYear) || new Date().getFullYear() - 1;
+
+    if (!companyId || isNaN(companyId)) {
+        return res.status(400).json({ status: 'error', error: 'companyId requis et doit être un entier' });
+    }
+    if (!fiscalYear || fiscalYear < 2000 || fiscalYear > 2100) {
+        return res.status(400).json({ status: 'error', error: 'fiscalYear invalide' });
+    }
+
+    try {
+        console.log(`📊 [dgiExport] Démarrage — company ${companyId} — exercice ${fiscalYear}`);
+
+        // ── 1. Données entreprise depuis Odoo ─────────────────────────────────
+        const companyData = await odooExecuteKw({
+            uid    : ADMIN_UID_INT,
+            model  : 'res.company',
+            method : 'read',
+            args   : [[companyId], ['name', 'street', 'city', 'vat', 'phone', 'email']],
+            kwargs : {}
+        });
+
+        if (!companyData || companyData.length === 0) {
+            throw new Error(`Entreprise ID ${companyId} introuvable dans Odoo`);
+        }
+
+        const co = companyData[0];
+
+        // ── 2. Soldes N et N-1 (via read_group — pas de troncature) ──────────
+        const [balN, balN1] = await Promise.all([
+            getBalancesByPrefix(companyId, fiscalYear),
+            getBalancesByPrefix(companyId, fiscalYear - 1)
+        ]);
+
+        // ── 3. Construction des objets de données ─────────────────────────────
+
+        const company = {
+            denomination : co.name,
+            sigle        : co.name,
+            adresse      : [co.street, co.city].filter(Boolean).join(', '),
+            ifu          : (co.vat || '').replace(/[^0-9a-zA-Z]/g, ''),
+            dateCloture  : new Date(`${fiscalYear}-12-31`),
+            dateDebut    : new Date(`${fiscalYear}-01-01`),
+        };
+
+        // ── BILAN ACTIF ───────────────────────────────────────────────────────
+        // BRUT  = cumul des débits du compte d'actif (sumDebit)
+        // AMORT = cumul des crédits du compte d'amortissement (sumCredit)
+        // N-1   = NET de l'exercice précédent (sumDebit N-1 - sumCredit amort N-1)
+        const bilanActif = {
+            // Immobilisations incorporelles
+            AE_brut  : sumDebit(balN, '212'),   AE_amort : sumCredit(balN, '282'),   AE_n1 : netActif(balN1, '212', '282'),
+            AF_brut  : sumDebit(balN, '211'),   AF_amort : sumCredit(balN, '281'),   AF_n1 : netActif(balN1, '211', '281'),
+            AG_brut  : sumDebit(balN, '213'),   AG_amort : sumCredit(balN, '283'),   AG_n1 : netActif(balN1, '213', '283'),
+            AH_brut  : sumDebit(balN, '218'),   AH_amort : sumCredit(balN, '288'),   AH_n1 : netActif(balN1, '218', '288'),
+            // Immobilisations corporelles
+            AJ_brut  : sumDebit(balN, '221'),   AJ_amort : 0,                        AJ_n1 : sumDebit(balN1, '221'),
+            AK_brut  : sumDebit(balN, '222'),   AK_amort : sumCredit(balN, '2822'),  AK_n1 : netActif(balN1, '222', '2822'),
+            AL_brut  : sumDebit(balN, '232'),   AL_amort : sumCredit(balN, '2832'),  AL_n1 : netActif(balN1, '232', '2832'),
+            AM_brut  : sumDebit(balN, '224'),   AM_amort : sumCredit(balN, '2824'),  AM_n1 : netActif(balN1, '224', '2824'),
+            AN_brut  : sumDebit(balN, '225'),   AN_amort : sumCredit(balN, '2825'),  AN_n1 : netActif(balN1, '225', '2825'),
+            AP_brut  : sumDebit(balN, '251'),   AP_amort : 0,                        AP_n1 : sumDebit(balN1, '251'),
+            // Immobilisations financières
+            AR_brut  : sumDebit(balN, '261'),   AR_amort : sumCredit(balN, '296'),   AR_n1 : netActif(balN1, '261', '296'),
+            AS_brut  : sumDebit(balN, '271'),   AS_amort : sumCredit(balN, '297'),   AS_n1 : netActif(balN1, '271', '297'),
+            // Actif circulant HAO
+            BA_brut  : sumDebit(balN, '481'),   BA_amort : 0,                        BA_n1 : sumDebit(balN1, '481'),
+            // Stocks — BRUT=31x-35x, AMORT=39x
+            BB_brut  : sumDebit(balN, '3'),     BB_amort : sumCredit(balN, '39'),    BB_n1 : netActif(balN1, '3', '39'),
+            // Créances
+            BH_brut  : sumDebit(balN, '409'),   BH_amort : 0,                        BH_n1 : sumDebit(balN1, '409'),
+            BI_brut  : sumDebit(balN, '411'),   BI_amort : sumCredit(balN, '491'),   BI_n1 : netActif(balN1, '411', '491'),
+            BJ_brut  : sumDebit(balN, '416'),   BJ_amort : sumCredit(balN, '496'),   BJ_n1 : netActif(balN1, '416', '496'),
+            // Trésorerie actif
+            BQ_brut  : sumDebit(balN, '50'),    BQ_amort : 0,                        BQ_n1 : sumDebit(balN1, '50'),
+            BR_brut  : sumDebit(balN, '511'),   BR_amort : 0,                        BR_n1 : sumDebit(balN1, '511'),
+            BS_brut  : sumDebit(balN, '521'),   BS_amort : 0,                        BS_n1 : sumDebit(balN1, '521'),
+            // Écart de conversion actif
+            BU_brut  : sumDebit(balN, '476'),   BU_amort : 0,                        BU_n1 : sumDebit(balN1, '476'),
+        };
+
+        // ── BILAN PASSIF ──────────────────────────────────────────────────────
+        // Soldes créditeurs = positifs (convention SYSCOHADA)
+        // Report à nouveau et résultat : solde peut être négatif (perte)
+        const bilanPassif = {
+            CA_n : sumSolde(balN, '101'),  CA_n1 : sumSolde(balN1, '101'),
+            CB_n : sumSolde(balN, '109'),  CB_n1 : sumSolde(balN1, '109'),
+            CD_n : sumSolde(balN, '105'),  CD_n1 : sumSolde(balN1, '105'),
+            CE_n : sumSolde(balN, '106'),  CE_n1 : sumSolde(balN1, '106'),
+            CF_n : sumSolde(balN, '111'),  CF_n1 : sumSolde(balN1, '111'),
+            CG_n : sumSolde(balN, '112'),  CG_n1 : sumSolde(balN1, '112'),
+            CH_n : sumSolde(balN, '12'),   CH_n1 : sumSolde(balN1, '12'),
+            CJ_n : sumSolde(balN, '13'),   CJ_n1 : sumSolde(balN1, '13'),
+            CL_n : sumSolde(balN, '14'),   CL_n1 : sumSolde(balN1, '14'),
+            CM_n : sumSolde(balN, '15'),   CM_n1 : sumSolde(balN1, '15'),
+            DA_n : sumSolde(balN, '16'),   DA_n1 : sumSolde(balN1, '16'),
+            DB_n : sumSolde(balN, '17'),   DB_n1 : sumSolde(balN1, '17'),
+            DC_n : sumSolde(balN, '19'),   DC_n1 : sumSolde(balN1, '19'),
+            DH_n : sumSolde(balN, '482'),  DH_n1 : sumSolde(balN1, '482'),
+            DI_n : sumSolde(balN, '419'),  DI_n1 : sumSolde(balN1, '419'),
+            DJ_n : sumSolde(balN, '401'),  DJ_n1 : sumSolde(balN1, '401'),
+            DK_n : sumSolde(balN, '44'),   DK_n1 : sumSolde(balN1, '44'),
+            DM_n : sumSolde(balN, '46'),   DM_n1 : sumSolde(balN1, '46'),
+            DN_n : sumSolde(balN, '499'),  DN_n1 : sumSolde(balN1, '499'),
+            DQ_n : sumSolde(balN, '564'),  DQ_n1 : sumSolde(balN1, '564'),
+            DR_n : sumSolde(balN, '561'),  DR_n1 : sumSolde(balN1, '561'),
+            DV_n : sumSolde(balN, '477'),  DV_n1 : sumSolde(balN1, '477'),
+        };
+
+        // ── COMPTE DE RÉSULTAT ────────────────────────────────────────────────
+        // Produits (classe 7) : solde créditeur = positif
+        // Charges  (classe 6) : solde débiteur  = négatif dans le résultat DGI
+        // Le fichier DGI attend des valeurs signées telles qu'elles apparaissent
+        // dans la balance (soldes créditeurs positifs, débiteurs négatifs)
+        const resultat = {
+            TA_n : sumSolde(balN, '701'),   TA_n1 : sumSolde(balN1, '701'),
+            RA_n : sumSolde(balN, '601'),   RA_n1 : sumSolde(balN1, '601'),
+            RB_n : sumSolde(balN, '6031'),  RB_n1 : sumSolde(balN1, '6031'),
+            TB_n : sumSolde(balN, '702'),   TB_n1 : sumSolde(balN1, '702'),
+            TC_n : sumSolde(balN, '706'),   TC_n1 : sumSolde(balN1, '706'),
+            TD_n : sumSolde(balN, '707'),   TD_n1 : sumSolde(balN1, '707'),
+            TE_n : sumSolde(balN, '73'),    TE_n1 : sumSolde(balN1, '73'),
+            TF_n : sumSolde(balN, '72'),    TF_n1 : sumSolde(balN1, '72'),
+            TG_n : sumSolde(balN, '71'),    TG_n1 : sumSolde(balN1, '71'),
+            TH_n : sumSolde(balN, '75'),    TH_n1 : sumSolde(balN1, '75'),
+            TI_n : sumSolde(balN, '781'),   TI_n1 : sumSolde(balN1, '781'),
+            RC_n : sumSolde(balN, '602'),   RC_n1 : sumSolde(balN1, '602'),
+            RD_n : sumSolde(balN, '6032'),  RD_n1 : sumSolde(balN1, '6032'),
+            RE_n : sumSolde(balN, '604'),   RE_n1 : sumSolde(balN1, '604'),
+            RF_n : sumSolde(balN, '6033'),  RF_n1 : sumSolde(balN1, '6033'),
+            RG_n : sumSolde(balN, '61'),    RG_n1 : sumSolde(balN1, '61'),
+            RH_n : sumSolde(balN, '62'),    RH_n1 : sumSolde(balN1, '62'),
+            RI_n : sumSolde(balN, '64'),    RI_n1 : sumSolde(balN1, '64'),
+            RJ_n : sumSolde(balN, '65'),    RJ_n1 : sumSolde(balN1, '65'),
+            RK_n : sumSolde(balN, '66'),    RK_n1 : sumSolde(balN1, '66'),
+            TJ_n : sumSolde(balN, '7781'),  TJ_n1 : sumSolde(balN1, '7781'),
+            RL_n : sumSolde(balN, '681'),   RL_n1 : sumSolde(balN1, '681'),
+            TK_n : sumSolde(balN, '77'),    TK_n1 : sumSolde(balN1, '77'),
+            TL_n : sumSolde(balN, '7782'),  TL_n1 : sumSolde(balN1, '7782'),
+            TM_n : sumSolde(balN, '7783'),  TM_n1 : sumSolde(balN1, '7783'),
+            RM_n : sumSolde(balN, '67'),    RM_n1 : sumSolde(balN1, '67'),
+            RN_n : sumSolde(balN, '682'),   RN_n1 : sumSolde(balN1, '682'),
+            TN_n : sumSolde(balN, '82'),    TN_n1 : sumSolde(balN1, '82'),
+            TO_n : sumSolde(balN, '84'),    TO_n1 : sumSolde(balN1, '84'),
+            RO_n : sumSolde(balN, '81'),    RO_n1 : sumSolde(balN1, '81'),
+            RP_n : sumSolde(balN, '83'),    RP_n1 : sumSolde(balN1, '83'),
+            RQ_n : sumSolde(balN, '664'),   RQ_n1 : sumSolde(balN1, '664'),
+            RS_n : sumSolde(balN, '89'),    RS_n1 : sumSolde(balN1, '89'),
+        };
+
+        // ── TABLEAU DES FLUX DE TRÉSORERIE (méthode indirecte SYSCOHADA) ──────
+        // ZA = trésorerie nette au 1er janvier N = tréso N-1
+        const tresoN   = sumDebit(balN, '521')  - Math.abs(sumSolde(balN, '561'));
+        const tresoN1  = sumDebit(balN1, '521') - Math.abs(sumSolde(balN1, '561'));
+        const resultN  = sumSolde(balN, '13');
+        const amortN   = Math.abs(sumSolde(balN, '681')) + Math.abs(sumSolde(balN, '682'));
+
+        const tft = {
+            ZA_n : tresoN1,                         ZA_n1 : 0,
+            FA_n : resultN + amortN,                FA_n1 : 0,
+            FB_n : -(sumDebit(balN, '481') - sumDebit(balN1, '481')), FB_n1: 0,
+            FC_n : -(sumDebit(balN, '31')  + sumDebit(balN, '32')
+                   + sumDebit(balN, '33')  + sumDebit(balN, '34')
+                   - sumDebit(balN1, '31') - sumDebit(balN1, '32')
+                   - sumDebit(balN1, '33') - sumDebit(balN1, '34')),  FC_n1: 0,
+            FD_n : -(sumDebit(balN, '41')  - sumDebit(balN1, '41')),  FD_n1: 0,
+            FE_n :  (Math.abs(sumSolde(balN, '40'))
+                   - Math.abs(sumSolde(balN1, '40'))
+                   + Math.abs(sumSolde(balN, '44'))
+                   - Math.abs(sumSolde(balN1, '44'))),                 FE_n1: 0,
+            FF_n : -(sumDebit(balN, '21')  - sumDebit(balN1, '21')),  FF_n1: 0,
+            FG_n : -(sumDebit(balN, '22')  - sumDebit(balN1, '22')),  FG_n1: 0,
+            FH_n : -(sumDebit(balN, '26')  - sumDebit(balN1, '26')),  FH_n1: 0,
+            FI_n :  sumSolde(balN, '82'),                              FI_n1: 0,
+            FJ_n :  0,                                                 FJ_n1: 0,
+            FK_n :  sumSolde(balN, '101') - sumSolde(balN1, '101'),   FK_n1: 0,
+            FL_n :  sumSolde(balN, '14')  - sumSolde(balN1, '14'),    FL_n1: 0,
+            FM_n :  0,                                                 FM_n1: 0,
+            FN_n : -Math.abs(sumSolde(balN, '4611')),                  FN_n1: 0,
+            FO_n :  sumSolde(balN, '16')  - sumSolde(balN1, '16'),    FO_n1: 0,
+            FP_n :  0,                                                 FP_n1: 0,
+            FQ_n :  0,                                                 FQ_n1: 0,
+        };
+
+        // Arrondir tous les montants TFT
+        for (const key of Object.keys(tft)) {
+            tft[key] = Math.round(tft[key]);
+        }
+
+        // ── 4. Génération du fichier ──────────────────────────────────────────
+        const buffer = await generateDGIExport({
+            company, bilanActif, bilanPassif, resultat, tft
+        });
+
+        // ── 5. Envoi de la réponse ────────────────────────────────────────────
+        const ifu      = company.ifu || 'sans-ifu';
+        const filename = `DGI-EtatsFinanciers-${ifu}-${fiscalYear}.xlsm`;
+
+        res.setHeader('Content-Type',
+            'application/vnd.ms-excel.sheet.macroEnabled.12');
+        res.setHeader('Content-Disposition',
+            `attachment; filename="${encodeURIComponent(filename)}"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Cache-Control',  'no-cache, no-store, must-revalidate');
+
+        console.log(`✅ [dgiExport] ${filename} envoyé — ${Math.round(buffer.length / 1024)} KB`);
+        res.send(buffer);
+
+    } catch (err) {
+        console.error('🚨 [dgiExport]', err.message);
+        console.error(err.stack);
+        res.status(500).json({
+            status : 'error',
+            error  : `Échec génération export DGI : ${err.message}`
+        });
+    }
+};
