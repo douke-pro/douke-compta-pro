@@ -1,0 +1,442 @@
+// =============================================================================
+// FICHIER : services/dgiExportService.js
+// Description : Génération du fichier Excel DGI (États Financiers SYSCOHADA)
+//               Approche ZIP + XML — macros VBA intégralement préservées
+// Version : V2.0 — Audit complet du template, coordonnées vérifiées cellule par cellule
+//
+// Résultats de l'audit du template (openpyxl + zipfile) :
+//
+// GARDE (xl/worksheets/sheet8.xml) — cellules de saisie :
+//   D22  t="s"  → dénomination sociale    (shared string index)
+//   C26  t="s"  → sigle usuel             (shared string index)
+//   C28  t="s"  → adresse complète        (shared string index)
+//   D30  t="s"  → IFU                     (shared string index)
+//   E17  t=num  → date clôture            (numérique Excel : nb jours depuis 1900)
+//
+// BILAN (xl/worksheets/sheet15.xml) — colonnes de saisie ACTIF :
+//   Col C = BRUT N     (sauf lignes avec formule en C = notes/refs)
+//   Col G = AMORT N    (valeur numérique directe, pas formule)
+//   Col H = NET N      (formule =C-G sur lignes sous-totaux, sinon valeur)
+//   Col I = NET N-1    (valeur numérique directe)
+//   ⚠️  IMPORTANT : les lignes de SOUS-TOTAUX (AZ, BK, BT, BZ) ont des FORMULES
+//       en C/F/G/H — NE PAS les écraser
+//
+// BILAN — colonnes PASSIF :
+//   Col M = NET N      (valeur numérique directe sauf lignes formules)
+//   Col N = NET N-1
+//
+// RESULTAT (xl/worksheets/sheet18.xml) — colonnes de saisie :
+//   Col I = valeur N   (valeur numérique directe)
+//   Col J = valeur N-1
+//   ⚠️  Lignes de TOTAUX (XA=14, XB=18, XC=32, XD=34, XE=37, XF=43, XG=44,
+//       XH=49, XI=52) ont des FORMULES — NE PAS les écraser
+//
+// TFT (xl/worksheets/sheet19.xml) — colonnes de saisie :
+//   Col H = valeur N   ← ATTENTION : colonne H pas I (vérifié sur XML brut)
+//   Col J = valeur N-1
+//   ⚠️  Lignes ZB=19, ZC=26, ZD=32, ZE=37, ZF=38, ZG=39, ZH=40 = FORMULES
+//
+// Dépendance : npm install adm-zip
+// =============================================================================
+
+'use strict';
+
+const path   = require('path');
+const fs     = require('fs');
+const AdmZip = require('adm-zip');
+
+// Chemin vers le template officiel DGI
+const TEMPLATE_PATH = path.join(
+    __dirname, '../templates/DGI-EtatsFinanciers-SYSCOHADA-template.xlsm'
+);
+
+// =============================================================================
+// MAPPING ONGLETS → FICHIERS XML (vérifié par audit workbook.xml.rels)
+// =============================================================================
+const SHEET_FILES = {
+    GARDE    : 'xl/worksheets/sheet8.xml',
+    FICHE_R1 : 'xl/worksheets/sheet12.xml',
+    FICHE_R2 : 'xl/worksheets/sheet13.xml',
+    BILAN    : 'xl/worksheets/sheet15.xml',
+    RESULTAT : 'xl/worksheets/sheet18.xml',
+    TFT      : 'xl/worksheets/sheet19.xml',
+};
+
+// =============================================================================
+// HELPER : Convertir une date JS en numéro de série Excel
+// Excel compte les jours depuis le 1er janvier 1900 (avec bug du 29/02/1900)
+// =============================================================================
+function dateToExcelSerial(date) {
+    const d = date instanceof Date ? date : new Date(date);
+    // Base Excel = 1 janvier 1900 = jour 1
+    const base = new Date(Date.UTC(1899, 11, 30)); // 30/12/1899
+    const diff = d.getTime() - base.getTime();
+    return Math.round(diff / (1000 * 60 * 60 * 24));
+}
+
+// =============================================================================
+// HELPER : Ajouter une chaîne dans sharedStrings.xml et retourner son index
+// Si la chaîne existe déjà, retourne l'index existant
+// =============================================================================
+function upsertSharedString(ssXml, value) {
+    // Chercher si la valeur existe déjà (recherche exacte)
+    const escaped = value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    // Compter le nombre actuel de shared strings
+    const countMatch = ssXml.match(/count="(\d+)"/);
+    const uniqMatch  = ssXml.match(/uniqueCount="(\d+)"/);
+    const totalCount = countMatch ? parseInt(countMatch[1]) : 0;
+    const uniqCount  = uniqMatch  ? parseInt(uniqMatch[1])  : 0;
+
+    // Chercher si la valeur existe déjà (dans un <si><t>...</t></si>)
+    const siBlocks = [];
+    const siRegex  = /<si>(.*?)<\/si>/gs;
+    let m;
+    let idx = 0;
+    while ((m = siRegex.exec(ssXml)) !== null) {
+        const texts = m[1].match(/<t[^>]*>([^<]*)<\/t>/g) || [];
+        const combined = texts.map(t => t.replace(/<t[^>]*>|<\/t>/g, '')).join('');
+        if (combined === value) {
+            return { xml: ssXml, index: idx };
+        }
+        idx++;
+    }
+
+    // La valeur n'existe pas — l'ajouter
+    const newSi   = `<si><t>${escaped}</t></si>`;
+    const newXml  = ssXml.replace('</sst>', `${newSi}</sst>`);
+    const newIndex = idx; // = ancien uniqueCount
+
+    // Mettre à jour les attributs count et uniqueCount
+    const updatedXml = newXml
+        .replace(/count="\d+"/, `count="${totalCount + 1}"`)
+        .replace(/uniqueCount="\d+"/, `uniqueCount="${uniqCount + 1}"`);
+
+    return { xml: updatedXml, index: newIndex };
+}
+
+// =============================================================================
+// HELPER : Modifier la valeur d'une cellule dans un XML de feuille
+//
+// Modes :
+//   'num'    → remplace ou crée <v>valeur</v> (numérique)
+//   'str'    → remplace ou crée <v>index</v> avec t="s" (shared string)
+//   'formula'→ ne touche pas (cellule avec formule = préserver)
+//
+// ⚠️  Cette fonction remplace UNIQUEMENT la valeur <v>, jamais les formules <f>
+// =============================================================================
+function setCellValue(sheetXml, cellRef, value, mode) {
+    // Regex pour trouver la cellule exacte par sa référence
+    // Format OOXML : <c r="D22" s="851" t="s"><v>4457</v></c>
+    const cellRegex = new RegExp(
+        `(<c r="${cellRef}"[^>]*>)(.*?)(</c>)`,
+        's'
+    );
+
+    const match = sheetXml.match(cellRegex);
+
+    if (!match) {
+        // Cellule non trouvée — log et skip (ne pas crasher)
+        console.warn(`⚠️  [dgiExport] Cellule ${cellRef} non trouvée dans le XML`);
+        return sheetXml;
+    }
+
+    const openTag  = match[1];
+    const content  = match[2];
+    const closeTag = match[3];
+
+    // Vérifier que la cellule n'a pas de formule — si oui, ne pas toucher
+    if (content.includes('<f>') || content.includes('<f ')) {
+        console.warn(`⚠️  [dgiExport] Cellule ${cellRef} contient une formule — ignorée`);
+        return sheetXml;
+    }
+
+    let newOpenTag = openTag;
+    let newContent;
+
+    if (mode === 'str') {
+        // Cellule texte (shared string) : t="s" obligatoire
+        newOpenTag = openTag.replace(/t="[^"]*"/, 't="s"');
+        if (!newOpenTag.includes('t="s"')) {
+            // Ajouter t="s" si absent
+            newOpenTag = newOpenTag.replace('<c ', '<c t="s" ');
+        }
+        newContent = `<v>${value}</v>`;
+    } else {
+        // Cellule numérique : supprimer t="s" si présent
+        newOpenTag = newOpenTag.replace(/\s*t="s"/, '').replace(/\s*t="[^"]*"/, '');
+        newContent = `<v>${value}</v>`;
+    }
+
+    const replacement = `${newOpenTag}${newContent}${closeTag}`;
+    return sheetXml.replace(cellRegex, replacement);
+}
+
+// =============================================================================
+// FONCTION PRINCIPALE : generateDGIExport
+//
+// @param {Object} company       — Données entreprise
+// @param {Object} bilanActif    — Données actif bilan (BRUT, AMORT, N-1)
+// @param {Object} bilanPassif   — Données passif bilan (N, N-1)
+// @param {Object} resultat      — Données compte de résultat (N, N-1)
+// @param {Object} tft           — Données tableau des flux de trésorerie (N, N-1)
+//
+// @returns {Promise<Buffer>}    — Buffer binaire du fichier .xlsm
+// =============================================================================
+async function generateDGIExport({ company, bilanActif, bilanPassif, resultat, tft }) {
+
+    // ── Vérification du template ─────────────────────────────────────────────
+    if (!fs.existsSync(TEMPLATE_PATH)) {
+        throw new Error(
+            `Template DGI introuvable : ${TEMPLATE_PATH}\n` +
+            `Placez le fichier dans /templates/DGI-EtatsFinanciers-SYSCOHADA-template.xlsm`
+        );
+    }
+
+    // ── Chargement du ZIP ────────────────────────────────────────────────────
+    // AdmZip charge tout en mémoire — le fichier original sur disque n'est PAS modifié
+    const zip = new AdmZip(TEMPLATE_PATH);
+
+    console.log(`✅ [dgiExport] Template chargé depuis ${TEMPLATE_PATH}`);
+
+    // ── Lecture de sharedStrings.xml ─────────────────────────────────────────
+    let ssXml = zip.readAsText('xl/sharedStrings.xml');
+
+    // =========================================================================
+    // ÉTAPE 1 — Injecter les données dans sharedStrings.xml
+    // Les cellules t="s" dans GARDE référencent des indices dans ce fichier
+    // =========================================================================
+
+    // Dénomination sociale → D22
+    const r_denom = upsertSharedString(ssXml, company.denomination);
+    ssXml = r_denom.xml;
+    const idx_denom = r_denom.index;
+
+    // Sigle usuel → C26
+    const r_sigle = upsertSharedString(ssXml, company.sigle || company.denomination);
+    ssXml = r_sigle.xml;
+    const idx_sigle = r_sigle.index;
+
+    // Adresse → C28
+    const r_addr = upsertSharedString(ssXml, company.adresse || '');
+    ssXml = r_addr.xml;
+    const idx_addr = r_addr.index;
+
+    // IFU → D30
+    const r_ifu = upsertSharedString(ssXml, company.ifu || '');
+    ssXml = r_ifu.xml;
+    const idx_ifu = r_ifu.index;
+
+    // Mettre à jour sharedStrings.xml dans le ZIP
+    zip.updateFile('xl/sharedStrings.xml', Buffer.from(ssXml, 'utf8'));
+
+    console.log(`✅ [dgiExport] sharedStrings mis à jour — denom[${idx_denom}] sigle[${idx_sigle}] addr[${idx_addr}] ifu[${idx_ifu}]`);
+
+    // =========================================================================
+    // ÉTAPE 2 — GARDE (sheet8.xml)
+    // =========================================================================
+    let gardeXml = zip.readAsText(SHEET_FILES.GARDE);
+
+    // D22 = dénomination (shared string)
+    gardeXml = setCellValue(gardeXml, 'D22', idx_denom, 'str');
+
+    // C26 = sigle (shared string)
+    gardeXml = setCellValue(gardeXml, 'C26', idx_sigle, 'str');
+
+    // C28 = adresse (shared string)
+    gardeXml = setCellValue(gardeXml, 'C28', idx_addr, 'str');
+
+    // D30 = IFU (shared string)
+    gardeXml = setCellValue(gardeXml, 'D30', idx_ifu, 'str');
+
+    // E17 = date de clôture (numérique Excel)
+    const dateSerial = dateToExcelSerial(company.dateCloture);
+    gardeXml = setCellValue(gardeXml, 'E17', dateSerial, 'num');
+
+    zip.updateFile(SHEET_FILES.GARDE, Buffer.from(gardeXml, 'utf8'));
+    console.log(`✅ [dgiExport] GARDE injecté — date=${dateSerial}`);
+
+    // =========================================================================
+    // ÉTAPE 3 — BILAN (sheet15.xml)
+    // Colonnes confirmées par audit XML :
+    //   ACTIF  : C=BRUT, G=AMORT, H=NET(formule), I=NET N-1
+    //   PASSIF : M=NET N, N=NET N-1
+    //
+    // Lignes de saisie ACTIF (vérifiées — pas de formule en C) :
+    //   12(AE), 13(AF), 14(AG), 15(AH)  — immo incorporelles
+    //   17(AJ), 18(AK), 19(AL), 20(AM), 21(AN) — immo corporelles
+    //   22(AP)                            — avances immo
+    //   24(AR), 25(AS)                    — immo financières
+    //   27(BA), 28(BB)                    — actif circulant HAO, stocks
+    //   30(BH), 31(BI), 32(BJ)           — créances
+    //   34(BQ), 35(BR), 36(BS)           — trésorerie actif
+    //   38(BU)                            — écart conversion
+    //
+    // ⚠️  Lignes 11(AD), 16(AI), 23(AQ), 26(AZ), 29(BG), 33(BK), 37(BT), 39(BZ)
+    //     = TOTAUX avec formules → INTERDIT d'y toucher
+    // =========================================================================
+    let bilanXml = zip.readAsText(SHEET_FILES.BILAN);
+
+    // Mapping : [ref_ligne, colC_brut_key, colG_amort_key, colI_n1_key]
+    // colH (NET N) = formule =C-G → préservée automatiquement par setCellValue
+    const actifRows = [
+        // REF   row  brut_key       amort_key       n1_key
+        ['AE',   12, 'AE_brut',    'AE_amort',    'AE_n1'],
+        ['AF',   13, 'AF_brut',    'AF_amort',    'AF_n1'],
+        ['AG',   14, 'AG_brut',    'AG_amort',    'AG_n1'],
+        ['AH',   15, 'AH_brut',    'AH_amort',    'AH_n1'],
+        ['AJ',   17, 'AJ_brut',    'AJ_amort',    'AJ_n1'],
+        ['AK',   18, 'AK_brut',    'AK_amort',    'AK_n1'],
+        ['AL',   19, 'AL_brut',    'AL_amort',    'AL_n1'],
+        ['AM',   20, 'AM_brut',    'AM_amort',    'AM_n1'],
+        ['AN',   21, 'AN_brut',    'AN_amort',    'AN_n1'],
+        ['AP',   22, 'AP_brut',    'AP_amort',    'AP_n1'],
+        ['AR',   24, 'AR_brut',    'AR_amort',    'AR_n1'],
+        ['AS',   25, 'AS_brut',    'AS_amort',    'AS_n1'],
+        ['BA',   27, 'BA_brut',    'BA_amort',    'BA_n1'],
+        ['BB',   28, 'BB_brut',    'BB_amort',    'BB_n1'],
+        ['BH',   30, 'BH_brut',    'BH_amort',    'BH_n1'],
+        ['BI',   31, 'BI_brut',    'BI_amort',    'BI_n1'],
+        ['BJ',   32, 'BJ_brut',    'BJ_amort',    'BJ_n1'],
+        ['BQ',   34, 'BQ_brut',    'BQ_amort',    'BQ_n1'],
+        ['BR',   35, 'BR_brut',    'BR_amort',    'BR_n1'],
+        ['BS',   36, 'BS_brut',    'BS_amort',    'BS_n1'],
+        ['BU',   38, 'BU_brut',    'BU_amort',    'BU_n1'],
+    ];
+
+    for (const [ref, row, brutKey, amortKey, n1Key] of actifRows) {
+        const brut  = bilanActif[brutKey]  || 0;
+        const amort = bilanActif[amortKey] || 0;
+        const n1    = bilanActif[n1Key]    || 0;
+
+        // Col C = BRUT N
+        bilanXml = setCellValue(bilanXml, `C${row}`, brut,  'num');
+        // Col G = AMORT N (valeur positive)
+        bilanXml = setCellValue(bilanXml, `G${row}`, Math.abs(amort), 'num');
+        // Col I = NET N-1
+        bilanXml = setCellValue(bilanXml, `I${row}`, n1, 'num');
+    }
+
+    // Passif — colonnes M (N) et N (N-1)
+    // Lignes de saisie PASSIF vérifiées (sans formules en M/N) :
+    const passifRows = [
+        ['CA', 11], ['CB', 12], ['CD', 13], ['CE', 14],
+        ['CF', 15], ['CG', 16], ['CH', 17], ['CJ', 18],
+        ['CL', 19], ['CM', 20],
+        ['DA', 22], ['DB', 23], ['DC', 24],
+        ['DH', 27], ['DI', 28], ['DJ', 29], ['DK', 30],
+        ['DM', 31], ['DN', 32],
+        ['DQ', 35], ['DR', 36], ['DV', 38],
+    ];
+
+    for (const [ref, row] of passifRows) {
+        const vN  = bilanPassif[`${ref}_n`]  || 0;
+        const vN1 = bilanPassif[`${ref}_n1`] || 0;
+        bilanXml = setCellValue(bilanXml, `M${row}`, vN,  'num');
+        bilanXml = setCellValue(bilanXml, `N${row}`, vN1, 'num');
+    }
+
+    zip.updateFile(SHEET_FILES.BILAN, Buffer.from(bilanXml, 'utf8'));
+    console.log(`✅ [dgiExport] BILAN injecté — ${actifRows.length} postes actif, ${passifRows.length} postes passif`);
+
+    // =========================================================================
+    // ÉTAPE 4 — RESULTAT (sheet18.xml)
+    // Colonnes : I = N, J = N-1
+    // Lignes de saisie (sans formule en I/J) vérifiées sur XML brut :
+    //   11(TA), 12(RA), 13(RB), 15(TB), 16(TC), 17(TD),
+    //   19(TE), 20(TF), 21(TG), 22(TH), 23(TI),
+    //   24(RC), 25(RD), 26(RE), 27(RF), 28(RG), 29(RH), 30(RI), 31(RJ),
+    //   33(RK), 35(TJ), 36(RL),
+    //   38(TK), 39(TL), 40(TM), 41(RM), 42(RN),
+    //   45(TN), 46(TO), 47(RO), 48(RP), 50(RQ), 51(RS)
+    // ⚠️  Lignes 14(XA), 18(XB), 32(XC), 34(XD), 37(XE), 43(XF), 44(XG),
+    //     49(XH), 52(XI) = FORMULES → setCellValue les ignorera automatiquement
+    // =========================================================================
+    let resultatXml = zip.readAsText(SHEET_FILES.RESULTAT);
+
+    const resultatRows = [
+        ['TA', 11], ['RA', 12], ['RB', 13],
+        ['TB', 15], ['TC', 16], ['TD', 17],
+        ['TE', 19], ['TF', 20], ['TG', 21], ['TH', 22], ['TI', 23],
+        ['RC', 24], ['RD', 25], ['RE', 26], ['RF', 27],
+        ['RG', 28], ['RH', 29], ['RI', 30], ['RJ', 31],
+        ['RK', 33],
+        ['TJ', 35], ['RL', 36],
+        ['TK', 38], ['TL', 39], ['TM', 40], ['RM', 41], ['RN', 42],
+        ['TN', 45], ['TO', 46], ['RO', 47], ['RP', 48],
+        ['RQ', 50], ['RS', 51],
+    ];
+
+    for (const [ref, row] of resultatRows) {
+        const vN  = resultat[`${ref}_n`]  || 0;
+        const vN1 = resultat[`${ref}_n1`] || 0;
+        resultatXml = setCellValue(resultatXml, `I${row}`, vN,  'num');
+        resultatXml = setCellValue(resultatXml, `J${row}`, vN1, 'num');
+    }
+
+    zip.updateFile(SHEET_FILES.RESULTAT, Buffer.from(resultatXml, 'utf8'));
+    console.log(`✅ [dgiExport] RESULTAT injecté — ${resultatRows.length} postes`);
+
+    // =========================================================================
+    // ÉTAPE 5 — TFT (sheet19.xml)
+    // ⚠️  CORRECTION CRITIQUE : colonne H = N (pas I comme supposé initialement)
+    //     Vérification XML brut : ligne 10 → H10=1027956, J10=0 ✓
+    //                             ligne 12 → H12=5444093, J12=0 ✓
+    //
+    // Lignes de saisie (sans formule en H) :
+    //   10(ZA), 12(FA), 13(FB), 14(FC), 15(FD), 16(FE),
+    //   21(FF), 22(FG), 23(FH), 24(FI), 25(FJ),
+    //   28(FK), 29(FL), 30(FM), 31(FN),
+    //   34(FO), 35(FP), 36(FQ)
+    // ⚠️  Lignes 19(ZB), 26(ZC), 32(ZD), 37(ZE), 38(ZF), 39(ZG), 40(ZH)
+    //     = FORMULES → ignorées automatiquement
+    // =========================================================================
+    let tftXml = zip.readAsText(SHEET_FILES.TFT);
+
+    const tftRows = [
+        ['ZA', 10], ['FA', 12], ['FB', 13], ['FC', 14], ['FD', 15], ['FE', 16],
+        ['FF', 21], ['FG', 22], ['FH', 23], ['FI', 24], ['FJ', 25],
+        ['FK', 28], ['FL', 29], ['FM', 30], ['FN', 31],
+        ['FO', 34], ['FP', 35], ['FQ', 36],
+    ];
+
+    for (const [ref, row] of tftRows) {
+        const vN  = tft[`${ref}_n`]  || 0;
+        const vN1 = tft[`${ref}_n1`] || 0;
+        // ⚠️  Col H = N, col J = N-1 (confirmé sur XML brut TFT)
+        tftXml = setCellValue(tftXml, `H${row}`, vN,  'num');
+        tftXml = setCellValue(tftXml, `J${row}`, vN1, 'num');
+    }
+
+    zip.updateFile(SHEET_FILES.TFT, Buffer.from(tftXml, 'utf8'));
+    console.log(`✅ [dgiExport] TFT injecté — ${tftRows.length} postes (col H=N, J=N-1)`);
+
+    // =========================================================================
+    // ÉTAPE 6 — Suppression du calcChain.xml
+    // Excel recalcule les formules à l'ouverture. Si calcChain.xml est présent
+    // avec des références obsolètes, Excel peut afficher une erreur de corruption.
+    // La suppression force Excel à reconstruire la chaîne — comportement standard.
+    // =========================================================================
+    try {
+        zip.deleteFile('xl/calcChain.xml');
+        console.log(`✅ [dgiExport] calcChain.xml supprimé — Excel recalculera à l'ouverture`);
+    } catch (e) {
+        // Pas critique si absent
+    }
+
+    // =========================================================================
+    // ÉTAPE 7 — Export du buffer final
+    // vbaProject.bin est intact (jamais touché) → macros VBA préservées
+    // =========================================================================
+    const buffer = zip.toBuffer();
+
+    console.log(`✅ [dgiExport] Fichier généré — ${Math.round(buffer.length / 1024)} KB — VBA préservé`);
+
+    return buffer;
+}
+
+module.exports = { generateDGIExport };
