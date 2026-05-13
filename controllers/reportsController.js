@@ -378,6 +378,14 @@ exports.generateReports = async (req, res) => {
                     [JSON.stringify(pdfFiles), JSON.stringify(odooData), requestId]
                 );
 
+                await notificationService.send({
+                    userId:  request.requested_by,
+                    type:    'financial_report_generated',
+                    title:   'Vos états financiers ont été générés',
+                    message: `Votre demande #${String(requestId).padStart(5,'0')} a été traitée. Les rapports sont en cours de validation.`,
+                    link:    `/reports/${requestId}`
+                    }).catch(e => console.warn('⚠️ Notification interne générée échouée (non bloquant):', e.message));
+                
                 await emailService.sendReportReadyEmail({
                     userEmail: request.requested_by_email || req.user.email,
                     userName:  request.requested_by_name  || 'Utilisateur',
