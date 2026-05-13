@@ -391,33 +391,6 @@ exports.markAsRead = async (req, res) => {
     }
 };
 
-// ============================================================================
-// 4. DELETE NOTIFICATION (Postgres only) - simple, sécurisé
-// ============================================================================
-exports.deleteNotification = async (req, res) => {
-    try {
-        const rawId = req.params.id;
-        const userId = req.user?.odooUid;
-        if (!userId) return res.status(401).json({ status: 'error', error: 'Utilisateur non authentifié' });
-
-        if (!String(rawId).startsWith('pg_')) {
-            return res.status(400).json({ status: 'error', error: 'Suppression supporte uniquement notifications app (pg_)' });
-        }
-        const pgId = parseInt(rawId.replace('pg_', ''));
-        if (isNaN(pgId)) return res.status(400).json({ status: 'error', error: 'ID invalide' });
-
-        await pool.query(
-            `DELETE FROM app_notifications WHERE id = $1 AND recipient_uid = $2`,
-            [pgId, userId]
-        );
-        return res.json({ status: 'success', message: 'Notification supprimée' });
-
-    } catch (err) {
-        console.error('🚨 [deleteNotification] fatal:', err.message);
-        return res.status(500).json({ status: 'error', error: 'Erreur suppression notification' });
-    }
-};
- 
 // =============================================================================
 // 4. SUPPRIMER UNE NOTIFICATION
 // PostgreSQL uniquement — les notifications Odoo ne sont pas supprimées
