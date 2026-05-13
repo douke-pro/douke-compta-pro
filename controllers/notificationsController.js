@@ -1,7 +1,9 @@
+// =============================================================================
 // controllers/notificationsController.js
 // Version : V27.1 - Refactor senior pour Odoo 19 + PostgreSQL (Supabase)
 // Remplacez le fichier précédent par celui-ci (copier/coller).
 // Principes : robustesse, batching, transactions, avoidance SPOF, sanitation.
+// =============================================================================
 
 // Dépendances
 const { odooExecuteKw, ADMIN_UID_INT, getServiceUidFallback } = require('../services/odooService');
