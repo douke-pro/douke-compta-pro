@@ -1,11 +1,7 @@
-// =============================================================================
 // controllers/notificationsController.js
 // Version : V27.1 - Refactor senior pour Odoo 19 + PostgreSQL (Supabase)
-// Remplacez le fichier précédent par celui-ci (copier/coller).
 // Principes : robustesse, batching, transactions, avoidance SPOF, sanitation.
-// =============================================================================
 
-// Dépendances
 const { odooExecuteKw, ADMIN_UID_INT, getServiceUidFallback } = require('../services/odooService');
 const pool = require('../services/dbService');
 const { stripHtmlTags, throttleCheck, sanitizeText } = require('../utils/sanitizers');
@@ -19,7 +15,6 @@ const SEND_THROTTLE_LIMIT = 2000; // nombre max notifications lancées par minut
 // Helper : récupère partner_id pour une liste d'userIds (batch)
 async function getPartnersForUserIds(userIds = []) {
     if (!Array.isArray(userIds) || userIds.length === 0) return [];
-    // read en batch : demander partner_id et groups_id si besoin
     const uid = await getServiceUidFallback(ADMIN_UID_INT);
     const users = await odooExecuteKw({
         uid,
@@ -28,8 +23,7 @@ async function getPartnersForUserIds(userIds = []) {
         args: [userIds, ['id', 'partner_id', 'groups_id', 'name', 'email', 'login', 'company_ids']],
         kwargs: {}
     });
-    // users peut être objet ou tableau selon wrapper ; normaliser
-    return users.map(u => ({
+    return (users || []).map(u => ({
         id: u.id,
         partner_id: Array.isArray(u.partner_id) ? u.partner_id[0] : null,
         groups_id: Array.isArray(u.groups_id) ? u.groups_id : [],
@@ -47,22 +41,21 @@ async function getUsersForCompany(companyId, limit = MAX_BATCH_USERS) {
         method: 'search_read',
         args: [[['company_ids', 'in', [parseInt(companyId)]]]],
         kwargs: { fields: ['id','name','email','login','partner_id','groups_id'], limit }
-    });
+    }) || [];
 }
 
 // Helper : récupération mapping groups -> roles en une seule requête (optimisé)
 async function getGroupsMapForUsers(userIds = []) {
     if (!userIds || userIds.length === 0) return new Map();
     const uid = await getServiceUidFallback(ADMIN_UID_INT);
-    // Récupérer groups avec leur user_ids en un appel
     const groups = await odooExecuteKw({
         uid,
         model: 'res.groups',
         method: 'search_read',
         args: [[['users', 'in', userIds]]],
         kwargs: { fields: ['id','name','users'], limit: 1000 }
-    });
-    // Map userId => [group names]
+    }) || [];
+
     const map = new Map();
     for (const g of groups) {
         const gName = (g.name || '').toString().toLowerCase();
@@ -118,7 +111,7 @@ exports.getNotifications = async (req, res) => {
                  LIMIT 50`,
                 [userId, companyId]
             );
-            pgNotifications = pgResult.rows.map(r => ({
+            pgNotifications = (pgResult.rows || []).map(r => ({
                 id: `pg_${r.id}`,
                 source: 'app',
                 type: r.type || 'info',
@@ -161,7 +154,7 @@ exports.getNotifications = async (req, res) => {
                         order: 'id DESC',
                         limit: 30
                     }
-                });
+                }) || [];
 
                 const messageIds = notifications.map(n => n.mail_message_id?.[0]).filter(Boolean);
                 let messages = [];
@@ -172,11 +165,11 @@ exports.getNotifications = async (req, res) => {
                         method: 'search_read',
                         args: [[['id', 'in', messageIds]]],
                         kwargs: { fields: ['id','subject','body','date','author_id'], order: 'date DESC' }
-                    });
+                    }) || [];
                 }
 
                 odooNotifications = notifications.map(n => {
-                    const m = messages.find(x => x.id === n.mail_message_id?.[0]) || {};
+                    const m = (messages || []).find(x => x.id === n.mail_message_id?.[0]) || {};
                     return {
                         id: `odoo_${n.id}`,
                         source: 'odoo',
@@ -249,7 +242,6 @@ exports.sendNotification = async (req, res) => {
             targetUsers = await getUsersForCompany(companyId, MAX_BATCH_USERS);
         } else if (recipientType === 'role') {
             const targetRole = (Array.isArray(recipients) && recipients[0]) || null;
-            // Récupérer tous les users et groups map en batch
             const allUsers = await getUsersForCompany(companyId, MAX_BATCH_USERS);
             const userIds = allUsers.map(u => u.id);
             const groupsMap = await getGroupsMapForUsers(userIds);
@@ -262,7 +254,6 @@ exports.sendNotification = async (req, res) => {
             const userIds = Array.isArray(recipients) ? recipients.map(r => parseInt(r)).filter(Boolean) : [];
             if (userIds.length === 0) return res.status(400).json({ status: 'error', error: 'Aucun destinataire valide' });
             targetUsers = await getUsersForCompany(companyId, MAX_BATCH_USERS);
-            // filter local copy to requested ids
             targetUsers = targetUsers.filter(u => userIds.includes(u.id));
         } else {
             return res.status(400).json({ status: 'error', error: 'Type destinataire invalide' });
@@ -315,10 +306,6 @@ exports.sendNotification = async (req, res) => {
 
         console.log(`✅ [sendNotification] ${createdIds.length} notifications stored (pg)`);
 
-        // Optionnel : push à une queue / websocket pour notifier clients temps réel
-        // Exemple : INSERT INTO notification_jobs (notification_id) VALUES (...) pour worker
-        // (implémentez worker qui envoie websocket/push et retry)
-
         const recipientsSummary = targetUsers.map(u => ({
             id: u.id,
             name: u.name,
@@ -340,7 +327,7 @@ exports.sendNotification = async (req, res) => {
         });
 
     } catch (err) {
-        client.release();
+        try { client.release(); } catch (e) {}
         console.error('🚨 [sendNotification] fatal:', err.message);
         return res.status(500).json({ status: 'error', error: 'Erreur envoi notifications' });
     }
@@ -397,14 +384,13 @@ exports.markAsRead = async (req, res) => {
 // 4. SUPPRIMER UNE NOTIFICATION
 // PostgreSQL uniquement — les notifications Odoo ne sont pas supprimées
 // =============================================================================
- 
 exports.deleteNotification = async (req, res) => {
     try {
         const rawId  = req.params.id;
         const userId = req.user.odooUid;
- 
+
         console.log(`🗑️ [deleteNotification] Notification ${rawId}`);
- 
+
         if (String(rawId).startsWith('pg_')) {
             const pgId = parseInt(rawId.replace('pg_', ''));
             await pool.query(
@@ -414,7 +400,7 @@ exports.deleteNotification = async (req, res) => {
             );
             return res.json({ status: 'success', message: 'Notification supprimée' });
         }
- 
+
         // Notifications Odoo — tentative non bloquante
         try {
             const odooId = parseInt(String(rawId).replace('odoo_', ''));
@@ -428,9 +414,9 @@ exports.deleteNotification = async (req, res) => {
         } catch (odooErr) {
             console.warn('⚠️ [deleteNotification] Suppression Odoo bloquée (SaaS) — ignoré:', odooErr.message);
         }
- 
+
         res.json({ status: 'success', message: 'Notification supprimée' });
- 
+
     } catch (error) {
         console.error('🚨 [deleteNotification] Erreur:', error.message);
         res.status(500).json({
@@ -441,14 +427,8 @@ exports.deleteNotification = async (req, res) => {
 };
 
 // =============================================================================
-// FONCTIONS UTILITAIRES
+// UTILITAIRES LOCAUX (labels)
 // =============================================================================
-
-function stripHtmlTags(html) {
-    if (!html) return '';
-    return html.replace(/<[^>]*>/g, '').trim();
-}
-
 function getPriorityLabel(priority) {
     const labels = {
         'low': '🟢 Basse',
