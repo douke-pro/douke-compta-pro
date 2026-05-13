@@ -479,4 +479,292 @@ exports.sendClosingConfirmationEmail = async ({
     }
 };
 
+// =============================================================================
+// À AJOUTER dans services/emailService.js
+// Collez ces deux fonctions AVANT la ligne : module.exports = exports;
+// =============================================================================
+
+// =============================================================================
+// 5. EMAIL ADMIN — Nouvelle demande d'états financiers
+// Appelé depuis : reportsController.js → createRequest → setImmediate
+// =============================================================================
+exports.sendNewReportRequestEmail = async ({
+    adminEmail,
+    adminName,
+    requesterName,
+    requesterEmail,
+    requestId,
+    companyId,
+    accountingSystem,
+    periodStart,
+    periodEnd
+}) => {
+    const systemLabels = {
+        'SYSCOHADA_NORMAL':  'SYSCOHADA Normal',
+        'SYSCOHADA_MINIMAL': 'SYSCOHADA Minimal',
+        'SYCEBNL_NORMAL':    'SYCEBNL Normal',
+        'SYCEBNL_ALLEGE':    'SYCEBNL Allégé',
+        'PCG_FRENCH':        'PCG Français'
+    };
+
+    const systemLabel     = systemLabels[accountingSystem] || accountingSystem;
+    const requestIdPadded = String(requestId).padStart(5, '0');
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return 'Non spécifiée';
+        try {
+            return new Date(dateStr).toLocaleDateString('fr-FR', {
+                day: '2-digit', month: 'long', year: 'numeric'
+            });
+        } catch { return dateStr; }
+    };
+
+    const content = `
+        <p style="font-size:15px; color:#2d3748; margin:0 0 12px 0;">
+            Bonjour <strong>${adminName}</strong>,
+        </p>
+
+        <p style="font-size:15px; color:#4a5568; line-height:1.7; margin:0 0 20px 0;">
+            Une nouvelle demande d'états financiers vient d'être soumise sur
+            <strong>DOUKÈ Compta Pro</strong> et attend votre traitement.
+        </p>
+
+        <!-- DÉTAILS DE LA DEMANDE -->
+        <div style="background-color:#f8fafc; border:1px solid #e2e8f0;
+                    border-radius:8px; padding:20px 25px; margin:20px 0;">
+            <p style="font-size:13px; font-weight:bold; color:#4a5568;
+                      margin:0 0 15px 0; text-transform:uppercase;
+                      letter-spacing:0.5px;">
+                Détails de la demande #${requestIdPadded}
+            </p>
+            <table style="width:100%; border-collapse:collapse;">
+                <tr>
+                    <td style="font-size:13px; color:#718096; padding:7px 0; width:45%;">
+                        Demandé par :
+                    </td>
+                    <td style="font-size:13px; color:#2d3748; font-weight:bold; padding:7px 0;">
+                        ${requesterName}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size:13px; color:#718096; padding:7px 0;">
+                        Email :
+                    </td>
+                    <td style="font-size:13px; color:#2d3748; padding:7px 0;">
+                        ${requesterEmail}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size:13px; color:#718096; padding:7px 0;">
+                        Système comptable :
+                    </td>
+                    <td style="font-size:13px; color:#2d3748; font-weight:bold; padding:7px 0;">
+                        ${systemLabel}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size:13px; color:#718096; padding:7px 0;">
+                        Période :
+                    </td>
+                    <td style="font-size:13px; color:#2d3748; padding:7px 0;">
+                        Du ${formatDate(periodStart)} au ${formatDate(periodEnd)}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size:13px; color:#718096; padding:7px 0;">
+                        Entreprise (ID) :
+                    </td>
+                    <td style="font-size:13px; color:#2d3748; padding:7px 0;">
+                        ${companyId}
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- BOUTON ACTION -->
+        <div style="text-align:center; margin:30px 0;">
+            <a href="https://douke-compta-pro.onrender.com"
+               style="background:linear-gradient(135deg,#f59e0b,#d97706);
+                      color:#ffffff; padding:14px 36px;
+                      text-decoration:none; border-radius:8px;
+                      font-size:15px; font-weight:bold;
+                      display:inline-block; letter-spacing:0.5px;">
+                ✏️ Traiter la Demande #${requestIdPadded}
+            </a>
+        </div>
+
+        <!-- NOTE -->
+        <div style="background-color:#fffbeb; border-left:4px solid #f59e0b;
+                    border-radius:4px; padding:14px 18px; margin:20px 0;">
+            <p style="font-size:13px; color:#92400e; margin:0; line-height:1.6;">
+                📋 <strong>Action requise :</strong> Connectez-vous à DOUKÈ Compta Pro,
+                accédez aux demandes en attente et traitez cette demande dans les
+                <strong>48 heures ouvrées</strong>.
+            </p>
+        </div>
+    `;
+
+    try {
+        const result = await resend.emails.send({
+            from   : FROM_ADDRESS,
+            to     : adminEmail,
+            subject: `📋 Nouvelle demande #${requestIdPadded} — ${requesterName} | DOUKÈ Compta Pro`,
+            html   : buildBaseHTML(content)
+        });
+
+        console.log(`✅ [emailService] sendNewReportRequestEmail envoyé à ${adminEmail} — ID: ${result.data?.id}`);
+        return { success: true, id: result.data?.id };
+
+    } catch (err) {
+        console.error(`🚨 [emailService] Échec sendNewReportRequestEmail:`, err.message);
+        return { success: false, error: err.message };
+    }
+};
+
+// =============================================================================
+// 6. EMAIL CLIENT — Rapport prêt ou envoyé
+// Appelé depuis : reportsController.js → generateReports et sendReportsToUser
+// =============================================================================
+exports.sendReportReadyEmail = async ({
+    userEmail,
+    userName,
+    requestId,
+    status
+}) => {
+    if (!userEmail) {
+        console.warn('⚠️ [emailService] sendReportReadyEmail: userEmail manquant — ignoré');
+        return { success: false, error: 'userEmail manquant' };
+    }
+
+    const requestIdPadded = String(requestId).padStart(5, '0');
+
+    const statusConfig = {
+        generated: {
+            subject : `⚙️ Vos états financiers sont générés — Demande #${requestIdPadded}`,
+            title   : 'Vos États Financiers ont été Générés',
+            message : 'Votre demande d\'états financiers a été traitée et les rapports ont été générés. Ils sont en cours de validation par votre collaborateur avant envoi.',
+            color   : '#7c3aed',
+            icon    : '⚙️',
+            badge   : 'En cours de validation',
+            badgeBg : '#f3e8ff',
+            badgeColor: '#6b21a8'
+        },
+        sent: {
+            subject : `✅ Vos états financiers sont disponibles — Demande #${requestIdPadded}`,
+            title   : 'Vos États Financiers sont Disponibles',
+            message : 'Votre demande d\'états financiers a été traitée, validée et vos documents sont maintenant disponibles. Connectez-vous à DOUKÈ Compta Pro pour les télécharger.',
+            color   : '#059669',
+            icon    : '✅',
+            badge   : 'Disponible au téléchargement',
+            badgeBg : '#f0fdf4',
+            badgeColor: '#166534'
+        }
+    };
+
+    const config = statusConfig[status] || statusConfig['sent'];
+
+    const content = `
+        <p style="font-size:15px; color:#2d3748; margin:0 0 12px 0;">
+            Bonjour <strong>${userName || 'Cher client'}</strong>,
+        </p>
+
+        <p style="font-size:15px; color:#4a5568; line-height:1.7; margin:0 0 20px 0;">
+            ${config.message}
+        </p>
+
+        <!-- BADGE STATUT -->
+        <div style="text-align:center; margin:20px 0;">
+            <span style="display:inline-block; background:${config.badgeBg};
+                         color:${config.badgeColor}; padding:10px 24px;
+                         border-radius:999px; font-size:14px; font-weight:bold;
+                         border:1px solid ${config.badgeColor}30;">
+                ${config.icon} ${config.badge}
+            </span>
+        </div>
+
+        <!-- INFOS DEMANDE -->
+        <div style="background-color:#f8fafc; border:1px solid #e2e8f0;
+                    border-radius:8px; padding:18px 24px; margin:20px 0;">
+            <table style="width:100%; border-collapse:collapse;">
+                <tr>
+                    <td style="font-size:13px; color:#718096; padding:6px 0; width:45%;">
+                        Numéro de demande :
+                    </td>
+                    <td style="font-size:13px; color:#2d3748; font-weight:bold;
+                               font-family:monospace; padding:6px 0;">
+                        #${requestIdPadded}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size:13px; color:#718096; padding:6px 0;">
+                        Statut :
+                    </td>
+                    <td style="font-size:13px; font-weight:bold; padding:6px 0;
+                               color:${config.color};">
+                        ${config.badge}
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        ${status === 'sent' ? `
+        <!-- BOUTON TÉLÉCHARGEMENT -->
+        <div style="text-align:center; margin:30px 0;">
+            <a href="https://douke-compta-pro.onrender.com"
+               style="background:linear-gradient(135deg,#059669,#047857);
+                      color:#ffffff; padding:14px 36px;
+                      text-decoration:none; border-radius:8px;
+                      font-size:15px; font-weight:bold;
+                      display:inline-block; letter-spacing:0.5px;">
+                📥 Télécharger mes Documents
+            </a>
+        </div>
+        ` : `
+        <!-- MESSAGE PATIENCE -->
+        <div style="text-align:center; margin:30px 0;">
+            <a href="https://douke-compta-pro.onrender.com"
+               style="background:linear-gradient(135deg,#7c3aed,#6d28d9);
+                      color:#ffffff; padding:14px 36px;
+                      text-decoration:none; border-radius:8px;
+                      font-size:15px; font-weight:bold;
+                      display:inline-block; letter-spacing:0.5px;">
+                👁️ Suivre ma Demande
+            </a>
+        </div>
+        `}
+
+        <!-- NOTE SÉCURITÉ -->
+        <div style="background-color:#f0f9ff; border-left:4px solid #0ea5e9;
+                    border-radius:4px; padding:14px 18px; margin:20px 0;">
+            <p style="font-size:13px; color:#0c4a6e; margin:0; line-height:1.6;">
+                🔒 <strong>Confidentialité :</strong> Vos états financiers sont
+                strictement confidentiels et accessibles uniquement depuis votre
+                compte sécurisé DOUKÈ Compta Pro.
+            </p>
+        </div>
+
+        <p style="font-size:13px; color:#718096; margin:20px 0 0 0;">
+            Pour toute question, contactez-nous à
+            <a href="mailto:contact@doukegf.bj"
+               style="color:#4f46e5;">contact@doukegf.bj</a>.
+        </p>
+    `;
+
+    try {
+        const result = await resend.emails.send({
+            from   : FROM_ADDRESS,
+            to     : userEmail,
+            subject: config.subject,
+            html   : buildBaseHTML(content)
+        });
+
+        console.log(`✅ [emailService] sendReportReadyEmail (${status}) envoyé à ${userEmail} — ID: ${result.data?.id}`);
+        return { success: true, id: result.data?.id };
+
+    } catch (err) {
+        console.error(`🚨 [emailService] Échec sendReportReadyEmail:`, err.message);
+        return { success: false, error: err.message };
+    }
+};
+
 module.exports = exports;
