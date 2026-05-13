@@ -19,6 +19,8 @@ const pdfGeneratorService= require('../services/pdfGenerator');
 const emailService       = require('../services/emailService');
 const path               = require('path');
 const fs                 = require('fs').promises;
+// ✅ AJOUT — service notifications internes
+const notificationService = require('../services/notifications');
 
 // ============================================
 // HELPER : récupérer l'email de l'admin pour les notifications
