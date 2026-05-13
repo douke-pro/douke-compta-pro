@@ -468,6 +468,16 @@ exports.sendReportsToUser = async (req, res) => {
             [req.params.id]
         );
 
+        // ✅ APRÈS — ajoutez ces lignes immédiatement après
+       await notificationService.send({
+           userId:  request.requested_by,
+           type:    'financial_report_ready',
+           title:   '✅ Vos états financiers sont disponibles',
+           message: `Votre demande #${String(req.params.id).padStart(5,'0')} est validée. Connectez-vous pour télécharger vos documents.`,
+           link:    `/reports/${req.params.id}`
+           }).catch(e => console.warn('⚠️ Notification interne envoi échouée (non bloquant):', e.message));
+
+        
         res.json({ success: true, message: 'Rapports envoyés avec succès' });
 
         setImmediate(async () => {
