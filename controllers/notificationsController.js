@@ -1,26 +1,3 @@
-Ci‑dessous le fichier complet et prêt à copier/coller pour remplacer votre controller notificationsController.js. C’est une version « senior » : robuste, performante, sécurisée et adaptée à Odoo 19 + PostgreSQL (Supabase). Principales améliorations appliquées :
-
-Lecture hybride (PG + Odoo) optimisée.
-
-Écriture uniquement en PostgreSQL (V27 pattern), avec transaction et rollback partiel géré.
-
-Résolution des rôles sans N appels par utilisateur (récupération group_ids en batch).
-
-Pool/service-account fallback pour éviter SPOF ADMIN_UID_INT (simple wrapper avec retry).
-
-File d’envoi asynchrone simulée par insertion d’un job table (commentée pour intégration queue réelle).
-
-Sanitation des entrées, limites, throttling basique pour envois massifs.
-
-Logs structurés et retours d’erreurs précis.
-
-Protection XSS minimale (stripHtmlTags + length checks).
-
-Pagination / limit / safe defaults.
-
-Remplacez entièrement votre fichier controllers/notificationsController.js par ce qui suit :
-
-javascript
 // controllers/notificationsController.js
 // Version : V27.1 - Refactor senior pour Odoo 19 + PostgreSQL (Supabase)
 // Remplacez le fichier précédent par celui-ci (copier/coller).
