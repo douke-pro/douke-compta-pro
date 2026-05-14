@@ -89,7 +89,8 @@ const buildEmailBody = (type, title, message, link) => {
     const color = typeColors[type] || '#2563eb';
     const appUrl = process.env.FRONTEND_URL || 'https://douke-compta.onrender.com';
     const fullLink = link ? `${appUrl}${link}` : appUrl;
-
+    const pool = require('./dbService');
+    
     return `
 <div style="font-family: Arial, sans-serif; padding: 20px; background: #f9fafb; border-radius: 8px; max-width: 600px;">
     <div style="background: ${color}; padding: 15px 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
@@ -111,99 +112,46 @@ const buildEmailBody = (type, title, message, link) => {
 </div>`.trim();
 };
 
-// =============================================================================
-// FONCTION PRINCIPALE
-// =============================================================================
-
 /**
- * Envoyer une notification à un utilisateur via Odoo mail.message
+ * Envoyer une notification interne à un utilisateur
  *
- * @param {Object} params
- * @param {number} params.userId   - ID Odoo de l'utilisateur destinataire
- * @param {string} params.type     - Type de notification
- * @param {string} params.title    - Titre
- * @param {string} params.message  - Corps du message
- * @param {string} params.link     - Lien relatif (ex: '/reports/42')
- *
- * @returns {Promise<{success: boolean, messageId?: number, error?: string}>}
+ * @param {number} userId    - odooUid de l'utilisateur destinataire
+ * @param {number} companyId - ID de l'entreprise (optionnel)
+ * @param {string} type      - Type de notification
+ * @param {string} title     - Titre court
+ * @param {string} message   - Corps du message
+ * @param {string} link      - Lien relatif optionnel (ex: '/reports/42')
  */
-exports.send = async ({ userId, type, title, message, link }) => {
+exports.send = async ({ userId, companyId, type, title, message, link }) => {
     try {
         console.log(`📬 [notifications.send] userId:${userId} | type:${type} | title:"${title}"`);
 
-        // 1. Récupérer le partner destinataire
-        const recipientData = await getPartnerIdFromUserId(userId);
-
-        if (!recipientData) {
-            console.warn(`⚠️ [notifications.send] Destinataire introuvable pour userId:${userId} — ignorée`);
-            return { success: false, error: `Destinataire userId:${userId} introuvable` };
+        if (!userId || !title || !message) {
+            console.warn('⚠️ [notifications.send] Paramètres manquants — ignorée');
+            return { success: false, error: 'userId, title et message requis' };
         }
 
-        const { partnerId, name, email } = recipientData;
-        console.log(`👤 [notifications.send] Destinataire: ${name} (partner:${partnerId}, email:${email})`);
+        const result = await pool.queryWithRetry(
+            `INSERT INTO app_notifications
+             (user_id, company_id, type, title, message, link, is_read, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, FALSE, NOW())
+             RETURNING id`,
+            [
+                parseInt(userId),
+                companyId ? parseInt(companyId) : null,
+                type    || 'info',
+                title,
+                message,
+                link    || null
+            ]
+        );
 
-        // 2. Récupérer le partner expéditeur système
-        const senderPartnerId = await getSystemPartnerId();
-
-        if (!senderPartnerId) {
-            console.warn('⚠️ [notifications.send] Expéditeur système introuvable — ignorée');
-            return { success: false, error: 'Expéditeur système introuvable' };
-        }
-
-        // 3. Construire le corps HTML
-        const htmlBody = buildEmailBody(type, title, message, link);
-
-        // 4. Créer le message Odoo (mail.message)
-        const messageId = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'mail.message',
-            method: 'create',
-            args: [{
-                message_type: 'notification',
-                subtype_id: 1,
-                subject: title,
-                body: htmlBody,
-                author_id: senderPartnerId,
-                needaction: true,
-                record_name: `Notification - ${type}`,
-                partner_ids: [[6, 0, [partnerId]]]
-            }],
-            kwargs: {}
-        });
-
-        console.log(`✅ [notifications.send] mail.message créé: ID ${messageId}`);
-
-        // 5. Créer la notification Odoo (mail.notification) pour la boîte de réception
-        try {
-            const notifId = await odooExecuteKw({
-                uid: ADMIN_UID_INT,
-                model: 'mail.notification',
-                method: 'create',
-                args: [{
-                    mail_message_id: messageId,
-                    res_partner_id: partnerId,
-                    notification_type: 'inbox',
-                    is_read: false,
-                    notification_status: 'sent'
-                }],
-                kwargs: {}
-            });
-
-            console.log(`✅ [notifications.send] mail.notification créée: ID ${notifId}`);
-
-        } catch (notifError) {
-            // Ne pas bloquer si la notification inbox échoue — le message existe déjà
-            console.warn(`⚠️ [notifications.send] Erreur mail.notification:`, notifError.message);
-        }
-
-        console.log(`✅ [notifications.send] Succès pour userId:${userId}`);
-        return { success: true, messageId };
+        const notifId = result.rows[0]?.id;
+        console.log(`✅ [notifications.send] Notification ${notifId} créée pour userId:${userId}`);
+        return { success: true, notificationId: notifId };
 
     } catch (error) {
-        // Ne jamais faire crasher l'appelant
-        // reportsController appelle send() dans des setImmediate() et flux critiques
         console.error(`❌ [notifications.send] Erreur:`, error.message);
-        console.error('Stack:', error.stack);
         return { success: false, error: error.message };
     }
 };
