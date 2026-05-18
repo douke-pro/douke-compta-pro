@@ -44,19 +44,17 @@ exports.getAllUsers = async (req, res) => {
         console.log('📥 [getAllUsers] Récupération de la liste des utilisateurs...');
 
         // ── ÉTAPE 1 : Tous les users en 1 seule requête ──────────────
-       const users = await odooExecuteKw({
-    uid: ADMIN_UID_INT,
-    model: 'res.users',
-    method: 'search_read',
-    args: [[
-        ['share', '=', false]
-    ]],
+        const users = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.users',
+            method: 'search_read',
+            args: [[['share', '=', false]]],
             kwargs: {
                 fields: [
                     'id', 'name', 'login', 'email',
                     'phone', 'active', 'company_ids',
-                    'create_date', 'write_date', 'login_date',
-                    'groups_id'   // ✅ Natif Odoo 19 — IDs des groupes
+                    'create_date', 'write_date', 'login_date'
+                    // ✅ PAS de groups_id — supprimé en Odoo 19 SaaS
                 ],
                 order: 'name ASC'
             }
@@ -64,87 +62,70 @@ exports.getAllUsers = async (req, res) => {
 
         console.log(`📊 [getAllUsers] ${users.length} utilisateurs trouvés dans Odoo`);
 
-        // ── ÉTAPE 2 : LOG DE VÉRIFICATION (à retirer après validation) ─
-        if (users.length > 0) {
-            console.log('🧪 [TEST] groups_id sample user[0]:', {
-                id: users[0].id,
-                name: users[0].name,
-                groups_id: users[0].groups_id
+        // ── ÉTAPE 2 : Récupérer les groupes via res.groups ────────────
+        // Inverser la logique : chercher quels groupes contiennent nos users
+        const userIds = users.map(u => u.id);
+
+        let userProfileMap = {}; // { userId → profile }
+
+        try {
+            const groups = await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'res.groups',
+                method: 'search_read',
+                args: [[['user_ids', 'in', userIds]]],
+                kwargs: {
+                    fields: ['id', 'name', 'user_ids'],
+                    limit: 500
+                }
             });
+
+            console.log(`📦 [getAllUsers] ${groups.length} groupes récupérés en 1 requête`);
+
+            // Construire le map userId → meilleur profil
+            // Priorité : ADMIN > COLLABORATEUR > CAISSIER > USER
+            const PRIORITY = { 'ADMIN': 4, 'COLLABORATEUR': 3, 'CAISSIER': 2, 'USER': 1 };
+
+            groups.forEach(group => {
+                const gName = group.name.toLowerCase();
+
+                let detectedProfile = null;
+                if (gName.includes('admin') || gName.includes('settings') || gName.includes('administration')) {
+                    detectedProfile = 'ADMIN';
+                } else if (gName.includes('manager') || gName.includes('accountant') || gName.includes('comptable') || gName.includes('gestionnaire')) {
+                    detectedProfile = 'COLLABORATEUR';
+                } else if (gName.includes('cash') || gName.includes('caisse') || gName.includes('cashier')) {
+                    detectedProfile = 'CAISSIER';
+                }
+
+                if (detectedProfile) {
+                    (group.user_ids || []).forEach(uid => {
+                        const current = userProfileMap[uid];
+                        if (!current || PRIORITY[detectedProfile] > PRIORITY[current]) {
+                            userProfileMap[uid] = detectedProfile;
+                        }
+                    });
+                }
+            });
+
+        } catch (groupError) {
+            console.error('⚠️ [getAllUsers] Impossible de charger les groupes:', groupError.message);
+            // On continue — tous les users auront le profil USER par défaut
         }
 
-        // ── ÉTAPE 3 : Collecter tous les group IDs uniques ────────────
-        const allGroupIds = [...new Set(users.flatMap(u => u.groups_id || []))];
-        console.log(`🔍 [getAllUsers] ${allGroupIds.length} group IDs uniques à résoudre`);
-
-        // ── ÉTAPE 4 : UNE seule requête pour TOUS les groupes ─────────
-        let groupsMap = {}; // { id → name_lowercase }
-
-        if (allGroupIds.length > 0) {
-            try {
-                const allGroups = await odooExecuteKw({
-                    uid: ADMIN_UID_INT,
-                    model: 'res.groups',
-                    method: 'search_read',
-                    args: [[['id', 'in', allGroupIds]]],
-                    kwargs: {
-                        fields: ['id', 'name'],
-                        limit: 500
-                    }
-                });
-
-                allGroups.forEach(g => {
-                    groupsMap[g.id] = g.name.toLowerCase();
-                });
-
-                console.log(`📦 [getAllUsers] ${allGroups.length} groupes résolus en 1 requête`);
-
-            } catch (groupFetchError) {
-                // ✅ Si la requête groupes échoue → on continue sans profil enrichi
-                console.error('⚠️ [getAllUsers] Impossible de charger les groupes:', groupFetchError.message);
-            }
-        }
-
-        // ── ÉTAPE 5 : Enrichir les users LOCALEMENT (zéro requête) ───
-        const usersWithRoles = users.map(user => {
-            const userGroupNames = (user.groups_id || []).map(gid => groupsMap[gid] || '');
-
-            let profile = 'USER'; // défaut
-
-            if (userGroupNames.some(n =>
-                n.includes('admin') ||
-                n.includes('settings') ||
-                n.includes('administration')
-            )) {
-                profile = 'ADMIN';
-            } else if (userGroupNames.some(n =>
-                n.includes('manager') ||
-                n.includes('accountant') ||
-                n.includes('comptable') ||
-                n.includes('gestionnaire')
-            )) {
-                profile = 'COLLABORATEUR';
-            } else if (userGroupNames.some(n =>
-                n.includes('cash') ||
-                n.includes('caisse') ||
-                n.includes('cashier')
-            )) {
-                profile = 'CAISSIER';
-            }
-
-            return {
-                id: user.id,
-                name: user.name,
-                email: user.email || user.login,
-                phone: user.phone || null,
-                profile,
-                active: user.active,
-                companies: user.company_ids || [],
-                created_at: user.create_date,
-                updated_at: user.write_date,
-                last_login: user.login_date || null
-            };
-        });
+        // ── ÉTAPE 3 : Enrichir les users LOCALEMENT ──────────────────
+        const usersWithRoles = users.map(user => ({
+            id: user.id,
+            name: user.name,
+            email: user.email || user.login,
+            phone: user.phone || null,
+            profile: userProfileMap[user.id] || 'USER',
+            active: user.active,
+            companies: user.company_ids || [],
+            created_at: user.create_date,
+            updated_at: user.write_date,
+            last_login: user.login_date || null
+        }));
 
         console.log(`✅ [getAllUsers] ${usersWithRoles.length} utilisateurs enrichis avec succès`);
 
@@ -157,7 +138,6 @@ exports.getAllUsers = async (req, res) => {
     } catch (error) {
         console.error('🚨 [getAllUsers] Erreur critique:', error.message);
         console.error('Stack:', error.stack);
-
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la récupération des utilisateurs',
