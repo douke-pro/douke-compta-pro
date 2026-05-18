@@ -44,13 +44,13 @@ exports.getAllUsers = async (req, res) => {
         console.log('📥 [getAllUsers] Récupération de la liste des utilisateurs...');
 
         // ── ÉTAPE 1 : Tous les users en 1 seule requête ──────────────
-        const users = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'res.users',
-            method: 'search_read',
-            args: [[
-            ['share', '=', false]   // flat, pas de double imbrication
-            ]]
+       const users = await odooExecuteKw({
+    uid: ADMIN_UID_INT,
+    model: 'res.users',
+    method: 'search_read',
+    args: [[
+        ['share', '=', false]
+    ]],
             kwargs: {
                 fields: [
                     'id', 'name', 'login', 'email',
