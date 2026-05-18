@@ -1,342 +1,322 @@
 // =============================================================================
 // FICHIER : controllers/notificationsController.js
-// Version : V26 - CORRECTION PARTNER_IDS POUR ODOO 19
+// Version : V27 - ÉTAT LOCAL PostgreSQL + ANTI-429 + ODOO 19 SaaS
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+const pool = require('../services/dbService');
 
-/**
- * Récupère les notifications de l'utilisateur connecté
- */
 exports.getNotifications = async (req, res) => {
     try {
         const userId = req.user.odooUid;
-        
         console.log('🔔 [getNotifications] User:', userId);
-        
-        // Récupérer le partner_id de l'utilisateur
-        const userData = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'res.users',
-            method: 'read',
-            args: [[userId], ['partner_id']],
-            kwargs: {}
-        });
-        
-        if (!userData || userData.length === 0 || !userData[0].partner_id) {
-            console.warn(`⚠️ [getNotifications] Partner non trouvé pour user ${userId}`);
-            return res.json({ status: 'success', data: [] });
-        }
-        
-        const partnerId = userData[0].partner_id[0];
-        
-        console.log(`👤 [getNotifications] Partner ID: ${partnerId}`);
-        
-        // Récupérer les notifications depuis mail.notification
-        const notifications = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'mail.notification',
-            method: 'search_read',
-            args: [[
-                ['res_partner_id', '=', partnerId]
-            ]],
-            kwargs: {
-                fields: ['id', 'mail_message_id', 'is_read', 'notification_type', 'notification_status'],
-                order: 'id DESC',
-                limit: 50
-            }
-        });
-        
-        console.log(`📬 [getNotifications] ${notifications.length} notifications trouvées`);
-        
-        // Récupérer les détails des messages
-        const messageIds = notifications
-            .map(n => n.mail_message_id ? n.mail_message_id[0] : null)
-            .filter(Boolean);
-        
-        let messages = [];
-        if (messageIds.length > 0) {
-            messages = await odooExecuteKw({
-                uid: ADMIN_UID_INT,
-                model: 'mail.message',
-                method: 'search_read',
-                args: [[['id', 'in', messageIds]]],
-                kwargs: {
-                    fields: ['id', 'subject', 'body', 'date', 'author_id'],
-                    order: 'date DESC'
-                }
-            });
-        }
-        
-        // Combiner notifications + messages
-        const formattedNotifications = notifications.map(notif => {
-            const message = messages.find(m => m.id === (notif.mail_message_id ? notif.mail_message_id[0] : null)) || {};
-            
-            return {
-                id: notif.id,
-                type: 'info',
-                priority: 'normal',
-                title: message.subject || 'Notification',
-                message: stripHtmlTags(message.body || '').substring(0, 200),
-                created_at: message.date || new Date().toISOString(),
-                read: notif.is_read,
-                sender_id: message.author_id ? message.author_id[1] : 'Système'
+
+        const stateResult = await pool.query(
+            `SELECT notification_id, is_read, is_deleted
+             FROM notification_state
+             WHERE user_odoo_uid = $1`,
+            [userId]
+        );
+
+        const localState = {};
+        stateResult.rows.forEach(row => {
+            localState[row.notification_id] = {
+                is_read:    row.is_read,
+                is_deleted: row.is_deleted
             };
         });
-        
-        console.log(`✅ [getNotifications] ${formattedNotifications.length} notifications formatées`);
-        
-        res.json({
-            status: 'success',
-            data: formattedNotifications
+
+        const userData = await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'res.users',
+            method: 'read',
+            args:   [[userId], ['partner_id']],
+            kwargs: {}
         });
-        
+
+        if (!userData || !userData[0]?.partner_id) {
+            console.warn(`⚠️ [getNotifications] Partner non trouvé pour user ${userId}`);
+            return res.json({ status: 'success', data: [], unread_count: 0 });
+        }
+
+        const partnerId = userData[0].partner_id[0];
+        console.log(`👤 [getNotifications] Partner ID: ${partnerId}`);
+
+        const notifications = await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'mail.notification',
+            method: 'search_read',
+            args:   [[['res_partner_id', '=', partnerId]]],
+            kwargs: {
+                fields: ['id', 'mail_message_id', 'is_read', 'notification_type', 'notification_status'],
+                order:  'id DESC',
+                limit:  50
+            }
+        });
+
+        console.log(`📬 [getNotifications] ${notifications.length} notifications trouvées`);
+
+        const messageIds = notifications
+            .map(n => n.mail_message_id?.[0])
+            .filter(Boolean);
+
+        let messagesMap = {};
+        if (messageIds.length > 0) {
+            const messages = await odooExecuteKw({
+                uid:    ADMIN_UID_INT,
+                model:  'mail.message',
+                method: 'search_read',
+                args:   [[['id', 'in', messageIds]]],
+                kwargs: {
+                    fields: ['id', 'subject', 'body', 'date', 'author_id'],
+                    order:  'date DESC'
+                }
+            });
+            messages.forEach(m => { messagesMap[m.id] = m; });
+        }
+
+        const formattedNotifications = notifications
+            .map(notif => {
+                const notifKey = `odoo_${notif.id}`;
+                const state    = localState[notifKey] || {};
+
+                if (state.is_deleted) return null;
+
+                const isRead  = state.is_read !== undefined ? state.is_read : notif.is_read;
+                const message = messagesMap[notif.mail_message_id?.[0]] || {};
+
+                return {
+                    id:         notifKey,
+                    type:       'info',
+                    priority:   'normal',
+                    title:      message.subject  || 'Notification',
+                    message:    stripHtmlTags(message.body || '').substring(0, 200),
+                    created_at: message.date     || new Date().toISOString(),
+                    read:       isRead,
+                    sender_id:  message.author_id ? message.author_id[1] : 'Système'
+                };
+            })
+            .filter(Boolean);
+
+        const unreadCount = formattedNotifications.filter(n => !n.read).length;
+
+        console.log(`✅ [getNotifications] ${formattedNotifications.length} notifications formatées | ${unreadCount} non lues`);
+
+        res.json({
+            status:       'success',
+            data:         formattedNotifications,
+            unread_count: unreadCount
+        });
+
     } catch (error) {
         console.error('🚨 [getNotifications] Erreur:', error.message);
         console.error('Stack:', error.stack);
         res.status(500).json({
             status: 'error',
-            error: 'Erreur lors de la récupération des notifications'
+            error:  'Erreur lors de la récupération des notifications'
         });
     }
 };
 
-/**
- * Envoie une notification à un ou plusieurs utilisateurs
- */
 exports.sendNotification = async (req, res) => {
     try {
         const { recipients, recipientType, type, priority, title, message } = req.body;
-        const senderId = req.user.odooUid;
+        const senderId    = req.user.odooUid;
         const senderEmail = req.user.email;
-        const senderRole = req.user.profile;
-        const companyId = req.body.companyId || req.user.selectedCompanyId;
+        const senderRole  = req.user.profile;
+        const companyId   = req.body.companyId || req.user.selectedCompanyId;
 
         console.log('📤 [sendNotification] Envoi par:', senderEmail, '| Type:', type);
 
-        // Vérification permissions
         if (senderRole !== 'ADMIN' && senderRole !== 'COLLABORATEUR') {
             return res.status(403).json({
                 status: 'error',
-                error: 'Seuls les Administrateurs et Collaborateurs peuvent envoyer des notifications'
+                error:  'Seuls les Administrateurs et Collaborateurs peuvent envoyer des notifications'
             });
         }
 
-        // Validation
         if (!title || !message) {
-            return res.status(400).json({
-                status: 'error',
-                error: 'Titre et message requis'
-            });
+            return res.status(400).json({ status: 'error', error: 'Titre et message requis' });
         }
 
         if (!recipientType || !recipients || recipients.length === 0) {
             return res.status(400).json({
                 status: 'error',
-                error: 'Type de destinataire et liste de destinataires requis'
+                error:  'Type de destinataire et liste de destinataires requis'
             });
         }
 
-        // Récupérer les utilisateurs destinataires
-        let userIds = [];
         let targetUsers = [];
 
-        if (recipientType === 'all' || (recipients && recipients.includes('all'))) {
+        if (recipientType === 'all' || recipients.includes('all')) {
             console.log('📋 [sendNotification] Type: Tous les utilisateurs');
-            
             targetUsers = await odooExecuteKw({
-                uid: ADMIN_UID_INT,
-                model: 'res.users',
+                uid:    ADMIN_UID_INT,
+                model:  'res.users',
                 method: 'search_read',
-                args: [[['company_ids', 'in', [parseInt(companyId)]]]],
-                kwargs: { 
-                    fields: ['id', 'name', 'email', 'login', 'partner_id'],
-                    limit: 500
-                }
+                args:   [[['company_ids', 'in', [parseInt(companyId)]], ['share', '=', false]]],
+                kwargs: { fields: ['id', 'name', 'email', 'login', 'partner_id'], limit: 500 }
             });
-            
-            userIds = targetUsers.map(u => u.id);
 
         } else if (recipientType === 'role') {
             console.log('📋 [sendNotification] Type: Par rôle -', recipients[0]);
-            
             const targetRole = recipients[0];
-            
+
             const allUsers = await odooExecuteKw({
-                uid: ADMIN_UID_INT,
-                model: 'res.users',
+                uid:    ADMIN_UID_INT,
+                model:  'res.users',
                 method: 'search_read',
-                args: [[['company_ids', 'in', [parseInt(companyId)]]]],
-                kwargs: { 
-                    fields: ['id', 'name', 'email', 'login', 'partner_id'],
-                    limit: 500
+                args:   [[['company_ids', 'in', [parseInt(companyId)]], ['share', '=', false]]],
+                kwargs: { fields: ['id', 'name', 'email', 'login', 'partner_id'], limit: 500 }
+            });
+
+            const allUserIds = allUsers.map(u => u.id);
+
+            const groups = await odooExecuteKw({
+                uid:    ADMIN_UID_INT,
+                model:  'res.groups',
+                method: 'search_read',
+                args:   [[['user_ids', 'in', allUserIds]]],
+                kwargs: { fields: ['id', 'name', 'user_ids'], limit: 500 }
+            });
+
+            const PRIORITY    = { ADMIN: 4, COLLABORATEUR: 3, CAISSIER: 2, USER: 1 };
+            const userRoleMap = {};
+
+            groups.forEach(group => {
+                const gName = group.name.toLowerCase();
+                let detectedRole = null;
+
+                if (gName.includes('admin') || gName.includes('settings') || gName.includes('administration')) {
+                    detectedRole = 'ADMIN';
+                } else if (gName.includes('manager') || gName.includes('accountant') || gName.includes('comptable') || gName.includes('gestionnaire')) {
+                    detectedRole = 'COLLABORATEUR';
+                } else if (gName.includes('cash') || gName.includes('caisse') || gName.includes('cashier')) {
+                    detectedRole = 'CAISSIER';
+                }
+
+                if (detectedRole) {
+                    (group.user_ids || []).forEach(uid => {
+                        const current = userRoleMap[uid];
+                        if (!current || PRIORITY[detectedRole] > PRIORITY[current]) {
+                            userRoleMap[uid] = detectedRole;
+                        }
+                    });
                 }
             });
 
-            for (const user of allUsers) {
-                const groups = await odooExecuteKw({
-                    uid: ADMIN_UID_INT,
-                    model: 'res.groups',
-                    method: 'search_read',
-                    args: [[['user_ids', 'in', [user.id]]]],
-                    kwargs: { fields: ['name'], limit: 10 }
-                });
-
-                const groupNames = groups.map(g => g.name.toLowerCase());
-                let userRole = 'USER';
-
-                if (groupNames.some(name => name.includes('admin') || name.includes('settings'))) {
-                    userRole = 'ADMIN';
-                } else if (groupNames.some(name => name.includes('manager') || name.includes('accountant'))) {
-                    userRole = 'COLLABORATEUR';
-                } else if (groupNames.some(name => name.includes('cash') || name.includes('caisse'))) {
-                    userRole = 'CAISSIER';
-                }
-
-                if (userRole === targetRole) {
-                    targetUsers.push(user);
-                    userIds.push(user.id);
-                }
-            }
+            targetUsers = allUsers.filter(u => (userRoleMap[u.id] || 'USER') === targetRole);
 
         } else if (recipientType === 'specific') {
             console.log('📋 [sendNotification] Type: Utilisateurs spécifiques');
-            
-            userIds = recipients.map(id => parseInt(id));
-
+            const userIds = recipients.map(id => parseInt(id));
             targetUsers = await odooExecuteKw({
-                uid: ADMIN_UID_INT,
-                model: 'res.users',
+                uid:    ADMIN_UID_INT,
+                model:  'res.users',
                 method: 'search_read',
-                args: [[['id', 'in', userIds]]],
-                kwargs: { 
-                    fields: ['id', 'name', 'email', 'login', 'partner_id'],
-                    limit: 500
-                }
+                args:   [[['id', 'in', userIds]]],
+                kwargs: { fields: ['id', 'name', 'email', 'login', 'partner_id'], limit: 500 }
             });
         }
 
-        console.log(`📬 [sendNotification] Envoi à ${userIds.length} utilisateur(s)`);
+        console.log(`📬 [sendNotification] Envoi à ${targetUsers.length} utilisateur(s)`);
 
-        if (userIds.length === 0) {
-            return res.status(400).json({
-                status: 'error',
-                error: 'Aucun destinataire trouvé'
-            });
+        if (targetUsers.length === 0) {
+            return res.status(400).json({ status: 'error', error: 'Aucun destinataire trouvé' });
         }
 
-        // ✅ RÉCUPÉRER LE PARTNER_ID DE L'EXPÉDITEUR
         const senderData = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'res.users',
+            uid:    ADMIN_UID_INT,
+            model:  'res.users',
             method: 'read',
-            args: [[senderId], ['partner_id']],
+            args:   [[senderId], ['partner_id']],
             kwargs: {}
         });
 
-        const senderPartnerId = senderData[0]?.partner_id ? senderData[0].partner_id[0] : null;
+        const senderPartnerId = senderData[0]?.partner_id?.[0] || null;
 
         if (!senderPartnerId) {
-            console.error('🚨 [sendNotification] Partner ID expéditeur introuvable !');
-            return res.status(500).json({
-                status: 'error',
-                error: 'Impossible de récupérer l\'expéditeur'
-            });
+            return res.status(500).json({ status: 'error', error: 'Impossible de récupérer l\'expéditeur' });
         }
 
-        // Récupérer les partner_ids des destinataires
-        const partnerIds = targetUsers
-            .map(u => u.partner_id ? u.partner_id[0] : null)
-            .filter(Boolean);
+        const partnerIds = targetUsers.map(u => u.partner_id?.[0]).filter(Boolean);
 
         if (partnerIds.length === 0) {
-            console.error('🚨 [sendNotification] Aucun partner_id trouvé !');
-            return res.status(400).json({
-                status: 'error',
-                error: 'Impossible de récupérer les destinataires'
-            });
+            return res.status(400).json({ status: 'error', error: 'Impossible de récupérer les destinataires' });
         }
 
         console.log(`👥 [sendNotification] Partner IDs destinataires:`, partnerIds);
         console.log(`👤 [sendNotification] Partner ID expéditeur:`, senderPartnerId);
 
-        // ✅ CRÉER LE MESSAGE AVEC PARTNER_IDS CORRECT
         const messageId = await odooExecuteKw({
-            uid: ADMIN_UID_INT,
-            model: 'mail.message',
+            uid:    ADMIN_UID_INT,
+            model:  'mail.message',
             method: 'create',
-            args: [{
+            args:   [{
                 message_type: 'notification',
-                subtype_id: 1,
+                subtype_id:   1,
                 body: `<div style="font-family: Arial, sans-serif; padding: 20px; background: #f9fafb; border-radius: 8px;">
                         <h3 style="color: #2563eb; margin: 0 0 15px 0; font-size: 18px;">${title}</h3>
                         <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0; font-size: 14px;">${message}</p>
                         <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
                         <p style="color: #6b7280; font-size: 12px; margin: 0;">
-                            <strong>Priorité:</strong> ${getPriorityLabel(priority)} | 
-                            <strong>Type:</strong> ${getTypeLabel(type)} | 
+                            <strong>Priorité:</strong> ${getPriorityLabel(priority)} |
+                            <strong>Type:</strong> ${getTypeLabel(type)} |
                             <strong>Envoyé par:</strong> ${senderEmail}
                         </p>
                        </div>`,
-                subject: title,
-                author_id: senderPartnerId,  // ✅ CORRECTION : Partner ID au lieu de User ID
-                needaction: true,
+                subject:     title,
+                author_id:   senderPartnerId,
+                needaction:  true,
                 record_name: `Notification - ${type}`,
-                partner_ids: [[6, 0, partnerIds]]  // ✅ IMPORTANT : Liste des destinataires
+                partner_ids: [[6, 0, partnerIds]]
             }],
             kwargs: {}
         });
 
         console.log(`✅ [sendNotification] Message ${messageId} créé`);
 
-        // ✅ CRÉER LES NOTIFICATIONS POUR CHAQUE DESTINATAIRE
         const createdNotifications = [];
-        
-        for (const partnerId of partnerIds) {
+        for (const pid of partnerIds) {
             try {
                 const notifId = await odooExecuteKw({
-                    uid: ADMIN_UID_INT,
-                    model: 'mail.notification',
+                    uid:    ADMIN_UID_INT,
+                    model:  'mail.notification',
                     method: 'create',
-                    args: [{
-                        mail_message_id: messageId,
-                        res_partner_id: partnerId,
-                        notification_type: 'inbox',
-                        is_read: false,
+                    args:   [{
+                        mail_message_id:     messageId,
+                        res_partner_id:      pid,
+                        notification_type:   'inbox',
+                        is_read:             false,
                         notification_status: 'sent'
                     }],
                     kwargs: {}
                 });
-                
                 createdNotifications.push(notifId);
-                console.log(`✅ Notification ${notifId} créée pour partner ${partnerId}`);
-                
+                console.log(`✅ Notification ${notifId} créée pour partner ${pid}`);
             } catch (notifError) {
-                console.warn(`⚠️ Erreur création notification pour partner ${partnerId}:`, notifError.message);
+                console.warn(`⚠️ Erreur création notification pour partner ${pid}:`, notifError.message);
             }
         }
 
         console.log(`✅ [sendNotification] ${createdNotifications.length} notifications créées`);
 
-        // Récupérer les détails des destinataires pour le récapitulatif
-        const successfulRecipients = targetUsers.map(user => ({
-            id: user.id,
-            name: user.name,
-            email: user.email || user.login,
-            channel: 'notification',
-            status: 'sent'
-        }));
-
         res.json({
-            status: 'success',
-            message: `Notifications envoyées à ${successfulRecipients.length} utilisateur(s)`,
+            status:  'success',
+            message: `Notifications envoyées à ${targetUsers.length} utilisateur(s)`,
             data: {
-                count: successfulRecipients.length,
-                sent_count: successfulRecipients.length,
-                failed_count: 0,
-                total_recipients: targetUsers.length,
-                recipients: successfulRecipients,
-                notification_ids: [messageId],
+                count:                 targetUsers.length,
+                sent_count:            targetUsers.length,
+                failed_count:          0,
+                total_recipients:      targetUsers.length,
+                recipients:            targetUsers.map(u => ({
+                    id:      u.id,
+                    name:    u.name,
+                    email:   u.email || u.login,
+                    channel: 'notification',
+                    status:  'sent'
+                })),
+                notification_ids:      [messageId],
                 created_notifications: createdNotifications
             }
         });
@@ -344,27 +324,21 @@ exports.sendNotification = async (req, res) => {
     } catch (error) {
         console.error('🚨 [sendNotification] Erreur:', error.message);
         console.error('Stack:', error.stack);
-        
         res.status(500).json({
-            status: 'error',
-            error: 'Erreur lors de l\'envoi des notifications',
+            status:  'error',
+            error:   'Erreur lors de l\'envoi des notifications',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur serveur'
         });
     }
 };
-// =============================================================================
-// 3. MARQUER COMME LUE
-// PostgreSQL uniquement — gère les deux sources (pg_ et odoo_)
-// =============================================================================
 
 exports.markAsRead = async (req, res) => {
     try {
-        const rawId         = req.params.id;
-        const userId        = req.user.odooUid;
+        const rawId  = req.params.id;
+        const userId = req.user.odooUid;
 
-        console.log(`✅ [markAsRead] Notification ${rawId}`);
+        console.log(`✅ [markAsRead] Notification ${rawId} pour user ${userId}`);
 
-        // Notifications PostgreSQL (préfixe pg_)
         if (String(rawId).startsWith('pg_')) {
             const pgId = parseInt(rawId.replace('pg_', ''));
             await pool.query(
@@ -373,47 +347,31 @@ exports.markAsRead = async (req, res) => {
                  WHERE id = $1 AND recipient_uid = $2`,
                 [pgId, userId]
             );
-            return res.json({ status: 'success', message: 'Notification marquée comme lue' });
+        } else {
+            await pool.query(
+                `INSERT INTO notification_state (user_odoo_uid, notification_id, is_read, read_at)
+                 VALUES ($1, $2, TRUE, NOW())
+                 ON CONFLICT (user_odoo_uid, notification_id)
+                 DO UPDATE SET is_read = TRUE, read_at = NOW()`,
+                [userId, rawId]
+            );
         }
 
-        // Notifications Odoo (préfixe odoo_ ou ID numérique direct)
-        // La lecture seule fonctionne sur Odoo SaaS — on tente l'écriture
-        // mais on ne fait pas échouer si c'est bloqué
-        try {
-            const odooId = parseInt(String(rawId).replace('odoo_', ''));
-            await odooExecuteKw({
-                uid:    ADMIN_UID_INT,
-                model:  'mail.notification',
-                method: 'write',
-                args:   [[odooId], { is_read: true }],
-                kwargs: {}
-            });
-        } catch (odooErr) {
-            console.warn('⚠️ [markAsRead] Écriture Odoo bloquée (SaaS) — ignoré:', odooErr.message);
-        }
-
+        console.log(`✅ [markAsRead] Marquée comme lue: ${rawId}`);
         res.json({ status: 'success', message: 'Notification marquée comme lue' });
 
     } catch (error) {
         console.error('🚨 [markAsRead] Erreur:', error.message);
-        res.status(500).json({
-            status: 'error',
-            error:  'Erreur lors de la mise à jour'
-        });
+        res.status(500).json({ status: 'error', error: 'Erreur lors de la mise à jour' });
     }
 };
-
-// =============================================================================
-// 4. SUPPRIMER UNE NOTIFICATION
-// PostgreSQL uniquement — les notifications Odoo ne sont pas supprimées
-// =============================================================================
 
 exports.deleteNotification = async (req, res) => {
     try {
         const rawId  = req.params.id;
         const userId = req.user.odooUid;
 
-        console.log(`🗑️ [deleteNotification] Notification ${rawId}`);
+        console.log(`🗑️ [deleteNotification] Notification ${rawId} pour user ${userId}`);
 
         if (String(rawId).startsWith('pg_')) {
             const pgId = parseInt(rawId.replace('pg_', ''));
@@ -422,37 +380,24 @@ exports.deleteNotification = async (req, res) => {
                  WHERE id = $1 AND recipient_uid = $2`,
                 [pgId, userId]
             );
-            return res.json({ status: 'success', message: 'Notification supprimée' });
+        } else {
+            await pool.query(
+                `INSERT INTO notification_state (user_odoo_uid, notification_id, is_deleted, deleted_at)
+                 VALUES ($1, $2, TRUE, NOW())
+                 ON CONFLICT (user_odoo_uid, notification_id)
+                 DO UPDATE SET is_deleted = TRUE, deleted_at = NOW()`,
+                [userId, rawId]
+            );
         }
 
-        // Notifications Odoo — tentative non bloquante
-        try {
-            const odooId = parseInt(String(rawId).replace('odoo_', ''));
-            await odooExecuteKw({
-                uid:    ADMIN_UID_INT,
-                model:  'mail.notification',
-                method: 'unlink',
-                args:   [[odooId]],
-                kwargs: {}
-            });
-        } catch (odooErr) {
-            console.warn('⚠️ [deleteNotification] Suppression Odoo bloquée (SaaS) — ignoré:', odooErr.message);
-        }
-
+        console.log(`✅ [deleteNotification] Supprimée: ${rawId}`);
         res.json({ status: 'success', message: 'Notification supprimée' });
 
     } catch (error) {
         console.error('🚨 [deleteNotification] Erreur:', error.message);
-        res.status(500).json({
-            status: 'error',
-            error:  'Erreur lors de la suppression'
-        });
+        res.status(500).json({ status: 'error', error: 'Erreur lors de la suppression' });
     }
 };
-
-// =============================================================================
-// FONCTIONS UTILITAIRES
-// =============================================================================
 
 function stripHtmlTags(html) {
     if (!html) return '';
@@ -460,22 +405,11 @@ function stripHtmlTags(html) {
 }
 
 function getPriorityLabel(priority) {
-    const labels = {
-        low:    '🟢 Basse',
-        normal: '🔵 Normale',
-        high:   '🟠 Haute',
-        urgent: '🔴 Urgente'
-    };
+    const labels = { low: '🟢 Basse', normal: '🔵 Normale', high: '🟠 Haute', urgent: '🔴 Urgente' };
     return labels[priority] || '🔵 Normale';
 }
 
 function getTypeLabel(type) {
-    const labels = {
-        info:     'ℹ️ Information',
-        alert:    '⚠️ Alerte',
-        reminder: '📅 Rappel',
-        invoice:  '📄 Facture',
-        report:   '📊 Rapport'
-    };
+    const labels = { info: 'ℹ️ Information', alert: '⚠️ Alerte', reminder: '📅 Rappel', invoice: '📄 Facture', report: '📊 Rapport' };
     return labels[type] || 'ℹ️ Information';
 }
