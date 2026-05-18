@@ -15,21 +15,6 @@ const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
  * @route GET /api/admin/users
  * @access ADMIN uniquement
  */
-// ============================================================
-// UTILITAIRE : Exécution séquentielle par batch avec délai
-// ============================================================
-const batchSequential = async (items, asyncFn, batchSize = 3, delayMs = 300) => {
-    const results = [];
-    for (let i = 0; i < items.length; i += batchSize) {
-        const batch = items.slice(i, i + batchSize);
-        const batchResults = await Promise.all(batch.map(asyncFn));
-        results.push(...batchResults);
-        if (i + batchSize < items.length) {
-            await sleep(delayMs); // ✅ Pause entre chaque batch
-        }
-    }
-    return results;
-};
 
 // ============================================================
 // CONTROLLER : getAllUsers — Version Odoo 19 SaaS Anti-429
