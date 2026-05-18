@@ -115,6 +115,7 @@ const initDB = async (retries = 5, delay = 3000) => {
 
             // ── Table revoked_tokens pour invalidation JWT (forceLogout) ──────────
             // Sera utilisée lors de la correction E3 (forceLogout réel)
+            // ── Table revoked_tokens pour invalidation JWT (forceLogout) ──────────
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS revoked_tokens (
                     token_hash   VARCHAR(64) PRIMARY KEY,
@@ -123,10 +124,28 @@ const initDB = async (retries = 5, delay = 3000) => {
                 );
             `);
 
+            // ── Table notification_state — état local des notifications Odoo ──────
+            // Odoo 19 SaaS bloque l'écriture sur mail.notification via RPC.
+            // Cette table stocke localement is_read et is_deleted par user.
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS notification_state (
+                    id              SERIAL PRIMARY KEY,
+                    user_odoo_uid   INTEGER NOT NULL,
+                    notification_id TEXT NOT NULL,
+                    is_read         BOOLEAN DEFAULT FALSE,
+                    is_deleted      BOOLEAN DEFAULT FALSE,
+                    read_at         TIMESTAMP,
+                    deleted_at      TIMESTAMP,
+                    created_at      TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(user_odoo_uid, notification_id)
+                );
+            `);
+
             console.log('✅ [DB] Tables initialisées avec succès');
             console.log('   ✓ financial_reports_requests');
             console.log('   ✓ financial_reports_notifications');
             console.log('   ✓ revoked_tokens');
+            console.log('   ✓ notification_state');
             return; // Succès — sortir de la boucle
 
         } catch (error) {
