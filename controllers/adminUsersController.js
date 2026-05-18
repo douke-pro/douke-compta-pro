@@ -15,28 +15,49 @@ const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
  * @route GET /api/admin/users
  * @access ADMIN uniquement
  */
+// ============================================================
+// UTILITAIRE : Pause entre requêtes
+// ============================================================
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ============================================================
+// UTILITAIRE : Exécution séquentielle par batch avec délai
+// ============================================================
+const batchSequential = async (items, asyncFn, batchSize = 3, delayMs = 300) => {
+    const results = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map(asyncFn));
+        results.push(...batchResults);
+        if (i + batchSize < items.length) {
+            await sleep(delayMs); // ✅ Pause entre chaque batch
+        }
+    }
+    return results;
+};
+
+// ============================================================
+// CONTROLLER : getAllUsers — Version Odoo 19 SaaS Anti-429
+// ============================================================
 exports.getAllUsers = async (req, res) => {
     try {
         console.log('📥 [getAllUsers] Récupération de la liste des utilisateurs...');
 
-        // Récupérer tous les utilisateurs d'Odoo
+        // ── ÉTAPE 1 : Tous les users en 1 seule requête ──────────────
         const users = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'res.users',
             method: 'search_read',
-            args: [[]],
+            args: [[[
+                ['active', 'in', [true, false]],   // inclure inactifs si besoin
+                ['share', '=', false]               // exclure les portail/public
+            ]]],
             kwargs: {
                 fields: [
-                    'id',
-                    'name',
-                    'login',
-                    'email',
-                    'phone',
-                    'active',
-                    'company_ids',
-                    'create_date',
-                    'write_date',
-                    'login_date'
+                    'id', 'name', 'login', 'email',
+                    'phone', 'active', 'company_ids',
+                    'create_date', 'write_date', 'login_date',
+                    'groups_id'   // ✅ Natif Odoo 19 — IDs des groupes
                 ],
                 order: 'name ASC'
             }
@@ -44,79 +65,100 @@ exports.getAllUsers = async (req, res) => {
 
         console.log(`📊 [getAllUsers] ${users.length} utilisateurs trouvés dans Odoo`);
 
-        // Récupérer les groupes/rôles de chaque utilisateur
-        const usersWithRoles = await Promise.all(users.map(async (user) => {
+        // ── ÉTAPE 2 : LOG DE VÉRIFICATION (à retirer après validation) ─
+        if (users.length > 0) {
+            console.log('🧪 [TEST] groups_id sample user[0]:', {
+                id: users[0].id,
+                name: users[0].name,
+                groups_id: users[0].groups_id
+            });
+        }
+
+        // ── ÉTAPE 3 : Collecter tous les group IDs uniques ────────────
+        const allGroupIds = [...new Set(users.flatMap(u => u.groups_id || []))];
+        console.log(`🔍 [getAllUsers] ${allGroupIds.length} group IDs uniques à résoudre`);
+
+        // ── ÉTAPE 4 : UNE seule requête pour TOUS les groupes ─────────
+        let groupsMap = {}; // { id → name_lowercase }
+
+        if (allGroupIds.length > 0) {
             try {
-                // ✅ ODOO 19 : Utilise 'categ_id' (pas 'category_id' qui n'existe plus)
-                const groups = await odooExecuteKw({
+                const allGroups = await odooExecuteKw({
                     uid: ADMIN_UID_INT,
                     model: 'res.groups',
                     method: 'search_read',
-                    args: [[['user_ids', 'in', [user.id]]]],
+                    args: [[['id', 'in', allGroupIds]]],
                     kwargs: {
-                        fields: ['id', 'name'],  // ✅ CORRECT pour Odoo 19
-                        limit: 10
+                        fields: ['id', 'name'],
+                        limit: 500
                     }
                 });
 
-                // Déterminer le profil (rôle principal)
-                let profile = 'USER'; // Par défaut
-                
-                // Logique de détermination du rôle basée sur les groupes Odoo
-                const groupNames = groups.map(g => g.name.toLowerCase());
-                
-                if (groupNames.some(name => name.includes('admin') || name.includes('settings'))) {
-                    profile = 'ADMIN';
-                } else if (groupNames.some(name => name.includes('manager') || name.includes('accountant'))) {
-                    profile = 'COLLABORATEUR';
-                } else if (groupNames.some(name => name.includes('user'))) {
-                    profile = 'USER';
-                } else if (groupNames.some(name => name.includes('cash') || name.includes('caisse'))) {
-                    profile = 'CAISSIER';
-                }
+                allGroups.forEach(g => {
+                    groupsMap[g.id] = g.name.toLowerCase();
+                });
 
-                return {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email || user.login,
-                    phone: user.phone || null,
-                    profile: profile,
-                    active: user.active,
-                    companies: user.company_ids || [],
-                    created_at: user.create_date,
-                    updated_at: user.write_date,
-                    last_login: user.login_date || null
-                };
+                console.log(`📦 [getAllUsers] ${allGroups.length} groupes résolus en 1 requête`);
 
-            } catch (groupError) {
-                // ✅ ROBUSTESSE : Si échec récupération groupes, retourner user basique
-                console.error(`⚠️ [getAllUsers] Erreur groupes pour user ${user.id}:`, groupError.message);
-                return {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email || user.login,
-                    phone: user.phone || null,
-                    profile: 'USER', // Par défaut
-                    active: user.active,
-                    companies: user.company_ids || [],
-                    created_at: user.create_date,
-                    updated_at: user.write_date,
-                    last_login: user.login_date || null
-                };
+            } catch (groupFetchError) {
+                // ✅ Si la requête groupes échoue → on continue sans profil enrichi
+                console.error('⚠️ [getAllUsers] Impossible de charger les groupes:', groupFetchError.message);
             }
-        }));
+        }
+
+        // ── ÉTAPE 5 : Enrichir les users LOCALEMENT (zéro requête) ───
+        const usersWithRoles = users.map(user => {
+            const userGroupNames = (user.groups_id || []).map(gid => groupsMap[gid] || '');
+
+            let profile = 'USER'; // défaut
+
+            if (userGroupNames.some(n =>
+                n.includes('admin') ||
+                n.includes('settings') ||
+                n.includes('administration')
+            )) {
+                profile = 'ADMIN';
+            } else if (userGroupNames.some(n =>
+                n.includes('manager') ||
+                n.includes('accountant') ||
+                n.includes('comptable') ||
+                n.includes('gestionnaire')
+            )) {
+                profile = 'COLLABORATEUR';
+            } else if (userGroupNames.some(n =>
+                n.includes('cash') ||
+                n.includes('caisse') ||
+                n.includes('cashier')
+            )) {
+                profile = 'CAISSIER';
+            }
+
+            return {
+                id: user.id,
+                name: user.name,
+                email: user.email || user.login,
+                phone: user.phone || null,
+                profile,
+                active: user.active,
+                companies: user.company_ids || [],
+                created_at: user.create_date,
+                updated_at: user.write_date,
+                last_login: user.login_date || null
+            };
+        });
 
         console.log(`✅ [getAllUsers] ${usersWithRoles.length} utilisateurs enrichis avec succès`);
 
         res.json({
             status: 'success',
+            count: usersWithRoles.length,
             data: usersWithRoles
         });
 
     } catch (error) {
         console.error('🚨 [getAllUsers] Erreur critique:', error.message);
         console.error('Stack:', error.stack);
-        
+
         res.status(500).json({
             status: 'error',
             error: 'Erreur lors de la récupération des utilisateurs',
