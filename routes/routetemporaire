@@ -1,0 +1,13 @@
+// TEST RAPIDE — À supprimer après vérification
+const testUser = await odooExecuteKw({
+    uid: ADMIN_UID_INT,
+    model: 'res.users',
+    method: 'search_read',
+    args: [[['id', '=', ADMIN_UID_INT]]],  // juste ton admin
+    kwargs: {
+        fields: ['id', 'name', 'groups_id', 'sel_groups_1_10_11'],
+        limit: 1
+    }
+});
+
+console.log('🧪 TEST ODOO 19 USER FIELDS:', JSON.stringify(testUser, null, 2));
