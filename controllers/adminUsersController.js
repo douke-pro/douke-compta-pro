@@ -48,10 +48,9 @@ exports.getAllUsers = async (req, res) => {
             uid: ADMIN_UID_INT,
             model: 'res.users',
             method: 'search_read',
-            args: [[[
-                ['active', 'in', [true, false]],   // inclure inactifs si besoin
-                ['share', '=', false]               // exclure les portail/public
-            ]]],
+            args: [[
+            ['share', '=', false]   // flat, pas de double imbrication
+            ]]
             kwargs: {
                 fields: [
                     'id', 'name', 'login', 'email',
