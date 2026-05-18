@@ -16,11 +16,6 @@ const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
  * @access ADMIN uniquement
  */
 // ============================================================
-// UTILITAIRE : Pause entre requêtes
-// ============================================================
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// ============================================================
 // UTILITAIRE : Exécution séquentielle par batch avec délai
 // ============================================================
 const batchSequential = async (items, asyncFn, batchSize = 3, delayMs = 300) => {
