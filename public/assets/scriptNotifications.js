@@ -166,3 +166,25 @@ function formatTimeAgo(dateString) {
     
     return past.toLocaleDateString('fr-FR');
 }
+
+/**
+ * Supprime une notification
+ */
+window.deleteNotification = async function(notificationId, event) {
+    // Empêcher le clic de déclencher markAsRead en même temps
+    if (event) event.stopPropagation();
+    
+    try {
+        const response = await apiFetch(`notifications/${notificationId}`, { 
+            method: 'DELETE' 
+        });
+        
+        if (response.status === 'success') {
+            console.log('✅ [deleteNotification] Notification supprimée:', notificationId);
+            loadNotifications(); // Recharger la liste
+        }
+        
+    } catch (error) {
+        console.error('🚨 [deleteNotification] Erreur:', error);
+    }
+};
