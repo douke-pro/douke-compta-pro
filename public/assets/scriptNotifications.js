@@ -57,7 +57,7 @@ async function loadNotifications() {
             return `
                 <div class="notification-item ${unreadClass}" 
                      style="padding: 16px; border-bottom: 1px solid #E5E7EB; cursor: pointer;" 
-                     onclick="markAsRead(${notif.id})">
+                     onclick="markAsRead('${notif.id}')">
                     <div style="display: flex; align-items: start; gap: 12px;">
                         <i class="${icon}" 
                            style="color: ${notif.read ? '#9CA3AF' : '#10B981'}; font-size: 18px; margin-top: 2px;"></i>
