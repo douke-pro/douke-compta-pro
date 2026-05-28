@@ -11039,26 +11039,32 @@ async function loadNotifications() {
                 : '';
             
             return `
-                <div class="notification-item ${unreadClass}" 
-                     style="padding: 16px; border-bottom: 1px solid #E5E7EB; cursor: pointer;" 
-                     onclick="markAsRead(${notif.id})">
-                    <div style="display: flex; align-items: start; gap: 12px;">
-                        <i class="${icon}" 
-                           style="color: ${notif.read ? '#9CA3AF' : '#10B981'}; font-size: 18px; margin-top: 2px;"></i>
-                        <div style="flex: 1;">
-                            <p style="font-weight: bold; font-size: 13px; color: ${notif.read ? '#6B7280' : '#111827'}; margin-bottom: 4px;">
-                                ${notif.title}${newBadge}
-                            </p>
-                            <p style="font-size: 11px; color: #6B7280; margin-bottom: 8px;">
-                                ${notif.message}
-                            </p>
-                            <p style="font-size: 10px; color: #9CA3AF;">
-                                <i class="fas fa-clock" style="margin-right: 4px;"></i>${timeAgo}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `;
+    <div class="notification-item ${unreadClass}" 
+         style="padding: 16px; border-bottom: 1px solid #E5E7EB; cursor: pointer; position: relative;" 
+         onclick="markAsRead('${notif.id}')">
+        <button onclick="deleteNotification('${notif.id}', event)"
+                style="position: absolute; top: 8px; right: 8px; background: none; border: none; 
+                       cursor: pointer; color: #9CA3AF; font-size: 13px; padding: 4px; line-height: 1;"
+                title="Supprimer cette notification">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+        <div style="display: flex; align-items: start; gap: 12px; padding-right: 24px;">
+            <i class="${icon}" 
+               style="color: ${notif.read ? '#9CA3AF' : '#10B981'}; font-size: 18px; margin-top: 2px;"></i>
+            <div style="flex: 1;">
+                <p style="font-weight: bold; font-size: 13px; color: ${notif.read ? '#6B7280' : '#111827'}; margin-bottom: 4px;">
+                    ${notif.title}${newBadge}
+                </p>
+                <p style="font-size: 11px; color: #6B7280; margin-bottom: 8px;">
+                    ${notif.message}
+                </p>
+                <p style="font-size: 10px; color: #9CA3AF;">
+                    <i class="fas fa-clock" style="margin-right: 4px;"></i>${timeAgo}
+                </p>
+            </div>
+        </div>
+    </div>
+`;
         }).join('');
         
         listContainer.innerHTML = notificationsHTML || `
