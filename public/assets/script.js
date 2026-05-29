@@ -6811,36 +6811,6 @@ window.previewPDF = async function(requestId, fileType, title) {
 /**
  * Commencer le traitement d'une demande
  */
-window.startProcessingRequest = async function(requestId) {
-    if (!confirm('Commencer le traitement de cette demande ? Les rapports seront générés automatiquement depuis Odoo.')) {
-        return;
-    }
-    
-    try {
-        NotificationManager.show('🔄 Génération des rapports en cours...', 'info', 5000);
-        
-        const response = await apiFetch(`reports/${requestId}/generate`, {
-            method: 'POST'
-        });
-        
-        if (response.success) {
-            NotificationManager.show('✅ Génération démarrée avec succès !', 'success', 5000);
-            ModalManager.close();
-            
-            // ✅ CORRECTION — preview uniquement, pas fetchMyFinancialReports
-            // fetchMyFinancialReports dépend d'éléments DOM du modal qui n'existe plus
-            window.loadPendingFinancialReportsPreview?.();
-            window.loadMyFinancialReportsPreview?.();
-
-        } else {
-            throw new Error(response.message || 'Erreur lors du démarrage');
-        }
-        
-    } catch (error) {
-        console.error('Erreur:', error);
-        NotificationManager.show(`❌ Erreur : ${error.message}`, 'error', 5000);
-    }
-};
 
 /**
  * 🔧 NOUVEAU : Ouvrir le modal d'édition/régénération des rapports
