@@ -11152,6 +11152,24 @@ window.markAsRead = async function(notificationId) {
     }
 };
 
+window.deleteNotification = async function(notificationId, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    console.log('🗑️ [deleteNotification] Suppression:', notificationId);
+    try {
+        const response = await apiFetch(`notifications/${notificationId}`, { 
+            method: 'DELETE' 
+        });
+        if (response.status === 'success') {
+            console.log('✅ [deleteNotification] Supprimée:', notificationId);
+            loadNotifications();
+        }
+    } catch (error) {
+        console.error('🚨 [deleteNotification] Erreur:', error);
+    }
+};
 // Fermer le dropdown si clic extérieur
 document.addEventListener('click', function(event) {
     const dropdown = document.getElementById('notificationDropdown');
