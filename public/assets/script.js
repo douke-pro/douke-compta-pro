@@ -11150,6 +11150,23 @@ window.markAsRead = async function(notificationId) {
             loadNotifications();
         }
     }
+
+window.deleteNotification = async function(notificationId, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    console.log("🗑️ [deleteNotification] Suppression:", notificationId);
+    try {
+        const response = await apiFetch(`notifications/${notificationId}`, { method: "DELETE" });
+        if (response.status === "success") {
+            console.log("✅ [deleteNotification] Supprimée:", notificationId);
+            if (typeof loadNotifications === "function") loadNotifications();
+        }
+    } catch (error) {
+        console.error("🚨 [deleteNotification] Erreur:", error);
+    }
+};
 };
 
 window.deleteNotification = async function(notificationId, event) {
