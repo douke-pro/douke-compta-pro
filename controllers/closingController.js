@@ -1,16 +1,30 @@
 // =============================================================================
 // FICHIER : controllers/closingController.js
 // Description : Clôture fiscale réelle — Odoo 19 SaaS + Supabase
-// Version : V1.2 — Corrections post-audit
+// Version : V1.3 — Snapshot des soldes de clôture + invalidation sur unlock
 // Corrections V1.2 :
 //   ✅ Domaine Odoo '|' corrigé — deux appels séparés classes 6 et 7
 //   ✅ Appel inutile sur 999999 supprimé
 //   ✅ Comparaison lock date normalisée (substring 10)
 //   ✅ Vérification suppression lock robuste
+// Nouveautés V1.3 :
+//   ✅ Import fiscalYearService
+//   ✅ finalizeClosing() → snapshot automatique après UPDATE 'closed'
+//   ✅ unlockFiscalYear() → invalidation snapshot avant audit UNLOCK_APPLIED
+//   ✅ retrySnapshot() → endpoint de relance manuelle du snapshot
+//   ✅ getOpeningBalances() → à-nouveaux N+1 calculés depuis snapshot N
 // =============================================================================
+
+'use strict';
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
 const pool = require('../services/dbService');
+
+// ✅ V1.3 — Import du service de snapshot fiscal
+const {
+    snapshotFiscalYearBalances,
+    invalidateSnapshot
+} = require('../services/fiscalYearService');
 
 // =============================================================================
 // COMPTES SYSCOHADA — codes réels de la base doukepro.odoo.com
@@ -183,7 +197,6 @@ exports.runPreChecks = async (req, res) => {
         const blocking  = [];
         const warnings  = [];
 
-        // ── Filtre de base commun à plusieurs requêtes ────────────────────────
         const baseFilter = [
             ['company_id',   '=', companyId],
             ['parent_state', '=', 'posted'],
@@ -218,7 +231,6 @@ exports.runPreChecks = async (req, res) => {
         }
 
         // ── CHECK 2a : Produits — comptes classe 7 ────────────────────────────
-        // ✅ CORRECTION : appel séparé au lieu du domaine '|' mal formé
         const incomeLines = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'account.move.line',
@@ -234,7 +246,6 @@ exports.runPreChecks = async (req, res) => {
         });
 
         // ── CHECK 2b : Charges — comptes classe 6 ─────────────────────────────
-        // ✅ CORRECTION : appel séparé au lieu du domaine '|' mal formé
         const expenseLines = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'account.move.line',
@@ -249,9 +260,6 @@ exports.runPreChecks = async (req, res) => {
             }
         });
 
-        // Calcul du résultat net
-        // Produits = crédits classe 7 - débits classe 7
-        // Charges  = débits classe 6 - crédits classe 6
         let totalProduits = 0;
         let totalCharges  = 0;
 
@@ -321,7 +329,6 @@ exports.runPreChecks = async (req, res) => {
             });
         }
 
-        // ── Audit ─────────────────────────────────────────────────────────────
         await writeAuditLog({
             companyId,
             fiscalYear,
@@ -349,12 +356,12 @@ exports.runPreChecks = async (req, res) => {
                 warnings    : warnings,
                 can_proceed : blocking.length === 0,
                 result      : {
-                    amount          : Math.abs(netResult),
-                    raw             : netResult,
-                    type            : resultType,
-                    display         : `${Math.abs(netResult).toLocaleString('fr-FR')} XOF`,
-                    total_produits  : totalProduits,
-                    total_charges   : totalCharges
+                    amount         : Math.abs(netResult),
+                    raw            : netResult,
+                    type           : resultType,
+                    display        : `${Math.abs(netResult).toLocaleString('fr-FR')} XOF`,
+                    total_produits : totalProduits,
+                    total_charges  : totalCharges
                 }
             }
         });
@@ -367,27 +374,19 @@ exports.runPreChecks = async (req, res) => {
 
 // =============================================================================
 // 3. POST /api/closing/post-result
-// =============================================================================
-// =============================================================================
-// 3. POST /api/closing/post-result
 // ✅ V1.3 — Validation stricte, gestion d'erreur robuste, transaction sécurisée
 // =============================================================================
 exports.postResultEntry = async (req, res) => {
-    const client = await pool.connect(); // Pour transaction atomique
-    
+    const client = await pool.connect();
+
     try {
-        // ═══════════════════════════════════════════════════════════════════════
-        // ÉTAPE 1 : VALIDATION STRICTE DES DONNÉES
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        // Normalisation des entrées
+        // ── Validation des entrées ────────────────────────────────────────────
         const companyId    = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
         const fiscalYear   = parseInt(req.body.fiscal_year);
         const resultAmount = parseFloat(req.body.result_amount);
         const resultType   = String(req.body.result_type || '').toLowerCase().trim();
         const emetteur     = req.user?.name || req.user?.email || 'Admin';
 
-        // Validation companyId
         if (!companyId || isNaN(companyId) || companyId <= 0) {
             return res.status(400).json({
                 status : 'error',
@@ -397,7 +396,6 @@ exports.postResultEntry = async (req, res) => {
             });
         }
 
-        // Validation fiscalYear
         if (!fiscalYear || isNaN(fiscalYear) || fiscalYear < 2000 || fiscalYear > 2100) {
             return res.status(400).json({
                 status : 'error',
@@ -407,7 +405,6 @@ exports.postResultEntry = async (req, res) => {
             });
         }
 
-        // Validation resultAmount
         if (isNaN(resultAmount) || resultAmount <= 0) {
             return res.status(400).json({
                 status : 'error',
@@ -417,7 +414,6 @@ exports.postResultEntry = async (req, res) => {
             });
         }
 
-        // Validation resultType
         if (!['profit', 'loss'].includes(resultType)) {
             return res.status(400).json({
                 status : 'error',
@@ -427,29 +423,24 @@ exports.postResultEntry = async (req, res) => {
             });
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // ÉTAPE 2 : VÉRIFICATION ÉTAT DE CLÔTURE (AVEC LOCK TRANSACTIONNEL)
-        // ═══════════════════════════════════════════════════════════════════════
-        
+        // ── Vérification état de clôture avec lock transactionnel ─────────────
         await client.query('BEGIN');
 
         const existing = await client.query(
             `SELECT status, result_move_name, result_move_id
              FROM fiscal_year_closings
              WHERE company_id = $1 AND fiscal_year = $2
-             FOR UPDATE`, // ✅ Lock pour éviter race condition
+             FOR UPDATE`,
             [companyId, fiscalYear]
         );
 
-        // Bloquer si déjà clôturé
         if (existing.rows.length > 0) {
             const currentStatus = existing.rows[0].status;
-            
             if (['result_posted', 'locked', 'closed'].includes(currentStatus)) {
                 await client.query('ROLLBACK');
                 return res.status(409).json({
-                    status : 'error',
-                    error  : `L'écriture de résultat pour l'exercice ${fiscalYear} existe déjà.`,
+                    status  : 'error',
+                    error   : `L'écriture de résultat pour l'exercice ${fiscalYear} existe déjà.`,
                     details : {
                         current_status : currentStatus,
                         existing_move  : existing.rows[0].result_move_name,
@@ -459,18 +450,14 @@ exports.postResultEntry = async (req, res) => {
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // ÉTAPE 3 : RÉCUPÉRATION DES RESSOURCES ODOO
-        // ═══════════════════════════════════════════════════════════════════════
-        
+        // ── Récupération journal Odoo ─────────────────────────────────────────
         const yearEnd = `${fiscalYear}-12-31`;
-        
-        // Récupération journal avec timeout
+
         let journalId;
         try {
             journalId = await Promise.race([
                 getMiscJournalId(companyId),
-                new Promise((_, reject) => 
+                new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Timeout récupération journal (15s)')), 15000)
                 )
             ]);
@@ -484,31 +471,28 @@ exports.postResultEntry = async (req, res) => {
             });
         }
 
-        // Détermination des comptes selon profit/loss
+        // ── Détermination des comptes selon profit/loss ───────────────────────
         let debitAccountCode, creditAccountCode;
         if (resultType === 'profit') {
-            // Bénéfice : Débit 999999 (solde le pivot) / Crédit 130100
             debitAccountCode  = ACCOUNTS.RESULT_UNAFFECTED;
             creditAccountCode = ACCOUNTS.RESULT_PROFIT;
         } else {
-            // Perte : Débit 130900 / Crédit 999999 (solde le pivot)
             debitAccountCode  = ACCOUNTS.RESULT_LOSS;
             creditAccountCode = ACCOUNTS.RESULT_UNAFFECTED;
         }
 
-        // Récupération IDs comptes avec timeout
         let debitAccountId, creditAccountId;
         try {
             [debitAccountId, creditAccountId] = await Promise.all([
                 Promise.race([
                     getAccountId(debitAccountCode, companyId),
-                    new Promise((_, reject) => 
+                    new Promise((_, reject) =>
                         setTimeout(() => reject(new Error(`Timeout compte ${debitAccountCode}`)), 10000)
                     )
                 ]),
                 Promise.race([
                     getAccountId(creditAccountCode, companyId),
-                    new Promise((_, reject) => 
+                    new Promise((_, reject) =>
                         setTimeout(() => reject(new Error(`Timeout compte ${creditAccountCode}`)), 10000)
                     )
                 ])
@@ -523,10 +507,7 @@ exports.postResultEntry = async (req, res) => {
             });
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // ÉTAPE 4 : CRÉATION DE L'ÉCRITURE DANS ODOO
-        // ═══════════════════════════════════════════════════════════════════════
-        
+        // ── Création de l'écriture dans Odoo ─────────────────────────────────
         const libelle  = `Affectation résultat ${fiscalYear} — ${resultType === 'profit' ? 'Bénéfice' : 'Perte'}`;
         const moveData = {
             company_id : companyId,
@@ -551,7 +532,6 @@ exports.postResultEntry = async (req, res) => {
             ]
         };
 
-        // Création avec timeout
         let moveId;
         try {
             moveId = await Promise.race([
@@ -562,7 +542,7 @@ exports.postResultEntry = async (req, res) => {
                     args   : [moveData],
                     kwargs : { context: { allowed_company_ids: [companyId] } }
                 }),
-                new Promise((_, reject) => 
+                new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Timeout création écriture (20s)')), 20000)
                 )
             ]);
@@ -575,7 +555,7 @@ exports.postResultEntry = async (req, res) => {
             });
         }
 
-        // Validation (post) de l'écriture
+        // ── Validation de l'écriture ──────────────────────────────────────────
         try {
             await Promise.race([
                 odooExecuteKw({
@@ -585,14 +565,12 @@ exports.postResultEntry = async (req, res) => {
                     args   : [[moveId]],
                     kwargs : { context: { allowed_company_ids: [companyId] } }
                 }),
-                new Promise((_, reject) => 
+                new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Timeout validation écriture (15s)')), 15000)
                 )
             ]);
         } catch (postErr) {
-            // ⚠️ L'écriture existe mais n'est pas validée — tentative de suppression
             console.error('🚨 [postResultEntry] Échec validation:', postErr.message);
-            
             try {
                 await odooExecuteKw({
                     uid    : ADMIN_UID_INT,
@@ -605,17 +583,16 @@ exports.postResultEntry = async (req, res) => {
             } catch (unlinkErr) {
                 console.error('🚨 [postResultEntry] Impossible de supprimer l\'écriture en brouillon:', unlinkErr.message);
             }
-
             await client.query('ROLLBACK');
             return res.status(500).json({
-                status : 'error',
-                error  : `L'écriture a été créée mais sa validation a échoué : ${postErr.message}`,
-                hint   : 'Vérifiez l\'écriture manuellement dans Odoo (peut être en brouillon).',
+                status  : 'error',
+                error   : `L'écriture a été créée mais sa validation a échoué : ${postErr.message}`,
+                hint    : 'Vérifiez l\'écriture manuellement dans Odoo (peut être en brouillon).',
                 move_id : moveId
             });
         }
 
-        // Récupération du nom de l'écriture
+        // ── Lecture du nom de l'écriture ──────────────────────────────────────
         let moveName;
         try {
             const moveRecord = await Promise.race([
@@ -626,7 +603,7 @@ exports.postResultEntry = async (req, res) => {
                     args   : [[moveId], ['name']],
                     kwargs : {}
                 }),
-                new Promise((_, reject) => 
+                new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Timeout lecture nom écriture')), 10000)
                 )
             ]);
@@ -636,12 +613,8 @@ exports.postResultEntry = async (req, res) => {
             moveName = `MISC/${fiscalYear}/${moveId}`;
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // ÉTAPE 5 : SAUVEGARDE DANS SUPABASE
-        // ═══════════════════════════════════════════════════════════════════════
-        
+        // ── Sauvegarde dans Supabase ──────────────────────────────────────────
         if (existing.rows.length === 0) {
-            // INSERT (première fois)
             await client.query(
                 `INSERT INTO fiscal_year_closings
                     (company_id, fiscal_year, status, result_amount, result_type,
@@ -655,7 +628,6 @@ exports.postResultEntry = async (req, res) => {
                 ]
             );
         } else {
-            // UPDATE (clôture existante en état 'open')
             await client.query(
                 `UPDATE fiscal_year_closings
                  SET status           = 'result_posted',
@@ -676,13 +648,8 @@ exports.postResultEntry = async (req, res) => {
             );
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // ÉTAPE 6 : AUDIT ET COMMIT
-        // ═══════════════════════════════════════════════════════════════════════
-        
         await client.query('COMMIT');
 
-        // Audit (après commit pour éviter rollback si échec audit)
         const auditResult = await writeAuditLog({
             companyId,
             fiscalYear,
@@ -705,10 +672,6 @@ exports.postResultEntry = async (req, res) => {
 
         console.log(`✅ [postResultEntry] ${moveName} validée — Exercice ${fiscalYear} — ${emetteur}`);
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // ÉTAPE 7 : RÉPONSE SUCCÈS
-        // ═══════════════════════════════════════════════════════════════════════
-        
         res.status(201).json({
             status      : 'success',
             move_id     : moveId,
@@ -723,27 +686,23 @@ exports.postResultEntry = async (req, res) => {
         });
 
     } catch (err) {
-        // Rollback en cas d'erreur non gérée
         try {
             await client.query('ROLLBACK');
         } catch (rollbackErr) {
             console.error('🚨 [postResultEntry] Échec ROLLBACK:', rollbackErr.message);
         }
-
         console.error('🚨 [postResultEntry] Erreur critique:', err.message, err.stack);
-        
         res.status(500).json({
             status : 'error',
             error  : `Échec affectation résultat : ${err.message}`,
             type   : err.name,
             hint   : 'Consultez les logs serveur pour plus de détails.'
         });
-
     } finally {
-        // Toujours libérer la connexion
         client.release();
     }
 };
+
 // =============================================================================
 // 4. POST /api/closing/lock
 // ✅ CORRECTION V1.2 : comparaison lock date normalisée
@@ -788,7 +747,6 @@ exports.lockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        // ✅ CORRECTION : normalisation avant comparaison
         const companyCheck = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -842,6 +800,7 @@ exports.lockFiscalYear = async (req, res) => {
 
 // =============================================================================
 // 5. POST /api/closing/finalize
+// ✅ V1.3 : Snapshot automatique des soldes après finalisation
 // =============================================================================
 exports.finalizeClosing = async (req, res) => {
     try {
@@ -854,6 +813,7 @@ exports.finalizeClosing = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'companyId requis.' });
         }
 
+        // ── Mise à jour statut Supabase (identique V1.2) ─────────────────────
         const result = await pool.queryWithRetry(
             `UPDATE fiscal_year_closings
              SET status = 'closed', closed_at = NOW(), notes = $1
@@ -870,13 +830,32 @@ exports.finalizeClosing = async (req, res) => {
             });
         }
 
+        // ── ✅ V1.3 : Snapshot des soldes de clôture ─────────────────────────
+        // Photographie tous les soldes au 31/12/N dans fiscal_year_balances.
+        // Non bloquant : si le snapshot échoue, la clôture reste effective.
+        // L'admin peut relancer via POST /api/closing/snapshot si nécessaire.
+        let snapshotResult = null;
+        try {
+            snapshotResult = await snapshotFiscalYearBalances(companyId, fiscalYear, emetteur);
+            console.log(`✅ [finalizeClosing] Snapshot : ${snapshotResult.count} comptes sauvegardés`);
+        } catch (snapshotErr) {
+            console.error('⚠️ [finalizeClosing] Snapshot échoué (non bloquant):', snapshotErr.message);
+            snapshotResult = { success: false, error: snapshotErr.message, count: 0 };
+        }
+
+        // ── Audit (enrichi avec info snapshot) ───────────────────────────────
         await writeAuditLog({
             companyId,
             fiscalYear,
             action      : 'CLOSING_FINALIZED',
             performedBy : emetteur,
-            details     : { notes },
-            ipAddress   : getClientIp(req)
+            details     : {
+                notes,
+                snapshot_count   : snapshotResult?.count   || 0,
+                snapshot_success : snapshotResult?.success || false,
+                snapshot_error   : snapshotResult?.error   || null
+            },
+            ipAddress : getClientIp(req)
         });
 
         console.log(`✅ [finalizeClosing] Exercice ${fiscalYear} finalisé — ${emetteur}`);
@@ -884,7 +863,14 @@ exports.finalizeClosing = async (req, res) => {
         res.json({
             status      : 'success',
             fiscal_year : fiscalYear,
-            message     : `Clôture de l'exercice ${fiscalYear} finalisée et archivée.`
+            snapshot    : {
+                success : snapshotResult?.success || false,
+                count   : snapshotResult?.count   || 0,
+                warning : snapshotResult?.success
+                    ? null
+                    : 'Snapshot des soldes incomplet — relancez via POST /api/closing/snapshot si nécessaire.'
+            },
+            message : `Clôture de l'exercice ${fiscalYear} finalisée et archivée.`
         });
 
     } catch (err) {
@@ -896,6 +882,7 @@ exports.finalizeClosing = async (req, res) => {
 // =============================================================================
 // 6. POST /api/closing/unlock
 // ✅ CORRECTION V1.2 : vérification suppression lock robuste
+// ✅ V1.3 : Invalidation du snapshot lors du déverrouillage
 // =============================================================================
 exports.unlockFiscalYear = async (req, res) => {
     try {
@@ -944,7 +931,7 @@ exports.unlockFiscalYear = async (req, res) => {
             });
         }
 
-        // Audit AVANT l'action
+        // ── Audit AVANT l'action ──────────────────────────────────────────────
         await writeAuditLog({
             companyId,
             fiscalYear,
@@ -958,7 +945,7 @@ exports.unlockFiscalYear = async (req, res) => {
             ipAddress : getClientIp(req)
         });
 
-        // Retirer le lock dans Odoo
+        // ── Retrait du lock dans Odoo ─────────────────────────────────────────
         await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -967,7 +954,6 @@ exports.unlockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        // ✅ CORRECTION : vérification robuste de la suppression du lock
         const companyCheck = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -984,24 +970,34 @@ exports.unlockFiscalYear = async (req, res) => {
             );
         }
 
+        // ── Mise à jour Supabase ──────────────────────────────────────────────
         await pool.queryWithRetry(
             `UPDATE fiscal_year_closings
-             SET status = 'result_posted',
-                 lock_date = NULL,
+             SET status          = 'result_posted',
+                 lock_date       = NULL,
                  lock_applied_at = NULL
              WHERE company_id = $1 AND fiscal_year = $2`,
             [companyId, fiscalYear]
         );
 
-        // Audit APRÈS l'action
+        // ── ✅ V1.3 : Invalidation du snapshot ───────────────────────────────
+        // Les écritures vont changer → le snapshot N n'est plus fiable.
+        // Il sera refait automatiquement à la prochaine finalisation.
+        await invalidateSnapshot(companyId, fiscalYear, emetteur);
+
+        // ── Audit APRÈS l'action ──────────────────────────────────────────────
         await writeAuditLog({
             companyId,
             fiscalYear,
             action      : 'UNLOCK_APPLIED',
             performedBy : emetteur,
             reason      : reason,
-            details     : { odoo_lock_removed: true, odoo_verified: true },
-            ipAddress   : getClientIp(req)
+            details     : {
+                odoo_lock_removed  : true,
+                odoo_verified      : true,
+                snapshot_invalidated: true
+            },
+            ipAddress : getClientIp(req)
         });
 
         console.log(`⚠️ [unlockFiscalYear] Exercice ${fiscalYear} DÉVERROUILLÉ par ${emetteur} — Motif: ${reason}`);
@@ -1012,7 +1008,7 @@ exports.unlockFiscalYear = async (req, res) => {
             unlocked_by : emetteur,
             reason      : reason,
             message     : `Exercice ${fiscalYear} déverrouillé. Effectuez vos corrections puis re-verrouillez.`,
-            warning     : 'Les écritures sur cette période sont à nouveau modifiables dans Odoo.'
+            warning     : 'Les écritures sur cette période sont à nouveau modifiables dans Odoo. Le snapshot des soldes a été invalidé.'
         });
 
     } catch (err) {
@@ -1062,7 +1058,6 @@ exports.relockFiscalYear = async (req, res) => {
             kwargs : {}
         });
 
-        // ✅ CORRECTION : normalisation avant comparaison
         const companyCheck = await odooExecuteKw({
             uid    : ADMIN_UID_INT,
             model  : 'res.company',
@@ -1163,7 +1158,6 @@ exports.getAuditLog = async (req, res) => {
 
 // =============================================================================
 // 9. GET /api/closing/available-years?companyId=X
-// Retourne les exercices disponibles pour clôture
 // =============================================================================
 exports.getAvailableYears = async (req, res) => {
     try {
@@ -1182,10 +1176,10 @@ exports.getAvailableYears = async (req, res) => {
             [companyId]
         );
 
-        const currentYear  = new Date().getFullYear();
-        const prevYear     = currentYear - 1;
+        const currentYear   = new Date().getFullYear();
+        const prevYear      = currentYear - 1;
         const existingYears = existing.rows.map(r => r.fiscal_year);
-        const years        = [...existing.rows];
+        const years         = [...existing.rows];
 
         if (!existingYears.includes(currentYear)) {
             years.unshift({
@@ -1206,12 +1200,106 @@ exports.getAvailableYears = async (req, res) => {
         console.log(`✅ [getAvailableYears] ${years.length} exercice(s) pour company ${companyId}`);
 
         res.json({
-            status: 'success', company_id: companyId,
-            count: years.length, data: years
+            status     : 'success',
+            company_id : companyId,
+            count      : years.length,
+            data       : years
         });
 
     } catch (err) {
         console.error('🚨 [getAvailableYears]', err.message);
+        res.status(500).json({ status: 'error', error: err.message });
+    }
+};
+
+// =============================================================================
+// 10. POST /api/closing/snapshot  ← NOUVEAU V1.3
+// Relance manuelle du snapshot si la finalisation l'avait raté
+// Accès : ADMIN uniquement
+// =============================================================================
+exports.retrySnapshot = async (req, res) => {
+    try {
+        const companyId  = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
+        const fiscalYear = parseInt(req.body.fiscal_year) || new Date().getFullYear();
+        const emetteur   = req.user?.name || req.user?.email || 'Admin';
+
+        if (!companyId) {
+            return res.status(400).json({ status: 'error', error: 'companyId requis.' });
+        }
+
+        if (!fiscalYear || isNaN(fiscalYear)) {
+            return res.status(400).json({ status: 'error', error: 'fiscal_year requis.' });
+        }
+
+        // Vérifier que l'exercice est bien clôturé
+        const existing = await pool.queryWithRetry(
+            `SELECT status FROM fiscal_year_closings
+             WHERE company_id = $1 AND fiscal_year = $2 LIMIT 1`,
+            [companyId, fiscalYear]
+        );
+
+        if (existing.rows.length === 0 || existing.rows[0].status !== 'closed') {
+            return res.status(400).json({
+                status  : 'error',
+                error   : `L'exercice ${fiscalYear} doit être clôturé (statut 'closed') pour lancer un snapshot.`,
+                current : existing.rows[0]?.status || 'inexistant'
+            });
+        }
+
+        const result = await snapshotFiscalYearBalances(companyId, fiscalYear, emetteur);
+
+        await writeAuditLog({
+            companyId,
+            fiscalYear,
+            action      : 'SNAPSHOT_RETRY',
+            performedBy : emetteur,
+            details     : { count: result.count },
+            ipAddress   : getClientIp(req)
+        });
+
+        res.json({
+            status      : 'success',
+            fiscal_year : fiscalYear,
+            count       : result.count,
+            message     : `Snapshot relancé avec succès — ${result.count} comptes sauvegardés.`
+        });
+
+    } catch (err) {
+        console.error('🚨 [retrySnapshot]', err.message);
+        res.status(500).json({ status: 'error', error: err.message });
+    }
+};
+
+// =============================================================================
+// 11. GET /api/closing/opening-balances?companyId=X&year=Y  ← NOUVEAU V1.3
+// Retourne les à-nouveaux N+1 calculés depuis le snapshot N
+// year = exercice CLÔTURÉ (ex: 2024 → retourne les ouvertures 2025)
+// Accès : ADMIN, COLLABORATEUR
+// =============================================================================
+exports.getOpeningBalances = async (req, res) => {
+    try {
+        const companyId  = req.validatedCompanyId || parseInt(req.query.companyId);
+        const fiscalYear = parseInt(req.query.year) || new Date().getFullYear() - 1;
+
+        if (!companyId) {
+            return res.status(400).json({ status: 'error', error: 'companyId requis.' });
+        }
+
+        if (!fiscalYear || isNaN(fiscalYear)) {
+            return res.status(400).json({ status: 'error', error: 'year requis (exercice clôturé).' });
+        }
+
+        const { computeOpeningBalances } = require('../services/fiscalYearService');
+        const result = await computeOpeningBalances(companyId, fiscalYear);
+
+        if (!result.success) {
+            return res.status(404).json({ status: 'error', error: result.error });
+        }
+
+        res.json({ status: 'success', data: result });
+
+    } catch (err) {
+        console.error('🚨 [getOpeningBalances]', err.message);
         res.status(500).json({ status: 'error', error: err.message });
     }
 };
