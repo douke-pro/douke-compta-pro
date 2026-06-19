@@ -205,4 +205,7 @@ router.post('/closing/finalize',        protect, closingController.finalizeClosi
 router.post('/closing/unlock',          protect, closingController.unlockFiscalYear);
 router.post('/closing/relock',          protect, closingController.relockFiscalYear);
 
+router.post("/closing/snapshot",         protect, closingController.retrySnapshot);
+router.get ("/closing/opening-balances", protect, closingController.getOpeningBalances);
+
 module.exports = router;
