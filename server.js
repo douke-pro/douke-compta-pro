@@ -1,21 +1,20 @@
 // =============================================================================
 // FICHIER : server.js
 // Description : Serveur principal Doukè Compta Pro
-// Version : V25 — Sécurité + CORS + node-fetch + gestion erreurs
-// Corrections appliquées :
-//   ✅ C2     : CORS whitelist sécurisée (remplace origin: '*')
-//   ✅ E7     : node-fetch importé explicitement (keep-alive fonctionnel)
-//   ✅ Bonus1 : Gestionnaire d'erreurs — stack traces masquées en production
-//   ✅ Bonus2 : Nettoyage automatique tokens révoqués (silencieux si table absente)
-//   ⏳ A1    : Table user_profiles — à ajouter après définition des profils
+// Version : V26 — Ajout route SYSCOHADA Révisé
+// Corrections V26 :
+//   ✅ Ajout import syscohadaRoutes
+//   ✅ Montage /api/syscohada
+//   ✅ Mise à jour /api/health (routes)
+//   ✅ Mise à jour handler 404 (availableRoutes)
 // =============================================================================
 
 const express   = require('express');
 const cors      = require('cors');
 const path      = require('path');
 const fs        = require('fs');
-const nodeFetch = require('node-fetch');           // ✅ E7 — import explicite
-const fetch     = nodeFetch.default || nodeFetch;  // ✅ E7 — compatibilité ESM/CJS
+const nodeFetch = require('node-fetch');
+const fetch     = nodeFetch.default || nodeFetch;
 
 require('dotenv').config();
 
@@ -32,7 +31,7 @@ const notificationsRoutes   = require('./routes/notifications');
 const ocrRoutes             = require('./routes/ocr');
 const immobilisationsRoutes = require('./routes/immobilisations');
 const reportsRoutes         = require('./routes/reports');
-const syscohadaRoutes = require('./routes/syscohada');
+const syscohadaRoutes       = require('./routes/syscohada');       // ✅ V26
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -60,9 +59,6 @@ console.log('✅ [Init] Dossiers uploads vérifiés');
 
 // =============================================================================
 // INITIALISATION DES TABLES POSTGRESQL AVEC RETRY
-// Note : Les tables financial_reports_* existent déjà sur Supabase.
-//        Le IF NOT EXISTS garantit qu'elles ne sont pas recréées.
-//        La table user_profiles sera ajoutée ici après définition des profils.
 // =============================================================================
 const initDB = async (retries = 5, delay = 3000) => {
     const pool = require('./services/dbService');
@@ -71,7 +67,6 @@ const initDB = async (retries = 5, delay = 3000) => {
         try {
             console.log(`[DB] Tentative d'initialisation ${attempt}/${retries}...`);
 
-            // ── Tables principales (déjà existantes sur Supabase — IF NOT EXISTS) ──
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS financial_reports_requests (
                     id                 SERIAL PRIMARY KEY,
@@ -108,15 +103,11 @@ const initDB = async (retries = 5, delay = 3000) => {
                 );
             `);
 
-            // ── Migration douce : colonnes manquantes sur bases existantes ────────
             await pool.query(`
                 ALTER TABLE financial_reports_requests
                     ADD COLUMN IF NOT EXISTS requested_by_name VARCHAR(150);
             `);
 
-            // ── Table revoked_tokens pour invalidation JWT (forceLogout) ──────────
-            // Sera utilisée lors de la correction E3 (forceLogout réel)
-            // ── Table revoked_tokens pour invalidation JWT (forceLogout) ──────────
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS revoked_tokens (
                     token_hash   VARCHAR(64) PRIMARY KEY,
@@ -125,9 +116,6 @@ const initDB = async (retries = 5, delay = 3000) => {
                 );
             `);
 
-            // ── Table notification_state — état local des notifications Odoo ──────
-            // Odoo 19 SaaS bloque l'écriture sur mail.notification via RPC.
-            // Cette table stocke localement is_read et is_deleted par user.
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS notification_state (
                     id              SERIAL PRIMARY KEY,
@@ -142,12 +130,31 @@ const initDB = async (retries = 5, delay = 3000) => {
                 );
             `);
 
+            // ✅ V26 — Table fiscal_year_balances (snapshot clôture annuelle)
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS fiscal_year_balances (
+                    id              SERIAL PRIMARY KEY,
+                    company_id      INTEGER NOT NULL,
+                    fiscal_year     INTEGER NOT NULL,
+                    account_code    VARCHAR(10) NOT NULL,
+                    account_name    TEXT,
+                    balance_debit   NUMERIC(15,2) DEFAULT 0,
+                    balance_credit  NUMERIC(15,2) DEFAULT 0,
+                    net_balance     NUMERIC(15,2) DEFAULT 0,
+                    account_class   INTEGER,
+                    snapshot_valid  BOOLEAN DEFAULT TRUE,
+                    created_at      TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(company_id, fiscal_year, account_code)
+                );
+            `);
+
             console.log('✅ [DB] Tables initialisées avec succès');
             console.log('   ✓ financial_reports_requests');
             console.log('   ✓ financial_reports_notifications');
             console.log('   ✓ revoked_tokens');
             console.log('   ✓ notification_state');
-            return; // Succès — sortir de la boucle
+            console.log('   ✓ fiscal_year_balances');
+            return;
 
         } catch (error) {
             console.warn(`⚠️ [DB] Tentative ${attempt}/${retries} échouée: ${error.message}`);
@@ -158,8 +165,6 @@ const initDB = async (retries = 5, delay = 3000) => {
             } else {
                 console.error('❌ [DB] Toutes les tentatives d\'initialisation ont échoué.');
                 console.error('   L\'application fonctionne mais les tables peuvent être absentes.');
-                // Ne pas faire process.exit() — laisser le serveur tourner
-                // Les tables existent probablement déjà depuis un déploiement précédent
             }
         }
     }
@@ -168,8 +173,6 @@ const initDB = async (retries = 5, delay = 3000) => {
 // =============================================================================
 // MIDDLEWARES GLOBAUX
 // =============================================================================
-
-// ✅ C2 — CORS sécurisé : remplace origin: '*' qui acceptait toutes les origines
 const allowedOrigins = [
     'https://douke-compta-pro.onrender.com'
 ];
@@ -180,13 +183,8 @@ if (process.env.NODE_ENV !== 'production') {
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Autoriser les appels sans origine (Postman, mobile apps, curl)
         if (!origin) return callback(null, true);
-
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-
+        if (allowedOrigins.includes(origin)) return callback(null, true);
         console.warn(`⚠️ [CORS] Origine bloquée : ${origin}`);
         callback(new Error(`Origine non autorisée par CORS : ${origin}`));
     },
@@ -234,6 +232,9 @@ console.log('✅ Route /api/accounting/immobilisations montee');
 app.use('/api/reports',                    reportsRoutes);
 console.log('✅ Route /api/reports montee');
 
+app.use('/api/syscohada',                  syscohadaRoutes);         // ✅ V26
+console.log('✅ Route /api/syscohada montee');
+
 console.log('✅ Toutes les routes montees avec succes');
 
 // =============================================================================
@@ -251,19 +252,19 @@ app.get('/api/health', async (req, res) => {
 
     res.json({
         status:    'OK',
-        version:   'V25',
+        version:   'V26',
         timestamp: new Date().toISOString(),
         db:        dbStatus,
         routes: [
             'auth', 'companies', 'accounting', 'user',
             'settings', 'admin', 'notifications', 'ocr',
-            'immobilisations', 'reports'
+            'immobilisations', 'reports', 'syscohada'           // ✅ V26
         ]
     });
 });
 
 // =============================================================================
-// FALLBACK SPA (Single Page Application)
+// FALLBACK SPA
 // =============================================================================
 app.use((req, res) => {
     if (!req.url.startsWith('/api')) {
@@ -284,7 +285,8 @@ app.use((req, res) => {
                 '/api/notifications',
                 '/api/ocr',
                 '/api/accounting/immobilisations',
-                '/api/reports'
+                '/api/reports',
+                '/api/syscohada'                                // ✅ V26
             ]
         });
     }
@@ -292,20 +294,17 @@ app.use((req, res) => {
 
 // =============================================================================
 // GESTIONNAIRE D'ERREURS GLOBAL
-// ✅ Bonus1 : stack traces masquées en production, visibles en développement
 // =============================================================================
 app.use((err, req, res, next) => {
     console.error('[ERREUR SERVEUR]', err.message);
     console.error(err.stack);
 
     if (process.env.NODE_ENV === 'production') {
-        // En production : message générique, aucun détail technique exposé
         return res.status(500).json({
             error: 'Erreur serveur interne. Veuillez réessayer.'
         });
     }
 
-    // En développement : détails complets pour debug
     res.status(500).json({
         error:   'Erreur serveur interne',
         message: err.message,
@@ -327,20 +326,13 @@ app.listen(PORT, async () => {
     console.log(`  CORS      : ${allowedOrigins.join(', ')}`);
     console.log('='.repeat(60));
 
-    // Initialisation PostgreSQL avec retry
     await initDB();
 
-    // ==========================================================================
-    // KEEP-ALIVE — Empêche le service Render Free de s'endormir
-    // ✅ E7     : fetch maintenant correctement importé via node-fetch
-    // ✅ Bonus2 : Nettoyage automatique des tokens révoqués expirés
-    // ==========================================================================
     if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
-        const KEEP_ALIVE_INTERVAL = 9 * 60 * 1000; // 9 minutes
+        const KEEP_ALIVE_INTERVAL = 9 * 60 * 1000;
 
         setInterval(async () => {
 
-            // ── Ping HTTP ────────────────────────────────────────────────────
             try {
                 await fetch('https://douke-compta-pro.onrender.com/api/health');
                 console.log('🔄 [Keep-alive] Ping HTTP OK');
@@ -348,7 +340,6 @@ app.listen(PORT, async () => {
                 console.warn('⚠️ [Keep-alive] Ping HTTP échoué:', e.message);
             }
 
-            // ── Ping PostgreSQL ──────────────────────────────────────────────
             try {
                 const pool = require('./services/dbService');
                 await pool.query('SELECT 1');
@@ -357,8 +348,6 @@ app.listen(PORT, async () => {
                 console.warn('⚠️ [Keep-alive] Ping PostgreSQL échoué:', e.message);
             }
 
-            // ── ✅ Bonus2 : Nettoyage tokens révoqués expirés ────────────────
-            // Silencieux si la table revoked_tokens n'existe pas encore.
             try {
                 const pool = require('./services/dbService');
                 const result = await pool.query(
@@ -368,7 +357,7 @@ app.listen(PORT, async () => {
                     console.log(`🧹 [Keep-alive] ${result.rowCount} token(s) révoqué(s) expiré(s) nettoyé(s)`);
                 }
             } catch (e) {
-                // Silencieux — aucun impact sur le fonctionnement
+                // Silencieux
             }
 
         }, KEEP_ALIVE_INTERVAL);
