@@ -1,12 +1,10 @@
 // =============================================================================
 // FICHIER : server.js
 // Description : Serveur principal Doukè Compta Pro
-// Version : V26 — Ajout route SYSCOHADA Révisé
-// Corrections V26 :
-//   ✅ Ajout import syscohadaRoutes
-//   ✅ Montage /api/syscohada
-//   ✅ Mise à jour /api/health (routes)
-//   ✅ Mise à jour handler 404 (availableRoutes)
+// Version : V27 — Ajout module RH + GED
+// Corrections V27 :
+//   ✅ Import + montage /api/hr
+//   ✅ Tables employees, payslips, document_templates, company_documents
 // =============================================================================
 
 const express   = require('express');
@@ -31,7 +29,8 @@ const notificationsRoutes   = require('./routes/notifications');
 const ocrRoutes             = require('./routes/ocr');
 const immobilisationsRoutes = require('./routes/immobilisations');
 const reportsRoutes         = require('./routes/reports');
-const syscohadaRoutes       = require('./routes/syscohada');       // ✅ V26
+const syscohadaRoutes       = require('./routes/syscohada');
+const hrRoutes              = require('./routes/hr');              // ✅ V27
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -39,21 +38,11 @@ const PORT = process.env.PORT || 3000;
 // =============================================================================
 // CRÉATION AUTOMATIQUE DES DOSSIERS UPLOADS
 // =============================================================================
-const uploadDirs = [
-    'uploads',
-    'uploads/temp',
-    'uploads/invoices',
-    'uploads/documents'
-];
-
+const uploadDirs = ['uploads','uploads/temp','uploads/invoices','uploads/documents'];
 console.log('📁 [Init] Vérification des dossiers uploads...');
 uploadDirs.forEach(dir => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-        console.log(`   ✅ Dossier créé: ${dir}`);
-    } else {
-        console.log(`   ✓ Dossier existe: ${dir}`);
-    }
+    if (!fs.existsSync(dir)) { fs.mkdirSync(dir, { recursive: true }); console.log(`   ✅ Dossier créé: ${dir}`); }
+    else { console.log(`   ✓ Dossier existe: ${dir}`); }
 });
 console.log('✅ [Init] Dossiers uploads vérifiés');
 
@@ -62,7 +51,6 @@ console.log('✅ [Init] Dossiers uploads vérifiés');
 // =============================================================================
 const initDB = async (retries = 5, delay = 3000) => {
     const pool = require('./services/dbService');
-
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             console.log(`[DB] Tentative d'initialisation ${attempt}/${retries}...`);
@@ -91,7 +79,6 @@ const initDB = async (retries = 5, delay = 3000) => {
                     sent_at            TIMESTAMP,
                     updated_at         TIMESTAMP DEFAULT NOW()
                 );
-
                 CREATE TABLE IF NOT EXISTS financial_reports_notifications (
                     id                  SERIAL PRIMARY KEY,
                     report_request_id   INTEGER REFERENCES financial_reports_requests(id),
@@ -114,9 +101,6 @@ const initDB = async (retries = 5, delay = 3000) => {
                     revoked_at   TIMESTAMP DEFAULT NOW(),
                     expires_at   TIMESTAMP NOT NULL
                 );
-            `);
-
-            await pool.query(`
                 CREATE TABLE IF NOT EXISTS notification_state (
                     id              SERIAL PRIMARY KEY,
                     user_odoo_uid   INTEGER NOT NULL,
@@ -128,10 +112,6 @@ const initDB = async (retries = 5, delay = 3000) => {
                     created_at      TIMESTAMP DEFAULT NOW(),
                     UNIQUE(user_odoo_uid, notification_id)
                 );
-            `);
-
-            // ✅ V26 — Table fiscal_year_balances (snapshot clôture annuelle)
-            await pool.query(`
                 CREATE TABLE IF NOT EXISTS fiscal_year_balances (
                     id              SERIAL PRIMARY KEY,
                     company_id      INTEGER NOT NULL,
@@ -148,23 +128,84 @@ const initDB = async (retries = 5, delay = 3000) => {
                 );
             `);
 
+            // ✅ V27 — Tables Module RH + GED
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS employees (
+                    id              SERIAL PRIMARY KEY,
+                    company_id      INTEGER NOT NULL,
+                    employee_code   VARCHAR(20) UNIQUE,
+                    full_name       TEXT NOT NULL,
+                    job_title       TEXT,
+                    hire_date       DATE,
+                    contract_type   VARCHAR(50) DEFAULT 'CDI',
+                    base_salary     NUMERIC(12,2) DEFAULT 0,
+                    status          VARCHAR(20) DEFAULT 'actif',
+                    email           VARCHAR(150),
+                    phone           VARCHAR(30),
+                    address         TEXT,
+                    id_number       VARCHAR(50),
+                    id_type         VARCHAR(30),
+                    cnss_number     VARCHAR(50),
+                    notes           TEXT,
+                    created_by      INTEGER,
+                    created_at      TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at      TIMESTAMPTZ DEFAULT NOW()
+                );
+                CREATE TABLE IF NOT EXISTS payslips (
+                    id              SERIAL PRIMARY KEY,
+                    employee_id     INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+                    company_id      INTEGER NOT NULL,
+                    period_month    INTEGER NOT NULL CHECK (period_month BETWEEN 1 AND 12),
+                    period_year     INTEGER NOT NULL,
+                    gross_salary    NUMERIC(12,2) DEFAULT 0,
+                    deductions      JSONB,
+                    net_salary      NUMERIC(12,2) DEFAULT 0,
+                    status          VARCHAR(20) DEFAULT 'brouillon',
+                    pdf_base64      TEXT,
+                    generated_at    TIMESTAMPTZ,
+                    created_by      INTEGER,
+                    created_at      TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(employee_id, period_month, period_year)
+                );
+                CREATE TABLE IF NOT EXISTS document_templates (
+                    id              SERIAL PRIMARY KEY,
+                    company_id      INTEGER NOT NULL,
+                    template_type   VARCHAR(50) NOT NULL,
+                    template_name   TEXT,
+                    template_html   TEXT NOT NULL,
+                    created_by      INTEGER,
+                    created_at      TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(company_id, template_type)
+                );
+                CREATE TABLE IF NOT EXISTS company_documents (
+                    id              SERIAL PRIMARY KEY,
+                    company_id      INTEGER NOT NULL,
+                    employee_id     INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+                    doc_type        VARCHAR(50) NOT NULL,
+                    doc_name        TEXT NOT NULL,
+                    file_base64     TEXT NOT NULL,
+                    file_mime       VARCHAR(100) DEFAULT 'application/pdf',
+                    file_size_kb    INTEGER DEFAULT 0,
+                    uploaded_by     INTEGER,
+                    created_at      TIMESTAMPTZ DEFAULT NOW()
+                );
+            `);
+
             console.log('✅ [DB] Tables initialisées avec succès');
-            console.log('   ✓ financial_reports_requests');
-            console.log('   ✓ financial_reports_notifications');
-            console.log('   ✓ revoked_tokens');
-            console.log('   ✓ notification_state');
+            console.log('   ✓ financial_reports_requests + notifications');
+            console.log('   ✓ revoked_tokens + notification_state');
             console.log('   ✓ fiscal_year_balances');
+            console.log('   ✓ employees + payslips + document_templates + company_documents');
             return;
 
         } catch (error) {
             console.warn(`⚠️ [DB] Tentative ${attempt}/${retries} échouée: ${error.message}`);
-
             if (attempt < retries) {
                 console.log(`   ↻ Nouvelle tentative dans ${delay / 1000}s...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-                console.error('❌ [DB] Toutes les tentatives d\'initialisation ont échoué.');
-                console.error('   L\'application fonctionne mais les tables peuvent être absentes.');
+                console.error('❌ [DB] Toutes les tentatives ont échoué.');
             }
         }
     }
@@ -173,9 +214,7 @@ const initDB = async (retries = 5, delay = 3000) => {
 // =============================================================================
 // MIDDLEWARES GLOBAUX
 // =============================================================================
-const allowedOrigins = [
-    'https://douke-compta-pro.onrender.com'
-];
+const allowedOrigins = ['https://douke-compta-pro.onrender.com'];
 if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push('http://localhost:3000');
     allowedOrigins.push('http://127.0.0.1:3000');
@@ -193,8 +232,8 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '15mb' }));        // ✅ V27 — limite augmentée pour fichiers base64
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // =============================================================================
@@ -204,36 +243,28 @@ console.log('🔵 Montage des routes API...');
 
 app.use('/api/auth',                       authRoutes);
 console.log('✅ Route /api/auth montee');
-
 app.use('/api/companies',                  companyRoutes);
 console.log('✅ Route /api/companies montee');
-
 app.use('/api/accounting',                 accountingRoutes);
 console.log('✅ Route /api/accounting montee');
-
 app.use('/api/user',                       userRoutes);
 console.log('✅ Route /api/user montee');
-
 app.use('/api/settings',                   settingsRoutes);
 console.log('✅ Route /api/settings montee');
-
 app.use('/api/admin',                      adminUsersRoutes);
 console.log('✅ Route /api/admin montee');
-
 app.use('/api/notifications',              notificationsRoutes);
 console.log('✅ Route /api/notifications montee');
-
 app.use('/api/ocr',                        ocrRoutes);
 console.log('✅ Route /api/ocr montee');
-
 app.use('/api/accounting/immobilisations', immobilisationsRoutes);
 console.log('✅ Route /api/accounting/immobilisations montee');
-
 app.use('/api/reports',                    reportsRoutes);
 console.log('✅ Route /api/reports montee');
-
-app.use('/api/syscohada',                  syscohadaRoutes);         // ✅ V26
+app.use('/api/syscohada',                  syscohadaRoutes);
 console.log('✅ Route /api/syscohada montee');
+app.use('/api/hr',                         hrRoutes);             // ✅ V27
+console.log('✅ Route /api/hr montee');
 
 console.log('✅ Toutes les routes montees avec succes');
 
@@ -242,24 +273,12 @@ console.log('✅ Toutes les routes montees avec succes');
 // =============================================================================
 app.get('/api/health', async (req, res) => {
     let dbStatus = 'unknown';
-    try {
-        const pool = require('./services/dbService');
-        await pool.query('SELECT 1');
-        dbStatus = 'ok';
-    } catch (e) {
-        dbStatus = 'error: ' + e.message;
-    }
-
+    try { const pool = require('./services/dbService'); await pool.query('SELECT 1'); dbStatus = 'ok'; }
+    catch (e) { dbStatus = 'error: ' + e.message; }
     res.json({
-        status:    'OK',
-        version:   'V26',
-        timestamp: new Date().toISOString(),
-        db:        dbStatus,
-        routes: [
-            'auth', 'companies', 'accounting', 'user',
-            'settings', 'admin', 'notifications', 'ocr',
-            'immobilisations', 'reports', 'syscohada'           // ✅ V26
-        ]
+        status: 'OK', version: 'V27', timestamp: new Date().toISOString(), db: dbStatus,
+        routes: ['auth','companies','accounting','user','settings','admin',
+                 'notifications','ocr','immobilisations','reports','syscohada','hr']
     });
 });
 
@@ -272,22 +291,10 @@ app.use((req, res) => {
     } else {
         console.log(`[404] API non trouvée: ${req.method} ${req.url}`);
         res.status(404).json({
-            error:  'Route API non trouvée',
-            path:   req.url,
-            method: req.method,
-            availableRoutes: [
-                '/api/auth',
-                '/api/companies',
-                '/api/accounting',
-                '/api/user',
-                '/api/settings',
-                '/api/admin',
-                '/api/notifications',
-                '/api/ocr',
-                '/api/accounting/immobilisations',
-                '/api/reports',
-                '/api/syscohada'                                // ✅ V26
-            ]
+            error: 'Route API non trouvée', path: req.url, method: req.method,
+            availableRoutes: ['/api/auth','/api/companies','/api/accounting','/api/user',
+                '/api/settings','/api/admin','/api/notifications','/api/ocr',
+                '/api/accounting/immobilisations','/api/reports','/api/syscohada','/api/hr']
         });
     }
 });
@@ -297,19 +304,9 @@ app.use((req, res) => {
 // =============================================================================
 app.use((err, req, res, next) => {
     console.error('[ERREUR SERVEUR]', err.message);
-    console.error(err.stack);
-
-    if (process.env.NODE_ENV === 'production') {
-        return res.status(500).json({
-            error: 'Erreur serveur interne. Veuillez réessayer.'
-        });
-    }
-
-    res.status(500).json({
-        error:   'Erreur serveur interne',
-        message: err.message,
-        stack:   err.stack
-    });
+    if (process.env.NODE_ENV === 'production')
+        return res.status(500).json({ error: 'Erreur serveur interne. Veuillez réessayer.' });
+    res.status(500).json({ error: 'Erreur serveur interne', message: err.message, stack: err.stack });
 });
 
 // =============================================================================
@@ -330,38 +327,17 @@ app.listen(PORT, async () => {
 
     if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
         const KEEP_ALIVE_INTERVAL = 9 * 60 * 1000;
-
         setInterval(async () => {
-
-            try {
-                await fetch('https://douke-compta-pro.onrender.com/api/health');
-                console.log('🔄 [Keep-alive] Ping HTTP OK');
-            } catch (e) {
-                console.warn('⚠️ [Keep-alive] Ping HTTP échoué:', e.message);
-            }
-
+            try { await fetch('https://douke-compta-pro.onrender.com/api/health'); console.log('🔄 [Keep-alive] Ping HTTP OK'); }
+            catch (e) { console.warn('⚠️ [Keep-alive] Ping HTTP échoué:', e.message); }
+            try { const pool = require('./services/dbService'); await pool.query('SELECT 1'); console.log('🔄 [Keep-alive] Ping PostgreSQL OK'); }
+            catch (e) { console.warn('⚠️ [Keep-alive] Ping PostgreSQL échoué:', e.message); }
             try {
                 const pool = require('./services/dbService');
-                await pool.query('SELECT 1');
-                console.log('🔄 [Keep-alive] Ping PostgreSQL OK');
-            } catch (e) {
-                console.warn('⚠️ [Keep-alive] Ping PostgreSQL échoué:', e.message);
-            }
-
-            try {
-                const pool = require('./services/dbService');
-                const result = await pool.query(
-                    'DELETE FROM revoked_tokens WHERE expires_at < NOW()'
-                );
-                if (result.rowCount > 0) {
-                    console.log(`🧹 [Keep-alive] ${result.rowCount} token(s) révoqué(s) expiré(s) nettoyé(s)`);
-                }
-            } catch (e) {
-                // Silencieux
-            }
-
+                const result = await pool.query('DELETE FROM revoked_tokens WHERE expires_at < NOW()');
+                if (result.rowCount > 0) console.log(`🧹 [Keep-alive] ${result.rowCount} token(s) nettoyé(s)`);
+            } catch (e) { /* silencieux */ }
         }, KEEP_ALIVE_INTERVAL);
-
-        console.log('✅ [Keep-alive] Activé — service et DB ne dormiront plus');
+        console.log('✅ [Keep-alive] Activé');
     }
 });
