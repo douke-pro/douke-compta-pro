@@ -32,6 +32,7 @@ const notificationsRoutes   = require('./routes/notifications');
 const ocrRoutes             = require('./routes/ocr');
 const immobilisationsRoutes = require('./routes/immobilisations');
 const reportsRoutes         = require('./routes/reports');
+const syscohadaRoutes = require('./routes/syscohada');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
