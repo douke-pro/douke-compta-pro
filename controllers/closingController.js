@@ -813,34 +813,73 @@ exports.finalizeClosing = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'companyId requis.' });
         }
 
-        // ── Mise à jour statut Supabase (identique V1.2) ─────────────────────
-        const result = await pool.queryWithRetry(
-            `UPDATE fiscal_year_closings
-             SET status = 'closed', closed_at = NOW(), notes = $1
-             WHERE company_id = $2 AND fiscal_year = $3
-               AND status = 'locked'
-             RETURNING *`,
-            [notes, companyId, fiscalYear]
+        const existing = await pool.queryWithRetry(
+            `SELECT status FROM fiscal_year_closings
+             WHERE company_id = $1 AND fiscal_year = $2
+             LIMIT 1`,
+            [companyId, fiscalYear]
         );
 
-        if (result.rows.length === 0) {
+        if (existing.rows.length === 0 || existing.rows[0].status !== 'locked') {
             return res.status(400).json({
                 status : 'error',
-                error  : `Impossible de finaliser : l'exercice ${fiscalYear} n'est pas dans l'état 'locked'.`
+                error  : `Impossible de finaliser : l'exercice ${fiscalYear} doit être en état 'locked'.`
             });
         }
 
-        // ── ✅ V1.3 : Snapshot des soldes de clôture ─────────────────────────
-        // Photographie tous les soldes au 31/12/N dans fiscal_year_balances.
-        // Non bloquant : si le snapshot échoue, la clôture reste effective.
-        // L'admin peut relancer via POST /api/closing/snapshot si nécessaire.
-        let snapshotResult = null;
+        // ── Étape 1 : snapshot des soldes de clôture ─────────────────────────
+        let snapshotResult;
         try {
             snapshotResult = await snapshotFiscalYearBalances(companyId, fiscalYear, emetteur);
             console.log(`✅ [finalizeClosing] Snapshot : ${snapshotResult.count} comptes sauvegardés`);
         } catch (snapshotErr) {
-            console.error('⚠️ [finalizeClosing] Snapshot échoué (non bloquant):', snapshotErr.message);
-            snapshotResult = { success: false, error: snapshotErr.message, count: 0 };
+            console.error('🚨 [finalizeClosing] Snapshot échoué :', snapshotErr.message);
+            await writeAuditLog({
+                companyId,
+                fiscalYear,
+                action      : 'CLOSING_FINALIZED_SNAPSHOT_FAILED',
+                performedBy : emetteur,
+                details     : {
+                    notes,
+                    snapshot_error : snapshotErr.message
+                },
+                ipAddress : getClientIp(req)
+            });
+            return res.status(500).json({
+                status  : 'error',
+                error   : 'Snapshot des soldes échoué — la clôture reste verrouillée.',
+                details : { snapshot_error: snapshotErr.message }
+            });
+        }
+
+                const result = await pool.queryWithRetry(
+                        `UPDATE fiscal_year_closings
+                         SET status = 'closed',
+                                 closed_at = NOW(),
+                                 notes = CASE WHEN notes IS NULL OR notes = '' THEN $1 ELSE notes || ' | ' || $1 END,
+                                 snapshot_count   = $4,
+                                 snapshot_at      = NOW(),
+                                 snapshot_success = $5,
+                                 snapshot_error   = $6
+                         WHERE company_id = $2 AND fiscal_year = $3
+                             AND status = 'locked'
+                         RETURNING *`,
+                        [
+                                notes,
+                                companyId,
+                                fiscalYear,
+                                snapshotResult?.count || 0,
+                                snapshotResult?.success || false,
+                                snapshotResult?.error || null
+                        ]
+                );
+
+        if (result.rows.length === 0) {
+            console.error('🚨 [finalizeClosing] Mise à jour du statut closed échouée après snapshot');
+            return res.status(500).json({
+                status : 'error',
+                error  : 'Clôture réussie, mais le statut n’a pas pu être mis à jour. Vérifiez la base de données.'
+            });
         }
 
         // ── Audit (enrichi avec info snapshot) ───────────────────────────────
@@ -1238,15 +1277,33 @@ exports.retrySnapshot = async (req, res) => {
             [companyId, fiscalYear]
         );
 
-        if (existing.rows.length === 0 || existing.rows[0].status !== 'closed') {
+        if (existing.rows.length === 0 || !['locked', 'closed'].includes(existing.rows[0].status)) {
             return res.status(400).json({
                 status  : 'error',
-                error   : `L'exercice ${fiscalYear} doit être clôturé (statut 'closed') pour lancer un snapshot.`,
+                error   : `L'exercice ${fiscalYear} doit être verrouillé ou clôturé pour relancer un snapshot.`,
                 current : existing.rows[0]?.status || 'inexistant'
             });
         }
 
         const result = await snapshotFiscalYearBalances(companyId, fiscalYear, emetteur);
+
+        if (existing.rows[0].status === 'locked') {
+            const updated = await pool.queryWithRetry(
+                `UPDATE fiscal_year_closings
+                 SET status = 'closed', closed_at = NOW()
+                 WHERE company_id = $1 AND fiscal_year = $2
+                   AND status = 'locked'
+                 RETURNING *`,
+                [companyId, fiscalYear]
+            );
+
+            if (updated.rows.length === 0) {
+                return res.status(500).json({
+                    status : 'error',
+                    error  : `Snapshot effectué, mais le statut de l'exercice ${fiscalYear} n'a pas pu être basculé en 'closed'.`
+                });
+            }
+        }
 
         await writeAuditLog({
             companyId,
