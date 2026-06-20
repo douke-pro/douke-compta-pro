@@ -9732,6 +9732,107 @@ window.loadHRPayslips = async function() {
     }
 };
 
+window.openPayslipModal = async function() {
+    try {
+        const empData = await apiFetch(`hr/employees?companyId=${appState.currentCompanyId}`);
+        const employees = empData.data || [];
+        if (employees.length === 0) {
+            return alert('Aucun employé enregistré. Créez d\'abord un employé.');
+        }
+        const empOptions = employees.map(e =>
+            `<option value="${e.id}">${e.full_name} — ${e.employee_code}</option>`
+        ).join('');
+        const months = ['Janvier','Février','Mars','Avril','Mai','Juin',
+                        'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+        const monthOptions = months.map((m, i) =>
+            `<option value="${i+1}" ${i+1 === new Date().getMonth()+1 ? 'selected' : ''}>${m}</option>`
+        ).join('');
+        const currentYear = new Date().getFullYear();
+
+        const html = `
+        <div class="space-y-4 p-2">
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Employé *</label>
+                <select id="ps-employee" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    ${empOptions}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Mois *</label>
+                    <select id="ps-month" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                        ${monthOptions}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Année *</label>
+                    <input type="number" id="ps-year" value="${currentYear}" min="2020" max="2030"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Salaire Brut (FCFA)</label>
+                    <input type="number" id="ps-gross" placeholder="ex: 250000" min="0"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Salaire Net (FCFA)</label>
+                    <input type="number" id="ps-net" placeholder="ex: 200000" min="0"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Retenues (JSON optionnel)</label>
+                <textarea id="ps-deductions" rows="2" placeholder='{"CNSS": 5000, "ITS": 3000}'
+                    class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary font-mono"></textarea>
+            </div>
+            <button onclick="window.savePayslip()"
+                class="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition">
+                <i class="fas fa-save mr-2"></i>Enregistrer la Fiche de Paie
+            </button>
+        </div>`;
+        ModalManager.open('Nouvelle Fiche de Paie', html);
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+window.savePayslip = async function() {
+    const employeeId  = document.getElementById('ps-employee')?.value;
+    const periodMonth = parseInt(document.getElementById('ps-month')?.value);
+    const periodYear  = parseInt(document.getElementById('ps-year')?.value);
+    const grossSalary = parseFloat(document.getElementById('ps-gross')?.value || 0);
+    const netSalary   = parseFloat(document.getElementById('ps-net')?.value || 0);
+    const deductionsRaw = document.getElementById('ps-deductions')?.value?.trim();
+
+    if (!employeeId || !periodMonth || !periodYear)
+        return alert('Employé, mois et année sont obligatoires.');
+
+    let deductions = null;
+    if (deductionsRaw) {
+        try { deductions = JSON.parse(deductionsRaw); }
+        catch(e) { return alert('Format JSON des retenues invalide.'); }
+    }
+
+    try {
+        await apiFetch('hr/payslips', {
+            method: 'POST',
+            body: JSON.stringify({
+                companyId:    appState.currentCompanyId,
+                employee_id:  employeeId,
+                period_month: periodMonth,
+                period_year:  periodYear,
+                gross_salary: grossSalary,
+                net_salary:   netSalary,
+                deductions:   deductions
+            })
+        });
+        ModalManager.close();
+        window.loadHRPayslips();
+        NotificationManager.show('Fiche de paie enregistrée avec succès', 'success');
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+
 window.loadHRTemplates = async function() {
     const container = document.getElementById('hr-tab-content');
     container.innerHTML = `<div class="text-center p-8"><div class="loading-spinner mx-auto"></div></div>`;
