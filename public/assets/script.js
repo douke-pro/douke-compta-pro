@@ -10154,12 +10154,46 @@ window.deleteGEDDocument = async function(docId) {
 
 window.previewTemplate = async function(templateType) {
     try {
-        // Charger tous les modèles disponibles (spécifiques + globaux) et filtrer côté JS
         const companyId = appState.currentCompanyId || appState.user?.company_id || 0;
         const data = await apiFetch(`hr/templates?companyId=${companyId}`);
         const tpl = (data.data || []).find(t => t.template_type === templateType);
         if (!tpl?.template_html) return alert('Aucun modèle disponible pour ce type.');
-        ModalManager.open(`Aperçu — ${templateType}`, `<div style="height:70vh;overflow:auto;padding:16px">${tpl.template_html}</div>`);
+
+        // Ouvrir dans une nouvelle fenêtre pour impression correcte
+        const labels = { contrat_cdi: 'Contrat CDI', contrat_cdd: 'Contrat CDD', fiche_paie: 'Bulletin de Paie' };
+        const win = window.open('', '_blank', 'width=900,height=700');
+        win.document.write(`<!DOCTYPE html><html lang="fr"><head>
+            <meta charset="UTF-8">
+            <title>${labels[templateType] || templateType}</title>
+            <style>
+                @page { margin: 15mm 20mm; size: A4; }
+                body { margin: 0; padding: 0; }
+                .no-print { display: none !important; }
+            </style>
+        </head><body>
+            <div style="padding:10px;background:#f0f4f8;border-bottom:2px solid #1a3a5c;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;" class="no-print" onafterprint="this.style.display='flex'">
+                <span style="font-weight:bold;color:#1a3a5c;font-family:Arial,sans-serif">${labels[templateType] || templateType} — Aperçu</span>
+                <div style="display:flex;gap:8px">
+                    <button onclick="window.print()" style="padding:8px 18px;background:#1a3a5c;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-family:Arial,sans-serif">
+                        🖨️ Imprimer / Enregistrer PDF
+                    </button>
+                    <button onclick="window.close()" style="padding:8px 14px;background:#e2e8f0;color:#333;border:none;border-radius:6px;cursor:pointer;font-family:Arial,sans-serif">
+                        ✕ Fermer
+                    </button>
+                </div>
+            </div>
+            ${tpl.template_html}
+            <script>
+                // Masquer la barre d'outils à l'impression
+                window.onbeforeprint = function() {
+                    document.querySelector('.no-print') && (document.querySelector('.no-print').style.display = 'none');
+                };
+                window.onafterprint = function() {
+                    document.querySelector('.no-print') && (document.querySelector('.no-print').style.display = 'flex');
+                };
+            </scr` + `ipt>
+        </body></html>`);
+        win.document.close();
     } catch(err) { alert('Erreur: ' + err.message); }
 };
 
