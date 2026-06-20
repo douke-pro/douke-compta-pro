@@ -10168,7 +10168,7 @@ window.previewTemplate = async function(templateType) {
             <style>
                 @page { margin: 15mm 20mm; size: A4; }
                 body { margin: 0; padding: 0; }
-                .no-print { display: none !important; }
+                @media print { .no-print { display: none !important; } }
             </style>
         </head><body>
             <div style="padding:10px;background:#f0f4f8;border-bottom:2px solid #1a3a5c;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;" class="no-print" onafterprint="this.style.display='flex'">
