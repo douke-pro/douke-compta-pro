@@ -9997,13 +9997,80 @@ window.deleteHREmployee = async function(employeeId) {
 
 window.downloadPayslip = async function(payslipId) {
     try {
-        const data = await apiFetch(`hr/payslips/${payslipId}/download?companyId=${appState.currentCompanyId}`);
-        if (data.data?.pdf_base64) {
-            const link = document.createElement('a');
-            link.href = 'data:application/pdf;base64,' + data.data.pdf_base64;
-            link.download = `fiche_paie_${payslipId}.pdf`;
-            link.click();
-        } else { alert('Aucun PDF disponible pour cette fiche.'); }
+        // Charger les données de la fiche et afficher dans nouvelle fenêtre pour impression
+        const data = await apiFetch(`hr/payslips/${payslipId}?companyId=${appState.currentCompanyId}`);
+        const ps   = data.data;
+        if (!ps) return alert('Fiche de paie introuvable.');
+
+        const months = ['Janvier','Février','Mars','Avril','Mai','Juin',
+                        'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+        const periode = `${months[ps.period_month - 1]} ${ps.period_year}`;
+        const deductions = ps.deductions ? Object.entries(ps.deductions)
+            .map(([k,v]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${k}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${Number(v).toLocaleString('fr-FR')} FCFA</td></tr>`)
+            .join('') : '';
+
+        const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<style>
+@page{margin:15mm 20mm;size:A4}
+body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1a1a;margin:0;padding:20px}
+@media print{.no-print{display:none!important}}
+.header{text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:20px}
+.header h1{font-size:15pt;color:#1a3a5c;margin:0;text-transform:uppercase}
+.header h2{font-size:11pt;color:#555;margin:4px 0 0 0}
+.section{margin:14px 0}
+.section h3{font-size:11pt;color:#1a3a5c;border-bottom:1px solid #dde;padding-bottom:4px;margin-bottom:8px;text-transform:uppercase}
+table{width:100%;border-collapse:collapse}
+.info-table td{padding:5px 8px;font-size:11pt}
+.info-table td:first-child{font-weight:bold;width:40%}
+.total-row{background:#1a3a5c;color:white;font-weight:bold}
+.total-row td{padding:8px 12px}
+.signatures{display:flex;justify-content:space-between;margin-top:40px}
+.sig{text-align:center;width:40%}
+.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:6px;font-size:10pt}
+</style></head><body>
+<div class="no-print" style="padding:8px;background:#f0f4f8;border-bottom:2px solid #1a3a5c;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <span style="font-weight:bold;color:#1a3a5c;font-family:Arial,sans-serif">Bulletin de Paie — ${periode}</span>
+    <div style="display:flex;gap:8px">
+        <button onclick="window.print()" style="padding:7px 16px;background:#1a3a5c;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-family:Arial,sans-serif">🖨️ Imprimer / PDF</button>
+        <button onclick="window.close()" style="padding:7px 12px;background:#e2e8f0;color:#333;border:none;border-radius:6px;cursor:pointer;font-family:Arial,sans-serif">✕ Fermer</button>
+    </div>
+</div>
+<div class="header">
+    <h1>BULLETIN DE PAIE</h1>
+    <h2>Période : ${periode}</h2>
+</div>
+<div class="section">
+    <h3>Informations Employé</h3>
+    <table class="info-table">
+        <tr><td>Nom et Prénoms</td><td>${ps.full_name}</td></tr>
+        <tr><td>Code Employé</td><td>${ps.employee_code}</td></tr>
+        <tr><td>Poste</td><td>${ps.job_title || '—'}</td></tr>
+        <tr><td>N° CNSS</td><td>${ps.cnss_number || '—'}</td></tr>
+    </table>
+</div>
+<div class="section">
+    <h3>Rémunération</h3>
+    <table>
+        <thead><tr style="background:#f5f7fa"><th style="padding:8px 12px;text-align:left">Libellé</th><th style="padding:8px 12px;text-align:right">Montant</th></tr></thead>
+        <tbody>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid #eee">Salaire Brut</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${Number(ps.gross_salary).toLocaleString('fr-FR')} FCFA</td></tr>
+            ${deductions}
+        </tbody>
+        <tfoot>
+            <tr class="total-row"><td>NET À PAYER</td><td style="text-align:right">${Number(ps.net_salary).toLocaleString('fr-FR')} FCFA</td></tr>
+        </tfoot>
+    </table>
+</div>
+<div class="signatures">
+    <div class="sig"><p style="font-weight:bold">L'Employeur</p><div class="sig-line">Signature et cachet</div></div>
+    <div class="sig"><p style="font-weight:bold">L'Employé(e)</p><p style="font-size:10pt">${ps.full_name}</p><div class="sig-line">Signature</div></div>
+</div>
+</body></html>`;
+
+        const win = window.open('', '_blank', 'width=850,height=700');
+        win.document.write(html);
+        win.document.close();
+        return;
     } catch(err) { alert('Erreur: ' + err.message); }
 };
 
