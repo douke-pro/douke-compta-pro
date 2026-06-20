@@ -198,7 +198,9 @@ const initDB = async (retries = 5, delay = 3000) => {
             console.log('   ✓ fiscal_year_balances');
             console.log('   ✓ employees + payslips + document_templates + company_documents');
 
-            // ✅ V27 — Insertion modèles par défaut (Option A — company_id IS NULL)
+            // ✅ V27 — Insertion modèles par défaut (Option A — company_id = 0)
+            // Supprimer les anciens modèles globaux et réinsérer (idempotent)
+            await pool.query('DELETE FROM document_templates WHERE company_id = 0');
             await pool.query(`
                 INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
                 VALUES
@@ -389,10 +391,7 @@ table.paie tr.sh td{background:#e8edf5;font-weight:bold;color:#1a3a5c;padding:5p
 <div class="legal-ref">Bulletin conforme — Code du Travail Bénin Loi 98-004 | CNSS 3,6%/15,4% | ITS CGI art.119-125 | Exonération 60 000 FCFA | SMIG 52 000 FCFA | VPS art.191-195 CGI</div>
 </body></html>
 $tmpl_fp$, NULL)
-                ON CONFLICT (company_id, template_type) DO UPDATE
-                  SET template_html = EXCLUDED.template_html,
-                      template_name = EXCLUDED.template_name,
-                      updated_at    = NOW();
+;
             `);
             console.log('   ✓ Modèles par défaut CDI/CDD/Fiche de paie insérés (Option A)');
 
