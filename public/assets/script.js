@@ -9796,6 +9796,68 @@ window.openPayslipModal = async function() {
     } catch(err) { alert('Erreur: ' + err.message); }
 };
 
+window.printContract = async function(employeeId) {
+    try {
+        // Récupérer données employé
+        const empData = await apiFetch(`hr/employees/${employeeId}?companyId=${appState.currentCompanyId}`);
+        const emp = empData.data;
+        if (!emp) return alert('Employé introuvable.');
+
+        // Récupérer le modèle de contrat selon le type
+        const companyId = appState.currentCompanyId || 0;
+        const tplType   = emp.contract_type === 'CDD' ? 'contrat_cdd' : 'contrat_cdi';
+        const tplData   = await apiFetch(`hr/templates?companyId=${companyId}`);
+        const templates = tplData.data || [];
+
+        // Priorité : modèle spécifique à l'entreprise, sinon modèle global
+        let tpl = templates.find(t => t.template_type === tplType && t.company_id === companyId)
+               || templates.find(t => t.template_type === tplType);
+
+        if (!tpl?.template_html) return alert('Aucun modèle de contrat disponible. Créez-en un dans l\'onglet Modèles.');
+
+        // Récupérer infos entreprise
+        const companyInfo = appState.user?.companiesList?.find(c => c.id === companyId) || {};
+
+        // Substitution des variables {{variable}}
+        const today = new Date();
+        const dateStr = today.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        const vars = {
+            nom_entreprise:          companyInfo.name || '{{nom_entreprise}}',
+            representant_entreprise: '{{representant_entreprise}}',
+            adresse_entreprise:      '{{adresse_entreprise}}',
+            nom:                     emp.full_name,
+            poste:                   emp.job_title || '{{poste}}',
+            date_naissance:          emp.date_naissance ? new Date(emp.date_naissance).toLocaleDateString('fr-FR') : '{{date_naissance}}',
+            nationalite:             emp.nationalite || 'Béninoise',
+            adresse_salarie:         emp.address || '{{adresse_salarie}}',
+            situation_matrimoniale:  emp.situation_matrimoniale || '{{situation_matrimoniale}}',
+            contact_urgence:         emp.contact_urgence || '{{contact_urgence}}',
+            date_debut:              emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('fr-FR') : '{{date_debut}}',
+            date_fin:                '{{date_fin}}',
+            duree_contrat:           '{{duree_contrat}}',
+            duree_essai:             '3 mois',
+            duree_preavis:           'un (1) mois',
+            salaire_net:             emp.base_salary ? Number(emp.base_salary).toLocaleString('fr-FR') : '{{salaire_net}}',
+            heures_mensuelles:       '192',
+            jour_paiement:           '28',
+            reference_contrat:       `CTR-${companyId}-${emp.employee_code}-${today.getFullYear()}`,
+            lieu_signature:          'Cotonou',
+            date_signature:          dateStr,
+        };
+
+        let html = tpl.template_html;
+        Object.entries(vars).forEach(([k, v]) => {
+            html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v);
+        });
+
+        const win = window.open('', '_blank', 'width=900,height=750');
+        win.document.write(html);
+        win.document.close();
+
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
 window.savePayslip = async function() {
     const employeeId  = document.getElementById('ps-employee')?.value;
     const periodMonth = parseInt(document.getElementById('ps-month')?.value);
@@ -9945,6 +10007,37 @@ window.openHREmployeeModal = async function(employeeId = null) {
                     <input id="emp-cnss" type="text" value="${employee.cnss_number || ''}"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">N° IFU</label>
+                    <input id="emp-ifu" type="text" value="${employee.ifu_number || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Identifiant Fiscal Unique">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Date de Naissance</label>
+                    <input id="emp-dob" type="date" value="${employee.date_naissance || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nationalité</label>
+                    <input id="emp-nationalite" type="text" value="${employee.nationalite || 'Béninoise'}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Situation Matrimoniale</label>
+                    <select id="emp-situation" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="Célibataire" ${employee.situation_matrimoniale === 'Célibataire' ? 'selected' : ''}>Célibataire</option>
+                        <option value="Marié(e)" ${employee.situation_matrimoniale === 'Marié(e)' ? 'selected' : ''}>Marié(e)</option>
+                        <option value="Divorcé(e)" ${employee.situation_matrimoniale === 'Divorcé(e)' ? 'selected' : ''}>Divorcé(e)</option>
+                        <option value="Veuf/Veuve" ${employee.situation_matrimoniale === 'Veuf/Veuve' ? 'selected' : ''}>Veuf/Veuve</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Contact Urgence</label>
+                    <input id="emp-urgence" type="text" value="${employee.contact_urgence || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Nom et téléphone">
+                </div>
             </div>
             <div class="flex gap-3 pt-4">
                 <button onclick="window.saveHREmployee(${employeeId || 'null'})"
@@ -9971,7 +10064,12 @@ window.saveHREmployee = async function(employeeId) {
         base_salary:    parseFloat(document.getElementById('emp-base-salary')?.value || 0),
         email:          document.getElementById('emp-email')?.value?.trim(),
         phone:          document.getElementById('emp-phone')?.value?.trim(),
-        cnss_number:    document.getElementById('emp-cnss')?.value?.trim(),
+        cnss_number:      document.getElementById('emp-cnss')?.value?.trim(),
+        ifu_number:       document.getElementById('emp-ifu')?.value?.trim(),
+        date_naissance:   document.getElementById('emp-dob')?.value,
+        nationalite:      document.getElementById('emp-nationalite')?.value?.trim(),
+        situation_matrimoniale: document.getElementById('emp-situation')?.value,
+        contact_urgence:  document.getElementById('emp-urgence')?.value?.trim(),
     };
     if (!body.full_name) return alert('Le nom complet est obligatoire.');
     try {

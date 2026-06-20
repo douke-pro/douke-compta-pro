@@ -74,7 +74,9 @@ exports.createEmployee = async (req, res) => {
         const {
             full_name, job_title, hire_date, contract_type,
             base_salary, status, email, phone, address,
-            id_number, id_type, cnss_number, notes
+            id_number, id_type, cnss_number, notes,
+            ifu_number, date_naissance, nationalite,
+            situation_matrimoniale, contact_urgence
         } = req.body;
 
         if (!companyId || !full_name)
@@ -86,15 +88,20 @@ exports.createEmployee = async (req, res) => {
             `INSERT INTO employees
                 (company_id, employee_code, full_name, job_title, hire_date,
                  contract_type, base_salary, status, email, phone, address,
-                 id_number, id_type, cnss_number, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+                 id_number, id_type, cnss_number, notes,
+                 ifu_number, date_naissance, nationalite,
+                 situation_matrimoniale, contact_urgence, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
              RETURNING *`,
             [companyId, employee_code, full_name, job_title || null,
              hire_date || null, contract_type || 'CDI',
              parseFloat(base_salary) || 0, status || 'actif',
              email || null, phone || null, address || null,
              id_number || null, id_type || null, cnss_number || null,
-             notes || null, parseInt(req.user.odooUid) || null]
+             notes || null, ifu_number || null,
+             date_naissance || null, nationalite || null,
+             situation_matrimoniale || null, contact_urgence || null,
+             parseInt(req.user.odooUid) || null]
         );
 
         console.log(`✅ [createEmployee] ${full_name} (${employee_code}) — Company ${companyId}`);

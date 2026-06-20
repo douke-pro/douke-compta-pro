@@ -146,10 +146,15 @@ const initDB = async (retries = 5, delay = 3000) => {
                     id_number       VARCHAR(50),
                     id_type         VARCHAR(30),
                     cnss_number     VARCHAR(50),
-                    notes           TEXT,
-                    created_by      INTEGER,
-                    created_at      TIMESTAMPTZ DEFAULT NOW(),
-                    updated_at      TIMESTAMPTZ DEFAULT NOW()
+                    notes                  TEXT,
+                    ifu_number             VARCHAR(50),
+                    date_naissance         DATE,
+                    nationalite            VARCHAR(50),
+                    situation_matrimoniale VARCHAR(50),
+                    contact_urgence        TEXT,
+                    created_by             INTEGER,
+                    created_at             TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at             TIMESTAMPTZ DEFAULT NOW()
                 );
                 CREATE TABLE IF NOT EXISTS payslips (
                     id              SERIAL PRIMARY KEY,
@@ -193,6 +198,14 @@ const initDB = async (retries = 5, delay = 3000) => {
             `);
 
             console.log('✅ [DB] Tables initialisées avec succès');
+            // Migration douce colonnes employees
+            await pool.query(`
+                ALTER TABLE employees ADD COLUMN IF NOT EXISTS ifu_number             VARCHAR(50);
+                ALTER TABLE employees ADD COLUMN IF NOT EXISTS date_naissance         DATE;
+                ALTER TABLE employees ADD COLUMN IF NOT EXISTS nationalite            VARCHAR(50);
+                ALTER TABLE employees ADD COLUMN IF NOT EXISTS situation_matrimoniale VARCHAR(50);
+                ALTER TABLE employees ADD COLUMN IF NOT EXISTS contact_urgence        TEXT;
+            `);
             console.log('   ✓ financial_reports_requests + notifications');
             console.log('   ✓ revoked_tokens + notification_state');
             console.log('   ✓ fiscal_year_balances');
