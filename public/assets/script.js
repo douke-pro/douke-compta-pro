@@ -9650,6 +9650,10 @@ window.loadHREmployees = async function() {
                                         class="p-2 text-primary hover:bg-primary/10 rounded-lg transition" title="Modifier">
                                         <i class="fas fa-edit"></i>
                                     </button>
+                                    <button onclick="window.printContract(${e.id})"
+                                        class="p-2 text-green-600 hover:bg-green-100 rounded-lg transition" title="Imprimer contrat">
+                                        <i class="fas fa-file-contract"></i>
+                                    </button>
                                     ${canDelete ? `
                                     <button onclick="window.deleteHREmployee(${e.id})"
                                         class="p-2 text-danger hover:bg-danger/10 rounded-lg transition" title="Archiver">
