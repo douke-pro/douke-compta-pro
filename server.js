@@ -197,6 +197,205 @@ const initDB = async (retries = 5, delay = 3000) => {
             console.log('   ✓ revoked_tokens + notification_state');
             console.log('   ✓ fiscal_year_balances');
             console.log('   ✓ employees + payslips + document_templates + company_documents');
+
+            // ✅ V27 — Insertion modèles par défaut (Option A — company_id IS NULL)
+            await pool.query(`
+                INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
+                VALUES
+                (NULL, 'contrat_cdi', 'Contrat CDI — Modèle par défaut (Bénin/OHADA)', $tmpl_cdi$
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<style>
+body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:20px}
+.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #1a3a5c;padding-bottom:15px}
+.header h1{font-size:16pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
+.header h2{font-size:13pt;color:#1a3a5c;margin:0}
+.block{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:12px 16px;margin:16px 0;border-radius:4px}
+.block h3{font-size:11pt;color:#1a3a5c;margin:0 0 8px 0;text-transform:uppercase}
+.row{display:flex;gap:20px;margin:6px 0}.field{flex:1}
+.field label{font-size:9pt;color:#666;display:block;margin-bottom:2px}
+.field span{font-weight:bold;font-size:11pt}
+.article{margin:18px 0}
+.article h4{font-size:11pt;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #dde;padding-bottom:4px;margin-bottom:8px}
+.article p{margin:6px 0;line-height:1.6;text-align:justify}
+.hl{background:#fff3cd;padding:2px 6px;border-radius:3px;font-weight:bold}
+.signatures{display:flex;justify-content:space-between;margin-top:50px}
+.sig-block{text-align:center;width:45%}
+.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:8px;font-size:10pt}
+.legal-ref{font-size:9pt;color:#888;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:10px}
+</style></head><body>
+<div class="header"><h1>{{nom_entreprise}}</h1><h2>CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE (CDI)</h2>
+<p style="font-size:10pt;color:#555">Ref : {{reference_contrat}} | Date : {{date_signature}}</p></div>
+<div class="block"><h3>L'Employeur</h3>
+<div class="row"><div class="field"><label>Raison sociale</label><span>{{nom_entreprise}}</span></div><div class="field"><label>Forme juridique</label><span>{{forme_juridique}}</span></div></div>
+<div class="row"><div class="field"><label>Siège social</label><span>{{adresse_entreprise}}</span></div><div class="field"><label>RCCM / IFU</label><span>{{rccm_ifu}}</span></div></div>
+<div class="row"><div class="field"><label>Représenté par</label><span>{{representant_entreprise}}</span></div><div class="field"><label>Qualité</label><span>{{qualite_representant}}</span></div></div></div>
+<div class="block"><h3>Le Salarié</h3>
+<div class="row"><div class="field"><label>Nom et Prénoms</label><span>{{nom}}</span></div><div class="field"><label>Date de naissance</label><span>{{date_naissance}}</span></div></div>
+<div class="row"><div class="field"><label>Nationalité</label><span>{{nationalite}}</span></div><div class="field"><label>N° Pièce d'identité</label><span>{{numero_piece}}</span></div></div>
+<div class="row"><div class="field"><label>Adresse</label><span>{{adresse_salarie}}</span></div><div class="field"><label>N° CNSS</label><span>{{cnss}}</span></div></div></div>
+<div class="article"><h4>Article 1 — Engagement et Poste</h4>
+<p>L'employeur engage <span class="hl">{{nom}}</span> à compter du <span class="hl">{{date_debut}}</span> en qualité de <span class="hl">{{poste}}</span>, département <strong>{{departement}}</strong>.</p>
+<p>Contrat conclu conformément à la <strong>Loi n° 98-004 du 27 janvier 1998</strong> portant Code du Travail en République du Bénin, pour une durée indéterminée.</p></div>
+<div class="article"><h4>Article 2 — Période d'Essai</h4>
+<p>Période d'essai de <span class="hl">{{duree_essai}}</span>, renouvelable une fois par accord des parties. Rupture possible sans préavis ni indemnité durant cette période.</p></div>
+<div class="article"><h4>Article 3 — Rémunération</h4>
+<p>Salaire brut mensuel : <span class="hl">{{salaire}} FCFA</span>, payable le dernier jour ouvré du mois. Supérieur au SMIG (52 000 FCFA — Décret 2023-015). CNSS : 3,6% salarié / 15,4% patronal. ITS progressif appliqué conformément au CGI.</p></div>
+<div class="article"><h4>Article 4 — Durée et Lieu de Travail</h4>
+<p>Durée hebdomadaire : <strong>40 heures</strong> (art. 142 CT). Lieu : <span class="hl">{{lieu_travail}}</span>.</p></div>
+<div class="article"><h4>Article 5 — Congés Payés</h4>
+<p>2,2 jours ouvrables par mois de travail effectif (26,4 jours/an) — art. 179 CT.</p></div>
+<div class="article"><h4>Article 6 — Obligations du Salarié</h4>
+<p>Le salarié s'engage à exercer ses fonctions avec diligence, loyauté et confidentialité, et à respecter le règlement intérieur de l'entreprise.</p></div>
+<div class="article"><h4>Article 7 — Rupture du Contrat</h4>
+<p>Régie par les articles 49 à 84 du Code du Travail. Préavis : <span class="hl">{{duree_preavis}}</span> sauf faute lourde. Indemnités calculées conformément aux dispositions légales.</p></div>
+<div class="article"><h4>Article 8 — Litiges</h4>
+<p>Tout litige sera soumis à la juridiction compétente du lieu d'exécution du travail — Code du Travail béninois et Actes Uniformes OHADA.</p></div>
+<div class="signatures">
+<div class="sig-block"><p><strong>Pour l'Employeur</strong></p><p style="font-size:10pt">{{representant_entreprise}}<br>{{qualite_representant}}</p><div class="sig-line">Signature et cachet</div></div>
+<div class="sig-block"><p><strong>Le Salarié</strong></p><p style="font-size:10pt">{{nom}}<br>Lu et approuvé</p><div class="sig-line">Signature manuscrite</div></div>
+</div>
+<div class="legal-ref">Loi n° 98-004 du 27/01/1998 — Code du Travail Bénin | SMIG : 52 000 FCFA | CNSS : 3,6% salarié / 15,4% patronal | OHADA</div>
+</body></html>
+$tmpl_cdi$, NULL),
+                (NULL, 'contrat_cdd', 'Contrat CDD — Modèle par défaut (Bénin/OHADA)', $tmpl_cdd$
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<style>
+body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:20px}
+.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #7b2d00;padding-bottom:15px}
+.header h1{font-size:16pt;color:#7b2d00;margin:0 0 5px 0;text-transform:uppercase}
+.header h2{font-size:13pt;color:#7b2d00;margin:0}
+.block{background:#fdf5f0;border-left:4px solid #7b2d00;padding:12px 16px;margin:16px 0;border-radius:4px}
+.block h3{font-size:11pt;color:#7b2d00;margin:0 0 8px 0;text-transform:uppercase}
+.row{display:flex;gap:20px;margin:6px 0}.field{flex:1}
+.field label{font-size:9pt;color:#666;display:block;margin-bottom:2px}
+.field span{font-weight:bold;font-size:11pt}
+.alert-box{background:#fff3cd;border-left:4px solid #ffc107;padding:10px 14px;border-radius:4px;margin:12px 0;font-size:10pt}
+.article{margin:18px 0}
+.article h4{font-size:11pt;color:#7b2d00;text-transform:uppercase;border-bottom:1px solid #f0d0c0;padding-bottom:4px;margin-bottom:8px}
+.article p{margin:6px 0;line-height:1.6;text-align:justify}
+.hl{background:#fff3cd;padding:2px 6px;border-radius:3px;font-weight:bold}
+.signatures{display:flex;justify-content:space-between;margin-top:50px}
+.sig-block{text-align:center;width:45%}
+.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:8px;font-size:10pt}
+.legal-ref{font-size:9pt;color:#888;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:10px}
+</style></head><body>
+<div class="header"><h1>{{nom_entreprise}}</h1><h2>CONTRAT DE TRAVAIL À DURÉE DÉTERMINÉE (CDD)</h2>
+<p style="font-size:10pt;color:#555">Ref : {{reference_contrat}} | Date : {{date_signature}}</p></div>
+<div class="alert-box">⚠️ <strong>Motif de recours au CDD :</strong> {{motif_cdd}} — art. 33 Code du Travail béninois.</div>
+<div class="block"><h3>L'Employeur</h3>
+<div class="row"><div class="field"><label>Raison sociale</label><span>{{nom_entreprise}}</span></div><div class="field"><label>Forme juridique</label><span>{{forme_juridique}}</span></div></div>
+<div class="row"><div class="field"><label>Siège social</label><span>{{adresse_entreprise}}</span></div><div class="field"><label>RCCM / IFU</label><span>{{rccm_ifu}}</span></div></div>
+<div class="row"><div class="field"><label>Représenté par</label><span>{{representant_entreprise}}</span></div><div class="field"><label>Qualité</label><span>{{qualite_representant}}</span></div></div></div>
+<div class="block"><h3>Le Salarié</h3>
+<div class="row"><div class="field"><label>Nom et Prénoms</label><span>{{nom}}</span></div><div class="field"><label>Date de naissance</label><span>{{date_naissance}}</span></div></div>
+<div class="row"><div class="field"><label>Nationalité</label><span>{{nationalite}}</span></div><div class="field"><label>N° Pièce d'identité</label><span>{{numero_piece}}</span></div></div>
+<div class="row"><div class="field"><label>Adresse</label><span>{{adresse_salarie}}</span></div><div class="field"><label>N° CNSS</label><span>{{cnss}}</span></div></div></div>
+<div class="article"><h4>Article 1 — Objet et Durée</h4>
+<p>Engagement de <span class="hl">{{nom}}</span> du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span> en qualité de <span class="hl">{{poste}}</span>.</p>
+<p>Conformément à l'art. 33 CT, ce contrat ne peut être renouvelé qu'une seule fois. Toute poursuite au-delà du terme entraîne transformation automatique en CDI.</p></div>
+<div class="article"><h4>Article 2 — Période d'Essai</h4>
+<p>Période d'essai de <span class="hl">{{duree_essai}}</span>. Rupture possible sans préavis ni indemnité durant cette période, hors abus de droit.</p></div>
+<div class="article"><h4>Article 3 — Rémunération</h4>
+<p>Salaire brut mensuel : <span class="hl">{{salaire}} FCFA</span>, supérieur au SMIG (52 000 FCFA). CNSS : 3,6% salarié / 15,4% patronal. ITS progressif CGI art. 119-125.</p>
+<p>Le salarié sous CDD bénéficie des mêmes droits que le salarié sous CDI pour un travail équivalent (art. 10 CT).</p></div>
+<div class="article"><h4>Article 4 — Durée et Lieu de Travail</h4>
+<p>40 heures/semaine (art. 142 CT). Lieu : <span class="hl">{{lieu_travail}}</span>.</p></div>
+<div class="article"><h4>Article 5 — Congés et Droits Sociaux</h4>
+<p>Congés payés au prorata (2,2 jours/mois). Prestations CNSS complètes : accidents du travail, maternité, allocations familiales.</p></div>
+<div class="article"><h4>Article 6 — Rupture Anticipée</h4>
+<p>Uniquement en cas de faute lourde, force majeure, accord mutuel ou décision judiciaire. Toute rupture unilatérale injustifiée engage la partie fautive à indemniser les rémunérations restant à courir.</p></div>
+<div class="article"><h4>Article 7 — Litiges</h4>
+<p>Juridiction compétente du lieu d'exécution — Code du Travail béninois et Actes Uniformes OHADA.</p></div>
+<div class="signatures">
+<div class="sig-block"><p><strong>Pour l'Employeur</strong></p><p style="font-size:10pt">{{representant_entreprise}}<br>{{qualite_representant}}</p><div class="sig-line">Signature et cachet</div></div>
+<div class="sig-block"><p><strong>Le Salarié</strong></p><p style="font-size:10pt">{{nom}}<br>Lu et approuvé</p><div class="sig-line">Signature manuscrite</div></div>
+</div>
+<div class="legal-ref">Loi n° 98-004 — Art. 33-42 CDD | SMIG 52 000 FCFA | CNSS 3,6%/15,4% | ITS CGI art.119-125 | OHADA</div>
+</body></html>
+$tmpl_cdd$, NULL),
+                (NULL, 'fiche_paie', 'Bulletin de Paie — Modèle par défaut (Bénin 2026)', $tmpl_fp$
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<style>
+body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1a1a;margin:0;padding:16px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px}
+.header-left h1{font-size:15pt;color:#1a3a5c;margin:0 0 4px 0}
+.header-left p{margin:2px 0;font-size:10pt;color:#555}
+.header-right{text-align:right}
+.header-right h2{font-size:13pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase}
+.periode-badge{display:inline-block;background:#1a3a5c;color:white;padding:4px 14px;border-radius:20px;font-size:11pt;font-weight:bold;margin:6px 0}
+.ei{display:flex;gap:12px;background:#f5f7fa;border-radius:6px;padding:10px 14px;margin:12px 0;flex-wrap:wrap}
+.ei-b{min-width:120px}
+.ei-b label{font-size:9pt;color:#888;display:block}
+.ei-b span{font-weight:bold;font-size:10pt}
+table.paie{width:100%;border-collapse:collapse;margin:14px 0;font-size:10pt}
+table.paie thead th{background:#1a3a5c;color:white;padding:7px 10px;text-align:left}
+table.paie thead th:nth-child(n+4){text-align:right}
+table.paie tbody tr:nth-child(even){background:#f5f7fa}
+table.paie tbody td{padding:6px 10px;border-bottom:1px solid #eee}
+table.paie tbody td.amt{text-align:right;font-weight:bold}
+table.paie tbody td.dbt{text-align:right;font-weight:bold;color:#c0392b}
+table.paie tr.sh td{background:#e8edf5;font-weight:bold;color:#1a3a5c;padding:5px 10px}
+.totaux-box{background:#1a3a5c;color:white;padding:12px 20px;border-radius:8px;min-width:260px;margin-left:auto;margin-top:8px}
+.tr{display:flex;justify-content:space-between;margin:3px 0;font-size:11pt}
+.tr.net{font-size:14pt;font-weight:bold;border-top:1px solid rgba(255,255,255,0.4);padding-top:7px;margin-top:7px}
+.info-box{background:#f0f9ff;border:1px solid #b3d9f0;border-radius:6px;padding:8px 14px;margin:10px 0;font-size:10pt}
+.pat-box{background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:8px 14px;margin:10px 0;font-size:10pt}
+.signatures{display:flex;justify-content:space-between;margin-top:28px}
+.sig-block{text-align:center;width:45%}
+.sig-line{border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:10pt}
+.legal-ref{font-size:8pt;color:#aaa;text-align:center;margin-top:18px;border-top:1px solid #eee;padding-top:8px}
+</style></head><body>
+<div class="header">
+<div class="header-left"><h1>{{nom_entreprise}}</h1><p>{{adresse_entreprise}}</p><p>RCCM : {{rccm}} | IFU : {{ifu}}</p><p>N° Employeur CNSS : {{numero_employeur_cnss}}</p></div>
+<div class="header-right"><h2>Bulletin de Paie</h2><div class="periode-badge">{{periode}}</div><p>Date de paiement : <strong>{{date_paiement}}</strong></p></div>
+</div>
+<div class="ei">
+<div class="ei-b"><label>Nom et Prénoms</label><span>{{nom}}</span></div>
+<div class="ei-b"><label>Poste</label><span>{{poste}}</span></div>
+<div class="ei-b"><label>Matricule</label><span>{{matricule}}</span></div>
+<div class="ei-b"><label>N° CNSS</label><span>{{cnss}}</span></div>
+<div class="ei-b"><label>Contrat</label><span>{{type_contrat}}</span></div>
+<div class="ei-b"><label>Embauche</label><span>{{date_embauche}}</span></div>
+</div>
+<table class="paie">
+<thead><tr><th>Libellé</th><th>Base</th><th>Taux</th><th>Gains (FCFA)</th><th>Retenues (FCFA)</th></tr></thead>
+<tbody>
+<tr class="sh"><td colspan="5">RÉMUNÉRATION</td></tr>
+<tr><td>Salaire de Base</td><td>{{heures_travaillees}}h</td><td>—</td><td class="amt">{{salaire_base}}</td><td></td></tr>
+<tr><td>Prime de Transport</td><td>—</td><td>—</td><td class="amt">{{prime_transport}}</td><td></td></tr>
+<tr><td>Autres Primes</td><td>—</td><td>—</td><td class="amt">{{autres_primes}}</td><td></td></tr>
+<tr class="sh"><td colspan="5">COTISATIONS CNSS — PART SALARIALE</td></tr>
+<tr><td>CNSS — Vieillesse / Prestations familiales</td><td>{{salaire_brut}}</td><td>3,6 %</td><td></td><td class="dbt">{{cnss_salarie}}</td></tr>
+<tr class="sh"><td colspan="5">IMPÔT SUR TRAITEMENTS ET SALAIRES (ITS) — CGI art. 119-125</td></tr>
+<tr><td>Base imposable (Brut − CNSS)</td><td>{{base_imposable}}</td><td>Progressif 0%→30%</td><td></td><td></td></tr>
+<tr><td>Exonération tranche 0→60 000 FCFA</td><td>60 000</td><td>0 %</td><td></td><td class="dbt">0</td></tr>
+<tr><td>ITS calculé sur tranches supérieures</td><td>{{base_imposable}}</td><td>Barème CGI</td><td></td><td class="dbt">{{its}}</td></tr>
+<tr class="sh"><td colspan="5">AUTRES DÉDUCTIONS</td></tr>
+<tr><td>Avance sur salaire</td><td>—</td><td>—</td><td></td><td class="dbt">{{avance_salaire}}</td></tr>
+<tr><td>Autres retenues</td><td>—</td><td>—</td><td></td><td class="dbt">{{autres_retenues}}</td></tr>
+</tbody>
+</table>
+<div class="info-box">📅 <strong>Congés Payés</strong> — Acquis ce mois : <strong>{{conges_acquis}} j</strong> | Pris : <strong>{{conges_pris}} j</strong> | Solde : <strong>{{conges_solde}} j</strong></div>
+<div class="pat-box">📊 <strong>Charges Patronales</strong> (info — non déduites du net) — CNSS Patronal 15,4% : <strong>{{cnss_patronal}} FCFA</strong> | VPS 3% : <strong>{{vps}} FCFA</strong></div>
+<div class="totaux-box">
+<div class="tr"><span>Total Gains</span><span>{{total_gains}} FCFA</span></div>
+<div class="tr"><span>Total Retenues</span><span>{{total_retenues}} FCFA</span></div>
+<div class="tr net"><span>NET À PAYER</span><span>{{net_a_payer}} FCFA</span></div>
+</div>
+<div class="signatures">
+<div class="sig-block"><p><strong>L'Employeur</strong></p><div class="sig-line">Signature et cachet</div></div>
+<div class="sig-block"><p><strong>Le Salarié</strong><br><small>Reçu la somme de {{net_a_payer}} FCFA</small></p><div class="sig-line">Signature</div></div>
+</div>
+<div class="legal-ref">Bulletin conforme — Code du Travail Bénin Loi 98-004 | CNSS 3,6%/15,4% | ITS CGI art.119-125 | Exonération 60 000 FCFA | SMIG 52 000 FCFA | VPS art.191-195 CGI</div>
+</body></html>
+$tmpl_fp$, NULL)
+                ON CONFLICT (company_id, template_type) DO UPDATE
+                  SET template_html = EXCLUDED.template_html,
+                      template_name = EXCLUDED.template_name,
+                      updated_at    = NOW();
+            `);
+            console.log('   ✓ Modèles par défaut CDI/CDD/Fiche de paie insérés (Option A)');
+
             return;
 
         } catch (error) {
