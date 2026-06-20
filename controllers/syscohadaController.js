@@ -21,11 +21,16 @@ async function fetchOdooBalance(companyId, date_from, date_to) {
 async function fetchPrevYearBalances(companyId, year) {
     const prevYear = parseInt(year) - 1;
     const result = await pool.queryWithRetry(
-        `SELECT account_code AS code, account_name AS name,
-                balance_debit AS opening_debit, balance_credit AS opening_credit,
-                0 AS debit, 0 AS credit
+        `SELECT account_code   AS code,
+                account_name   AS name,
+                closing_debit  AS opening_debit,
+                closing_credit AS opening_credit,
+                0              AS debit,
+                0              AS credit
          FROM fiscal_year_balances
-         WHERE company_id = $1 AND fiscal_year = $2`,
+         WHERE company_id = $1
+           AND fiscal_year = $2
+           AND is_valid    = TRUE`,
         [companyId, prevYear]
     );
     return result.rows || [];
