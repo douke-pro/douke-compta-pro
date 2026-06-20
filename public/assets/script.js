@@ -458,8 +458,8 @@ function getRoleBaseMenus(role) {
     if (role === 'CAISSIER') {
         menus.push({ id: 'caisse-operation', name: 'Opérations de Caisse', icon: 'fas fa-cash-register' });
         menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
-        menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' }); // ✅ AJOUTÉ
-    return menus;
+        menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' });
+        return menus;
     }
 
     menus.push({ id: 'reports', name: 'Rapports SYSCOHADA', icon: 'fas fa-file-invoice-dollar' });
@@ -469,6 +469,8 @@ function getRoleBaseMenus(role) {
     menus.push({ id: 'manual-entry', name: 'Passer une Écriture', icon: 'fas fa-plus-square' }); 
 
     menus.push({ id: 'immobilisations', name: 'Immobilisations', icon: 'fas fa-building', badge: 'Bientôt' });
+    menus.push({ id: 'hr-module', name: 'Gestion RH', icon: 'fas fa-users' });
+    menus.push({ id: 'ged', name: 'Coffre Documents', icon: 'fas fa-folder-open' });
     menus.push({ id: 'settings', name: 'Paramètres', icon: 'fas fa-cog' });
     
     if (role === 'ADMIN') {
@@ -563,6 +565,16 @@ async function loadContentArea(contentId, title) {
               contentArea.innerHTML = window.generateClosingModuleHTML();
               await window.initClosingModule(); // ← sans paramètre
               return;
+
+           case 'hr-module':
+                contentArea.innerHTML = generateHRModuleHTML();
+                if (typeof window.initHRModule === 'function') window.initHRModule();
+                return;
+
+           case 'ged':
+                contentArea.innerHTML = generateGEDModuleHTML();
+                if (typeof window.initGEDModule === 'function') window.initGEDModule();
+                return;
 
            default:
                 content = generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
