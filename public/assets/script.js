@@ -9484,6 +9484,732 @@ window.handleSaveProfileSettings = async function(event) {
 // 
 // INSTRUCTIONS D'INTÉGRATION :
 // 1. Ajouter ce code APRÈS le module Paramètres dans script.js (ligne ~3200)
+
+
+// =============================================================================
+// MODULE RH — generateHRModuleHTML + initHRModule
+// =============================================================================
+function generateHRModuleHTML() {
+    const role = (appState.user?.profile || '').toUpperCase();
+    const canEdit = ['ADMIN','COLLABORATEUR'].includes(role);
+
+    return `
+        <div class="fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-3xl font-black text-secondary">
+                        <i class="fas fa-users mr-3"></i>Gestion RH
+                    </h3>
+                    <p class="text-lg text-gray-600 dark:text-gray-400 mt-1">
+                        Employés, fiches de paie et modèles de documents.
+                    </p>
+                </div>
+                <div class="px-4 py-2 bg-primary/10 rounded-xl border-2 border-primary/20">
+                    <p class="text-xs font-bold text-primary uppercase tracking-wider">
+                        <i class="fas fa-user-shield mr-2"></i>${role}
+                    </p>
+                </div>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-90">Employés Actifs</p>
+                            <p class="text-3xl font-black mt-1" id="hr-count-actifs">-</p>
+                        </div>
+                        <i class="fas fa-user-check fa-2x opacity-70"></i>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-90">Masse Salariale</p>
+                            <p class="text-2xl font-black mt-1" id="hr-masse-salariale">-</p>
+                        </div>
+                        <i class="fas fa-money-bill-wave fa-2x opacity-70"></i>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-90">Fiches de Paie (ce mois)</p>
+                            <p class="text-3xl font-black mt-1" id="hr-count-payslips">-</p>
+                        </div>
+                        <i class="fas fa-file-invoice-dollar fa-2x opacity-70"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onglets -->
+            <div class="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+                <button onclick="window.switchHRTab('employees')" id="hr-tab-employees"
+                    class="px-5 py-3 font-bold text-sm rounded-t-xl bg-primary text-white transition">
+                    <i class="fas fa-users mr-2"></i>Employés
+                </button>
+                <button onclick="window.switchHRTab('payslips')" id="hr-tab-payslips"
+                    class="px-5 py-3 font-bold text-sm rounded-t-xl text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-file-invoice-dollar mr-2"></i>Fiches de Paie
+                </button>
+                ${canEdit ? `
+                <button onclick="window.switchHRTab('templates')" id="hr-tab-templates"
+                    class="px-5 py-3 font-bold text-sm rounded-t-xl text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-file-alt mr-2"></i>Modèles
+                </button>` : ''}
+            </div>
+
+            <!-- Contenu onglets -->
+            <div id="hr-tab-content">
+                <div class="text-center p-8">
+                    <div class="loading-spinner mx-auto"></div>
+                    <p class="mt-4 text-gray-500">Chargement...</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+window.switchHRTab = function(tab) {
+    ['employees','payslips','templates'].forEach(t => {
+        const btn = document.getElementById(`hr-tab-${t}`);
+        if (btn) {
+            btn.className = btn.className
+                .replace('bg-primary text-white', 'text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700');
+        }
+    });
+    const active = document.getElementById(`hr-tab-${tab}`);
+    if (active) {
+        active.className = active.className
+            .replace('text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700', 'bg-primary text-white');
+    }
+
+    const container = document.getElementById('hr-tab-content');
+    if (!container) return;
+
+    if (tab === 'employees')  window.loadHREmployees();
+    if (tab === 'payslips')   window.loadHRPayslips();
+    if (tab === 'templates')  window.loadHRTemplates();
+};
+
+window.loadHREmployees = async function() {
+    const container = document.getElementById('hr-tab-content');
+    const role = (appState.user?.profile || '').toUpperCase();
+    const canEdit = ['ADMIN','COLLABORATEUR','USER'].includes(role);
+    const canDelete = role === 'ADMIN';
+    container.innerHTML = `<div class="text-center p-8"><div class="loading-spinner mx-auto"></div></div>`;
+    try {
+        const data = await apiFetch(`hr/employees?companyId=${appState.currentCompanyId}`);
+        const employees = data.data || [];
+
+        container.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-sm text-gray-500">${employees.length} employé(s)</p>
+                ${canEdit ? `<button onclick="window.openHREmployeeModal()"
+                    class="px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition">
+                    <i class="fas fa-plus mr-2"></i>Nouvel Employé
+                </button>` : ''}
+            </div>
+            ${employees.length === 0 ? `
+                <div class="text-center p-12 bg-white dark:bg-gray-800 rounded-2xl shadow-md">
+                    <i class="fas fa-users fa-3x text-gray-300 mb-4"></i>
+                    <p class="font-bold text-gray-500">Aucun employé enregistré</p>
+                    <p class="text-sm text-gray-400 mt-1">Ajoutez votre premier employé pour commencer.</p>
+                </div>` : `
+            <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-md">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-bold text-gray-700 dark:text-gray-300">Code</th>
+                            <th class="px-4 py-3 text-left font-bold text-gray-700 dark:text-gray-300">Nom Complet</th>
+                            <th class="px-4 py-3 text-left font-bold text-gray-700 dark:text-gray-300">Poste</th>
+                            <th class="px-4 py-3 text-left font-bold text-gray-700 dark:text-gray-300">Contrat</th>
+                            <th class="px-4 py-3 text-right font-bold text-gray-700 dark:text-gray-300">Salaire Base</th>
+                            <th class="px-4 py-3 text-center font-bold text-gray-700 dark:text-gray-300">Statut</th>
+                            <th class="px-4 py-3 text-center font-bold text-gray-700 dark:text-gray-300">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        ${employees.map(e => `
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                            <td class="px-4 py-3 font-mono text-xs text-primary font-bold">${e.employee_code || '-'}</td>
+                            <td class="px-4 py-3 font-bold text-gray-900 dark:text-white">${e.full_name}</td>
+                            <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${e.job_title || '-'}</td>
+                            <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${e.contract_type || 'CDI'}</td>
+                            <td class="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">
+                                ${Number(e.base_salary || 0).toLocaleString('fr-FR')} FCFA
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="px-2 py-1 rounded-full text-xs font-bold ${e.status === 'actif' ? 'bg-success/20 text-success' : 'bg-gray-200 text-gray-600'}">
+                                    ${e.status || 'actif'}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button onclick="window.openHREmployeeModal(${e.id})"
+                                        class="p-2 text-primary hover:bg-primary/10 rounded-lg transition" title="Modifier">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    ${canDelete ? `
+                                    <button onclick="window.deleteHREmployee(${e.id})"
+                                        class="p-2 text-danger hover:bg-danger/10 rounded-lg transition" title="Archiver">
+                                        <i class="fas fa-archive"></i>
+                                    </button>` : ''}
+                                </div>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`}
+        `;
+    } catch(err) {
+        container.innerHTML = `<div class="p-6 text-danger text-center"><i class="fas fa-exclamation-triangle mr-2"></i>${err.message}</div>`;
+    }
+};
+
+window.loadHRPayslips = async function() {
+    const container = document.getElementById('hr-tab-content');
+    const role = (appState.user?.profile || '').toUpperCase();
+    const canCreate = ['ADMIN','COLLABORATEUR'].includes(role);
+    container.innerHTML = `<div class="text-center p-8"><div class="loading-spinner mx-auto"></div></div>`;
+    try {
+        const data = await apiFetch(`hr/payslips?companyId=${appState.currentCompanyId}`);
+        const payslips = data.data || [];
+
+        container.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-sm text-gray-500">${payslips.length} fiche(s) de paie</p>
+                ${canCreate ? `<button onclick="window.openPayslipModal()"
+                    class="px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition">
+                    <i class="fas fa-plus mr-2"></i>Nouvelle Fiche
+                </button>` : ''}
+            </div>
+            ${payslips.length === 0 ? `
+                <div class="text-center p-12 bg-white dark:bg-gray-800 rounded-2xl shadow-md">
+                    <i class="fas fa-file-invoice-dollar fa-3x text-gray-300 mb-4"></i>
+                    <p class="font-bold text-gray-500">Aucune fiche de paie</p>
+                    <p class="text-sm text-gray-400 mt-1">Les fiches de paie générées apparaîtront ici.</p>
+                </div>` : `
+            <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-2xl shadow-md">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-bold text-gray-700 dark:text-gray-300">Employé</th>
+                            <th class="px-4 py-3 text-center font-bold text-gray-700 dark:text-gray-300">Période</th>
+                            <th class="px-4 py-3 text-right font-bold text-gray-700 dark:text-gray-300">Salaire Brut</th>
+                            <th class="px-4 py-3 text-right font-bold text-gray-700 dark:text-gray-300">Salaire Net</th>
+                            <th class="px-4 py-3 text-center font-bold text-gray-700 dark:text-gray-300">Statut</th>
+                            <th class="px-4 py-3 text-center font-bold text-gray-700 dark:text-gray-300">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        ${payslips.map(p => `
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                            <td class="px-4 py-3 font-bold text-gray-900 dark:text-white">${p.employee_name || '-'}</td>
+                            <td class="px-4 py-3 text-center text-gray-600 dark:text-gray-400">
+                                ${String(p.period_month).padStart(2,'0')}/${p.period_year}
+                            </td>
+                            <td class="px-4 py-3 text-right font-bold">${Number(p.gross_salary||0).toLocaleString('fr-FR')} FCFA</td>
+                            <td class="px-4 py-3 text-right font-bold text-success">${Number(p.net_salary||0).toLocaleString('fr-FR')} FCFA</td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="px-2 py-1 rounded-full text-xs font-bold ${p.status === 'validé' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">
+                                    ${p.status || 'brouillon'}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <button onclick="window.downloadPayslip(${p.id})"
+                                    class="p-2 text-primary hover:bg-primary/10 rounded-lg transition" title="Télécharger">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`}
+        `;
+    } catch(err) {
+        container.innerHTML = `<div class="p-6 text-danger text-center"><i class="fas fa-exclamation-triangle mr-2"></i>${err.message}</div>`;
+    }
+};
+
+window.loadHRTemplates = async function() {
+    const container = document.getElementById('hr-tab-content');
+    container.innerHTML = `<div class="text-center p-8"><div class="loading-spinner mx-auto"></div></div>`;
+    try {
+        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}`);
+        const templates = data.data || [];
+        const types = ['contrat_cdi','contrat_cdd','fiche_paie'];
+        const labels = { contrat_cdi: 'Contrat CDI', contrat_cdd: 'Contrat CDD', fiche_paie: 'Fiche de Paie' };
+
+        container.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                ${types.map(type => {
+                    const tpl = templates.find(t => t.template_type === type);
+                    return `
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 border-l-4 border-primary">
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <p class="font-black text-gray-900 dark:text-white">${labels[type]}</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    ${tpl ? (tpl.company_id ? 'Modèle personnalisé' : 'Modèle par défaut') : 'Modèle par défaut'}
+                                </p>
+                            </div>
+                            <i class="fas fa-file-alt fa-2x text-primary/30"></i>
+                        </div>
+                        <div class="flex gap-2 mt-4">
+                            <button onclick="window.previewTemplate('${type}')"
+                                class="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 transition">
+                                <i class="fas fa-eye mr-1"></i>Aperçu
+                            </button>
+                            <button onclick="window.editTemplate('${type}')"
+                                class="flex-1 px-3 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition">
+                                <i class="fas fa-edit mr-1"></i>Personnaliser
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+            <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary rounded-lg">
+                <p class="text-xs text-gray-700 dark:text-gray-300">
+                    <i class="fas fa-info-circle text-primary mr-2"></i>
+                    Les modèles par défaut sont fournis par Doukè Compta Pro. 
+                    Personnalisez-les pour les adapter à votre entreprise.
+                </p>
+            </div>
+        `;
+    } catch(err) {
+        container.innerHTML = `<div class="p-6 text-danger text-center"><i class="fas fa-exclamation-triangle mr-2"></i>${err.message}</div>`;
+    }
+};
+
+window.openHREmployeeModal = async function(employeeId = null) {
+    const isEdit = !!employeeId;
+    let employee = {};
+    if (isEdit) {
+        try {
+            const data = await apiFetch(`hr/employees/${employeeId}?companyId=${appState.currentCompanyId}`);
+            employee = data.data || {};
+        } catch(e) {}
+    }
+
+    const html = `
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nom Complet *</label>
+                    <input id="emp-full-name" type="text" value="${employee.full_name || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Prénom et Nom">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Poste</label>
+                    <input id="emp-job-title" type="text" value="${employee.job_title || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Ex: Comptable Senior">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Type de Contrat</label>
+                    <select id="emp-contract-type"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="CDI" ${employee.contract_type === 'CDI' ? 'selected' : ''}>CDI</option>
+                        <option value="CDD" ${employee.contract_type === 'CDD' ? 'selected' : ''}>CDD</option>
+                        <option value="Stage" ${employee.contract_type === 'Stage' ? 'selected' : ''}>Stage</option>
+                        <option value="Consultant" ${employee.contract_type === 'Consultant' ? 'selected' : ''}>Consultant</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Date d'Embauche</label>
+                    <input id="emp-hire-date" type="date" value="${employee.hire_date ? employee.hire_date.substring(0,10) : ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Salaire de Base (FCFA)</label>
+                    <input id="emp-base-salary" type="number" value="${employee.base_salary || 0}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                    <input id="emp-email" type="email" value="${employee.email || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="email@entreprise.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Téléphone</label>
+                    <input id="emp-phone" type="text" value="${employee.phone || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">N° CNSS</label>
+                    <input id="emp-cnss" type="text" value="${employee.cnss_number || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+            </div>
+            <div class="flex gap-3 pt-4">
+                <button onclick="window.saveHREmployee(${employeeId || 'null'})"
+                    class="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition">
+                    <i class="fas fa-save mr-2"></i>${isEdit ? 'Mettre à jour' : 'Enregistrer'}
+                </button>
+                <button onclick="ModalManager.close()"
+                    class="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-300 transition">
+                    Annuler
+                </button>
+            </div>
+        </div>
+    `;
+    ModalManager.open(isEdit ? 'Modifier Employé' : 'Nouvel Employé', html);
+};
+
+window.saveHREmployee = async function(employeeId) {
+    const body = {
+        companyId: appState.currentCompanyId,
+        full_name:      document.getElementById('emp-full-name')?.value?.trim(),
+        job_title:      document.getElementById('emp-job-title')?.value?.trim(),
+        contract_type:  document.getElementById('emp-contract-type')?.value,
+        hire_date:      document.getElementById('emp-hire-date')?.value,
+        base_salary:    parseFloat(document.getElementById('emp-base-salary')?.value || 0),
+        email:          document.getElementById('emp-email')?.value?.trim(),
+        phone:          document.getElementById('emp-phone')?.value?.trim(),
+        cnss_number:    document.getElementById('emp-cnss')?.value?.trim(),
+    };
+    if (!body.full_name) return alert('Le nom complet est obligatoire.');
+    try {
+        if (employeeId) {
+            await apiFetch(`hr/employees/${employeeId}`, 'PUT', body);
+        } else {
+            await apiFetch('hr/employees', 'POST', body);
+        }
+        ModalManager.close();
+        window.loadHREmployees();
+        window.initHRModule();
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+window.deleteHREmployee = async function(employeeId) {
+    if (!confirm('Archiver cet employé ?')) return;
+    try {
+        await apiFetch(`hr/employees/${employeeId}?companyId=${appState.currentCompanyId}`, 'DELETE');
+        window.loadHREmployees();
+        window.initHRModule();
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+window.downloadPayslip = async function(payslipId) {
+    try {
+        const data = await apiFetch(`hr/payslips/${payslipId}/download?companyId=${appState.currentCompanyId}`);
+        if (data.data?.pdf_base64) {
+            const link = document.createElement('a');
+            link.href = 'data:application/pdf;base64,' + data.data.pdf_base64;
+            link.download = `fiche_paie_${payslipId}.pdf`;
+            link.click();
+        } else { alert('Aucun PDF disponible pour cette fiche.'); }
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+window.initHRModule = async function() {
+    try {
+        const data = await apiFetch(`hr/employees?companyId=${appState.currentCompanyId}`);
+        const employees = data.data || [];
+        const actifs = employees.filter(e => e.status === 'actif');
+        const masse = actifs.reduce((s, e) => s + Number(e.base_salary || 0), 0);
+
+        const elActifs = document.getElementById('hr-count-actifs');
+        const elMasse  = document.getElementById('hr-masse-salariale');
+        if (elActifs) elActifs.textContent = actifs.length;
+        if (elMasse)  elMasse.textContent  = masse.toLocaleString('fr-FR') + ' FCFA';
+
+        const now = new Date();
+        const psData = await apiFetch(`hr/payslips?companyId=${appState.currentCompanyId}`);
+        const payslips = psData.data || [];
+        const thisMo = payslips.filter(p => p.period_month === now.getMonth()+1 && p.period_year === now.getFullYear());
+        const elPs = document.getElementById('hr-count-payslips');
+        if (elPs) elPs.textContent = thisMo.length;
+
+    } catch(e) { console.warn('[initHRModule]', e.message); }
+
+    window.switchHRTab('employees');
+};
+
+// =============================================================================
+// MODULE GED — generateGEDModuleHTML + initGEDModule
+// =============================================================================
+function generateGEDModuleHTML() {
+    const role = (appState.user?.profile || '').toUpperCase();
+
+    return `
+        <div class="fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-3xl font-black text-secondary">
+                        <i class="fas fa-folder-open mr-3"></i>Coffre Documents
+                    </h3>
+                    <p class="text-lg text-gray-600 dark:text-gray-400 mt-1">
+                        Stockez et gérez tous vos documents d'entreprise en toute sécurité.
+                    </p>
+                </div>
+                <div class="px-4 py-2 bg-primary/10 rounded-xl border-2 border-primary/20">
+                    <p class="text-xs font-bold text-primary uppercase tracking-wider">
+                        <i class="fas fa-user-shield mr-2"></i>${role}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Upload zone -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 mb-6 border-2 border-dashed border-primary/30">
+                <div class="flex flex-col md:flex-row gap-4 items-end">
+                    <div class="flex-1">
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            Type de document
+                        </label>
+                        <select id="ged-doc-type"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="contrat">Contrat</option>
+                            <option value="facture">Facture</option>
+                            <option value="rapport">Rapport</option>
+                            <option value="fiscal">Document Fiscal</option>
+                            <option value="juridique">Document Juridique</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            Nom du document
+                        </label>
+                        <input id="ged-doc-name" type="text" placeholder="Ex: Contrat bail 2025"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            Fichier (PDF, max 10MB)
+                        </label>
+                        <input id="ged-file-input" type="file" accept=".pdf,.png,.jpg,.jpeg"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm">
+                    </div>
+                    <button onclick="window.uploadGEDDocument()"
+                        class="px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition whitespace-nowrap">
+                        <i class="fas fa-upload mr-2"></i>Déposer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtres -->
+            <div class="flex gap-2 mb-4 flex-wrap">
+                <button onclick="window.filterGED('')" id="ged-filter-all"
+                    class="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold">Tous</button>
+                ${['contrat','facture','rapport','fiscal','juridique','autre'].map(t => `
+                <button onclick="window.filterGED('${t}')" id="ged-filter-${t}"
+                    class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 transition">
+                    ${t.charAt(0).toUpperCase() + t.slice(1)}
+                </button>`).join('')}
+            </div>
+
+            <!-- Liste documents -->
+            <div id="ged-documents-list">
+                <div class="text-center p-8"><div class="loading-spinner mx-auto"></div></div>
+            </div>
+        </div>
+    `;
+}
+
+window.initGEDModule = async function() {
+    await window.loadGEDDocuments();
+};
+
+window.loadGEDDocuments = async function(docType = '') {
+    const container = document.getElementById('ged-documents-list');
+    if (!container) return;
+    container.innerHTML = `<div class="text-center p-8"><div class="loading-spinner mx-auto"></div></div>`;
+    try {
+        let url = `hr/documents?companyId=${appState.currentCompanyId}`;
+        if (docType) url += `&doc_type=${docType}`;
+        const data = await apiFetch(url);
+        const docs = data.data || [];
+
+        if (docs.length === 0) {
+            container.innerHTML = `
+                <div class="text-center p-12 bg-white dark:bg-gray-800 rounded-2xl shadow-md">
+                    <i class="fas fa-folder-open fa-3x text-gray-300 mb-4"></i>
+                    <p class="font-bold text-gray-500">Aucun document</p>
+                    <p class="text-sm text-gray-400 mt-1">Déposez votre premier document ci-dessus.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${docs.map(d => `
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 hover:shadow-lg transition">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-file-pdf text-primary"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900 dark:text-white leading-tight">${d.doc_name}</p>
+                                <p class="text-xs text-gray-500">${d.file_size_kb} KB · ${new Date(d.created_at).toLocaleDateString('fr-FR')}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="px-2 py-1 bg-primary/10 text-primary rounded-lg text-xs font-bold">
+                            ${d.doc_type}
+                        </span>
+                        <div class="flex gap-2">
+                            <button onclick="window.previewGEDDocument(${d.id})"
+                                class="p-2 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition" title="Aperçu">
+                                <i class="fas fa-eye text-sm"></i>
+                            </button>
+                            <button onclick="window.downloadGEDDocument(${d.id}, '${d.doc_name}')"
+                                class="p-2 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition" title="Télécharger">
+                                <i class="fas fa-download text-sm"></i>
+                            </button>
+                            <button onclick="window.deleteGEDDocument(${d.id})"
+                                class="p-2 text-gray-500 hover:text-danger hover:bg-danger/10 rounded-lg transition" title="Supprimer">
+                                <i class="fas fa-trash text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>`).join('')}
+            </div>
+        `;
+    } catch(err) {
+        container.innerHTML = `<div class="p-6 text-danger text-center"><i class="fas fa-exclamation-triangle mr-2"></i>${err.message}</div>`;
+    }
+};
+
+window.filterGED = function(docType) {
+    ['','contrat','facture','rapport','fiscal','juridique','autre'].forEach(t => {
+        const btn = document.getElementById(`ged-filter-${t || 'all'}`);
+        if (btn) btn.className = btn.className
+            .replace('bg-primary text-white', 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300');
+    });
+    const active = document.getElementById(`ged-filter-${docType || 'all'}`);
+    if (active) active.className = active.className
+        .replace('bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300', 'bg-primary text-white');
+    window.loadGEDDocuments(docType);
+};
+
+window.uploadGEDDocument = async function() {
+    const docType  = document.getElementById('ged-doc-type')?.value;
+    const docName  = document.getElementById('ged-doc-name')?.value?.trim();
+    const fileInput = document.getElementById('ged-file-input');
+    const file = fileInput?.files?.[0];
+
+    if (!docName) return alert('Veuillez saisir un nom de document.');
+    if (!file)    return alert('Veuillez sélectionner un fichier.');
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const base64 = e.target.result.split(',')[1];
+        try {
+            await apiFetch('hr/documents/upload', 'POST', {
+                companyId:   appState.currentCompanyId,
+                doc_type:    docType,
+                doc_name:    docName,
+                file_base64: base64,
+                file_mime:   file.type || 'application/pdf'
+            });
+            document.getElementById('ged-doc-name').value = '';
+            fileInput.value = '';
+            await window.loadGEDDocuments();
+        } catch(err) { alert('Erreur upload: ' + err.message); }
+    };
+    reader.readAsDataURL(file);
+};
+
+window.downloadGEDDocument = async function(docId, docName) {
+    try {
+        const data = await apiFetch(`hr/documents/${docId}/preview?companyId=${appState.currentCompanyId}`);
+        if (data.data?.file_base64) {
+            const link = document.createElement('a');
+            link.href = `data:${data.data.file_mime || 'application/pdf'};base64,${data.data.file_base64}`;
+            link.download = docName || `document_${docId}`;
+            link.click();
+        }
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+window.previewGEDDocument = async function(docId) {
+    try {
+        const data = await apiFetch(`hr/documents/${docId}/preview?companyId=${appState.currentCompanyId}`);
+        const d = data.data;
+        if (!d?.file_base64) return alert('Aperçu indisponible.');
+        const html = `
+            <div style="height:70vh;">
+                <iframe src="data:${d.file_mime || 'application/pdf'};base64,${d.file_base64}"
+                    style="width:100%;height:100%;border:none;border-radius:8px;">
+                </iframe>
+            </div>`;
+        ModalManager.open(d.doc_name, html);
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+window.deleteGEDDocument = async function(docId) {
+    if (!confirm('Supprimer ce document définitivement ?')) return;
+    try {
+        await apiFetch(`hr/documents/${docId}?companyId=${appState.currentCompanyId}`, 'DELETE');
+        await window.loadGEDDocuments();
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+window.previewTemplate = async function(templateType) {
+    try {
+        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}&type=${templateType}`);
+        const tpl = data.data?.[0];
+        if (!tpl?.template_html) return alert('Aucun modèle disponible pour ce type.');
+        ModalManager.open(`Aperçu — ${templateType}`, `<div class="prose max-w-none p-4">${tpl.template_html}</div>`);
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
+window.editTemplate = async function(templateType) {
+    const labels = { contrat_cdi: 'Contrat CDI', contrat_cdd: 'Contrat CDD', fiche_paie: 'Fiche de Paie' };
+    let currentHtml = '';
+    try {
+        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}&type=${templateType}`);
+        currentHtml = data.data?.[0]?.template_html || '';
+    } catch(e) {}
+
+    const html = `
+        <div class="space-y-4">
+            <p class="text-sm text-gray-500">
+                <i class="fas fa-info-circle mr-1 text-primary"></i>
+                Éditez le HTML du modèle. Variables disponibles : 
+                <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{{nom}}</code>
+                <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{{poste}}</code>
+                <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{{salaire}}</code>
+                <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{{date}}</code>
+            </p>
+            <textarea id="tpl-html-editor" rows="15"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Collez votre HTML ici...">${currentHtml}</textarea>
+            <div class="flex gap-3">
+                <button onclick="window.saveTemplate('${templateType}')"
+                    class="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition">
+                    <i class="fas fa-save mr-2"></i>Sauvegarder
+                </button>
+                <button onclick="ModalManager.close()"
+                    class="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-300 transition">
+                    Annuler
+                </button>
+            </div>
+        </div>`;
+    ModalManager.open(`Personnaliser — ${labels[templateType] || templateType}`, html);
+};
+
+window.saveTemplate = async function(templateType) {
+    const html = document.getElementById('tpl-html-editor')?.value?.trim();
+    if (!html) return alert('Le modèle ne peut pas être vide.');
+    try {
+        await apiFetch('hr/templates', 'POST', {
+            companyId:     appState.currentCompanyId,
+            template_type: templateType,
+            template_name: templateType,
+            template_html: html
+        });
+        ModalManager.close();
+        window.loadHRTemplates();
+    } catch(err) { alert('Erreur: ' + err.message); }
+};
+
 // 2. La fonction generateAdminUsersHTML() remplace le case 'admin-users' existant
 // =============================================================================
 
