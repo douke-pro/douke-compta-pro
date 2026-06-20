@@ -334,7 +334,7 @@ exports.listTemplates = async (req, res) => {
         // Option A : modèle spécifique entreprise en priorité, sinon modèle global (company_id = 0)
         let query = `
             SELECT DISTINCT ON (template_type)
-                id, template_type, template_name, created_at, company_id
+                id, template_type, template_name, template_html, created_at, company_id
             FROM document_templates
             WHERE company_id = $1 OR company_id = 0
         `;
