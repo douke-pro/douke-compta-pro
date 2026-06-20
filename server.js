@@ -800,7 +800,147 @@ $tmpl_fp$, NULL)
 <div class="legal">Contrat conforme — Code du Travail Bénin Loi n° 98-004 | CNSS affiliée dès confirmation période d'essai | OHADA</div>
 </body></html>$cci_cdi$, NULL)
             `);
-            console.log('   ✓ Modèles CDI/CDD personnalisés CCI PARTNERS (company_id=12) vérifiés');
+            await pool.query(`
+                INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
+                VALUES (12, 'fiche_paie', 'Bulletin de Paie — CCI PARTNERS', $cci_fp$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bulletin de Paie</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:10.5pt;color:#2d3748;line-height:1.5;margin:0;padding:24px;background-color:#ffffff}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e2e8f0;padding-bottom:16px;margin-bottom:20px}
+.header-left h1{font-size:16pt;color:#1a3a5c;margin:0 0 6px 0;font-weight:700}
+.header-left p{margin:3px 0;font-size:9.5pt;color:#4a5568}
+.header-right{text-align:right}
+.header-right h2{font-size:14pt;color:#1a3a5c;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.5px}
+.periode-badge{display:inline-block;background:#e1e7f0;color:#1a3a5c;padding:4px 14px;border-radius:6px;font-size:10pt;font-weight:600;margin:4px 0 8px 0}
+.header-right p{margin:0;font-size:9.5pt;color:#4a5568}
+.ref-fiche{font-size:9pt;color:#718096;margin-top:4px;font-style:italic}
+.ei{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px}
+.ei-b{display:flex;flex-direction:column}
+.ei-b label{font-size:8.5pt;color:#718096;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:2px}
+.ei-b span{font-weight:600;font-size:10pt;color:#1a202c}
+table.paie{width:100%;border-collapse:collapse;margin:20px 0;font-size:9.5pt}
+table.paie thead th{background:#1a3a5c;color:#ffffff;padding:8px 12px;text-align:left;font-weight:600;text-transform:uppercase;font-size:8.5pt;letter-spacing:0.5px}
+table.paie thead th:nth-child(n+4){text-align:right}
+table.paie tbody tr{border-bottom:1px solid #edf2f7}
+table.paie tbody tr:nth-child(even){background:#f8fafc}
+table.paie tbody td{padding:8px 12px;vertical-align:middle}
+table.paie tbody td.amt{text-align:right;font-weight:600;color:#2d3748}
+table.paie tbody td.dbt{text-align:right;font-weight:600;color:#e53e3e}
+table.paie tr.sh td{background:#edf2f7;font-weight:700;color:#2b6cb0;padding:6px 12px;font-size:8.5pt;letter-spacing:0.3px;border-bottom:1px solid #cbd5e0}
+.info-box,.pat-box{border-radius:6px;padding:10px 14px;margin:12px 0;font-size:9.5pt;display:flex;align-items:center;gap:6px}
+.info-box{background:#ebf8ff;border:1px solid #bee3f8;color:#2b6cb0}
+.pat-box{background:#fffaf0;border:1px solid #feebc8;color:#dd6b20}
+.totaux-container{display:flex;justify-content:flex-end;margin-top:16px}
+.totaux-box{background:#1a3a5c;color:#ffffff;padding:16px;border-radius:8px;width:300px}
+.tr{display:flex;justify-content:space-between;margin:4px 0;font-size:10pt;opacity:0.9}
+.tr.net{font-size:13pt;font-weight:700;border-top:1px solid rgba(255,255,255,0.25);padding-top:10px;margin-top:10px;opacity:1}
+.mention{text-align:center;font-size:9pt;color:#4a5568;margin-top:16px;font-style:italic}
+.signatures{display:flex;justify-content:space-between;margin-top:40px;page-break-inside:avoid}
+.sig-block{text-align:center;width:42%}
+.sig-block p{margin:0 0 4px 0}
+.sig-line{border-top:1px solid #a0aec0;margin-top:50px;padding-top:6px;font-size:9pt;color:#718096;font-style:italic}
+.legal-ref{font-size:7.5pt;color:#a0aec0;text-align:center;margin-top:35px;border-top:1px solid #e2e8f0;padding-top:10px;line-height:1.4}
+@media print{
+  body{padding:0;background:white}
+  .totaux-box{background:#1a3a5c !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.paie thead th{background:#1a3a5c !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.paie tr.sh td{background:#edf2f7 !important;-webkit-print-color-adjust:exact}
+  .ei{background:#f8fafc !important;-webkit-print-color-adjust:exact}
+  .info-box{background:#ebf8ff !important;-webkit-print-color-adjust:exact}
+  .pat-box{background:#fffaf0 !important;-webkit-print-color-adjust:exact}
+}
+</style></head><body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>{{nom_entreprise}}</h1>
+    <p>{{adresse_entreprise}}</p>
+    <p>IFU : {{ifu}}</p>
+    <p>N° Employeur CNSS : {{numero_employeur_cnss}}</p>
+    <p class="ref-fiche">Fiche N° {{reference_fiche}}</p>
+  </div>
+  <div class="header-right">
+    <h2>Bulletin de Paie</h2>
+    <div class="periode-badge">{{periode}}</div>
+    <p>Date de paiement : <strong>{{date_paiement}}</strong></p>
+  </div>
+</div>
+
+<div class="ei">
+  <div class="ei-b"><label>Nom et Prénom</label><span>{{nom}}</span></div>
+  <div class="ei-b"><label>Adresse</label><span>{{adresse_salarie}}</span></div>
+  <div class="ei-b"><label>Numéro Employé</label><span>{{matricule}}</span></div>
+  <div class="ei-b"><label>Téléphone</label><span>{{telephone}}</span></div>
+  <div class="ei-b"><label>Nature du Contrat</label><span>{{type_contrat}}</span></div>
+  <div class="ei-b"><label>Emploi / Poste</label><span>{{poste}}</span></div>
+</div>
+
+<table class="paie">
+  <thead>
+    <tr>
+      <th>Libellé</th>
+      <th>Heures</th>
+      <th>Taux Horaire</th>
+      <th>Gains (FCFA)</th>
+      <th>Retenues (FCFA)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="sh"><td colspan="5">RÉMUNÉRATION</td></tr>
+    <tr><td>Salaire de Base</td><td>{{heures_travaillees}}</td><td>{{taux_horaire}}</td><td class="amt">{{salaire_base}}</td><td></td></tr>
+    <tr><td>Heures Supplémentaires à 25%</td><td>{{hs_25_heures}}</td><td>{{hs_25_taux}}</td><td class="amt">{{hs_25_montant}}</td><td></td></tr>
+    <tr><td>Heures Supplémentaires à 50%</td><td>{{hs_50_heures}}</td><td>{{hs_50_taux}}</td><td class="amt">{{hs_50_montant}}</td><td></td></tr>
+
+    <tr class="sh"><td colspan="5">COTISATIONS SOCIALES — PART PATRONALE</td></tr>
+    <tr><td>CNSS — Assurance maladie / Cotisation familiale / Risque professionnel</td><td>{{salaire_brut}}</td><td>15,4 %</td><td></td><td class="dbt">{{cnss_patronal}}</td></tr>
+
+    <tr class="sh"><td colspan="5">COTISATIONS SOCIALES — PART SALARIALE</td></tr>
+    <tr><td>CNSS — Assurance vieillesse (Part ouvrière)</td><td>{{salaire_brut}}</td><td>3,6 %</td><td></td><td class="dbt">{{cnss_salarie}}</td></tr>
+
+    <tr class="sh"><td colspan="5">IMPÔT SUR TRAITEMENTS ET SALAIRES (ITS) — CGI art. 119-125</td></tr>
+    <tr><td>Base imposable (Brut − CNSS salarié)</td><td>{{base_imposable}}</td><td>Progressif 0%→30%</td><td></td><td></td></tr>
+    <tr><td>ITS calculé sur tranches (exonération 0→60 000 FCFA)</td><td>{{base_imposable}}</td><td>Barème CGI</td><td></td><td class="dbt">{{its}}</td></tr>
+
+    <tr class="sh"><td colspan="5">AUTRES DÉDUCTIONS</td></tr>
+    <tr><td>Avance sur salaire</td><td>—</td><td>—</td><td></td><td class="dbt">{{avance_salaire}}</td></tr>
+    <tr><td>Autres retenues</td><td>—</td><td>—</td><td></td><td class="dbt">{{autres_retenues}}</td></tr>
+  </tbody>
+</table>
+
+<div class="info-box">📅 Congés — Acquis ce mois : <strong>{{conges_acquis}} j</strong> &nbsp;|&nbsp; Pris : <strong>{{conges_pris}} j</strong> &nbsp;|&nbsp; Solde : <strong>{{conges_solde}} j</strong></div>
+<div class="pat-box">📊 Charges Patronales CNSS 15,4% : <strong>{{cnss_patronal}} FCFA</strong> &nbsp;|&nbsp; VPS 3% : <strong>{{vps}} FCFA</strong></div>
+
+<div class="totaux-container">
+  <div class="totaux-box">
+    <div class="tr"><span>SALAIRE BRUT</span><span>{{salaire_brut}} FCFA</span></div>
+    <div class="tr"><span>Total Cotisations</span><span>{{total_retenues}} FCFA</span></div>
+    <div class="tr net"><span>NET À PAYER</span><span>{{net_a_payer}} FCFA</span></div>
+  </div>
+</div>
+
+<p class="mention">Payé par virement bancaire / chèque N° ………………………………… le : ………………………………</p>
+<p class="mention" style="margin-top:4px;font-size:8pt;color:#a0aec0">Salaire net imposable : <strong>{{net_a_payer}} FCFA</strong> &nbsp;|&nbsp; A CONSERVER SANS LIMITATION DE DURÉE</p>
+
+<div class="signatures">
+  <div class="sig-block">
+    <p><strong>L'Employeur</strong></p>
+    <p style="font-size:9.5pt;color:#4a5568">{{representant_entreprise}}</p>
+    <div class="sig-line">Signature et cachet</div>
+  </div>
+  <div class="sig-block">
+    <p><strong>L'Employé(e)</strong></p>
+    <p style="font-size:9pt;color:#718096">Reçu la somme de <strong>{{net_a_payer}} FCFA</strong></p>
+    <div class="sig-line">Signature</div>
+  </div>
+</div>
+
+<div class="legal-ref">
+  Bulletin conforme — Code du Travail Bénin Loi n° 98-004 | CNSS 3,6% salarié / 15,4% patronal | ITS CGI art.119-125 | Exonération 60 000 FCFA | SMIG 52 000 FCFA | VPS art.191-195 CGI
+</div>
+</body></html>$cci_fp$, NULL)
+            `);
+            console.log('   ✓ Modèles CDI/CDD/Fiche de paie personnalisés CCI PARTNERS (company_id=12) vérifiés');
 
             return;
 
