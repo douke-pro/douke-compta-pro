@@ -10153,10 +10153,11 @@ window.deleteGEDDocument = async function(docId) {
 
 window.previewTemplate = async function(templateType) {
     try {
-        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}&type=${templateType}`);
-        const tpl = data.data?.[0];
+        // Charger tous les modèles disponibles (spécifiques + globaux) et filtrer côté JS
+        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}`);
+        const tpl = (data.data || []).find(t => t.template_type === templateType);
         if (!tpl?.template_html) return alert('Aucun modèle disponible pour ce type.');
-        ModalManager.open(`Aperçu — ${templateType}`, `<div class="prose max-w-none p-4">${tpl.template_html}</div>`);
+        ModalManager.open(`Aperçu — ${templateType}`, `<div style="height:70vh;overflow:auto;padding:16px">${tpl.template_html}</div>`);
     } catch(err) { alert('Erreur: ' + err.message); }
 };
 
@@ -10164,8 +10165,9 @@ window.editTemplate = async function(templateType) {
     const labels = { contrat_cdi: 'Contrat CDI', contrat_cdd: 'Contrat CDD', fiche_paie: 'Fiche de Paie' };
     let currentHtml = '';
     try {
-        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}&type=${templateType}`);
-        currentHtml = data.data?.[0]?.template_html || '';
+        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}`);
+        const found = (data.data || []).find(t => t.template_type === templateType);
+        currentHtml = found?.template_html || '';
     } catch(e) {}
 
     const html = `
