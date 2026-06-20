@@ -10111,64 +10111,143 @@ window.downloadPayslip = async function(payslipId) {
             .map(([k,v]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${k}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${Number(v).toLocaleString('fr-FR')} FCFA</td></tr>`)
             .join('') : '';
 
-        const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<style>
-@page{margin:15mm 20mm;size:A4}
-body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1a1a;margin:0;padding:20px}
-@media print{.no-print{display:none!important}}
-.header{text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:20px}
-.header h1{font-size:15pt;color:#1a3a5c;margin:0;text-transform:uppercase}
-.header h2{font-size:11pt;color:#555;margin:4px 0 0 0}
-.section{margin:14px 0}
-.section h3{font-size:11pt;color:#1a3a5c;border-bottom:1px solid #dde;padding-bottom:4px;margin-bottom:8px;text-transform:uppercase}
-table{width:100%;border-collapse:collapse}
-.info-table td{padding:5px 8px;font-size:11pt}
-.info-table td:first-child{font-weight:bold;width:40%}
-.total-row{background:#1a3a5c;color:white;font-weight:bold}
-.total-row td{padding:8px 12px}
-.signatures{display:flex;justify-content:space-between;margin-top:40px}
-.sig{text-align:center;width:40%}
-.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:6px;font-size:10pt}
-</style></head><body>
-<div class="no-print" style="padding:8px;background:#f0f4f8;border-bottom:2px solid #1a3a5c;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <span style="font-weight:bold;color:#1a3a5c;font-family:Arial,sans-serif">Bulletin de Paie — ${periode}</span>
-    <div style="display:flex;gap:8px">
-        <button onclick="window.print()" style="padding:7px 16px;background:#1a3a5c;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-family:Arial,sans-serif">🖨️ Imprimer / PDF</button>
-        <button onclick="window.close()" style="padding:7px 12px;background:#e2e8f0;color:#333;border:none;border-radius:6px;cursor:pointer;font-family:Arial,sans-serif">✕ Fermer</button>
-    </div>
-</div>
-<div class="header">
-    <h1>BULLETIN DE PAIE</h1>
-    <h2>Période : ${periode}</h2>
-</div>
-<div class="section">
-    <h3>Informations Employé</h3>
-    <table class="info-table">
-        <tr><td>Nom et Prénoms</td><td>${ps.full_name}</td></tr>
-        <tr><td>Code Employé</td><td>${ps.employee_code}</td></tr>
-        <tr><td>Poste</td><td>${ps.job_title || '—'}</td></tr>
-        <tr><td>N° CNSS</td><td>${ps.cnss_number || '—'}</td></tr>
-    </table>
-</div>
-<div class="section">
-    <h3>Rémunération</h3>
-    <table>
-        <thead><tr style="background:#f5f7fa"><th style="padding:8px 12px;text-align:left">Libellé</th><th style="padding:8px 12px;text-align:right">Montant</th></tr></thead>
-        <tbody>
-            <tr><td style="padding:6px 12px;border-bottom:1px solid #eee">Salaire Brut</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${Number(ps.gross_salary).toLocaleString('fr-FR')} FCFA</td></tr>
-            ${deductions}
-        </tbody>
-        <tfoot>
-            <tr class="total-row"><td>NET À PAYER</td><td style="text-align:right">${Number(ps.net_salary).toLocaleString('fr-FR')} FCFA</td></tr>
-        </tfoot>
-    </table>
-</div>
-<div class="signatures">
-    <div class="sig"><p style="font-weight:bold">L'Employeur</p><div class="sig-line">Signature et cachet</div></div>
-    <div class="sig"><p style="font-weight:bold">L'Employé(e)</p><p style="font-size:10pt">${ps.full_name}</p><div class="sig-line">Signature</div></div>
-</div>
-</body></html>`;
+        // Calculs
+        const salBase  = Number(ps.gross_salary) || 0;
+        const hs25     = Number(ps.deductions?.['HS 25%'] || 0);
+        const hs50     = Number(ps.deductions?.['HS 50%'] || 0);
+        const salBrut  = salBase + hs25 + hs50;
+        const netPayer = Number(ps.net_salary) || salBrut;
+        const fmt = v => Number(v).toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2});
+        const heuresBase = 191.25;
+        const txBase = salBase / heuresBase;
+        const companyName = appState.user?.companiesList?.find(c => c.id === appState.currentCompanyId)?.name || '';
 
+        const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<title>Bulletin de Paie</title>
+<style>
+@page{margin:10mm 15mm;size:A4}
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;font-size:9pt;color:#000;margin:0;padding:12px}
+@media print{.no-print{display:none!important}}
+h1{font-size:13pt;font-weight:bold;text-align:center;margin:0 0 2px 0;text-transform:uppercase;letter-spacing:1px}
+table{width:100%;border-collapse:collapse;font-size:8.5pt}
+td,th{padding:3px 5px;vertical-align:middle}
+.bloc-top{display:flex;gap:0;margin-bottom:6px}
+.bloc-employeur{width:45%;border:1px solid #999;padding:6px;font-size:8.5pt}
+.bloc-salarie{width:55%;border:1px solid #999;border-left:none;padding:6px;font-size:8.5pt}
+.lbl{font-weight:bold;display:inline-block;width:115px;font-size:8pt}
+.stitle{background:#1a3a5c;color:#fff;font-weight:bold;text-align:center;padding:3px 6px;font-size:8.5pt;margin:5px 0 0 0}
+.sal th{background:#dce6f0;font-weight:bold;text-align:center;border:1px solid #aaa;padding:3px 4px;font-size:8pt}
+.sal td{border:1px solid #ccc;text-align:center;font-size:8pt}
+.sal td:first-child{text-align:left;padding-left:6px}
+.cot th{background:#dce6f0;font-weight:bold;text-align:center;border:1px solid #aaa;padding:2px 4px;font-size:7.5pt}
+.cot td{border:1px solid #ccc;text-align:right;font-size:7.5pt;padding:2px 4px}
+.cot td:first-child{text-align:left;padding-left:6px;font-size:7.5pt}
+.sec td{background:#eef2f7;font-weight:bold;font-size:7.5pt}
+.tot td{background:#1a3a5c;color:#fff;font-weight:bold;border:1px solid #1a3a5c;text-align:right}
+.net-box{display:flex;justify-content:flex-end;gap:30px;margin-top:6px;border-top:2px solid #1a3a5c;padding-top:5px}
+.net-lbl{font-size:8pt;color:#444}
+.net-val{font-size:11pt;font-weight:bold;color:#1a3a5c}
+.paie{font-size:8pt;margin-top:8px;border-top:1px solid #ccc;padding-top:5px}
+.sigs{display:flex;justify-content:space-between;margin-top:18px}
+.sig{text-align:center;width:42%}
+.sigline{border-top:1px solid #333;margin-top:38px;padding-top:4px;font-size:8pt}
+.conserve{font-size:7.5pt;font-weight:bold;text-align:center;margin-top:10px;border-top:1px solid #999;padding-top:4px}
+</style></head><body>
+<div class="no-print" style="padding:6px;background:#f0f4f8;border-bottom:2px solid #1a3a5c;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+  <span style="font-weight:bold;color:#1a3a5c">Bulletin de Paie — ${ps.full_name} — ${periode}</span>
+  <div style="display:flex;gap:8px">
+    <button onclick="window.print()" style="padding:6px 14px;background:#1a3a5c;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:bold">🖨️ Imprimer</button>
+    <button onclick="window.close()" style="padding:6px 10px;background:#e2e8f0;color:#333;border:none;border-radius:5px;cursor:pointer">✕ Fermer</button>
+  </div>
+</div>
+
+<h1>BULLETIN DE PAIE</h1>
+<div style="text-align:center;font-size:8pt;margin-bottom:6px">Fich N° &nbsp; ${ps.employee_code || ''}/CCIp</div>
+
+<div class="bloc-top">
+  <div class="bloc-employeur">
+    <div><span class="lbl">Employeur :</span> <b>${companyName}</b></div>
+    <div style="margin-top:3px"><span class="lbl">Adresse :</span> Cotonou, Fidjrossè-Kpota</div>
+    <div style="margin-top:3px"><span class="lbl">Numéro de Tel :</span> 00229 57 48 48 40</div>
+    <div style="margin-top:3px"><span class="lbl">Numéro IFU :</span> ${ps.ifu_number || '—'}</div>
+    <div style="margin-top:3px"><span class="lbl">Numéro Employeur :</span> ${ps.cnss_number || ''}</div>
+  </div>
+  <div class="bloc-salarie">
+    <div style="font-weight:bold;margin-bottom:3px">SALARIÉ :</div>
+    <div><span class="lbl">Nom et Prénom :</span> ${ps.full_name}</div>
+    <div style="margin-top:2px"><span class="lbl">Adresse :</span> ${ps.address || '—'}</div>
+    <div style="margin-top:2px"><span class="lbl">Numéro employé :</span> ${ps.employee_code || ''}</div>
+    <div style="margin-top:2px"><span class="lbl">Nature du contrat :</span> ${ps.contract_type || 'CDD'}</div>
+    <div style="margin-top:2px"><span class="lbl">Emploi :</span> ${ps.job_title || '—'}</div>
+    <div style="margin-top:2px"><span class="lbl">Période :</span> ${periode}</div>
+  </div>
+</div>
+
+<div class="stitle">RÉMUNÉRATION</div>
+<table class="sal">
+  <thead><tr>
+    <th style="width:32%;text-align:left;padding-left:6px">Libellé</th>
+    <th>Heures</th><th>Taux Horaire</th><th>Montant brut</th><th></th><th>À payer</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>Salaire de base</td><td>${heuresBase.toFixed(2)}</td><td>${fmt(txBase)}</td><td>${fmt(salBase)}</td><td></td><td>${fmt(salBase)}</td></tr>
+    <tr><td>HS à 25%</td><td>0,0</td><td>${fmt(txBase*1.25)}</td><td>0</td><td></td><td>0</td></tr>
+    <tr><td>HS à 50%</td><td>0,0</td><td>${fmt(txBase*1.50)}</td><td>0</td><td></td><td>0</td></tr>
+    <tr style="font-weight:bold;background:#f5f7fa">
+      <td colspan="3" style="text-align:right;padding-right:8px">SALAIRE BRUT</td>
+      <td>${fmt(salBrut)}</td><td></td><td>0</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="stitle">COTISATIONS</div>
+<table class="cot">
+  <thead>
+    <tr>
+      <th rowspan="2" style="width:30%;text-align:left;padding-left:6px">Libellé</th>
+      <th colspan="3">Part Patronale</th>
+      <th colspan="3">Part Salariale</th>
+    </tr>
+    <tr><th>Base</th><th>Taux</th><th>Montant</th><th>Base</th><th>Taux</th><th>Montant</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>CSG non déductible</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td></tr>
+    <tr><td>CRDS non déductible</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td><td></td><td></td><td></td></tr>
+    <tr><td>CSG déductible</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td><td></td><td></td><td></td></tr>
+    <tr class="sec"><td colspan="7">Sécurité sociale</td></tr>
+    <tr><td>&nbsp;&nbsp;Assurance maladie</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td><td></td><td></td><td>0</td></tr>
+    <tr><td>&nbsp;&nbsp;Cotisation familiale</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td></tr>
+    <tr><td>&nbsp;&nbsp;Risque professionnel</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td><td></td><td></td><td>0</td></tr>
+    <tr class="sec"><td colspan="7">Assurance vieillesse</td></tr>
+    <tr><td>&nbsp;&nbsp;Part Patronale</td><td>${fmt(salBrut)}</td><td>0,0</td><td></td><td>0,0</td><td>0,0</td><td>0</td></tr>
+    <tr><td>&nbsp;&nbsp;Part ouvrière</td><td>0,0</td><td>0,0</td><td>0</td><td>${fmt(salBrut)}</td><td>0,0</td><td>0</td></tr>
+    <tr class="sec"><td colspan="7">Aide au logement</td></tr>
+    <tr><td>&nbsp;&nbsp;AL déplafonnée</td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+    <tr><td>&nbsp;&nbsp;AL plafonnée</td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+    <tr class="sec"><td colspan="7">ASSEDIC</td></tr>
+    <tr class="sec"><td colspan="7">Caisse de retraite (non cadre)</td></tr>
+    <tr><td>&nbsp;&nbsp;Retraite complémentaire et AGFF tranche 1</td><td></td><td>0,038</td><td>0</td><td></td><td>0,057</td><td>0</td></tr>
+    <tr><td>&nbsp;&nbsp;Retraite complémentaire et AGFF tranche 2</td><td></td><td>0,069</td><td>0</td><td></td><td>0,103</td><td>0</td></tr>
+    <tr class="tot"><td>TOTAL des cotisations</td><td></td><td></td><td>0</td><td></td><td></td><td>0</td></tr>
+  </tbody>
+</table>
+
+<div class="net-box">
+  <div><div class="net-lbl">Net à payer</div><div class="net-val">${fmt(netPayer)} FCFA</div></div>
+  <div><div class="net-lbl">Salaire net imposable</div><div class="net-val">${fmt(netPayer)} FCFA</div></div>
+</div>
+
+<div class="paie">
+  Payé par virement / chèque bancaire N° ………………………………………… &nbsp;&nbsp; le : ……………………………………………………………
+</div>
+
+<div class="sigs">
+  <div class="sig"><p style="font-weight:bold;margin:0">L'Employeur :</p><div class="sigline">Signature et cachet</div></div>
+  <div class="sig"><p style="font-weight:bold;margin:0">L'Employé(e) :</p><div class="sigline">${ps.full_name}</div></div>
+</div>
+<div class="conserve">A CONSERVER SANS LIMITATION DE DURÉE</div>
+</body></html>`;
         const win = window.open('', '_blank', 'width=850,height=700');
         win.document.write(html);
         win.document.close();
