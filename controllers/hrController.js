@@ -94,7 +94,7 @@ exports.createEmployee = async (req, res) => {
              parseFloat(base_salary) || 0, status || 'actif',
              email || null, phone || null, address || null,
              id_number || null, id_type || null, cnss_number || null,
-             notes || null, req.user.odooUid]
+             notes || null, parseInt(req.user.odooUid) || null]
         );
 
         console.log(`✅ [createEmployee] ${full_name} (${employee_code}) — Company ${companyId}`);
@@ -273,7 +273,7 @@ exports.createPayslip = async (req, res) => {
              deductions ? JSON.stringify(deductions) : null,
              parseFloat(net_salary) || 0,
              pdf_base64 || null,
-             req.user.odooUid]
+             parseInt(req.user.odooUid) || null]
         );
 
         res.status(201).json({ status: 'success', data: result.rows[0] });
@@ -370,7 +370,7 @@ exports.saveTemplate = async (req, res) => {
                            template_name = EXCLUDED.template_name,
                            updated_at    = NOW()
              RETURNING id, template_type, template_name, created_at`,
-            [companyId, template_type, template_name || template_type, template_html, req.user.odooUid]
+            [companyId, template_type, template_name || template_type, template_html, parseInt(req.user.odooUid) || null]
         );
 
         res.status(201).json({ status: 'success', data: result.rows[0] });
