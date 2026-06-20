@@ -40,7 +40,7 @@ exports.listDocuments = async (req, res) => {
 // =============================================================================
 exports.uploadDocument = async (req, res) => {
     try {
-        const companyId = parseInt(req.body.companyId || req.validatedCompanyId);
+        const companyId = parseInt(req.validatedCompanyId || req.body?.companyId);
         const { employee_id, doc_type, doc_name, file_base64, file_mime } = req.body;
 
         if (!companyId || !doc_type || !doc_name || !file_base64)

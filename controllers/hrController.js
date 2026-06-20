@@ -70,7 +70,7 @@ exports.getEmployee = async (req, res) => {
 // =============================================================================
 exports.createEmployee = async (req, res) => {
     try {
-        const companyId = parseInt(req.body.companyId || req.validatedCompanyId);
+        const companyId = parseInt(req.validatedCompanyId || req.body?.companyId);
         const {
             full_name, job_title, hire_date, contract_type,
             base_salary, status, email, phone, address,
@@ -111,7 +111,7 @@ exports.createEmployee = async (req, res) => {
 // =============================================================================
 exports.updateEmployee = async (req, res) => {
     try {
-        const companyId  = parseInt(req.body.companyId || req.validatedCompanyId);
+        const companyId  = parseInt(req.validatedCompanyId || req.body?.companyId);
         const employeeId = parseInt(req.params.id);
         const {
             full_name, job_title, hire_date, contract_type,
@@ -245,7 +245,7 @@ exports.getPayslip = async (req, res) => {
 // =============================================================================
 exports.createPayslip = async (req, res) => {
     try {
-        const companyId = parseInt(req.body.companyId || req.validatedCompanyId);
+        const companyId = parseInt(req.validatedCompanyId || req.body?.companyId);
         const {
             employee_id, period_month, period_year,
             gross_salary, deductions, net_salary, pdf_base64
@@ -356,7 +356,7 @@ exports.listTemplates = async (req, res) => {
 // =============================================================================
 exports.saveTemplate = async (req, res) => {
     try {
-        const companyId = parseInt(req.body.companyId || req.validatedCompanyId);
+        const companyId = parseInt(req.validatedCompanyId || req.body?.companyId);
         const { template_type, template_name, template_html } = req.body;
 
         if (!companyId || !template_type || !template_html)
