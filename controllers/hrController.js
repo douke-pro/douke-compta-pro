@@ -331,16 +331,16 @@ exports.listTemplates = async (req, res) => {
         const companyId = parseInt(req.query.companyId || req.validatedCompanyId);
         const type      = req.query.type || null;
 
-        // Option A : modèle spécifique entreprise en priorité, sinon modèle global (company_id IS NULL)
+        // Option A : modèle spécifique entreprise en priorité, sinon modèle global (company_id = 0)
         let query = `
             SELECT DISTINCT ON (template_type)
                 id, template_type, template_name, created_at, company_id
             FROM document_templates
-            WHERE (company_id = $1 OR company_id IS NULL)
+            WHERE company_id = $1 OR company_id = 0
         `;
         const params = [companyId];
         if (type) { query += ` AND template_type = $2`; params.push(type); }
-        query += ` ORDER BY template_type, company_id NULLS LAST`;
+        query += ` ORDER BY template_type, company_id DESC`;
 
         const result = await pool.queryWithRetry(query, params);
         res.json({ status: 'success', data: result.rows });

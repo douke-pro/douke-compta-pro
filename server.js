@@ -202,7 +202,7 @@ const initDB = async (retries = 5, delay = 3000) => {
             await pool.query(`
                 INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
                 VALUES
-                (NULL, 'contrat_cdi', 'Contrat CDI — Modèle par défaut (Bénin/OHADA)', $tmpl_cdi$
+                (0, 'contrat_cdi', 'Contrat CDI — Modèle par défaut (Bénin/OHADA)', $tmpl_cdi$
 <!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <style>
 body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:20px}
@@ -257,7 +257,7 @@ body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:
 <div class="legal-ref">Loi n° 98-004 du 27/01/1998 — Code du Travail Bénin | SMIG : 52 000 FCFA | CNSS : 3,6% salarié / 15,4% patronal | OHADA</div>
 </body></html>
 $tmpl_cdi$, NULL),
-                (NULL, 'contrat_cdd', 'Contrat CDD — Modèle par défaut (Bénin/OHADA)', $tmpl_cdd$
+                (0, 'contrat_cdd', 'Contrat CDD — Modèle par défaut (Bénin/OHADA)', $tmpl_cdd$
 <!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <style>
 body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:20px}
@@ -313,7 +313,7 @@ body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:
 <div class="legal-ref">Loi n° 98-004 — Art. 33-42 CDD | SMIG 52 000 FCFA | CNSS 3,6%/15,4% | ITS CGI art.119-125 | OHADA</div>
 </body></html>
 $tmpl_cdd$, NULL),
-                (NULL, 'fiche_paie', 'Bulletin de Paie — Modèle par défaut (Bénin 2026)', $tmpl_fp$
+                (0, 'fiche_paie', 'Bulletin de Paie — Modèle par défaut (Bénin 2026)', $tmpl_fp$
 <!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <style>
 body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1a1a;margin:0;padding:16px}
