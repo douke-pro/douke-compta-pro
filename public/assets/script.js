@@ -9875,9 +9875,9 @@ window.saveHREmployee = async function(employeeId) {
     if (!body.full_name) return alert('Le nom complet est obligatoire.');
     try {
         if (employeeId) {
-            await apiFetch(`hr/employees/${employeeId}`, 'PUT', body);
+            await apiFetch(`hr/employees/${employeeId}`, { method: 'PUT', body: JSON.stringify(body) });
         } else {
-            await apiFetch('hr/employees', 'POST', body);
+            await apiFetch('hr/employees', { method: 'POST', body: JSON.stringify(body) });
         }
         ModalManager.close();
         window.loadHREmployees();
@@ -9888,7 +9888,7 @@ window.saveHREmployee = async function(employeeId) {
 window.deleteHREmployee = async function(employeeId) {
     if (!confirm('Archiver cet employé ?')) return;
     try {
-        await apiFetch(`hr/employees/${employeeId}?companyId=${appState.currentCompanyId}`, 'DELETE');
+        await apiFetch(`hr/employees/${employeeId}?companyId=${appState.currentCompanyId}`, { method: 'DELETE' });
         window.loadHREmployees();
         window.initHRModule();
     } catch(err) { alert('Erreur: ' + err.message); }
@@ -10102,13 +10102,13 @@ window.uploadGEDDocument = async function() {
     reader.onload = async function(e) {
         const base64 = e.target.result.split(',')[1];
         try {
-            await apiFetch('hr/documents/upload', 'POST', {
+            await apiFetch('hr/documents/upload', { method: 'POST', body: JSON.stringify({
                 companyId:   appState.currentCompanyId,
                 doc_type:    docType,
                 doc_name:    docName,
                 file_base64: base64,
                 file_mime:   file.type || 'application/pdf'
-            });
+            })})
             document.getElementById('ged-doc-name').value = '';
             fileInput.value = '';
             await window.loadGEDDocuments();
@@ -10147,7 +10147,7 @@ window.previewGEDDocument = async function(docId) {
 window.deleteGEDDocument = async function(docId) {
     if (!confirm('Supprimer ce document définitivement ?')) return;
     try {
-        await apiFetch(`hr/documents/${docId}?companyId=${appState.currentCompanyId}`, 'DELETE');
+        await apiFetch(`hr/documents/${docId}?companyId=${appState.currentCompanyId}`, { method: 'DELETE' });
         await window.loadGEDDocuments();
     } catch(err) { alert('Erreur: ' + err.message); }
 };
@@ -10239,12 +10239,12 @@ window.saveTemplate = async function(templateType) {
     if (!html) return alert('Le modèle ne peut pas être vide.');
     try {
         const companyId = appState.currentCompanyId || appState.user?.company_id || 0;
-        await apiFetch('hr/templates', 'POST', {
+        await apiFetch('hr/templates', { method: 'POST', body: JSON.stringify({
             companyId:     companyId,
             template_type: templateType,
             template_name: templateType,
             template_html: html
-        });
+        })});
         ModalManager.close();
         window.loadHRTemplates();
     } catch(err) { alert('Erreur: ' + err.message); }
