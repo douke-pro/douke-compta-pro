@@ -9736,7 +9736,8 @@ window.loadHRTemplates = async function() {
     const container = document.getElementById('hr-tab-content');
     container.innerHTML = `<div class="text-center p-8"><div class="loading-spinner mx-auto"></div></div>`;
     try {
-        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}`);
+        const companyId = appState.currentCompanyId || appState.user?.company_id || 0;
+        const data = await apiFetch(`hr/templates?companyId=${companyId}`);
         const templates = data.data || [];
         const types = ['contrat_cdi','contrat_cdd','fiche_paie'];
         const labels = { contrat_cdi: 'Contrat CDI', contrat_cdd: 'Contrat CDD', fiche_paie: 'Fiche de Paie' };
@@ -10154,7 +10155,8 @@ window.deleteGEDDocument = async function(docId) {
 window.previewTemplate = async function(templateType) {
     try {
         // Charger tous les modèles disponibles (spécifiques + globaux) et filtrer côté JS
-        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}`);
+        const companyId = appState.currentCompanyId || appState.user?.company_id || 0;
+        const data = await apiFetch(`hr/templates?companyId=${companyId}`);
         const tpl = (data.data || []).find(t => t.template_type === templateType);
         if (!tpl?.template_html) return alert('Aucun modèle disponible pour ce type.');
         ModalManager.open(`Aperçu — ${templateType}`, `<div style="height:70vh;overflow:auto;padding:16px">${tpl.template_html}</div>`);
@@ -10165,7 +10167,8 @@ window.editTemplate = async function(templateType) {
     const labels = { contrat_cdi: 'Contrat CDI', contrat_cdd: 'Contrat CDD', fiche_paie: 'Fiche de Paie' };
     let currentHtml = '';
     try {
-        const data = await apiFetch(`hr/templates?companyId=${appState.currentCompanyId}`);
+        const companyId = appState.currentCompanyId || appState.user?.company_id || 0;
+        const data = await apiFetch(`hr/templates?companyId=${companyId}`);
         const found = (data.data || []).find(t => t.template_type === templateType);
         currentHtml = found?.template_html || '';
     } catch(e) {}
@@ -10201,8 +10204,9 @@ window.saveTemplate = async function(templateType) {
     const html = document.getElementById('tpl-html-editor')?.value?.trim();
     if (!html) return alert('Le modèle ne peut pas être vide.');
     try {
+        const companyId = appState.currentCompanyId || appState.user?.company_id || 0;
         await apiFetch('hr/templates', 'POST', {
-            companyId:     appState.currentCompanyId,
+            companyId:     companyId,
             template_type: templateType,
             template_name: templateType,
             template_html: html
