@@ -1452,6 +1452,24 @@ console.log('✅ [OCR] Fonctions chargées avec succès');
 /**
  * Récupère les journaux ET les écritures avec filtres
  */
+async function fetchJournalData(endpoint) {
+    const companyId = appState.currentCompanyId;
+    const companyFilter = `?companyId=${companyId}`;
+    
+    try {
+        const journalsResponse = await apiFetch(`accounting/journals${companyFilter}`, { method: 'GET' });
+        const journals = journalsResponse.data || [];
+        
+        const entriesResponse = await apiFetch(`accounting/journal${companyFilter}`, { method: 'GET' });
+        const entries = entriesResponse.data?.entries || entriesResponse.data || [];
+        
+        return generateJournalWithFiltersHTML(entries, journals);
+        
+    } catch (e) {
+        console.error("Erreur fetchJournalData:", e);
+        return '<p class="text-center text-danger mt-4">Erreur de chargement des données.</p>';
+    }
+}
 
 /**
  * Génère le HTML avec filtres étendus :
@@ -1774,10 +1792,18 @@ window.handleJournalQuickPeriod = function(period) {
 /**
  * Filtre par journal — conservé pour compatibilité
  */
+window.handleJournalFilter = async function(journalId) {
+    const select = document.getElementById('journal-filter');
+    if (select) select.value = journalId;
+    window.handleJournalApplyFilters();
+};
 
 /**
  * Filtre par période (ancien select) — conservé pour compatibilité
  */
+window.handlePeriodFilter = async function(period) {
+    window.handleJournalQuickPeriod(period);
+};
 
 /**
  * Génère le HTML de la liste des journaux (vue Journaux)
@@ -1810,6 +1836,18 @@ function generateJournalsListHTML(journals) {
 /**
  * Clic sur un journal — bascule vers la vue Écritures filtrée
  */
+window.handleJournalClick = function(journalId, journalName) {
+    const viewSelect = document.getElementById('view-type-filter');
+    const journalSelect = document.getElementById('journal-filter');
+
+    if (viewSelect)    viewSelect.value    = 'entries';
+    if (journalSelect) journalSelect.value = journalId;
+
+    window.handleViewTypeChange('entries').then(() => {
+        window.handleJournalApplyFilters();
+        NotificationManager.show(`Affichage des écritures du journal: ${journalName}`, 'info');
+    });
+};
 
 // =================================================================
 // DRILL-DOWN DÉTAILS D'ÉCRITURE (VERSION COMPLÈTE)
@@ -7348,6 +7386,54 @@ window.handleJournalFilter = async function(journalId) {
 /**
  * 🔧 AMÉLIORATION: Filtre les écritures par période
  */
+window.handlePeriodFilter = async function(period) {
+    const companyId = appState.currentCompanyId;
+    let endpoint = `accounting/journal?companyId=${companyId}`;
+    
+    const today = new Date();
+    let dateFrom = null;
+    let dateTo = today.toISOString().split('T')[0];
+    
+    switch(period) {
+        case 'today':
+            dateFrom = dateTo;
+            break;
+        case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(today.getDate() - 7);
+            dateFrom = weekAgo.toISOString().split('T')[0];
+            break;
+        case 'month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(today.getMonth() - 1);
+            dateFrom = monthAgo.toISOString().split('T')[0];
+            break;
+        case 'year':
+            dateFrom = `${today.getFullYear()}-01-01`;
+            break;
+        default:
+            dateFrom = null;
+            dateTo = null;
+    }
+    
+    if (dateFrom) {
+        endpoint += `&date_from=${dateFrom}&date_to=${dateTo}`;
+    }
+    
+    try {
+        const response = await apiFetch(endpoint, { method: 'GET' });
+        const entries = response.data?.entries || response.data || [];
+        
+        const tableContainer = document.getElementById('journal-table-container');
+        if (tableContainer) {
+            tableContainer.innerHTML = generateJournalHTML(entries);
+        }
+        
+        NotificationManager.show(`${entries.length} écriture(s) trouvée(s)`, 'info');
+    } catch (error) {
+        NotificationManager.show('Erreur lors du filtrage par période.', 'error');
+    }
+};
 
 /**
  * 🔧 AMÉLIORATION: Gère le clic sur un journal
