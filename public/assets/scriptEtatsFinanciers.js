@@ -91,7 +91,7 @@
                 </button>
             </div>
         `;
-        window.ModalManager.open('📊 États Financiers SYSCOHADA', html);
+        ModalManager.open('📊 États Financiers SYSCOHADA', html);
     };
 
     // Brancher aussi les deux autres cartes sur la même modal
@@ -113,16 +113,16 @@
         const companyId = getCompanyId();
 
         if (!dateFrom || !dateTo) {
-            window.NotificationManager?.show('Veuillez sélectionner une période.', 'warning');
+            NotificationManager?.show('Veuillez sélectionner une période.', 'warning');
             return;
         }
         if (dateFrom > dateTo) {
-            window.NotificationManager?.show('La date de début doit être antérieure à la date de fin.', 'warning');
+            NotificationManager?.show('La date de début doit être antérieure à la date de fin.', 'warning');
             return;
         }
 
-        window.ModalManager.close();
-        window.NotificationManager?.show('Génération des états financiers...', 'info', 8000);
+        ModalManager.close();
+        NotificationManager?.show('Génération des états financiers...', 'info', 8000);
 
         try {
             const params = `companyId=${companyId}&date_from=${dateFrom}&date_to=${dateTo}`;
@@ -145,12 +145,12 @@
                 html  = renderTFT(data.tft, data.meta);
             }
 
-            window.ModalManager.open(title, html);
-            window.NotificationManager?.show('États financiers générés avec succès.', 'success');
+            ModalManager.open(title, html);
+            NotificationManager?.show('États financiers générés avec succès.', 'success');
 
         } catch (err) {
             console.error('❌ [loadEtatsFinanciers]', err);
-            window.NotificationManager?.show(`Erreur : ${err.message}`, 'error');
+            NotificationManager?.show(`Erreur : ${err.message}`, 'error');
         }
     };
 
