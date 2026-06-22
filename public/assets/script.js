@@ -6245,38 +6245,6 @@ window.cancelFinancialReportRequest = async function(requestId) {
 /**
  * Télécharger tous les rapports d'une demande
  */
-window.downloadAllReports = async function(requestId) {
-    NotificationManager.show('📥 Préparation du téléchargement...', 'info', 3000);
-    
-    try {
-        const response = await apiFetch(`reports/${requestId}`, { method: 'GET' });
-        
-        if (response.success && response.data.pdf_files) {
-            const files = response.data.pdf_files;
-            
-            // Télécharger chaque fichier
-            for (const [type, url] of Object.entries(files)) {
-                if (url) {
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `${type}_${requestId}.pdf`;
-                    link.click();
-                    
-                    // Délai entre chaque téléchargement
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                }
-            }
-            
-            NotificationManager.show('✅ Téléchargement terminé', 'success', 5000);
-        } else {
-            throw new Error('Aucun fichier disponible');
-        }
-        
-    } catch (error) {
-        console.error('Erreur téléchargement:', error);
-        NotificationManager.show(`❌ Erreur : ${error.message}`, 'error', 5000);
-    }
-};
 
 // ========================================================================
 // VUE DÉTAILLÉE D'UNE DEMANDE (ÉTAPE 8)
