@@ -2715,7 +2715,7 @@ function generateClassicReportCard(title, icon, reportId, description, isImpleme
         ? `onclick="window.handleOpenBalanceSheet()"` 
         : `onclick="window.handleOpenReportModal('${reportId}', '${title}')"`;
     
-    const isSensitiveReport = ['balance-sheet', 'pnl'].includes(reportId);
+    const isSensitiveReport = ['balance-sheet', 'pnl', 'etats-financiers'].includes(reportId);
     
     return `
         <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all">
@@ -2886,25 +2886,13 @@ function generateReportsMenuHTML() {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 max-w-2xl mx-auto gap-6">
                     ${generateClassicReportCard(
-                        'Bilan Interactif', 
-                        'fas fa-balance-scale', 
-                        'balance-sheet', 
-                        'Visualisation interactive du bilan.', 
+                        'États Financiers', 
+                        'fas fa-chart-pie', 
+                        'etats-financiers', 
+                        'Bilan, Compte de Résultat et Tableau des Flux de Trésorerie — avec comparatif N/N-1.', 
                         true
-                    )}
-                    ${generateClassicReportCard(
-                        'Compte de Résultat', 
-                        'fas fa-money-bill-transfer', 
-                        'pnl', 
-                        'Performance financière en temps réel.'
-                    )}
-                    ${generateClassicReportCard(
-                        'Tableau des Flux', 
-                        'fas fa-arrows-split-up-and-down', 
-                        'cash-flow', 
-                        'Analyse des mouvements de trésorerie.'
                     )}
                 </div>
             </div>
