@@ -21,6 +21,7 @@ const path               = require('path');
 const fs                 = require('fs').promises;
 // ✅ AJOUT — service notifications internes
 const notificationService = require('../services/notifications');
+const syscohadaMapper     = require('../services/syscohadaMapper');
 
 // ============================================
 // HELPER : récupérer l'email de l'admin pour les notifications
@@ -369,8 +370,62 @@ exports.generateReports = async (req, res) => {
                 const odooData = await odooReportsService.extractFinancialData(
                     request.company_id, request.period_start, request.period_end, request.accounting_system
                 );
+
+                // Adaptateur enrichedLines → format attendu par syscohadaMapper
+                function toBalanceAccounts(lines) {
+                    const map = {};
+                    for (const line of (lines || [])) {
+                        const code = line.account_code;
+                        if (!code || code === 'UNKNOWN') continue;
+                        if (!map[code]) map[code] = { code, opening_debit: 0, opening_credit: 0, debit: 0, credit: 0 };
+                        map[code].debit  += line.debit  || 0;
+                        map[code].credit += line.credit || 0;
+                    }
+                    return Object.values(map);
+                }
+
+                const balanceAccounts  = toBalanceAccounts(odooData.raw_data.move_lines      || []);
+                const prevYearAccounts = toBalanceAccounts(odooData.raw_data.prev_year_lines || []);
+
+                // Calculs SYSCOHADA normalisés
+                const lignesResultat = syscohadaMapper.computeResultat(balanceAccounts, prevYearAccounts);
+                const resultatNet    = lignesResultat.find(l => l.ref === 'XI')?.montant_n || 0;
+
+                const actif  = syscohadaMapper.computeActif(balanceAccounts, prevYearAccounts);
+                const passif = syscohadaMapper.computePassif(balanceAccounts, prevYearAccounts, resultatNet);
+
+                const totalActif  = actif.find(l  => l.ref === 'BZ')?.net || 0;
+                const totalPassif = passif.find(l => l.ref === 'DZ')?.net || 0;
+
+                const bilanN = { actif, passif, resultat: lignesResultat };
+                const tft    = syscohadaMapper.computeTFT(balanceAccounts, bilanN, {});
+                const tresFin = tft.find(l => l.ref === 'ZH')?.montant_n || 0;
+
+                const reportData = {
+                    company: odooData.company,
+                    period:  odooData.period,
+                    bilan: {
+                        actif,
+                        passif,
+                        totaux: {
+                            total_actif:  totalActif,
+                            total_passif: totalPassif,
+                            equilibre:    Math.abs(totalActif - totalPassif) < 1
+                        }
+                    },
+                    compte_resultat: {
+                        lignes:       lignesResultat,
+                        resultat_net: resultatNet
+                    },
+                    tft: {
+                        lignes:            tft,
+                        tresorerie_finale: tresFin
+                    },
+                    annexes: odooData.annexes || null
+                };
+
                 const pdfFiles = await pdfGeneratorService.generateAllReports(
-                    odooData, request.accounting_system, requestId
+                    reportData, request.accounting_system, requestId
                 );
 
                 await pool.query(
@@ -597,11 +652,51 @@ exports.regenerateReportsWithEdits = async (req, res) => {
             message: 'Modifications sauvegardées. Régénération en cours...',
             data: { request_id: req.params.id, status: 'processing' }
         });
-
         setImmediate(async () => {
             try {
+                // Reconstruction reportData depuis raw_data stocké en DB
+                const rawLines  = odooData.raw_data?.move_lines      || [];
+                const prevLines = odooData.raw_data?.prev_year_lines  || [];
+
+                function toBalanceAccounts(lines) {
+                    const map = {};
+                    for (const line of (lines || [])) {
+                        const code = line.account_code;
+                        if (!code || code === 'UNKNOWN') continue;
+                        if (!map[code]) map[code] = { code, opening_debit: 0, opening_credit: 0, debit: 0, credit: 0 };
+                        map[code].debit  += line.debit  || 0;
+                        map[code].credit += line.credit || 0;
+                    }
+                    return Object.values(map);
+                }
+
+                const balanceAccounts  = toBalanceAccounts(rawLines);
+                const prevYearAccounts = toBalanceAccounts(prevLines);
+
+                const lignesResultat = syscohadaMapper.computeResultat(balanceAccounts, prevYearAccounts);
+                const resultatNet    = lignesResultat.find(l => l.ref === 'XI')?.montant_n || 0;
+                const actif          = syscohadaMapper.computeActif(balanceAccounts, prevYearAccounts);
+                const passif         = syscohadaMapper.computePassif(balanceAccounts, prevYearAccounts, resultatNet);
+                const totalActif     = actif.find(l  => l.ref === 'BZ')?.net || 0;
+                const totalPassif    = passif.find(l => l.ref === 'DZ')?.net || 0;
+                const bilanN         = { actif, passif, resultat: lignesResultat };
+                const tft            = syscohadaMapper.computeTFT(balanceAccounts, bilanN, {});
+                const tresFin        = tft.find(l => l.ref === 'ZH')?.montant_n || 0;
+
+                const reportData = {
+                    company: odooData.company,
+                    period:  odooData.period,
+                    bilan: {
+                        actif, passif,
+                        totaux: { total_actif: totalActif, total_passif: totalPassif, equilibre: Math.abs(totalActif - totalPassif) < 1 }
+                    },
+                    compte_resultat: { lignes: lignesResultat, resultat_net: resultatNet },
+                    tft:             { lignes: tft, tresorerie_finale: tresFin },
+                    annexes:         odooData.annexes || null
+                };
+
                 const pdfFiles = await pdfGeneratorService.generateAllReports(
-                    odooData, request.accounting_system, req.params.id
+                    reportData, request.accounting_system, req.params.id
                 );
                 await pool.query(
                     `UPDATE financial_reports_requests SET status = 'generated', pdf_files = $1, processed_by = $2, processed_at = NOW(), updated_at = NOW() WHERE id = $3`,

@@ -230,7 +230,7 @@ function groupLinesByCategory(lines, categories) {
 
 class OdooReportsService {
 
-    /**
+    /**const companyInfo 
      * Extraire toutes les données financières depuis Odoo
      */
     async extractFinancialData(companyId, periodStart, periodEnd, accountingSystem) {
@@ -242,25 +242,38 @@ class OdooReportsService {
             console.log(`[OdooReportsService] Extraction pour company ${companyId}`);
             console.log(`[OdooReportsService] Période: ${periodStartClean} → ${periodEndClean} | Système: ${accountingSystem}`);
 
-            const companyInfo        = await this.getCompanyInfo(companyId);
-            const accountMoves       = await this.getAccountMoves(companyId, periodStartClean, periodEndClean);
-            const accountMoveLines   = await this.getAccountMoveLines(accountMoves);
-            const chartOfAccounts    = await this.getChartOfAccounts(companyId);
-            const enrichedLines      = this.enrichMoveLinesWithAccounts(accountMoveLines, chartOfAccounts);
-            const bilanData          = this.calculateBilan(enrichedLines, accountingSystem);
-            const compteResultatData = this.calculateCompteResultat(enrichedLines, accountingSystem);
-            const tftData            = this.calculateTableauFluxTresorerie(enrichedLines);
-            const annexesData        = this.prepareAnnexesData(enrichedLines, companyInfo, accountingSystem, periodStartClean, periodEndClean);
+
+            const companyInfo     = await this.getCompanyInfo(companyId);
+            const chartOfAccounts = await this.getChartOfAccounts(companyId);
+
+            // Période N
+            const accountMoves     = await this.getAccountMoves(companyId, periodStartClean, periodEndClean);
+            const accountMoveLines = await this.getAccountMoveLines(accountMoves);
+            const enrichedLines    = this.enrichMoveLinesWithAccounts(accountMoveLines, chartOfAccounts);
+
+            // Période N-1 (même mois/jour, année -1)
+            const prevYearStart     = periodStartClean.replace(/^(\d{4})/, y => String(parseInt(y) - 1));
+            const prevYearEnd       = periodEndClean.replace(/^(\d{4})/, y   => String(parseInt(y) - 1));
+            console.log(`[OdooReportsService] Période N-1: ${prevYearStart} → ${prevYearEnd}`);
+            const prevMoves         = await this.getAccountMoves(companyId, prevYearStart, prevYearEnd);
+            const prevMoveLines     = await this.getAccountMoveLines(prevMoves);
+            const prevEnrichedLines = this.enrichMoveLinesWithAccounts(prevMoveLines, chartOfAccounts);
+
+            // Annexes (inchangées)
+            const annexesData = this.prepareAnnexesData(
+                enrichedLines, companyInfo, accountingSystem, periodStartClean, periodEndClean
+            );
 
             return {
-                company:                 companyInfo,
-                period:                  { start: periodStartClean, end: periodEndClean },
-                accounting_system:       accountingSystem,
-                bilan:                   bilanData,
-                compte_resultat:         compteResultatData,
-                tableau_flux_tresorerie: tftData,
-                annexes:                 annexesData,
-                raw_data:                { moves: accountMoves, move_lines: enrichedLines, chart_of_accounts: chartOfAccounts }
+                company:           companyInfo,
+                period:            { start: periodStartClean, end: periodEndClean },
+                accounting_system: accountingSystem,
+                annexes:           annexesData,
+                raw_data: {
+                    move_lines:        enrichedLines,
+                    prev_year_lines:   prevEnrichedLines,
+                    chart_of_accounts: chartOfAccounts
+                }
             };
 
         } catch (error) {
