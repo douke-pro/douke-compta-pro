@@ -3100,7 +3100,7 @@ function generateMyRequestsListHTML(requests) {
                             class="flex-1 text-sm bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary-dark font-bold transition-colors">
                             <i class="fas fa-eye mr-2"></i>Détails
                         </button>
-                        ${req.status === 'validated' || req.status === 'generated' || req.status === 'sent' ? `
+                        ${req.status === 'sent' ? `
                             <button onclick="window.downloadAllReports(${req.id})" 
                                 class="text-sm bg-success text-white px-4 py-2 rounded-xl hover:bg-success/90 font-bold transition-colors">
                                 <i class="fas fa-download mr-2"></i>Télécharger
@@ -3810,7 +3810,7 @@ function generateRequestDetailsHTML(request) {
                     <i class="fas fa-times mr-2"></i>
                     Fermer
                 </button>
-                ${['validated', 'sent'].includes(request.status) && request.pdf_files ? `
+                ${request.status === 'sent' && request.pdf_files ? `
                     <button onclick="window.downloadAllReports(${request.id})" 
                         class="px-6 py-3 bg-gradient-to-r from-success to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all transform hover:scale-105">
                         <i class="fas fa-download mr-2"></i>
@@ -6090,8 +6090,8 @@ function generateRequestActions(request) {
         </button>
     `);
     
-    // Bouton Télécharger (si rapports disponibles)
-    if (['validated', 'sent'].includes(request.status) && request.pdf_files) {
+    // Bouton Télécharger (uniquement si envoyé au client)
+    if (request.status === 'sent' && request.pdf_files) {
         actions.push(`
             <button onclick="window.downloadAllReports(${request.id})" 
                 class="text-success hover:text-success/80 mr-2" title="Télécharger les rapports">
@@ -12970,8 +12970,8 @@ function stopNotificationPolling() {
                     recipients: [reportsState.currentEditingReport?.user_id],
                     type: 'report',
                     priority: 'high',
-                    title: `État financier ${status === 'validated' ? 'validé' : 'prêt'}`,
-                    message: `Votre demande d'états financiers a été ${status === 'validated' ? 'validée' : 'traitée'}. Vous pouvez maintenant la consulter.`
+                    title: `État financier en cours de traitement`,
+                    message: `Votre demande d'états financiers est en cours de traitement par votre conseiller. Vous serez notifié dès qu'elle sera disponible.`
                 })
             });
             
@@ -13042,7 +13042,7 @@ function stopNotificationPolling() {
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
                             Demandé le ${new Date(req.created_at).toLocaleDateString('fr-FR')}
                         </p>
-                        ${req.status === 'validated' || req.status === 'sent' ? `
+                        ${req.status === 'sent' ? `
                             <button onclick="window.downloadReport(${req.id})" 
                                 class="text-sm bg-success text-white px-4 py-2 rounded-xl hover:bg-success/90">
                                 <i class="fas fa-download mr-2"></i>Télécharger

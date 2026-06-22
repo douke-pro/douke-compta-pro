@@ -14,3 +14,7 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+*.dump
+*.sql
+*.backup
+public/assets/*.backup*

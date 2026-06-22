@@ -179,9 +179,18 @@ exports.getMyRequests = async (req, res) => {
             [userId]
         );
 
+        // 🔒 Masquer pdf_files si statut != 'sent'
+        const sanitized = result.rows.map(row => {
+            if (row.status !== 'sent') {
+                const { pdf_files, odoo_data, ...safe } = row;
+                return safe;
+            }
+            return row;
+        });
+
         res.json({
             success: true,
-            data:    result.rows,
+            data:    sanitized,
             pagination: {
                 total:  parseInt(countResult.rows[0].count),
                 limit:  parseInt(limit),
