@@ -81,7 +81,7 @@ class PDFGeneratorService {
     drawBilanActifTable(doc, lignes) {
         const startX   = 50;
         let   startY   = doc.y;
-        const colWidth = [32, 198, 28, 75, 75, 75, 17];
+        const colWidth = [28, 160, 24, 72, 72, 72, 72];
         const headers  = ['Réf', 'Poste', 'Note', 'Brut', 'Amort.', 'Net N', 'N-1'];
         const aligns   = ['left', 'left', 'left', 'right', 'right', 'right', 'right'];
 
@@ -104,7 +104,7 @@ class PDFGeneratorService {
     drawBilanPassifTable(doc, lignes) {
         const startX   = 50;
         let   startY   = doc.y;
-        const colWidth = [32, 326, 28, 80, 84];
+        const colWidth = [28, 254, 24, 97, 97];
         const headers  = ['Réf', 'Poste', 'Note', 'Net N', 'Net N-1'];
         const aligns   = ['left', 'left', 'left', 'right', 'right'];
 

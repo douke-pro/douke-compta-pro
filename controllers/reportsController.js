@@ -220,6 +220,13 @@ exports.getRequestDetails = async (req, res) => {
 
         const request = result.rows[0];
 
+        // 🔒 Masquer pdf_files si user non staff et statut != 'sent'
+        const roleCheck = (userRole || '').toUpperCase();
+        const isStaff   = roleCheck === 'ADMIN' || roleCheck === 'COLLABORATEUR';
+        if (!isStaff && request.status !== 'sent') {
+            request.pdf_files = null;
+        }
+
         // ✅ Enrichissement avec le nom réel de l'entreprise depuis Odoo
         try {
             const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -730,6 +737,14 @@ exports.downloadPDF = async (req, res) => {
         const userRole = req.user.profile || req.user.role || 'USER';
         const request  = await checkAccessToRequest(req.params.id, userId, userRole);
 
+        const role    = (req.user.profile || req.user.role || '').toUpperCase();
+        const isStaff = role === 'ADMIN' || role === 'COLLABORATEUR';
+        if (!isStaff && request.status !== 'sent') {
+            return res.status(403).json({
+                success : false,
+                message : 'Documents non encore disponibles. En attente de validation par votre conseiller.'
+            });
+        }
         const base64 = request.pdf_files?.[req.params.fileType];
 
         if (!base64) {
