@@ -18,3 +18,4 @@ Thumbs.db
 *.sql
 *.backup
 public/assets/*.backup*
+public/assets/*.backup*
