@@ -446,35 +446,46 @@
     // =========================================================================
     // CHARGEMENT DU RAPPORT
     // =========================================================================
-    window.loadRapportGestion = async function () {
-        const dateFrom  = document.getElementById('rg-date-from')?.value;
-        const dateTo    = document.getElementById('rg-date-to')?.value;
-        const companyId = window.appState?.currentCompanyId;
-
+        window.loadRapportGestion = async function () {
+        const dateFrom    = document.getElementById('rg-date-from')?.value;
+        const dateTo      = document.getElementById('rg-date-to')?.value;
+        const companyId   = window.appState?.currentCompanyId;
+        const companyName = window.appState?.currentCompanyName || 'Entreprise';
         if (!dateFrom || !dateTo || dateFrom > dateTo) {
-            NotificationManager.show('Période invalide.', 'warning');
-            return;
+            NotificationManager.show('Période invalide.', 'warning'); return;
         }
-
-        NotificationManager.show('Génération du rapport de gestion...', 'info', 8000);
-
+        NotificationManager.show('Génération du rapport...', 'info', 8000);
         try {
-            const params = `companyId=${companyId}&date_from=${dateFrom}&date_to=${dateTo}`;
-            const response = await apiFetch(`accounting/trial-balance-syscohada?${params}`, { method: 'GET' });
-            if (response.status !== 'success') throw new Error(response.error || 'Erreur serveur');
-
-            const accounts = response.data.accounts || [];
-            const nbJours  = Math.round((new Date(dateTo) - new Date(dateFrom)) / 86400000) + 1;
-            const rapport  = computeRapportGestion(accounts, nbJours);
-            const html     = renderRapportGestion(rapport, dateFrom, dateTo, nbJours);
-
-            ModalManager.open('📊 Rapport de Gestion', html);
+            const from  = new Date(dateFrom);
+            const to    = new Date(dateTo);
+            const diff  = to - from;
+            const nbJours = Math.round(diff / 86400000) + 1;
+            const prevTo   = new Date(from - 1);
+            const prevFrom = new Date(prevTo - diff);
+            const prev = {
+                date_from: prevFrom.toISOString().split('T')[0],
+                date_to:   prevTo.toISOString().split('T')[0]
+            };
+            const [respN, respN1] = await Promise.all([
+                apiFetch('accounting/trial-balance-syscohada?companyId=' + companyId + '&date_from=' + dateFrom + '&date_to=' + dateTo, { method: 'GET' }),
+                apiFetch('accounting/trial-balance-syscohada?companyId=' + companyId + '&date_from=' + prev.date_from + '&date_to=' + prev.date_to, { method: 'GET' })
+            ]);
+            if (respN.status !== 'success') throw new Error(respN.error || 'Erreur période N');
+            const accountsN  = respN.data.accounts  || [];
+            const accountsN1 = respN1.status === 'success' ? (respN1.data.accounts || []) : [];
+            const rN  = computeRapportGestion(accountsN,  nbJours);
+            const rN1 = computeRapportGestion(accountsN1, nbJours);
+            const html = renderRapportGestion(rN, rN1, dateFrom, dateTo, prev, nbJours, companyName, accountsN);
+            ModalManager.open('Rapport de Gestion', html);
             NotificationManager.show('Rapport généré.', 'success');
-
         } catch (err) {
-            console.error('❌ [loadRapportGestion]', err);
-            NotificationManager.show(`Erreur : ${err.message}`, 'error');
+            console.error('[loadRapportGestion]', err);
+            NotificationManager.show('Erreur : ' + err.message, 'error');
         }
+        // FIN — on stoppe ici, ancienne implémentation supprimée
+        return;
+        // ANCIEN CODE CI-DESSOUS IGNORÉ
+        void 0;
     };
 
     // =========================================================================
@@ -557,114 +568,258 @@
     // =========================================================================
     // RENDU DU RAPPORT
     // =========================================================================
-    function renderRapportGestion(r, dateFrom, dateTo, nbJours) {
-        const f  = (n) => Math.round(n).toLocaleString('fr-FR') + ' F';
-        const pct = (n) => n.toFixed(1) + ' %';
-        const signCls = (n) => n >= 0 ? 'text-success' : 'text-danger';
-        const signIcon = (n) => n >= 0 ? '▲' : '▼';
+    function renderRapportGestion(r, rN1, dateFrom, dateTo, prev, nbJours, companyName, accountsN) {
+        var f   = function(n) { if (n === null || n === undefined || isNaN(n)) return '—'; return Math.round(n).toLocaleString('fr-FR') + ' F'; };
+        var pct = function(n) { return (n || 0).toFixed(1) + ' %'; };
+        var sc  = function(n) { return (n || 0) >= 0 ? 'text-success' : 'text-danger'; };
 
-        const kpiCard = (label, value, sub = '', cls = '') => `
-            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase mb-1">${label}</p>
-                <p class="text-lg font-black ${cls || signCls(value)}">${typeof value === 'number' ? f(value) : value}</p>
-                ${sub ? `<p class="text-xs text-gray-400 mt-1">${sub}</p>` : ''}
-            </div>`;
+        var kpi = function(label, value, sub, cls) {
+            var s = sub || ''; var c = cls || '';
+            return '<div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">'
+                + '<p class="text-xs text-gray-500 uppercase font-bold mb-1">' + label + '</p>'
+                + '<p class="text-base font-black ' + c + '">' + value + '</p>'
+                + (s ? '<p class="text-xs text-gray-400 mt-1">' + s + '</p>' : '')
+                + '</div>';
+        };
 
-        const alertesHtml = r.alertes.map(a => {
-            const cfg = {
-                danger:  { bg: 'bg-red-50 dark:bg-red-900/20',     border: 'border-danger',  icon: 'fas fa-exclamation-triangle text-danger' },
-                warning: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-warning', icon: 'fas fa-exclamation-circle text-warning' },
-                success: { bg: 'bg-green-50 dark:bg-green-900/20',  border: 'border-success', icon: 'fas fa-check-circle text-success' },
-            }[a.type];
-            return `<div class="${cfg.bg} border-l-4 ${cfg.border} px-4 py-2 rounded-lg flex items-center gap-2">
-                <i class="${cfg.icon} text-sm"></i>
-                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">${a.msg}</span>
-            </div>`;
+        var rowRes = function(label, val, bold, showSign) {
+            var b = bold || false; var s = showSign || false;
+            var cls = b ? ('font-black' + (s ? ' ' + sc(val) : '')) : 'text-gray-600 dark:text-gray-400';
+            var bg  = b ? 'bg-gray-50 dark:bg-gray-700/30' : '';
+            return '<tr class="border-b border-gray-100 dark:border-gray-700 ' + bg + '">'
+                + '<td class="px-3 py-2 text-sm ' + cls + '">' + label + '</td>'
+                + '<td class="px-3 py-2 text-right font-mono text-sm ' + (b ? 'font-black ' + (s ? sc(val) : '') : '') + '">' + f(val) + '</td>'
+                + '</tr>';
+        };
+
+        var rowN1 = function(label, n, n1) {
+            var v = (n1 && n1 !== 0) ? ((n - n1) / Math.abs(n1) * 100) : null;
+            var evol = v === null ? '<span class="text-gray-400">—</span>'
+                : '<span class="' + (v >= 0 ? 'text-success' : 'text-danger') + ' font-bold">'
+                  + (v >= 0 ? '▲' : '▼') + ' ' + Math.abs(v).toFixed(1) + '%</span>';
+            var tend = v === null ? '→' : v > 5 ? '↑ Croissance' : v < -5 ? '↓ Dégradation' : '→ Stable';
+            return '<tr class="border-b border-gray-100 dark:border-gray-700">'
+                + '<td class="px-3 py-2 text-sm">' + label + '</td>'
+                + '<td class="px-3 py-2 text-right font-mono text-sm font-bold ' + sc(n) + '">' + f(n) + '</td>'
+                + '<td class="px-3 py-2 text-right font-mono text-sm text-gray-400">' + f(n1) + '</td>'
+                + '<td class="px-3 py-2 text-right text-sm">' + evol + '</td>'
+                + '<td class="px-3 py-2 text-center text-xs font-bold text-gray-500">' + tend + '</td>'
+                + '</tr>';
+        };
+
+        var top5 = function(prefixes, sens) {
+            return (accountsN || [])
+                .filter(function(a) { return prefixes.some(function(p) { return a.code.startsWith(p); }); })
+                .map(function(a) { return { code: a.code, name: a.name, val: sens === 'credit' ? (a.credit - a.debit) : (a.debit - a.credit) }; })
+                .filter(function(a) { return a.val > 0; })
+                .sort(function(a, b) { return b.val - a.val; })
+                .slice(0, 5);
+        };
+
+        var rowTop = function(items) {
+            if (!items.length) return '<tr><td colspan="2" class="px-3 py-2 text-gray-400 text-xs">Aucune donnée</td></tr>';
+            return items.map(function(i) {
+                return '<tr class="border-b border-gray-100 dark:border-gray-700">'
+                    + '<td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">' + i.code + ' — ' + i.name + '</td>'
+                    + '<td class="px-3 py-2 text-right text-xs font-mono font-bold">' + f(i.val) + '</td>'
+                    + '</tr>';
+            }).join('');
+        };
+
+        // Alertes
+        var alertes = [];
+        if (r.tresNette < 0)                     alertes.push({ t: 'danger',  m: 'Trésorerie nette négative' });
+        else if (r.tresNette < r.ca * 0.05)      alertes.push({ t: 'warning', m: 'Trésorerie tendue (< 5% du CA)' });
+        if (r.tauxPersonnel > 50)                 alertes.push({ t: 'warning', m: 'Charges personnel > 50% du CA : ' + pct(r.tauxPersonnel) });
+        if (r.delaiClient > 60)                   alertes.push({ t: 'warning', m: 'Délai recouvrement clients : ' + Math.round(r.delaiClient) + ' jours' });
+        if (r.resNet < 0)                         alertes.push({ t: 'danger',  m: 'Résultat net déficitaire' });
+        if (r.resNet > 0)                         alertes.push({ t: 'success', m: 'Résultat net positif' });
+        if (r.tauxMarge > 30)                     alertes.push({ t: 'success', m: 'Bonne marge brute : ' + pct(r.tauxMarge) });
+        if (rN1.ca > 0 && r.ca < rN1.ca * 0.9)  alertes.push({ t: 'warning', m: 'CA en baisse > 10% vs période précédente' });
+
+        var alertCfg = {
+            danger:  { bg: 'bg-red-50',    border: 'border-danger',  icon: 'fas fa-exclamation-triangle text-danger' },
+            warning: { bg: 'bg-yellow-50', border: 'border-warning', icon: 'fas fa-exclamation-circle text-warning' },
+            success: { bg: 'bg-green-50',  border: 'border-success', icon: 'fas fa-check-circle text-success' }
+        };
+
+        var alertesHtml = alertes.map(function(a) {
+            var c = alertCfg[a.t];
+            return '<div class="' + c.bg + ' border-l-4 ' + c.border + ' px-4 py-2 rounded-lg flex items-center gap-2">'
+                + '<i class="' + c.icon + ' text-sm flex-shrink-0"></i>'
+                + '<span class="text-sm font-semibold text-gray-800">' + a.m + '</span>'
+                + '</div>';
         }).join('');
 
-        const row = (label, val, bold = false) => `
-            <tr class="border-b border-gray-100 dark:border-gray-700">
-                <td class="py-2 px-3 text-sm ${bold ? 'font-black' : 'text-gray-600 dark:text-gray-400'}">${label}</td>
-                <td class="py-2 px-3 text-right font-mono text-sm ${bold ? 'font-black ' + signCls(val) : ''}">${f(val)}</td>
-            </tr>`;
+        var tresSig = r.tresNette < 0 ? 'CRITIQUE' : r.tresNette < r.ca * 0.05 ? 'TENDUE' : 'POSITIVE';
+        var tresCls = r.tresNette < 0 ? 'text-danger' : r.tresNette < r.ca * 0.05 ? 'text-warning' : 'text-success';
 
-        return `
-            <div class="space-y-6 text-sm">
-                <div class="flex items-center justify-between text-xs text-gray-500">
-                    <span>Période : ${dateFrom} → ${dateTo} (${nbJours} jours)</span>
-                    <span class="font-bold">SYSCOHADA — Rapport de Gestion</span>
-                </div>
+        var html = '<div id="rapport-gestion-print" class="space-y-6 text-sm">';
 
-                ${r.alertes.length ? `
-                <div class="space-y-2">
-                    <p class="text-xs font-black text-gray-500 uppercase tracking-wider">Alertes & Observations</p>
-                    ${alertesHtml}
-                </div>` : ''}
+        // EN-TÊTE
+        html += '<div class="flex items-center justify-between pb-4 border-b-2 border-primary">'
+            + '<div class="flex items-center gap-4">'
+            + '<img src="assets/LOGO_DOUKE.png" alt="Cabinet DOUKE" class="h-10 object-contain">'
+            + '<div>'
+            + '<p class="text-xs font-bold text-gray-500 uppercase">Cabinet DOUKE — Rapport de Gestion Périodique</p>'
+            + '<p class="text-lg font-black text-gray-900 dark:text-white">' + companyName + '</p>'
+            + '<p class="text-xs text-gray-500">Période : ' + dateFrom + ' → ' + dateTo + ' (' + nbJours + ' jours) • SYSCOHADA</p>'
+            + '</div></div>'
+            + '<div class="text-right no-print">'
+            + '<button onclick="window.printRapportGestion()" class="text-xs bg-primary text-white px-4 py-2 rounded-lg font-bold">'
+            + '<i class="fas fa-print mr-1"></i> Imprimer / PDF</button>'
+            + '</div></div>';
 
-                <!-- BLOC 1 : TRÉSORERIE -->
-                <div>
-                    <p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">
-                        <i class="fas fa-wallet mr-1"></i> Synthèse de Trésorerie
-                    </p>
-                    <div class="grid grid-cols-2 gap-3">
-                        ${kpiCard('Trésorerie Nette', r.tresNette)}
-                        ${kpiCard('Banques & CCP', r.tresBanque)}
-                        ${kpiCard('Caisse', r.tresCaisse)}
-                        ${kpiCard('Ratio Liquidité', r.liquidite !== null ? pct(r.liquidite * 100) : 'N/A', '', r.liquidite >= 1 ? 'text-success' : 'text-danger')}
-                    </div>
-                </div>
+        // BLOC 6 : ALERTES
+        if (alertes.length) {
+            html += '<div class="mb-4">'
+                + '<p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3"><i class="fas fa-bell mr-1"></i> Alertes & Observations</p>'
+                + '<div class="space-y-2">' + alertesHtml + '</div>'
+                + '</div>';
+        }
 
-                <!-- BLOC 2 : COMPTE DE RÉSULTAT SIMPLIFIÉ -->
-                <div>
-                    <p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">
-                        <i class="fas fa-chart-line mr-1"></i> Résultat Simplifié
-                    </p>
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                        <table class="w-full">
-                            <tbody class="bg-white dark:bg-gray-800">
-                                ${row("Chiffre d'Affaires", r.ca, true)}
-                                ${row('Achats & Variation de stocks', -(r.achats + r.varStocks))}
-                                ${row('Marge Brute', r.margeCommerciale, true)}
-                                ${row('Charges de personnel', -r.personnel)}
-                                ${row('Transports', -r.transports)}
-                                ${row('Services extérieurs', -r.services)}
-                                ${row('Impôts & taxes', -r.impots)}
-                                ${row('Autres charges', -r.autresChg)}
-                                ${row('EBITDA', r.ebitda, true)}
-                                ${row('Dotations amortissements', -r.dotations)}
-                                ${row('Résultat exploitation', r.resBrut, true)}
-                                ${row('Charges financières', -r.chargesFin)}
-                                ${row('Impôt sur le résultat', -r.impotRes)}
-                                ${row('RÉSULTAT NET', r.resNet, true)}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        // BLOC 1 : TRÉSORERIE
+        html += '<div class="mb-4">'
+            + '<p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3"><i class="fas fa-wallet mr-1"></i> Bloc 1 — Synthèse de Trésorerie</p>'
+            + '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
+            + kpi('Trésorerie Nette', f(r.tresNette), 'Signal : <span class="' + tresCls + ' font-black">' + tresSig + '</span>', sc(r.tresNette))
+            + kpi('Variation Nette', f(r.varTres), 'Encaiss. − Décaiss.', sc(r.varTres))
+            + kpi('Encaissements', f(r.encaissements), 'Flux entrants', 'text-success')
+            + kpi('Décaissements', f(r.decaissements), 'Flux sortants', 'text-danger')
+            + kpi('Banques & CCP', f(r.tresBanque), 'Comptes 52x/53x')
+            + kpi('Caisse', f(r.tresCaisse), 'Comptes 57x')
+            + kpi('Dettes Court Terme', f(r.dettesCT), 'Comptes 40x/43x/44x')
+            + kpi('Ratio Liquidité', r.liquidite !== null ? pct(r.liquidite * 100) : 'N/A', 'Tréso / Dettes CT', r.liquidite === null ? '' : r.liquidite >= 1 ? 'text-success' : 'text-danger')
+            + '</div></div>';
 
-                <!-- BLOC 3 : KPIs -->
-                <div>
-                    <p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">
-                        <i class="fas fa-tachometer-alt mr-1"></i> Indicateurs de Performance
-                    </p>
-                    <div class="grid grid-cols-2 gap-3">
-                        ${kpiCard('Taux de marge brute', pct(r.tauxMarge), '', r.tauxMarge > 20 ? 'text-success' : 'text-warning')}
-                        ${kpiCard('Taux charges personnel', pct(r.tauxPersonnel), '', r.tauxPersonnel < 40 ? 'text-success' : 'text-warning')}
-                        ${kpiCard('Point mort estimé', r.pointMort, 'CA nécessaire pour couvrir les charges')}
-                        ${kpiCard('Délai recouvrement clients', Math.round(r.delaiClient) + ' j', '', r.delaiClient <= 30 ? 'text-success' : r.delaiClient <= 60 ? 'text-warning' : 'text-danger')}
-                        ${kpiCard('Délai règlement fournisseurs', Math.round(r.delaiFourn) + ' j')}
-                        ${kpiCard('Stocks', r.stocks)}
-                    </div>
-                </div>
+        // BLOC 2 : RÉSULTAT SIMPLIFIÉ
+        html += '<div class="mb-4">'
+            + '<p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3"><i class="fas fa-chart-line mr-1"></i> Bloc 2 — Compte de Résultat Simplifié</p>'
+            + '<div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">'
+            + '<table class="w-full text-sm"><tbody class="bg-white dark:bg-gray-800">'
+            + rowRes("Chiffre d'Affaires", r.ca, true)
+            + rowRes('Achats & Variation de stocks', -(r.achats + r.varStocks))
+            + rowRes('MARGE BRUTE', r.margeBrute, true, true)
+            + rowRes('Charges de personnel', -r.personnel)
+            + rowRes('Transports', -r.transports)
+            + rowRes('Services extérieurs', -r.services)
+            + rowRes('Impôts & taxes', -r.impots)
+            + rowRes('Autres charges', -r.autresChg)
+            + rowRes('EBITDA', r.ebitda, true, true)
+            + rowRes('Dotations amortissements', -r.dotations)
+            + rowRes("RÉSULTAT D'EXPLOITATION", r.resExpl, true, true)
+            + rowRes('Charges financières', -r.chargesFin)
+            + rowRes('Impôt sur le résultat', -r.impotRes)
+            + rowRes('RÉSULTAT NET', r.resNet, true, true)
+            + '</tbody></table></div></div>';
 
-                <!-- BLOC 4 : ENCOURS -->
-                <div>
-                    <p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">
-                        <i class="fas fa-exchange-alt mr-1"></i> Postes Clés
-                    </p>
-                    <div class="grid grid-cols-2 gap-3">
-                        ${kpiCard('Encours Clients', r.clients, 'Comptes 411/412')}
-                        ${kpiCard('Encours Fournisseurs', r.fournisseurs, 'Comptes 401/402')}
-                    </div>
-                </div>
-            </div>`;
+        // BLOC 3 : KPIs
+        html += '<div class="mb-4">'
+            + '<p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3"><i class="fas fa-tachometer-alt mr-1"></i> Bloc 3 — Indicateurs de Performance</p>'
+            + '<div class="grid grid-cols-2 md:grid-cols-3 gap-3">'
+            + kpi('Taux Marge Brute', pct(r.tauxMarge), 'Marge / CA', r.tauxMarge > 20 ? 'text-success' : 'text-warning')
+            + kpi('Taux Charges Personnel', pct(r.tauxPersonnel), 'Personnel / CA', r.tauxPersonnel < 40 ? 'text-success' : 'text-warning')
+            + kpi('Point Mort Estimé', f(r.pointMort), 'CA min pour couvrir charges fixes')
+            + kpi('Délai Recouvrement Clients', Math.round(r.delaiClient) + ' j', 'Comptes 41x', r.delaiClient <= 30 ? 'text-success' : r.delaiClient <= 60 ? 'text-warning' : 'text-danger')
+            + kpi('Délai Règlement Fournisseurs', Math.round(r.delaiFourn) + ' j', 'Comptes 40x')
+            + kpi('Stocks', f(r.stocks), 'Comptes 31x–38x')
+            + '</div></div>';
+
+        // BLOC 4 : COMPARATIF N-1
+        html += '<div class="mb-4">'
+            + '<p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3"><i class="fas fa-exchange-alt mr-1"></i> Bloc 4 — Évolution vs Période Précédente <span class="text-gray-400 font-normal">(' + prev.date_from + ' → ' + prev.date_to + ')</span></p>'
+            + '<div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">'
+            + '<table class="w-full text-sm">'
+            + '<thead class="bg-gray-50 dark:bg-gray-700"><tr>'
+            + '<th class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Indicateur</th>'
+            + '<th class="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">Période N</th>'
+            + '<th class="px-3 py-2 text-right text-xs font-bold text-gray-400 uppercase">Période N-1</th>'
+            + '<th class="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">Évolution</th>'
+            + '<th class="px-3 py-2 text-center text-xs font-bold text-gray-500 uppercase">Tendance</th>'
+            + '</tr></thead>'
+            + '<tbody class="bg-white dark:bg-gray-800">'
+            + rowN1("Chiffre d'Affaires", r.ca, rN1.ca)
+            + rowN1('Marge Brute', r.margeBrute, rN1.margeBrute)
+            + rowN1("Résultat d'Exploitation", r.resExpl, rN1.resExpl)
+            + rowN1('Résultat Net', r.resNet, rN1.resNet)
+            + rowN1('Trésorerie Nette', r.tresNette, rN1.tresNette)
+            + rowN1('Encours Clients', r.clients, rN1.clients)
+            + rowN1('Encours Fournisseurs', r.fournisseurs, rN1.fournisseurs)
+            + '</tbody></table></div></div>';
+
+        // BLOC 5 : POSTES CLÉS
+        html += '<div class="mb-4">'
+            + '<p class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3"><i class="fas fa-list-ol mr-1"></i> Bloc 5 — Analyse des Postes Clés</p>'
+            + '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">'
+            + '<div><p class="text-xs font-bold text-success mb-2">Top 5 Comptes de Produits</p>'
+            + '<div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"><table class="w-full"><tbody class="bg-white dark:bg-gray-800">'
+            + rowTop(top5(['7'], 'credit'))
+            + '</tbody></table></div></div>'
+            + '<div><p class="text-xs font-bold text-danger mb-2">Top 5 Comptes de Charges</p>'
+            + '<div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"><table class="w-full"><tbody class="bg-white dark:bg-gray-800">'
+            + rowTop(top5(['6'], 'debit'))
+            + '</tbody></table></div></div></div>'
+            + '<div class="grid grid-cols-3 gap-3">'
+            + kpi('Encours Clients', f(r.clients), 'Comptes 411/412/416/418')
+            + kpi('Encours Fournisseurs', f(r.fournisseurs), 'Comptes 401/402/404/405')
+            + kpi('Stocks', f(r.stocks), 'Comptes 31x–38x')
+            + '</div></div>';
+
+        // PIED DE PAGE
+        html += '<div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 text-center">'
+            + '<p class="text-xs text-gray-400">Généré le ' + new Date().toLocaleDateString('fr-FR') + ' à ' + new Date().toLocaleTimeString('fr-FR') + ' par Cabinet DOUKE — Doukè Compta Pro</p>'
+            + '<p class="text-xs text-gray-400 mt-1">Document de gestion interne — Non substitut aux états financiers officiels certifiés.</p>'
+            + '</div>';
+
+        html += '</div>';
+        return html;
     }
+
+    window.printRapportGestion = function() {
+        var el = document.getElementById('rapport-gestion-print');
+        if (!el) { window.print(); return; }
+        var origin = window.location.origin;
+        var body = el.innerHTML
+            .replace(/class="[^"]*no-print[^"]*"/g, 'style="display:none"')
+            .replace(/src="assets\//g, 'src="' + origin + '/assets/');
+        var css = '* { box-sizing: border-box; margin: 0; padding: 0; }'
+            + 'body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 20px; }'
+            + 'table { width: 100%; border-collapse: collapse; }'
+            + 'th { background: #f1f3f4; font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 5px 8px; text-align: left; }'
+            + 'td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; font-size: 10px; }'
+            + '.text-success { color: #1e8e3e; } .text-danger { color: #d93025; } .text-warning { color: #f29900; }'
+            + '.font-black { font-weight: 900; } .font-bold { font-weight: 700; }'
+            + '.text-right { text-align: right; } .text-center { text-align: center; }'
+            + '.grid { display: grid; gap: 8px; }'
+            + '.grid-cols-2 { grid-template-columns: repeat(2,1fr); }'
+            + '.grid-cols-3 { grid-template-columns: repeat(3,1fr); }'
+            + '.grid-cols-4 { grid-template-columns: repeat(4,1fr); }'
+            + '.border { border: 1px solid #e0e0e0; } .rounded-xl { border-radius: 6px; }'
+            + '.overflow-hidden { overflow: hidden; } .w-full { width: 100%; }'
+            + '.bg-gray-50 { background: #f8f9fa; } .p-4 { padding: 10px; }'
+            + '.mb-4 { margin-bottom: 12px; } .mb-3 { margin-bottom: 8px; } .mb-2 { margin-bottom: 6px; }'
+            + '.space-y-2 > * + * { margin-top: 5px; }'
+            + '.flex { display: flex; } .items-center { align-items: center; } .gap-2 { gap: 6px; } .gap-3 { gap: 8px; } .gap-4 { gap: 12px; }'
+            + '.border-l-4 { border-left-width: 4px; border-left-style: solid; }'
+            + '.px-4 { padding-left: 10px; padding-right: 10px; } .py-2 { padding-top: 5px; padding-bottom: 5px; }'
+            + '.border-danger { border-color: #d93025; } .bg-red-50 { background: #fef2f2; }'
+            + '.border-warning { border-color: #f29900; } .bg-yellow-50 { background: #fffbeb; }'
+            + '.border-success { border-color: #1e8e3e; } .bg-green-50 { background: #f0fdf4; }'
+            + '.text-xs { font-size: 9px; } .text-sm { font-size: 10px; } .text-base { font-size: 12px; } .text-lg { font-size: 14px; }'
+            + '.uppercase { text-transform: uppercase; } .tracking-wider { letter-spacing: 0.05em; }'
+            + '.font-mono { font-family: monospace; }'
+            + '.border-b-2 { border-bottom: 2px solid #1a73e8; } .pb-4 { padding-bottom: 12px; } .pt-4 { padding-top: 12px; }'
+            + '.border-t { border-top: 1px solid #e0e0e0; } .mt-4 { margin-top: 12px; } .mt-1 { margin-top: 4px; }'
+            + 'img { max-height: 40px; object-fit: contain; }'
+            + '.md\\:grid-cols-4 { grid-template-columns: repeat(4,1fr); }'
+            + '.md\\:grid-cols-3 { grid-template-columns: repeat(3,1fr); }'
+            + '.md\\:grid-cols-2 { grid-template-columns: repeat(2,1fr); }'
+            + '@media print { body { padding: 10mm 15mm; } }';
+        var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport de Gestion</title><style>' + css + '</style></head><body>' + body + '</body></html>';
+        var w = window.open('', '_blank', 'width=1000,height=800');
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+        setTimeout(function() { w.print(); }, 1000);
+    };
