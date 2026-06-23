@@ -821,12 +821,18 @@ $tmpl_fp$, NULL)
 <title>Bulletin de Paie</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:10.5pt;color:#2d3748;line-height:1.5;margin:0;padding:24px;background-color:#ffffff}
-.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e2e8f0;padding-bottom:16px;margin-bottom:20px}
-.header-left h1{font-size:16pt;color:#1a3a5c;margin:0 0 6px 0;font-weight:700}
-.header-left p{margin:3px 0;font-size:9.5pt;color:#4a5568}
-.header-right{text-align:right}
-.header-right h2{font-size:14pt;color:#1a3a5c;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.5px}
-.periode-badge{display:inline-block;background:#e1e7f0;color:#1a3a5c;padding:4px 14px;border-radius:6px;font-size:10pt;font-weight:600;margin:4px 0 8px 0}
+.header{display:flex;justify-content:space-between;align-items:stretch;margin-bottom:20px;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(26,58,92,0.13)}
+.header-left{background:#1a3a5c;color:#fff;padding:18px 22px;display:flex;flex-direction:column;justify-content:center;min-width:220px;max-width:260px}
+.header-left .logo-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.header-left .logo-icon{width:44px;height:44px;flex-shrink:0}
+.header-left .logo-text{display:flex;flex-direction:column;line-height:1.1}
+.header-left .logo-text .brand-top{font-size:13pt;font-weight:900;color:#fff;letter-spacing:1px}
+.header-left .logo-text .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+.header-left p{margin:2px 0;font-size:8.5pt;color:#c8dff0}
+.header-left .ref-fiche{font-size:8pt;color:#7fb3d3;margin-top:6px;font-style:italic}
+.header-right{flex:1;background:#fff;padding:18px 22px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;border:1px solid #e2e8f0;border-left:none;border-radius:0 8px 8px 0}
+.header-right h2{font-size:18pt;color:#1a3a5c;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:1.5px;font-weight:900}
+.periode-badge{display:inline-block;background:#1a3a5c;color:#fff;padding:5px 18px;border-radius:6px;font-size:10.5pt;font-weight:700;margin:4px 0 10px 0;letter-spacing:0.5px}
 .header-right p{margin:0;font-size:9.5pt;color:#4a5568}
 .ref-fiche{font-size:9pt;color:#718096;margin-top:4px;font-style:italic}
 .ei{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px}
@@ -868,7 +874,22 @@ table.paie tr.sh td{background:#edf2f7;font-weight:700;color:#2b6cb0;padding:6px
 
 <div class="header">
   <div class="header-left">
-    <h1>{{nom_entreprise}}</h1>
+    <div class="logo-wrap">
+      <svg class="logo-icon" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+        <rect width="44" height="44" rx="6" fill="#fff" opacity="0.12"/>
+        <rect x="4" y="10" width="6" height="24" rx="2" fill="#fff"/>
+        <rect x="13" y="10" width="6" height="24" rx="2" fill="#fff"/>
+        <rect x="4" y="10" width="15" height="6" rx="2" fill="#fff"/>
+        <rect x="26" y="10" width="14" height="6" rx="2" fill="#4a9fd4"/>
+        <rect x="26" y="10" width="5" height="24" rx="2" fill="#4a9fd4"/>
+        <rect x="26" y="28" width="14" height="6" rx="2" fill="#4a9fd4"/>
+        <rect x="26" y="19" width="14" height="5" rx="2" fill="#4a9fd4" opacity="0.6"/>
+      </svg>
+      <div class="logo-text">
+        <span class="brand-top">CCI</span>
+        <span class="brand-sub">Partners</span>
+      </div>
+    </div>
     <p>{{adresse_entreprise}}</p>
     <p>IFU : {{ifu}}</p>
     <p>N° Employeur CNSS : {{numero_employeur_cnss}}</p>
@@ -877,6 +898,7 @@ table.paie tr.sh td{background:#edf2f7;font-weight:700;color:#2b6cb0;padding:6px
   <div class="header-right">
     <h2>Bulletin de Paie</h2>
     <div class="periode-badge">{{periode}}</div>
+    <p>{{nom_entreprise}}</p>
     <p>Date de paiement : <strong>{{date_paiement}}</strong></p>
   </div>
 </div>
