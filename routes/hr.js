@@ -60,6 +60,8 @@ router.get('/payslips/:id/download', protect, checkCompanyAccess, allowAll,     
 
 // Création — ADMIN, COLLABORATEUR
 router.post('/payslips',             protect, checkCompanyAccess, allowEditOnly, hrCtrl.createPayslip);
+router.put('/payslips/:id',           protect, checkCompanyAccess, allowEditOnly, hrCtrl.updatePayslip);
+router.delete('/payslips/:id',        protect, checkCompanyAccess, allowEditOnly, hrCtrl.deletePayslip);
 
 // =============================================================================
 // ROUTES MODÈLES DE DOCUMENTS (contrat, fiche de paie)

@@ -295,6 +295,57 @@ exports.createPayslip = async (req, res) => {
 // Retourne le PDF base64
 // Permissions : ADMIN, COLLABORATEUR, USER
 // =============================================================================
+exports.updatePayslip = async (req, res) => {
+    try {
+        const companyId  = parseInt(req.validatedCompanyId || req.body?.companyId);
+        const payslipId  = parseInt(req.params.id);
+        const { gross_salary, net_salary, status } = req.body;
+        const existing = await pool.queryWithRetry(
+            'SELECT id FROM payslips WHERE id = $1 AND company_id = $2',
+            [payslipId, companyId]
+        );
+        if (existing.rows.length === 0)
+            return res.status(404).json({ status: 'error', error: 'Fiche introuvable' });
+        const result = await pool.queryWithRetry(
+            `UPDATE payslips SET
+                gross_salary = COALESCE($1, gross_salary),
+                net_salary   = COALESCE($2, net_salary),
+                status       = COALESCE($3, status),
+                updated_at   = NOW()
+             WHERE id = $4 AND company_id = $5
+             RETURNING *`,
+            [gross_salary ? parseFloat(gross_salary) : null,
+             net_salary   ? parseFloat(net_salary)   : null,
+             status, payslipId, companyId]
+        );
+        res.json({ status: 'success', data: result.rows[0] });
+    } catch (error) {
+        console.error('🚨 [updatePayslip]', error.message);
+        res.status(500).json({ status: 'error', error: error.message });
+    }
+};
+// =============================================================================
+// DELETE /api/hr/payslips/:id
+// =============================================================================
+exports.deletePayslip = async (req, res) => {
+    try {
+        const companyId = parseInt(req.query.companyId || req.validatedCompanyId || req.body?.companyId);
+        const payslipId = parseInt(req.params.id);
+        const result = await pool.queryWithRetry(
+            'DELETE FROM payslips WHERE id = $1 AND company_id = $2 RETURNING id',
+            [payslipId, companyId]
+        );
+        if (result.rows.length === 0)
+            return res.status(404).json({ status: 'error', error: 'Fiche introuvable' });
+        console.log(`✅ [deletePayslip] Supprimé: id=${payslipId}`);
+        res.json({ status: 'success', message: 'Fiche de paie supprimée' });
+    } catch (error) {
+        console.error('🚨 [deletePayslip]', error.message);
+        res.status(500).json({ status: 'error', error: error.message });
+    }
+};
+// =============================================================================
+
 exports.downloadPayslip = async (req, res) => {
     try {
         const companyId = parseInt(req.query.companyId || req.validatedCompanyId);
