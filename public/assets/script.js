@@ -3135,7 +3135,7 @@ window.loadPendingFinancialReports = async function(filterStatus = null) {
     try {
         NotificationManager.show('Chargement des demandes...', 'info');
         
-        const url = filterStatus ? `reports/pending?status=${filterStatus}` : 'reports/pending';
+        const url = filterStatus ? `reports/all?status=${filterStatus}` : 'reports/all';
         const response = await apiFetch(url, { method: 'GET' });
         
         if (response.success) {
