@@ -110,7 +110,7 @@
         const dateFrom = document.getElementById('ef-date-from')?.value;
         const dateTo   = document.getElementById('ef-date-to')?.value;
         const type     = document.querySelector('input[name="ef-type"]:checked')?.value || 'bilan';
-        const companyId = getCompanyId();
+        const companyId = window.appState?.currentCompanyId;
 
         if (!dateFrom || !dateTo) {
             NotificationManager?.show('Veuillez sélectionner une période.', 'warning');
@@ -449,7 +449,7 @@
     window.loadRapportGestion = async function () {
         const dateFrom  = document.getElementById('rg-date-from')?.value;
         const dateTo    = document.getElementById('rg-date-to')?.value;
-        const companyId = getCompanyId();
+        const companyId = window.appState?.currentCompanyId;
 
         if (!dateFrom || !dateTo || dateFrom > dateTo) {
             window.NotificationManager?.show('Période invalide.', 'warning');
