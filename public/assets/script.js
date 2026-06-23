@@ -2979,7 +2979,7 @@ window.loadPendingFinancialReportsPreview = async function() {
     try {
         console.log('📋 [loadPendingFinancialReportsPreview] Chargement...');
         
-        const response = await apiFetch('reports/pending?limit=3', { method: 'GET' });
+        const response = await apiFetch('reports/all?limit=3', { method: 'GET' });
         
         if (response.success && response.data && response.data.length > 0) {
             const html = response.data.map(req => {
@@ -12836,7 +12836,7 @@ function stopNotificationPolling() {
         try {
             NotificationManager.show('Chargement des demandes en attente...', 'info');
             
-            const response = await apiFetch('reports/pending', {
+            const response = await apiFetch('reports/all', {
                 method: 'GET'
             });
             
