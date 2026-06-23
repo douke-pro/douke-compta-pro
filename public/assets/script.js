@@ -2536,8 +2536,98 @@ window.exportBalanceToExcel = function() {
     // TODO: Implémenter avec SheetJS ou côté backend
 };
 
+
+// =============================================================================
+// IMPRESSION PROFESSIONNELLE — Nouvelle fenêtre isolée
+// =============================================================================
+function printModalContent(containerId, title) {
+    var el = containerId ? document.getElementById(containerId) : null;
+    var target = el || document.querySelector('.modal-content') || document.querySelector('[class*="modal"]');
+    if (!target) { window.print(); return; }
+
+    var origin = window.location.origin;
+    var body = target.innerHTML
+        .replace(/onclick="[^"]*"/g, '')
+        .replace(/class="[^"]*no-print[^"]*"/g, 'style="display:none"')
+        .replace(/src="assets\//g, 'src="' + origin + '/assets/');
+
+    var css = [
+        '* { box-sizing: border-box; margin: 0; padding: 0; }',
+        'body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 15mm 20mm; }',
+        'table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }',
+        'th { background: #f1f3f4; font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 6px 8px; text-align: left; border: 1px solid #e0e0e0; }',
+        'td { padding: 5px 8px; border: 1px solid #e0e0e0; font-size: 10px; vertical-align: top; }',
+        'tr:nth-child(even) td { background: #fafafa; }',
+        '.text-right, [class*="text-right"] { text-align: right !important; }',
+        '.text-center, [class*="text-center"] { text-align: center !important; }',
+        '.font-black, [class*="font-black"] { font-weight: 900 !important; }',
+        '.font-bold, [class*="font-bold"] { font-weight: 700 !important; }',
+        '.text-success, [class*="text-success"] { color: #1e8e3e !important; }',
+        '.text-danger, [class*="text-danger"] { color: #d93025 !important; }',
+        '.text-warning, [class*="text-warning"] { color: #f29900 !important; }',
+        '.text-primary, [class*="text-primary"] { color: #1a73e8 !important; }',
+        '.text-gray-400, .text-gray-500, .text-gray-600 { color: #666 !important; }',
+        '.bg-primary\/10, [class*="bg-primary/10"] { background: #e8f0fe !important; }',
+        '.bg-success\/10, [class*="bg-success/10"] { background: #e6f4ea !important; }',
+        '.hidden, [class*="hidden"] { display: none !important; }',
+        'button { display: none !important; }',
+        '.flex { display: flex; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }',
+        '.gap-2 { gap: 6px; } .gap-3 { gap: 8px; } .gap-4 { gap: 12px; }',
+        '.grid { display: grid; } .grid-cols-2 { grid-template-columns: repeat(2,1fr); }',
+        '.grid-cols-3 { grid-template-columns: repeat(3,1fr); } .grid-cols-4 { grid-template-columns: repeat(4,1fr); }',
+        '.space-y-4 > * + * { margin-top: 12px; } .space-y-3 > * + * { margin-top: 8px; }',
+        '.mb-6 { margin-bottom: 16px; } .mb-4 { margin-bottom: 12px; } .mb-3 { margin-bottom: 8px; } .mb-2 { margin-bottom: 6px; }',
+        '.mt-4 { margin-top: 12px; } .mt-2 { margin-top: 6px; } .mt-1 { margin-top: 4px; }',
+        '.p-4 { padding: 10px; } .p-3 { padding: 8px; } .px-3 { padding: 0 8px; } .py-2 { padding: 5px 0; }',
+        '.pb-4 { padding-bottom: 12px; } .pt-4 { padding-top: 12px; }',
+        '.border { border: 1px solid #e0e0e0; } .border-b { border-bottom: 1px solid #e0e0e0; }',
+        '.border-t { border-top: 1px solid #e0e0e0; } .border-b-2 { border-bottom: 2px solid #1a73e8; }',
+        '.rounded-xl { border-radius: 6px; } .overflow-hidden { overflow: hidden; }',
+        '.w-full { width: 100%; } .min-w-full { min-width: 100%; }',
+        '.bg-gray-50 { background: #f8f9fa; } .bg-white { background: #fff; }',
+        '.text-xs { font-size: 9px; } .text-sm { font-size: 10px; } .text-base { font-size: 12px; }',
+        '.text-lg { font-size: 14px; } .text-xl { font-size: 16px; } .text-2xl { font-size: 18px; }',
+        '.uppercase { text-transform: uppercase; } .tracking-wider { letter-spacing: 0.05em; }',
+        '.font-mono { font-family: monospace; }',
+        '.shadow-lg, .shadow-md { box-shadow: none; }',
+        '.overflow-x-auto { overflow: visible; }',
+        'img { max-height: 40px; object-fit: contain; }',
+        '.sticky { position: static; }',
+        '@media print {',
+        '  body { padding: 10mm 15mm; }',
+        '  thead { display: table-header-group; }',
+        '  tr { page-break-inside: avoid; }',
+        '  .page-break { page-break-before: always; }',
+        '}'
+    ].join('\n');
+
+    var header = '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1a73e8;padding-bottom:10px;margin-bottom:16px;">'
+        + '<div style="display:flex;align-items:center;gap:12px;">'
+        + '<img src="' + origin + '/assets/LOGO_DOUKE.png" alt="Cabinet DOUKE" style="height:40px;object-fit:contain;">'
+        + '<div>'
+        + '<p style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;">Cabinet DOUKE — Doukè Compta Pro</p>'
+        + '<p style="font-size:14px;font-weight:900;color:#111;">' + (title || 'Document') + '</p>'
+        + '</div></div>'
+        + '<p style="font-size:9px;color:#999;">Imprimé le ' + new Date().toLocaleDateString('fr-FR') + ' à ' + new Date().toLocaleTimeString('fr-FR') + '</p>'
+        + '</div>';
+
+    var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
+        + '<title>' + (title || 'Document') + ' — Cabinet DOUKE</title>'
+        + '<style>' + css + '</style></head><body>'
+        + header + body
+        + '</body></html>';
+
+    var w = window.open('', '_blank', 'width=1100,height=850');
+    if (!w) { alert('Veuillez autoriser les popups pour imprimer.'); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(function() { w.print(); }, 1200);
+}
+
 window.printBalance = function() {
-    window.print();
+    printModalContent(null, 'Balance Générale');
 };
 
 window.exportLedgerToExcel = function() {
@@ -2545,7 +2635,7 @@ window.exportLedgerToExcel = function() {
 };
 
 window.printLedger = function() {
-    window.print();
+    printModalContent(null, 'Grand Livre');
 };
 
 // =============================================================================
@@ -5178,7 +5268,7 @@ window.generateSpecificImmobilisationReport = async function(reportId) {
  * Fonctions utilitaires pour l'export
  */
 window.printReport = function() {
-    window.print();
+    printModalContent(null, 'Rapport Financier');
 };
 
 window.exportReportToExcel = function(reportType) {
