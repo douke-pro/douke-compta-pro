@@ -9686,6 +9686,14 @@ window.loadHRPayslips = async function() {
                                     class="p-2 text-primary hover:bg-primary/10 rounded-lg transition" title="Télécharger">
                                     <i class="fas fa-download"></i>
                                 </button>
+                                <button onclick="window.editPayslip(${p.id})"
+                                    class="p-2 text-warning hover:bg-warning/10 rounded-lg transition" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="window.deletePayslip(${p.id}, '${p.employee_name || ''}', '${p.period_month}/${p.period_year}')"
+                                    class="p-2 text-danger hover:bg-danger/10 rounded-lg transition" title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>`).join('')}
                     </tbody>
@@ -9694,6 +9702,83 @@ window.loadHRPayslips = async function() {
         `;
     } catch(err) {
         container.innerHTML = `<div class="p-6 text-danger text-center"><i class="fas fa-exclamation-triangle mr-2"></i>${err.message}</div>`;
+    }
+};
+
+window.editPayslip = async function(id) {
+    try {
+        const data = await apiFetch(`hr/payslips/${id}?companyId=${appState.currentCompanyId}`);
+        const p = data.data;
+        if (!p) return alert('Fiche introuvable.');
+        const modal = document.createElement('div');
+        modal.id = 'edit-payslip-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+        modal.innerHTML = `
+            <div style="background:#fff;border-radius:12px;padding:28px;width:420px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+                <h3 style="margin:0 0 20px 0;color:#1a3a5c;font-size:14pt;font-weight:700">Modifier la fiche de paie</h3>
+                <div style="margin-bottom:14px">
+                    <label style="font-size:9pt;font-weight:600;color:#444;display:block;margin-bottom:4px">Salaire brut (FCFA)</label>
+                    <input id="ep-gross" type="number" value="${p.gross_salary||0}"
+                        style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:10pt"/>
+                </div>
+                <div style="margin-bottom:14px">
+                    <label style="font-size:9pt;font-weight:600;color:#444;display:block;margin-bottom:4px">Salaire net (FCFA)</label>
+                    <input id="ep-net" type="number" value="${p.net_salary||0}"
+                        style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:10pt"/>
+                </div>
+                <div style="margin-bottom:20px">
+                    <label style="font-size:9pt;font-weight:600;color:#444;display:block;margin-bottom:4px">Statut</label>
+                    <select id="ep-status" style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:10pt">
+                        <option value="brouillon" ${p.status==='brouillon'?'selected':''}>Brouillon</option>
+                        <option value="validé" ${p.status==='validé'?'selected':''}>Validé</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end">
+                    <button onclick="document.getElementById('edit-payslip-modal').remove()"
+                        style="padding:8px 20px;border:1px solid #cbd5e0;border-radius:6px;background:#f7fafc;cursor:pointer;font-size:9.5pt">Annuler</button>
+                    <button onclick="window.saveEditPayslip(${id})"
+                        style="padding:8px 20px;background:#1a3a5c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:9.5pt;font-weight:600">Enregistrer</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } catch(err) {
+        alert('Erreur : ' + err.message);
+    }
+};
+
+window.saveEditPayslip = async function(id) {
+    const gross = Number(document.getElementById('ep-gross').value);
+    const net   = Number(document.getElementById('ep-net').value);
+    const status = document.getElementById('ep-status').value;
+    if (!gross || !net) return alert('Veuillez renseigner les montants.');
+    try {
+        await apiFetch(`hr/payslips/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ gross_salary: gross, net_salary: net, status, company_id: appState.currentCompanyId })
+        });
+        document.getElementById('edit-payslip-modal').remove();
+        alert('Fiche mise à jour avec succès.');
+        if (typeof window.loadHRSection === 'function') window.loadHRSection('payslips');
+    } catch(err) {
+        alert('Erreur lors de la mise à jour : ' + err.message);
+    }
+};
+
+window.deletePayslip = async function(id, nom, periode) {
+    const ok = confirm(`Supprimer la fiche de paie de ${nom} (${periode}) ?
+
+Cette action est irréversible.`);
+    if (!ok) return;
+    try {
+        await apiFetch(`hr/payslips/${id}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ company_id: appState.currentCompanyId })
+        });
+        alert('Fiche supprimée.');
+        if (typeof window.loadHRSection === 'function') window.loadHRSection('payslips');
+    } catch(err) {
+        alert('Erreur lors de la suppression : ' + err.message);
     }
 };
 
