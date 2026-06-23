@@ -10123,9 +10123,35 @@ td,th{padding:3px 5px;vertical-align:middle}
   </div>
 </div>
 
-<h1>BULLETIN DE PAIE</h1>
-<div style="text-align:center;font-size:8pt;margin-bottom:6px">Fich N° &nbsp; ${ps.employee_code || ''}/CCIp</div>
-
+<div style="display:flex;align-items:stretch;margin-bottom:10px;border:1px solid #1a3a5c;border-radius:4px;overflow:hidden">
+  <div style="background:#1a3a5c;color:#fff;padding:10px 14px;min-width:180px;display:flex;flex-direction:column;justify-content:center">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <svg width="38" height="38" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+        <rect width="44" height="44" rx="5" fill="#ffffff" opacity="0.15"/>
+        <rect x="4" y="10" width="6" height="24" rx="2" fill="#ffffff"/>
+        <rect x="13" y="10" width="6" height="24" rx="2" fill="#ffffff"/>
+        <rect x="4" y="10" width="15" height="6" rx="2" fill="#ffffff"/>
+        <rect x="26" y="10" width="14" height="6" rx="2" fill="#4a9fd4"/>
+        <rect x="26" y="10" width="5" height="24" rx="2" fill="#4a9fd4"/>
+        <rect x="26" y="28" width="14" height="6" rx="2" fill="#4a9fd4"/>
+        <rect x="26" y="19" width="14" height="5" rx="2" fill="#4a9fd4" opacity="0.7"/>
+      </svg>
+      <div style="line-height:1.1">
+        <div style="font-size:13pt;font-weight:900;color:#fff;letter-spacing:1px">CCI</div>
+        <div style="font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600">Partners</div>
+      </div>
+    </div>
+    <div style="font-size:7.5pt;color:#c8dff0;margin:1px 0">Cotonou, Fidjrossè-Kpota</div>
+    <div style="font-size:7.5pt;color:#c8dff0;margin:1px 0">Tél : 00229 57 48 48 40</div>
+    <div style="font-size:7.5pt;color:#c8dff0;margin:1px 0">IFU : ${ps.ifu_number || '—'}</div>
+    <div style="font-size:7pt;color:#7fb3d3;margin-top:4px;font-style:italic">Fich N° ${ps.employee_code || ''}/CCIp</div>
+  </div>
+  <div style="flex:1;background:#fff;padding:10px 16px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end">
+    <div style="font-size:18pt;font-weight:900;color:#1a3a5c;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">BULLETIN DE PAIE</div>
+    <div style="background:#1a3a5c;color:#fff;padding:4px 16px;border-radius:5px;font-size:10pt;font-weight:700;margin-bottom:8px">${periode}</div>
+    <div style="font-size:8.5pt;color:#4a5568">N° Employeur CNSS : ${ps.cnss_number || '—'}</div>
+  </div>
+</div>
 <div class="bloc-top">
   <div class="bloc-employeur">
     <div><span class="lbl">Employeur :</span> <b>${companyName}</b></div>
