@@ -126,7 +126,7 @@
 
         try {
             const params = `companyId=${companyId}&date_from=${dateFrom}&date_to=${dateTo}`;
-            const response = await window.apiFetch(`syscohada/etats-complets?${params}`, { method: 'GET' });
+            const response = await apiFetch(`syscohada/etats-complets?${params}`, { method: 'GET' });
 
             if (response.status !== 'success') throw new Error(response.error || 'Erreur serveur');
 
@@ -452,15 +452,15 @@
         const companyId = window.appState?.currentCompanyId;
 
         if (!dateFrom || !dateTo || dateFrom > dateTo) {
-            window.NotificationManager?.show('Période invalide.', 'warning');
+            NotificationManager.show('Période invalide.', 'warning');
             return;
         }
 
-        window.NotificationManager?.show('Génération du rapport de gestion...', 'info', 8000);
+        NotificationManager.show('Génération du rapport de gestion...', 'info', 8000);
 
         try {
             const params = `companyId=${companyId}&date_from=${dateFrom}&date_to=${dateTo}`;
-            const response = await window.apiFetch(`accounting/trial-balance-syscohada?${params}`, { method: 'GET' });
+            const response = await apiFetch(`accounting/trial-balance-syscohada?${params}`, { method: 'GET' });
             if (response.status !== 'success') throw new Error(response.error || 'Erreur serveur');
 
             const accounts = response.data.accounts || [];
@@ -468,12 +468,12 @@
             const rapport  = computeRapportGestion(accounts, nbJours);
             const html     = renderRapportGestion(rapport, dateFrom, dateTo, nbJours);
 
-            window.ModalManager.open('📊 Rapport de Gestion', html);
-            window.NotificationManager?.show('Rapport généré.', 'success');
+            ModalManager.open('📊 Rapport de Gestion', html);
+            NotificationManager.show('Rapport généré.', 'success');
 
         } catch (err) {
             console.error('❌ [loadRapportGestion]', err);
-            window.NotificationManager?.show(`Erreur : ${err.message}`, 'error');
+            NotificationManager.show(`Erreur : ${err.message}`, 'error');
         }
     };
 
