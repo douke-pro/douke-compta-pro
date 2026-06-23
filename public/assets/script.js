@@ -2887,13 +2887,14 @@ function generateReportsMenuHTML() {
                 </div>
 
                 <div class="grid grid-cols-1 max-w-2xl mx-auto gap-6">
-                    ${generateClassicReportCard(
+                    ${isAdmin ? generateClassicReportCard(
                         'États Financiers', 
                         'fas fa-chart-pie', 
                         'etats-financiers', 
                         'Bilan, Compte de Résultat et Tableau des Flux de Trésorerie — avec comparatif N/N-1.', 
                         true
-                    )}
+                    ) : ''}
+                    ${generateRapportGestionCard()}
                 </div>
             </div>
 
