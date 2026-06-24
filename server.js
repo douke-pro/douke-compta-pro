@@ -444,7 +444,7 @@ $tmpl_fp$, NULL)
 <!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
 <div class="header no-break">
   <div class="header-logo">
-    <div class="logo-wrap"><svg width="38" height="38" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="44" rx="5" fill="#ffffff" opacity="0.15"/><rect x="4" y="10" width="6" height="24" rx="2" fill="#ffffff"/><rect x="13" y="10" width="6" height="24" rx="2" fill="#ffffff"/><rect x="4" y="10" width="15" height="6" rx="2" fill="#ffffff"/><rect x="26" y="10" width="14" height="6" rx="2" fill="#4a9fd4"/><rect x="26" y="10" width="5" height="24" rx="2" fill="#4a9fd4"/><rect x="26" y="28" width="14" height="6" rx="2" fill="#4a9fd4"/><rect x="26" y="19" width="14" height="5" rx="2" fill="#4a9fd4" opacity="0.7"/></svg><div><div class="brand-top">CCI</div><div class="brand-sub">Partners</div></div></div>
+    <div class="logo-wrap"><img src="/assets/LOGO_CCI.png" style="width:80px;height:auto;display:block"></div>
   </div>
   <div class="header-content">
     <h1>CONTRAT DE TRAVAIL</h1>
@@ -654,7 +654,7 @@ $tmpl_fp$, NULL)
 <!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
 <div class="header no-break">
   <div class="header-logo">
-    <div class="logo-wrap"><svg width="38" height="38" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="44" rx="5" fill="#ffffff" opacity="0.15"/><rect x="4" y="10" width="6" height="24" rx="2" fill="#ffffff"/><rect x="13" y="10" width="6" height="24" rx="2" fill="#ffffff"/><rect x="4" y="10" width="15" height="6" rx="2" fill="#ffffff"/><rect x="26" y="10" width="14" height="6" rx="2" fill="#4a9fd4"/><rect x="26" y="10" width="5" height="24" rx="2" fill="#4a9fd4"/><rect x="26" y="28" width="14" height="6" rx="2" fill="#4a9fd4"/><rect x="26" y="19" width="14" height="5" rx="2" fill="#4a9fd4" opacity="0.7"/></svg><div><div class="brand-top">CCI</div><div class="brand-sub">Partners</div></div></div>
+    <div class="logo-wrap"><img src="/assets/LOGO_CCI.png" style="width:80px;height:auto;display:block"></div>
   </div>
   <div class="header-content">
     <h1>CONTRAT DE TRAVAIL</h1>

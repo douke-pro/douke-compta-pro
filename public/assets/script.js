@@ -58,9 +58,9 @@ const NotificationManager = {
 };
 
 const ModalManager = {
-    modalBackdrop: document.getElementById('professional-modal'),
-    modalTitle: document.getElementById('modal-title'),
-    modalBody: document.getElementById('modal-body'),
+    get modalBackdrop() { return document.getElementById('professional-modal'); },
+    get modalTitle()   { return document.getElementById('modal-title'); },
+    get modalBody()    { return document.getElementById('modal-body'); },
     
     open: function (title, contentHTML) {
         if (!this.modalBackdrop) return;
