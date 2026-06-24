@@ -203,12 +203,12 @@ exports.loginUser = async (req, res) => {
         try {
             const { createClient } = require('@supabase/supabase-js');
             const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-            const { data: userRow } = await supabaseAdmin
-                .from('users')
+            const { data: consentRow } = await supabaseAdmin
+                .from('user_consents')
                 .select('terms_accepted_at')
                 .eq('email', email)
                 .maybeSingle();
-            termsAcceptedAt = userRow?.terms_accepted_at || null;
+            termsAcceptedAt = consentRow?.terms_accepted_at || null;
         } catch(e) {
             console.warn('⚠️ [loginUser] terms_accepted_at non récupéré:', e.message);
         }
@@ -603,9 +603,12 @@ exports.acceptTerms = async (req, res) => {
         const email = req.user?.email;
         if (!email) return res.status(401).json({ error: 'Non authentifié.' });
         const { error } = await supabaseAdmin
-            .from('users')
-            .update({ terms_accepted_at: new Date().toISOString() })
-            .eq('email', email);
+            .from('user_consents')
+            .upsert({ 
+                email, 
+                terms_accepted_at: new Date().toISOString(),
+                ip_address: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown'
+            }, { onConflict: 'email' });
         if (error) throw new Error(error.message);
         console.log(`✅ [acceptTerms] Acceptation RGPD enregistrée pour ${email}`);
         res.status(200).json({ status: 'success', message: 'Conditions acceptées.' });

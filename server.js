@@ -417,7 +417,7 @@ $tmpl_fp$, NULL)
                 VALUES (12, 'contrat_cdd', 'Contrat CDD — CCI PARTNERS', $cci_cdd$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11.5pt;color:#1a1a1a;margin:0;padding:20px 25px}
 @media print{@page{margin:15mm 20mm;size:A4}.pb{page-break-before:always}.no-break{page-break-inside:avoid}}
 .header{display:flex;align-items:stretch;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c}
-.header-logo{background:#1a3a5c;color:#fff;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:140px}
+.header-logo{background:#1a3a5c;color:#fff;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:160px}
 .header-logo .logo-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .header-logo .brand-top{font-size:14pt;font-weight:900;color:#fff;letter-spacing:1px}
 .header-logo .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
@@ -444,7 +444,7 @@ $tmpl_fp$, NULL)
 <!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
 <div class="header no-break">
   <div class="header-logo">
-    <div class="logo-wrap"><img src="/assets/LOGO_CCI.png" style="width:80px;height:auto;display:block"></div>
+    <div class="logo-wrap"><img src="/assets/LOGO_CCI.png" style="width:130px;height:auto;display:block;mix-blend-mode:screen"></div>
   </div>
   <div class="header-content">
     <h1>CONTRAT DE TRAVAIL</h1>
@@ -627,7 +627,7 @@ $tmpl_fp$, NULL)
                 VALUES (12, 'contrat_cdi', 'Contrat CDI — CCI PARTNERS', $cci_cdi$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11.5pt;color:#1a1a1a;margin:0;padding:20px 25px}
 @media print{@page{margin:15mm 20mm;size:A4}.pb{page-break-before:always}.no-break{page-break-inside:avoid}}
 .header{display:flex;align-items:stretch;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c}
-.header-logo{background:#1a3a5c;color:#fff;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:140px}
+.header-logo{background:#1a3a5c;color:#fff;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:160px}
 .header-logo .logo-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .header-logo .brand-top{font-size:14pt;font-weight:900;color:#fff;letter-spacing:1px}
 .header-logo .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
@@ -654,7 +654,7 @@ $tmpl_fp$, NULL)
 <!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
 <div class="header no-break">
   <div class="header-logo">
-    <div class="logo-wrap"><img src="/assets/LOGO_CCI.png" style="width:80px;height:auto;display:block"></div>
+    <div class="logo-wrap"><img src="/assets/LOGO_CCI.png" style="width:130px;height:auto;display:block;mix-blend-mode:screen"></div>
   </div>
   <div class="header-content">
     <h1>CONTRAT DE TRAVAIL</h1>
