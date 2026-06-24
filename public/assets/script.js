@@ -507,10 +507,14 @@ async function loadContentArea(contentId, title) {
         }
 
         switch (contentId) {
-            case 'dashboard':
-                endpoint = `accounting/dashboard/kpis${companyFilter}`;
+            case 'dashboard': {
+                const fy = appState.fiscalYear;
+                const fyFrom = fy?.dateFrom || `${new Date().getFullYear()}-01-01`;
+                const fyTo   = fy?.dateTo   || `${new Date().getFullYear()}-12-31`;
+                endpoint = `accounting/dashboard/kpis${companyFilter}&date_from=${fyFrom}&date_to=${fyTo}`;
                 content = await fetchDashboardData(endpoint);
                 break;
+            }
             
             case 'chart-of-accounts': 
                 endpoint = `accounting/chart-of-accounts${companyFilter}`;

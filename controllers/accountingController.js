@@ -153,71 +153,75 @@ exports.getFinancialReport = async (req, res) => {
 exports.getDashboardData = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
+        const currentYear = new Date().getFullYear();
+        const dateFrom = req.query.date_from || `${currentYear}-01-01`;
+        const dateTo   = req.query.date_to   || `${currentYear}-12-31`;
 
         console.log('📈 [getDashboardData] DÉBUT');
         console.log(`   Company ID: ${companyId}`);
+        console.log(`   Période: ${dateFrom} → ${dateTo}`);
         console.log(`   User: ${req.user ? req.user.email : 'N/A'}`);
 
         if (!companyId || !ADMIN_UID_INT) {
             return res.status(400).json({ status: 'error', error: 'companyId requis.' });
         }
 
-        const accounts = await odooExecuteKw({
-            uid:    ADMIN_UID_INT,
-            model:  'account.account',
-            method: 'search_read',
-            args:   [[['company_ids', 'in', [companyId]]]],
-            kwargs: {
-                fields:  ['id', 'code', 'name', 'current_balance'],
-                context: { company_id: companyId, allowed_company_ids: [companyId] }
-            }
-        });
-
-        console.log(`✅ ${accounts.length} comptes récupérés`);
-
+        // Calcul des KPIs par période via account.move.line
         let cashBalance   = 0;
         let totalIncome   = 0;
         let totalExpenses = 0;
         let shortTermDebt = 0;
 
-        accounts.forEach(account => {
-            const code    = account.code || '';
-            const balance = account.current_balance || 0;
-            if      (code.startsWith('5')) { cashBalance   += balance; }
-            else if (code.startsWith('7')) { totalIncome   += Math.abs(balance); }
-            else if (code.startsWith('6')) { totalExpenses += Math.abs(balance); }
-            else if (code.startsWith('4')) { shortTermDebt += Math.abs(balance); }
-        });
-
-        const netProfit   = totalIncome - totalExpenses;
-        const grossMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100) : 0;
-
-        let recentLines = [];
+        let periodLines = [];
         try {
-            recentLines = await odooExecuteKw({
+            periodLines = await odooExecuteKw({
                 uid:    ADMIN_UID_INT,
                 model:  'account.move.line',
                 method: 'search_read',
                 args:   [[
                     ['company_id',   '=', companyId],
                     ['parent_state', '=', 'posted'],
-                    ['account_id',   '!=', false],
-                    '|',
-                    ['debit',  '>', 0],
-                    ['credit', '>', 0]
+                    ['date', '>=', dateFrom],
+                    ['date', '<=', dateTo],
+                    ['account_id',   '!=', false]
                 ]],
                 kwargs: {
-                    fields:  ['id', 'date', 'name', 'ref', 'move_id', 'journal_id', 'debit', 'credit'],
+                    fields:  ['id', 'date', 'name', 'ref', 'move_id', 'journal_id',
+                              'debit', 'credit', 'account_id'],
                     order:   'date DESC, id DESC',
-                    limit:   6,
+                    limit:   500,
                     context: { company_id: companyId, allowed_company_ids: [companyId] }
                 }
             });
-            console.log(`✅ ${recentLines.length} lignes récupérées`);
-        } catch (lineError) {
-            console.error('⚠️ Erreur récupération lignes:', lineError.message);
-            recentLines = [];
+        } catch (e) {
+            console.error('⚠️ Erreur lignes période:', e.message);
+            periodLines = [];
         }
+
+        periodLines.forEach(line => {
+            const code = line.account_id ? (line.account_id[1] || '').split(' ')[0] : '';
+            const net  = (line.debit || 0) - (line.credit || 0);
+            if      (code.startsWith('5')) { cashBalance   += net; }
+            else if (code.startsWith('7')) { totalIncome   += (line.credit || 0); }
+            else if (code.startsWith('6')) { totalExpenses += (line.debit  || 0); }
+            else if (code.startsWith('4')) { shortTermDebt += Math.abs(net); }
+        });
+
+        const netProfit   = totalIncome - totalExpenses;
+        const grossMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100) : 0;
+
+        console.log(`✅ ${periodLines.length} lignes période récupérées`);
+
+        const recentLines = periodLines.slice(0, 6);
+        const recentEntries = recentLines.map(line => ({
+            id:      line.id,
+            date:    line.date,
+            libelle: line.name || line.ref || `Ligne #${line.id}`,
+            journal: line.journal_id ? line.journal_id[1] : 'N/A',
+            debit:   line.debit  || 0,
+            credit:  line.credit || 0,
+            status:  'Validé'
+        }));
 
         const recentEntries = recentLines.map(line => ({
             id:      line.id,

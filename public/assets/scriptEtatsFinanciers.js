@@ -776,11 +776,14 @@
     }
 
     window.printRapportGestion = function() {
-        var el = document.getElementById('rapport-gestion-print');
-        if (!el) { window.print(); return; }
+        var el = document.getElementById('rapport-gestion-print')
+               || document.getElementById('modal-body')
+               || document.querySelector('.modal-content');
+        if (!el) { alert('Contenu du rapport introuvable. Veuillez g\u00e9n\u00e9rer le rapport avant d\'imprimer.'); return; }
         var origin = window.location.origin;
         var body = el.innerHTML
             .replace(/class="[^"]*no-print[^"]*"/g, 'style="display:none"')
+            .replace(/onclick="[^"]*"/g, '')
             .replace(/src="assets\//g, 'src="' + origin + '/assets/');
         var css = '@page { size: A4 portrait; margin: 15mm 15mm 20mm 15mm; }'
             + '* { box-sizing: border-box; margin: 0; padding: 0; }'
