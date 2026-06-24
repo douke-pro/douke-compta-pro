@@ -201,6 +201,10 @@ async function handleLogin(event) {
         
         NotificationManager.show(`Connexion Réussie. Bienvenue, ${appState.user.name}.`);
         renderAppView();
+        // ── Modale RGPD si première connexion ──────────────────────────────
+        if (!response.data.termsAcceptedAt) {
+            setTimeout(() => showRgpdModal(), 800);
+        }
 
         // ✅ Déclencher les callbacks des modules en attente (scriptReports, etc.)
         // Exécuté après renderAppView() pour garantir que le DOM et appState sont prêts

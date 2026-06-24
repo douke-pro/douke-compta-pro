@@ -198,6 +198,20 @@ exports.loginUser = async (req, res) => {
         console.log(`✅ [loginUser] Connexion réussie: ${realName} (${email}) — ${profile}`);
 
         // ── 5. Réponse — envoyée AVANT la notification pour ne jamais bloquer ─
+        // ── 5b. Vérification terms_accepted_at dans Supabase ────────────────
+        let termsAcceptedAt = null;
+        try {
+            const { createClient } = require('@supabase/supabase-js');
+            const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+            const { data: userRow } = await supabaseAdmin
+                .from('users')
+                .select('terms_accepted_at')
+                .eq('email', email)
+                .maybeSingle();
+            termsAcceptedAt = userRow?.terms_accepted_at || null;
+        } catch(e) {
+            console.warn('⚠️ [loginUser] terms_accepted_at non récupéré:', e.message);
+        }
         res.status(200).json({
             status: 'success',
             data: {
@@ -207,6 +221,7 @@ exports.loginUser = async (req, res) => {
                 email,
                 companiesList,
                 defaultCompany,
+                termsAcceptedAt,
             },
         });
 
@@ -578,5 +593,24 @@ exports.getMe = async (req, res) => {
         res.status(401).json({
             error: error.message || 'Échec de la récupération des données utilisateur.',
         });
+    }
+};
+
+exports.acceptTerms = async (req, res) => {
+    try {
+        const { createClient } = require('@supabase/supabase-js');
+        const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+        const email = req.user?.email;
+        if (!email) return res.status(401).json({ error: 'Non authentifié.' });
+        const { error } = await supabaseAdmin
+            .from('users')
+            .update({ terms_accepted_at: new Date().toISOString() })
+            .eq('email', email);
+        if (error) throw new Error(error.message);
+        console.log(`✅ [acceptTerms] Acceptation RGPD enregistrée pour ${email}`);
+        res.status(200).json({ status: 'success', message: 'Conditions acceptées.' });
+    } catch(error) {
+        console.error('❌ [acceptTerms] Erreur:', error.message);
+        res.status(500).json({ error: error.message });
     }
 };

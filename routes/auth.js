@@ -12,7 +12,8 @@ const {
     loginUser, 
     assignCompany, 
     forceLogout,
-    getMe
+    getMe,
+    acceptTerms
 } = require('../controllers/authController');
 
 // =============================================================================
@@ -30,6 +31,7 @@ router.post('/register', registerUser);
  * Connexion : Authentification JWT + Validation Odoo XML-RPC
  */
 router.post('/login', loginUser);
+router.post('/accept-terms', protect, acceptTerms);
 
 // =============================================================================
 // ROUTES PROTÉGÉES (Authentification JWT requise)
