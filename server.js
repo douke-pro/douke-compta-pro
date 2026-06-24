@@ -416,10 +416,15 @@ $tmpl_fp$, NULL)
                 INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
                 VALUES (12, 'contrat_cdd', 'Contrat CDD — CCI PARTNERS', $cci_cdd$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11.5pt;color:#1a1a1a;margin:0;padding:20px 25px}
 @media print{@page{margin:15mm 20mm;size:A4}.pb{page-break-before:always}.no-break{page-break-inside:avoid}}
-.header{text-align:center;margin-bottom:18px;border-bottom:2px solid #1a3a5c;padding-bottom:12px}
-.header h1{font-size:14pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase;letter-spacing:1px}
-.header h2{font-size:12pt;color:#1a3a5c;margin:0}
-.header p{font-size:10pt;color:#555;margin:4px 0}
+.header{display:flex;align-items:stretch;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c}
+.header-logo{background:#1a3a5c;color:#fff;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:140px}
+.header-logo .logo-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.header-logo .brand-top{font-size:14pt;font-weight:900;color:#fff;letter-spacing:1px}
+.header-logo .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+.header-content{flex:1;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+.header-content h1{font-size:14pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase;letter-spacing:1px}
+.header-content h2{font-size:12pt;color:#1a3a5c;margin:0}
+.header-content p{font-size:10pt;color:#555;margin:4px 0}
 .pblock{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:8px 14px;margin:8px 0;border-radius:4px}
 .pblock h3{font-size:10pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
 .pblock p{margin:3px 0;font-size:11pt;line-height:1.5}
@@ -438,9 +443,14 @@ $tmpl_fp$, NULL)
 
 <!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
 <div class="header no-break">
-  <h1>CONTRAT DE TRAVAIL</h1>
-  <h2>À DURÉE DÉTERMINÉE (CDD)</h2>
-  <p>Ref : {{reference_contrat}} &nbsp;|&nbsp; Fait à {{lieu_signature}}, le {{date_signature}}</p>
+  <div class="header-logo">
+    <div class="logo-wrap"><svg width="38" height="38" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="44" rx="5" fill="#ffffff" opacity="0.15"/><rect x="4" y="10" width="6" height="24" rx="2" fill="#ffffff"/><rect x="13" y="10" width="6" height="24" rx="2" fill="#ffffff"/><rect x="4" y="10" width="15" height="6" rx="2" fill="#ffffff"/><rect x="26" y="10" width="14" height="6" rx="2" fill="#4a9fd4"/><rect x="26" y="10" width="5" height="24" rx="2" fill="#4a9fd4"/><rect x="26" y="28" width="14" height="6" rx="2" fill="#4a9fd4"/><rect x="26" y="19" width="14" height="5" rx="2" fill="#4a9fd4" opacity="0.7"/></svg><div><div class="brand-top">CCI</div><div class="brand-sub">Partners</div></div></div>
+  </div>
+  <div class="header-content">
+    <h1>CONTRAT DE TRAVAIL</h1>
+    <h2>À DURÉE DÉTERMINÉE (CDD)</h2>
+    <p>Ref : {{reference_contrat}} &nbsp;|&nbsp; Fait à {{lieu_signature}}, le {{date_signature}}</p>
+  </div>
 </div>
 
 <p class="intro no-break"><strong>ENTRE</strong></p>
@@ -616,10 +626,15 @@ $tmpl_fp$, NULL)
                 INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
                 VALUES (12, 'contrat_cdi', 'Contrat CDI — CCI PARTNERS', $cci_cdi$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11.5pt;color:#1a1a1a;margin:0;padding:20px 25px}
 @media print{@page{margin:15mm 20mm;size:A4}.pb{page-break-before:always}.no-break{page-break-inside:avoid}}
-.header{text-align:center;margin-bottom:18px;border-bottom:2px solid #1a3a5c;padding-bottom:12px}
-.header h1{font-size:14pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase;letter-spacing:1px}
-.header h2{font-size:12pt;color:#1a3a5c;margin:0}
-.header p{font-size:10pt;color:#555;margin:4px 0}
+.header{display:flex;align-items:stretch;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c}
+.header-logo{background:#1a3a5c;color:#fff;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:140px}
+.header-logo .logo-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.header-logo .brand-top{font-size:14pt;font-weight:900;color:#fff;letter-spacing:1px}
+.header-logo .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+.header-content{flex:1;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+.header-content h1{font-size:14pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase;letter-spacing:1px}
+.header-content h2{font-size:12pt;color:#1a3a5c;margin:0}
+.header-content p{font-size:10pt;color:#555;margin:4px 0}
 .pblock{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:8px 14px;margin:8px 0;border-radius:4px}
 .pblock h3{font-size:10pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
 .pblock p{margin:3px 0;font-size:11pt;line-height:1.5}
@@ -638,9 +653,14 @@ $tmpl_fp$, NULL)
 
 <!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
 <div class="header no-break">
-  <h1>CONTRAT DE TRAVAIL</h1>
-  <h2>À DURÉE INDÉTERMINÉE (CDI)</h2>
-  <p>Ref : {{reference_contrat}} &nbsp;|&nbsp; Fait à {{lieu_signature}}, le {{date_signature}}</p>
+  <div class="header-logo">
+    <div class="logo-wrap"><svg width="38" height="38" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="44" rx="5" fill="#ffffff" opacity="0.15"/><rect x="4" y="10" width="6" height="24" rx="2" fill="#ffffff"/><rect x="13" y="10" width="6" height="24" rx="2" fill="#ffffff"/><rect x="4" y="10" width="15" height="6" rx="2" fill="#ffffff"/><rect x="26" y="10" width="14" height="6" rx="2" fill="#4a9fd4"/><rect x="26" y="10" width="5" height="24" rx="2" fill="#4a9fd4"/><rect x="26" y="28" width="14" height="6" rx="2" fill="#4a9fd4"/><rect x="26" y="19" width="14" height="5" rx="2" fill="#4a9fd4" opacity="0.7"/></svg><div><div class="brand-top">CCI</div><div class="brand-sub">Partners</div></div></div>
+  </div>
+  <div class="header-content">
+    <h1>CONTRAT DE TRAVAIL</h1>
+    <h2>À DURÉE INDÉTERMINÉE (CDI)</h2>
+    <p>Ref : {{reference_contrat}} &nbsp;|&nbsp; Fait à {{lieu_signature}}, le {{date_signature}}</p>
+  </div>
 </div>
 
 <p class="intro no-break"><strong>ENTRE</strong></p>

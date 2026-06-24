@@ -1,11 +1,11 @@
 // =============================================================================
 // FICHIER : public/assets/script.js (VERSION V14 - BALANCE/GRAND LIVRE CORRIGÉS)
 // Description : Logique Front-End avec toutes les améliorations appliquées
-// Architecture : Multi-tenant sécurisé + API Odoo optimisée
+// Architecture : Multi-tenant sécurisé + API interne optimisée
 // Corrections V14 :
 //   - Sélecteur Balance / Grand Livre
 //   - Balance 6 colonnes SYSCOHADA Révisé
-//   - Gestion erreur backend Odoo (get_full_informations)
+//   - Gestion erreur backend (get_full_informations)
 //   - Filtres de période dynamiques
 // =============================================================================
 
