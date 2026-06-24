@@ -222,7 +222,6 @@ exports.getDashboardData = async (req, res) => {
             credit:  line.credit || 0,
             status:  'Validé'
         }));
-        }));
 
         console.log('✅ [getDashboardData] FIN - SUCCÈS');
 
