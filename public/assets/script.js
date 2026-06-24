@@ -1345,7 +1345,7 @@ function displayOCRResults(ocrData, file) {
 // ✅ FIX 3 : _resolveActiveCompanyId() pour le companyId envoyé à Odoo
 // ✅ FIX : validation locale avant envoi
 // ✅ FIX : bouton réactivé en cas d'erreur
-// ✅ FIX : move_id affiché dans la notification de succès
+// ✅ FIX : id écriture affiché dans la notification de succès
 // =============================================================================
 
 window.handleOCRValidation = async function(event) {
@@ -1413,7 +1413,7 @@ window.handleOCRValidation = async function(event) {
             const moveId = response.data?.move_id;
             NotificationManager.show(
                 moveId
-                    ? `✅ Écriture #${moveId} créée avec succès dans Odoo !`
+                    ? `✅ Écriture #${moveId} créée avec succès !`
                     : '✅ Écriture créée avec succès !',
                 'success',
                 6000
@@ -2156,9 +2156,9 @@ function generateLedgerErrorHTML(error, reportType) {
                     <i class="fas fa-lightbulb mr-2"></i>Diagnostic
                 </h5>
                 <p class="text-sm text-yellow-600 dark:text-yellow-300">
-                    <strong>Cause probable :</strong> Le backend utilise la méthode Odoo 
+                    <strong>Cause probable :</strong> Le backend utilise la méthode 
                     <code class="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">account.report.get_full_informations</code> 
-                    qui n'existe pas dans votre version d'Odoo.
+                    qui n'existe pas dans cette version du système.
                 </p>
                 <p class="text-sm text-yellow-600 dark:text-yellow-300 mt-2">
                     <strong>Solution :</strong> Le backend doit utiliser 
@@ -3341,7 +3341,7 @@ function generatePendingRequestsListHTML(requests, filterStatus) {
 // =============================================================================
 
 /**
- * ✅ FONCTION COMPLÈTE : Démarrer le traitement (génération depuis Odoo)
+ * ✅ FONCTION COMPLÈTE : Démarrer le traitement
  */
 window.startReportProcessing = async function(requestId) {
     if (!isAdminOrCollab()) {
@@ -3349,7 +3349,7 @@ window.startReportProcessing = async function(requestId) {
         return;
     }
     
-    if (!confirm('Voulez-vous démarrer la génération des états financiers depuis Odoo ?')) {
+    if (!confirm('Voulez-vous démarrer la génération des états financiers ?')) {
         return;
     }
     
@@ -3380,7 +3380,7 @@ window.startReportProcessing = async function(requestId) {
 };
 
 /**
- * ✅ FONCTION COMPLÈTE : Prévisualiser les données extraites d'Odoo
+ * ✅ FONCTION COMPLÈTE : Prévisualiser les données
  */
 window.previewReportData = async function(requestId) {
     if (!isAdminOrCollab()) {
@@ -3420,7 +3420,7 @@ function generateDataPreviewHTML(data, requestId, cached) {
                 <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-info p-4 rounded-xl">
                     <p class="text-sm text-gray-700 dark:text-gray-300">
                         <i class="fas fa-info-circle text-info mr-2"></i>
-                        Données en cache. Pour actualiser depuis Odoo, cliquez sur "Régénérer".
+                        Données en cache. Pour actualiser, cliquez sur "Régénérer".
                     </p>
                 </div>
             ` : ''}
@@ -3527,7 +3527,7 @@ function generateDataPreviewHTML(data, requestId, cached) {
                 </button>
                 <button onclick="window.regenerateReports(${requestId})"
                     class="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors">
-                    <i class="fas fa-sync mr-2"></i>Régénérer depuis Odoo
+                    <i class="fas fa-sync mr-2"></i>Régénérer
                 </button>
             </div>
         </div>
@@ -3714,10 +3714,10 @@ window.saveAndRegenerateReport = async function(event, requestId) {
 };
 
 /**
- * ✅ FONCTION COMPLÈTE : Régénérer depuis Odoo (sans édition)
+ * ✅ FONCTION COMPLÈTE : Régénérer les états financiers
  */
 window.regenerateReports = async function(requestId) {
-    if (!confirm('Voulez-vous régénérer les états depuis Odoo ? Les modifications non sauvegardées seront perdues.')) {
+    if (!confirm('Voulez-vous régénérer les états financiers ? Les modifications non sauvegardées seront perdues.')) {
         return;
     }
     
@@ -4295,7 +4295,7 @@ function generateImmobilisationReportCard(title, icon, description, reportId) {
 
 /**
  * ✅ FONCTION PRODUCTION : Charger les statistiques des immobilisations
- * Compatible Odoo 19 - Modèle account.asset
+ * Gestion des immobilisations
  */
 async function loadImmobilisationsStats() {
     try {
@@ -6063,7 +6063,7 @@ window.fetchMyFinancialReports = async function(page = 1) {
 
 
 window.startProcessingRequest = async function(requestId) {
-    if (!confirm('Commencer le traitement de cette demande ? Les rapports seront générés automatiquement depuis Odoo.')) {
+    if (!confirm('Commencer le traitement de cette demande ? Les rapports seront générés automatiquement.')) {
         return;
     }
     
@@ -8000,7 +8000,7 @@ window.showCreateAccountModal = function(accountId = null, currentData = {}) {
  
 /**
  * Soumet le formulaire de création/modification de compte
- * Types compatibles Odoo 17+ / Odoo 19
+ * Types d'immobilisations
  */
 window.handleCreateAccountSubmit = async function(event) {
     event.preventDefault();
@@ -8499,7 +8499,7 @@ if (periodBadge) {
                 body: JSON.stringify(payload)
             });
 
-            console.log('📥 Réponse Odoo:', response);
+            console.log('📥 Réponse reçue:', response);
 
             if (response.status === 'success') {
                 msgArea.className = 'mt-6 text-center p-4 rounded-xl bg-green-100 text-green-700';
@@ -12335,13 +12335,13 @@ document.addEventListener('click', function(event) {
  * Ouvre la modal de modification de l'année fiscale
  */
 window.openFiscalYearModal = async function() {
-    console.log('📅 [openFiscalYearModal] Chargement des exercices fiscaux Odoo...');
+    console.log('📅 [openFiscalYearModal] Chargement des exercices fiscaux...');
  
     // Afficher un loader immédiatement
     ModalManager.open('📅 Exercices Fiscaux', `
         <div class="text-center py-12">
             <div class="loading-spinner mx-auto mb-4"></div>
-            <p class="text-gray-500 font-bold">Chargement depuis Odoo...</p>
+            <p class="text-gray-500 font-bold">Chargement en cours...</p>
         </div>
     `);
  
@@ -12384,7 +12384,7 @@ window.openFiscalYearModal = async function() {
             }).join('')
             : `<div class="text-center py-6 text-gray-500 dark:text-gray-400">
                 <i class="fas fa-calendar-times text-3xl mb-3 text-gray-300"></i>
-                <p class="font-bold">Aucun exercice fiscal dans Odoo</p>
+                <p class="font-bold">Aucun exercice fiscal disponible</p>
                 <p class="text-xs mt-1">Créez votre premier exercice ci-dessous</p>
                </div>`;
  
@@ -12395,7 +12395,7 @@ window.openFiscalYearModal = async function() {
                 <div>
                     <h4 class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
                         <i class="fas fa-list mr-2 text-primary"></i>
-                        Exercices dans Odoo — Cliquez pour activer
+                        Exercices disponibles — Cliquez pour activer
                     </h4>
                     <div class="space-y-3 max-h-72 overflow-y-auto pr-1">
                         ${fiscalYearsHTML}
@@ -12406,7 +12406,7 @@ window.openFiscalYearModal = async function() {
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
                     <h4 class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
                         <i class="fas fa-plus-circle mr-2 text-success"></i>
-                        Créer un Nouvel Exercice dans Odoo
+                        Créer un Nouvel Exercice
                     </h4>
  
                     <div class="space-y-4">
@@ -12442,7 +12442,7 @@ window.openFiscalYearModal = async function() {
  
                         <button onclick="window.createFiscalYear()"
                             class="w-full py-3 bg-success text-white font-bold rounded-xl hover:bg-success/90 transition-colors shadow-md">
-                            <i class="fas fa-plus mr-2"></i>Créer dans Odoo et Activer
+                            <i class="fas fa-plus mr-2"></i>Créer et Activer
                         </button>
                     </div>
                 </div>
@@ -12523,7 +12523,7 @@ window.selectFiscalYear = function(name, dateFrom, dateTo) {
 };
 
 
-// ✅ Créer un nouvel exercice fiscal dans Odoo
+// ✅ Créer un nouvel exercice fiscal
 window.createFiscalYear = async function() {
     const name     = document.getElementById('new-fy-name')?.value?.trim();
     const dateFrom = document.getElementById('new-fy-start')?.value;
@@ -12544,7 +12544,7 @@ window.createFiscalYear = async function() {
     }
 
     try {
-        NotificationManager.show('Création de l\'exercice dans Odoo...', 'info', 4000);
+        NotificationManager.show('Création de l\'exercice en cours...', 'info', 4000);
 
         const response = await apiFetch('accounting/fiscal-years', {
             method: 'POST',
@@ -12558,7 +12558,7 @@ window.createFiscalYear = async function() {
 
         if (response.success) {
             NotificationManager.show(
-                `✅ Exercice "${name}" créé dans Odoo`,
+                `✅ Exercice "${name}" créé avec succès`,
                 'success',
                 5000
             );
