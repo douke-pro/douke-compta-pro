@@ -222,15 +222,6 @@ exports.getDashboardData = async (req, res) => {
             credit:  line.credit || 0,
             status:  'Validé'
         }));
-
-        const recentEntries = recentLines.map(line => ({
-            id:      line.id,
-            date:    line.date,
-            libelle: line.name || line.ref || `Ligne #${line.id}`,
-            journal: line.journal_id ? line.journal_id[1] : 'N/A',
-            debit:   line.debit  || 0,
-            credit:  line.credit || 0,
-            status:  'Validé'
         }));
 
         console.log('✅ [getDashboardData] FIN - SUCCÈS');
