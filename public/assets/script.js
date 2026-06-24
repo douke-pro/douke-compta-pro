@@ -13036,7 +13036,7 @@ function stopNotificationPolling() {
             if (response.status === 'success') {
                 reportsState.currentEditingReport = response.data;
                 
-                const modalHTML = generateFinancialReportEditorHTML(response.data);
+                const modalHTML = generateFinancialReportEditorHTML(response.data, requestId);
                 ModalManager.open(`✏️ Éditer : ${response.data.report_type}`, modalHTML);
             }
         } catch (error) {
@@ -13228,40 +13228,7 @@ function stopNotificationPolling() {
         `;
     }
     
-    function generateFinancialReportEditorHTML(reportData) {
-        return `
-            <div class="space-y-6">
-                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border-l-4 border-info">
-                    <p class="text-sm font-bold">Client : ${reportData.client_name}</p>
-                    <p class="text-xs text-gray-600 dark:text-gray-400">
-                        Type : ${reportData.report_type} | Période : ${new Date(reportData.period_start).toLocaleDateString('fr-FR')} - ${new Date(reportData.period_end).toLocaleDateString('fr-FR')}
-                    </p>
-                </div>
-                
-                <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center">
-                    <i class="fas fa-file-pdf fa-3x text-gray-400 mb-4"></i>
-                    <p class="text-gray-600 dark:text-gray-400 mb-4">
-                        Éditeur d'états financiers (intégration à venir)
-                    </p>
-                    <button onclick="alert('Fonctionnalité en développement')" 
-                        class="bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-primary-dark">
-                        <i class="fas fa-edit mr-2"></i>Ouvrir l'Éditeur
-                    </button>
-                </div>
-                
-                <div class="flex justify-end gap-3 pt-6 border-t">
-                    <button onclick="ModalManager.close()"
-                        class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100">
-                        Fermer
-                    </button>
-                    <button onclick="window.validateFinancialReport(${reportData.id})"
-                        class="px-6 py-3 bg-success text-white font-bold rounded-xl hover:bg-success/90">
-                        <i class="fas fa-check mr-2"></i>Valider & Envoyer
-                    </button>
-                </div>
-            </div>
-        `;
-    }
+
     
     function getStatusBorderColor(status) {
         const colors = {
