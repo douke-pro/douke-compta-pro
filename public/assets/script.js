@@ -9858,6 +9858,26 @@ window.printContract = async function(employeeId) {
         const today = new Date();
         const dateStr = today.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
+        // Article 2 — période d'essai optionnelle : n'apparaît que si emp.periode_essai est renseigné
+        const periodeEssaiPhrase = emp.periode_essai
+            ? ` Une période d'essai de ${emp.periode_essai} mois renouvelable une seule fois sera appliquée à compter de la date de démarrage.`
+            : '';
+        const periodeEssaiFin = emp.periode_essai
+            ? ` ; à tout moment sans préavis au cours de la période d'essai`
+            : '';
+
+        // Article 3 — missions optionnelles : jusqu'à 25, n'apparaissent que si au moins une est renseignée
+        let missionsListe = [];
+        try {
+            missionsListe = Array.isArray(emp.missions) ? emp.missions : JSON.parse(emp.missions || '[]');
+        } catch (e) {
+            missionsListe = [];
+        }
+        missionsListe = missionsListe.filter(m => m && String(m).trim() !== '').slice(0, 25);
+        const missionsBloc = missionsListe.length > 0
+            ? `<p>Ses missions se déclinent comme suit :</p><ul>${missionsListe.map(m => `<li>${m}</li>`).join('')}</ul>`
+            : '';
+
         const vars = {
             nom_entreprise:          companyInfo.name || '{{nom_entreprise}}',
             representant_entreprise: '{{representant_entreprise}}',
@@ -9869,6 +9889,8 @@ window.printContract = async function(employeeId) {
             adresse_salarie:         emp.address || '{{adresse_salarie}}',
             situation_matrimoniale:  emp.situation_matrimoniale || '{{situation_matrimoniale}}',
             contact_urgence:         emp.contact_urgence || '{{contact_urgence}}',
+            telephone_salarie:       emp.phone || '{{telephone_salarie}}',
+            ifu_salarie:             emp.ifu_number || '{{ifu_salarie}}',
             date_debut:              emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('fr-FR') : '{{date_debut}}',
             date_fin:                '{{date_fin}}',
             duree_contrat:           '{{duree_contrat}}',
@@ -9880,6 +9902,10 @@ window.printContract = async function(employeeId) {
             reference_contrat:       `CTR-${companyId}-${emp.employee_code}-${today.getFullYear()}`,
             lieu_signature:          'Cotonou',
             date_signature:          dateStr,
+            header_image_url:        window.location.origin + '/assets/header-douke.png',
+            periode_essai_phrase:    periodeEssaiPhrase,
+            periode_essai_fin:       periodeEssaiFin,
+            missions_bloc:           missionsBloc,
         };
 
         let html = tpl.template_html;
