@@ -17,6 +17,7 @@ Thumbs.db
 *.dump
 *.sql
 !scripts/migrations/*.sql
+!scripts/migrations/*.sql
 *.backup
 public/assets/*.backup*
 public/assets/*.backup*
