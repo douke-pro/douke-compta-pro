@@ -9862,8 +9862,7 @@ window.printContract = async function(employeeId) {
         const periodeEssaiPhrase = emp.periode_essai
             ? `<p>Le présent contrat ne deviendra définitif qu'à l'expiration d'une période d'essai de <span class="hl">${emp.periode_essai}</span> jugée concluante par l'employeur. Pendant la période d'essai, l'employé comme l'employeur peut à tout moment se délier librement du contrat par simple notification, sans préavis ni indemnité ni réparation et sans qu'il ait besoin de justifier sa décision. Les salaires et tous avantages correspondants à la période déjà passée au sein de la structure sont dus à l'employé au prorata temporis.</p>`
             : '';
-        const periodeEssaiFin = ''
-            : '';
+        const periodeEssaiFin = '';
 
         // Article 3 — missions optionnelles : jusqu'à 25, n'apparaissent que si au moins une est renseignée
         let missionsListe = [];
