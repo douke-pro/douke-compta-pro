@@ -694,7 +694,7 @@ $tmpl_fp$, NULL)
 
 <div class="art no-break">
   <h4>Article 2 : Prise d'Effet et Période d'Essai</h4>
-  <p>Le présent contrat est conclu pour une durée déterminée de <span class="hl">{{duree_contrat}}</span> allant du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span>, sous réserve de son interruption anticipée selon les conditions prévues à l'article 13 ci-dessous.</p>
+  <p>Le présent contrat est conclu pour une durée déterminée de <span class="hl">{{duree_contrat}}</span> allant du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span>, sous réserve de son interruption anticipée selon les conditions prévues à l'article 14 ci-dessous.</p>
   <p>Il prend fin de plein droit à l'échéance du terme ci-dessus indiqué et peut être transformé en contrat à durée indéterminée sur accord des parties.</p>
 </div>
 

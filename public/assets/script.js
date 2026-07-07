@@ -9860,10 +9860,9 @@ window.printContract = async function(employeeId) {
 
         // Article 2 — période d'essai optionnelle : n'apparaît que si emp.periode_essai est renseigné
         const periodeEssaiPhrase = emp.periode_essai
-            ? ` Une période d'essai de ${emp.periode_essai} mois renouvelable une seule fois sera appliquée à compter de la date de démarrage.`
+            ? `<p>Le présent contrat ne deviendra définitif qu'à l'expiration d'une période d'essai de <span class="hl">${emp.periode_essai}</span> jugée concluante par l'employeur. Pendant la période d'essai, l'employé comme l'employeur peut à tout moment se délier librement du contrat par simple notification, sans préavis ni indemnité ni réparation et sans qu'il ait besoin de justifier sa décision. Les salaires et tous avantages correspondants à la période déjà passée au sein de la structure sont dus à l'employé au prorata temporis.</p>`
             : '';
-        const periodeEssaiFin = emp.periode_essai
-            ? ` ; à tout moment sans préavis au cours de la période d'essai`
+        const periodeEssaiFin = ''
             : '';
 
         // Article 3 — missions optionnelles : jusqu'à 25, n'apparaissent que si au moins une est renseignée
