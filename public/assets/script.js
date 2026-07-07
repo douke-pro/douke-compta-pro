@@ -9840,7 +9840,11 @@ window.printContract = async function(employeeId) {
         if (!emp) return alert('Employé introuvable.');
 
         // Récupérer le modèle de contrat selon le type
-        const companyId = appState.currentCompanyId || 0;
+        // ✅ FIX : utiliser l'entreprise RÉELLE de l'employé (emp.company_id), pas l'entreprise
+        // actuellement sélectionnée dans le menu déroulant (appState.currentCompanyId).
+        // Sans ce fix, le contrat imprimé dépendait de l'entreprise affichée dans l'UI
+        // au moment du clic, et non de l'employé réellement concerné.
+        const companyId = emp.company_id || appState.currentCompanyId || 0;
         const tplType   = emp.contract_type === 'CDD' ? 'contrat_cdd' : 'contrat_cdi';
         const tplData   = await apiFetch(`hr/templates?companyId=${companyId}`);
         const templates = tplData.data || [];
