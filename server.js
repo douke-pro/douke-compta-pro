@@ -693,14 +693,16 @@ $tmpl_fp$, NULL)
 </div>
 
 <div class="art no-break">
-  <h4>Article 2 : Prise d'Effet et Période d'Essai</h4>
+  <h4>Article 2 : Prise d'Effet, Durée et Période d'Essai</h4>
   <p>Le présent contrat est conclu pour une durée déterminée de <span class="hl">{{duree_contrat}}</span> allant du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span>, sous réserve de son interruption anticipée selon les conditions prévues à l'article 14 ci-dessous.</p>
   <p>Il prend fin de plein droit à l'échéance du terme ci-dessus indiqué et peut être transformé en contrat à durée indéterminée sur accord des parties.</p>
+  {{periode_essai_phrase}}
 </div>
 
 <div class="art no-break">
   <h4>Article 3 : Fonctions de l'Employé</h4>
   <p>L'employé se met à la disposition de l'entreprise en qualité de <span class="hl">{{poste}}</span>.</p>
+  {{missions_bloc}}
   <p>Toutefois, en cas de nécessité, l'employé pourra être amené à exercer toutes autres attributions à lui confiées par l'entreprise dans la mesure de ses qualifications.</p>
 </div>
 
