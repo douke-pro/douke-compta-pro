@@ -9,7 +9,7 @@ const { Pool } = require('pg');
 // =============================================================================
 // VALIDATION DE LA CONNECTION STRING
 // =============================================================================
-const connectionString = process.env.DATABASE_URL1 || process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
     console.error('🚨 [DB] DATABASE_URL manquante ! Vérifiez vos variables d\'environnement Render.');
