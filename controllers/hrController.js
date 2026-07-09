@@ -409,7 +409,58 @@ exports.listTemplates = async (req, res) => {
 };
 
 // =============================================================================
-// 11. POST /api/hr/templates
+// 11B. GET /api/hr/company-entete?companyId=X
+// Permissions : ADMIN, COLLABORATEUR, USER
+// =============================================================================
+exports.getCompanyEntete = async (req, res) => {
+    try {
+        const companyId = parseInt(req.query.companyId);
+        if (!companyId) return res.status(400).json({ status: 'error', error: 'companyId requis' });
+        const result = await pool.queryWithRetry(
+            'SELECT entete_base64, entete_mime_type FROM company_headers WHERE company_id = $1',
+            [companyId]
+        );
+        if (!result.rows.length || !result.rows[0].entete_base64) {
+            return res.json({ status: 'success', data: null });
+        }
+        res.json({ status: 'success', data: result.rows[0] });
+    } catch (error) {
+        console.error('🚨 [getCompanyEntete]', error.message);
+        res.status(500).json({ status: 'error', error: error.message });
+    }
+};
+
+// =============================================================================
+// 11C. POST /api/hr/company-entete?companyId=X (multipart, champ 'entete')
+// Permissions : ADMIN, COLLABORATEUR
+// =============================================================================
+exports.saveCompanyEntete = async (req, res) => {
+    try {
+        const companyId = parseInt(req.validatedCompanyId || req.query.companyId);
+        if (!companyId) return res.status(400).json({ status: 'error', error: 'companyId requis' });
+        if (!req.file) return res.status(400).json({ status: 'error', error: 'Aucun fichier reçu (champ "entete" attendu)' });
+
+        const base64 = req.file.buffer.toString('base64');
+        const mimeType = req.file.mimetype;
+
+        await pool.queryWithRetry(
+            `INSERT INTO company_headers (company_id, entete_base64, entete_mime_type, updated_at)
+             VALUES ($1, $2, $3, NOW())
+             ON CONFLICT (company_id) DO UPDATE SET
+                entete_base64 = EXCLUDED.entete_base64,
+                entete_mime_type = EXCLUDED.entete_mime_type,
+                updated_at = NOW()`,
+            [companyId, base64, mimeType]
+        );
+
+        res.status(201).json({ status: 'success', message: 'Entête enregistrée avec succès' });
+    } catch (error) {
+        console.error('🚨 [saveCompanyEntete]', error.message);
+        res.status(500).json({ status: 'error', error: error.message });
+    }
+};
+
+// =============================================================================
 // Permissions : ADMIN, COLLABORATEUR
 // =============================================================================
 exports.saveTemplate = async (req, res) => {

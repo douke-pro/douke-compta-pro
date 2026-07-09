@@ -5,6 +5,16 @@ const router        = express.Router();
 const hrCtrl        = require('../controllers/hrController');
 const gedCtrl       = require('../controllers/gedController');
 const { protect, checkCompanyAccess } = require('../middleware/auth');
+const multer = require('multer');
+const uploadEntete = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+        if (allowed.includes(file.mimetype)) return cb(null, true);
+        return cb(new Error('Format non supporté. Utilisez PNG, JPEG ou WEBP.'));
+    }
+});
 
 // =============================================================================
 // MIDDLEWARE RBAC — Matrice d'accès validée
@@ -72,6 +82,11 @@ router.get ('/templates',  protect, checkCompanyAccess, allowEditOnly, hrCtrl.li
 
 // Création/Mise à jour — ADMIN, COLLABORATEUR
 router.post('/templates',  protect, checkCompanyAccess, allowEditOnly, hrCtrl.saveTemplate);
+// =============================================================================
+// ROUTES ENTÊTE ENTREPRISE (bannière contrat, distincte du LOGO cabinet)
+// =============================================================================
+router.get ('/company-entete', protect, checkCompanyAccess, allowAll,      hrCtrl.getCompanyEntete);
+router.post('/company-entete', protect, uploadEntete.single('entete'), checkCompanyAccess, allowEditOnly, hrCtrl.saveCompanyEntete);
 
 // =============================================================================
 // ROUTES GED (Documents entreprise)
