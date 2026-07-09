@@ -9902,8 +9902,9 @@ window.printContract = async function(employeeId) {
         const companyId = emp.company_id || appState.currentCompanyId || 0;
         const tplType   = emp.contract_type === 'CDD' ? 'contrat_cdd' : 'contrat_cdi';
 
-        // ✅ Modèle unique de référence (company_id=0) pour toutes les entreprises
-        const tplData   = await apiFetch(`hr/templates?companyId=0`);
+        // ✅ companyId réel envoyé pour le contrôle d'accès (isolation par entreprise) ;
+        // le backend retourne toujours le modèle universel (company_id=0) une fois autorisé
+        const tplData   = await apiFetch(`hr/templates?companyId=${companyId}`);
         const templates = tplData.data || [];
         let tpl = templates.find(t => t.template_type === tplType && t.company_id === 0);
 

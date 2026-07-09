@@ -386,19 +386,25 @@ exports.downloadPayslip = async (req, res) => {
 // =============================================================================
 exports.listTemplates = async (req, res) => {
     try {
+        // ✅ companyId toujours requis et validé par checkCompanyAccess en amont
+        // (isolation entre entreprises garantie par le middleware, avant ce point)
         const companyId = parseInt(req.query.companyId || req.validatedCompanyId);
         const type      = req.query.type || null;
 
-        // Option A : modèle spécifique entreprise en priorité, sinon modèle global (company_id = 0)
+        if (!companyId || companyId <= 0) {
+            return res.status(400).json({ status: 'error', error: 'companyId invalide.' });
+        }
+
+        // ✅ Modèle UNIQUE de référence (company_id=0), partagé par toutes les entreprises.
+        // Le companyId reçu ne sert qu'au contrôle d'accès (middleware), pas à la sélection
+        // du document — le contrat en lui-même n'est pas une donnée privée par entreprise.
         let query = `
-            SELECT DISTINCT ON (template_type)
-                id, template_type, template_name, template_html, created_at, company_id
+            SELECT id, template_type, template_name, template_html, created_at, company_id
             FROM document_templates
-            WHERE company_id = $1 OR company_id = 0
+            WHERE company_id = 0
         `;
-        const params = [companyId];
-        if (type) { query += ` AND template_type = $2`; params.push(type); }
-        query += ` ORDER BY template_type, company_id DESC`;
+        const params = [];
+        if (type) { query += ` AND template_type = $1`; params.push(type); }
 
         const result = await pool.queryWithRetry(query, params);
         res.json({ status: 'success', data: result.rows });
