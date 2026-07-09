@@ -9915,6 +9915,16 @@ window.printContract = async function(employeeId) {
         const companyInfo = appState.user?.companiesList?.find(c => c.id === companyId) || {};
 
         // ✅ Récupération de l'Entête propre à l'entreprise (bannière), avec fallback texte
+        let adresseEntreprise = '{{adresse_entreprise}}';
+        let rccmIfu = '{{rccm_ifu}}';
+        try {
+            const companyDetailsRes = await apiFetch(`settings/company/${companyId}`);
+            const companyDetails = companyDetailsRes.data || {};
+            if (companyDetails.address) adresseEntreprise = companyDetails.address;
+            if (companyDetails.registration_number) rccmIfu = companyDetails.registration_number;
+        } catch (e) {
+            console.error('Erreur recuperation details entreprise:', e.message);
+        }
         let headerBlock;
         let headerImageUrl = '';
         try {
@@ -9957,7 +9967,7 @@ window.printContract = async function(employeeId) {
         const vars = {
             nom_entreprise:          companyInfo.name || '{{nom_entreprise}}',
             representant_entreprise: '{{representant_entreprise}}',
-            adresse_entreprise:      '{{adresse_entreprise}}',
+            adresse_entreprise:      adresseEntreprise,
             nom:                     emp.full_name,
             poste:                   emp.job_title || '{{poste}}',
             date_naissance:          emp.date_naissance ? new Date(emp.date_naissance).toLocaleDateString('fr-FR') : '{{date_naissance}}',
@@ -9971,7 +9981,7 @@ window.printContract = async function(employeeId) {
             cnss:                    emp.cnss_number || '{{cnss}}',
             // Champs entreprise — non stockés en base actuellement, à renseigner manuellement
             forme_juridique:         '{{forme_juridique}}',
-            rccm_ifu:                '{{rccm_ifu}}',
+            rccm_ifu:                rccmIfu,
             qualite_representant:    '{{qualite_representant}}',
             lieu_travail:            '{{lieu_travail}}',
             motif_cdd:               '{{motif_cdd}}',
