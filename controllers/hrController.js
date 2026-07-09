@@ -395,16 +395,17 @@ exports.listTemplates = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'companyId invalide.' });
         }
 
-        // ✅ Modèle UNIQUE de référence (company_id=0), partagé par toutes les entreprises.
-        // Le companyId reçu ne sert qu'au contrôle d'accès (middleware), pas à la sélection
-        // du document — le contrat en lui-même n'est pas une donnée privée par entreprise.
+        // ✅ Modèle spécifique à l'entreprise en priorité, sinon modèle universel (company_id=0)
+        // en fallback. companyId a déjà été validé par checkCompanyAccess pour l'isolation.
         let query = `
-            SELECT id, template_type, template_name, template_html, created_at, company_id
+            SELECT DISTINCT ON (template_type)
+                id, template_type, template_name, template_html, created_at, company_id
             FROM document_templates
-            WHERE company_id = 0
+            WHERE company_id = $1 OR company_id = 0
         `;
-        const params = [];
-        if (type) { query += ` AND template_type = $1`; params.push(type); }
+        const params = [companyId];
+        if (type) { query += ` AND template_type = $2`; params.push(type); }
+        query += ` ORDER BY template_type, company_id DESC`;
 
         const result = await pool.queryWithRetry(query, params);
         res.json({ status: 'success', data: result.rows });
