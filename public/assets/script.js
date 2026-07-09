@@ -9906,7 +9906,8 @@ window.printContract = async function(employeeId) {
         // le backend retourne toujours le modèle universel (company_id=0) une fois autorisé
         const tplData   = await apiFetch(`hr/templates?companyId=${companyId}`);
         const templates = tplData.data || [];
-        let tpl = templates.find(t => t.template_type === tplType && t.company_id === 0);
+        let tpl = templates.find(t => t.template_type === tplType && t.company_id === companyId)
+               || templates.find(t => t.template_type === tplType && t.company_id === 0);
 
         if (!tpl?.template_html) return alert('Aucun modèle de contrat de référence disponible. Contactez un administrateur.');
 
