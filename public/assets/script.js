@@ -9945,6 +9945,18 @@ window.printContract = async function(employeeId) {
         // Substitution des variables {{variable}}
         const today = new Date();
         const dateStr = today.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+        const lieuSignature = (window.prompt("Lieu de signature du contrat :", "Cotonou") || "Cotonou").trim() || "Cotonou";
+        let dateSignatureFinal = dateStr;
+        const dateSaisie = window.prompt("Date d'emission du contrat (JJ/MM/AAAA) :", today.toLocaleDateString('fr-FR'));
+        if (dateSaisie) {
+            const parts = dateSaisie.split('/');
+            if (parts.length === 3) {
+                const d = new Date(parseInt(parts[2],10), parseInt(parts[1],10)-1, parseInt(parts[0],10));
+                if (!isNaN(d.getTime())) {
+                    dateSignatureFinal = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+                }
+            }
+        }
 
         // Article 2 — période d'essai optionnelle : n'apparaît que si emp.periode_essai est renseigné
         const periodeEssaiPhrase = emp.periode_essai
@@ -9994,8 +10006,8 @@ window.printContract = async function(employeeId) {
             heures_mensuelles:       '192',
             jour_paiement:           '28',
             reference_contrat:       `CTR-${companyId}-${emp.employee_code}-${today.getFullYear()}`,
-            lieu_signature:          'Cotonou',
-            date_signature:          dateStr,
+            lieu_signature:          lieuSignature,
+            date_signature:          dateSignatureFinal,
             header_block:            headerBlock,
             header_image_url:        headerImageUrl,
             periode_essai_phrase:    periodeEssaiPhrase,
