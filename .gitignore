@@ -21,3 +21,4 @@ Thumbs.db
 *.backup
 public/assets/*.backup*
 public/assets/*.backup*
+*.bak
