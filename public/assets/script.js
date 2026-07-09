@@ -8773,16 +8773,18 @@ async function loadSettingsData() {
         
         console.log('📋 [loadSettingsData] Chargement pour company_id:', companyId);
         
-        const [companyRes, accountingRes, subscriptionRes] = await Promise.all([
+        const [companyRes, accountingRes, subscriptionRes, enteteRes] = await Promise.all([
             apiFetch(`settings/company/${companyId}`, { method: 'GET' }),
             apiFetch(`settings/accounting/${companyId}`, { method: 'GET' }),
-            apiFetch(`settings/subscription/${companyId}`, { method: 'GET' })
+            apiFetch(`settings/subscription/${companyId}`, { method: 'GET' }),
+            apiFetch(`hr/company-entete?companyId=${companyId}`, { method: 'GET' }).catch(() => ({ data: null }))
         ]);
         
         window.settingsData = {
             company: companyRes.data || {},
             accounting: accountingRes.data || {},
             subscription: subscriptionRes.data || {},
+            entete: enteteRes.data || null,
             user: appState.user
         };
         
@@ -8932,6 +8934,35 @@ function generateCompanySettingsHTML() {
                 </div>
                 ` : ''}
             </form>
+
+            <!-- ========== ENTÊTE DU CONTRAT (bannière, distincte du LOGO cabinet) ========== -->
+            <div class="pt-6 border-t mt-6">
+                <h4 class="text-xl font-black text-gray-900 dark:text-white mb-2">
+                    <i class="fas fa-image mr-2 text-primary"></i>
+                    Entête du Contrat
+                </h4>
+                <p class="text-sm text-gray-500 mb-4">
+                    Bannière affichée en haut des contrats générés pour cette entreprise. Distincte du logo du cabinet utilisé sur les documents comptables.
+                </p>
+                <div class="flex items-center gap-6 flex-wrap">
+                    <div id="entete-preview-container" class="border rounded-xl overflow-hidden" style="width:280px;height:80px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;">
+                        ${window.settingsData?.entete?.entete_base64
+                            ? `<img src="data:${window.settingsData.entete.entete_mime_type};base64,${window.settingsData.entete.entete_base64}" style="width:100%;height:100%;object-fit:cover;">`
+                            : `<span class="text-xs text-gray-400 px-2 text-center">Aucune entête définie — le nom de l'entreprise sera utilisé par défaut</span>`
+                        }
+                    </div>
+                    ${isAdmin ? `
+                    <div class="flex items-center gap-3">
+                        <input type="file" id="company-entete-input" accept="image/png,image/jpeg,image/webp"
+                            class="text-sm border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600">
+                        <button type="button" onclick="window.uploadCompanyEntete()"
+                            class="bg-primary text-white font-bold px-5 py-2 rounded-xl hover:bg-primary-dark transition-all shadow-lg whitespace-nowrap">
+                            <i class="fas fa-upload mr-2"></i>Uploader Entête
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
         </div>
     `;
 }
@@ -9374,6 +9405,34 @@ window.handleSaveSubscriptionSettings = async function(event) {
 /**
  * Sauvegarde les paramètres entreprise
  */
+window.uploadCompanyEntete = async function() {
+    const input = document.getElementById('company-entete-input');
+    const file = input?.files?.[0];
+    if (!file) return NotificationManager.show("Sélectionnez un fichier avant de charger.", 'error');
+
+    const companyId = appState.currentCompanyId;
+    if (!companyId) return NotificationManager.show('Aucune entreprise active.', 'error');
+
+    const formData = new FormData();
+    formData.append('entete', file);
+
+    try {
+        NotificationManager.show("Chargement de l'entête...", 'info', 2000);
+        const uploadUrl = `${API_BASE_URL}/hr/company-entete?companyId=${companyId}`;
+        const response = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${appState.token}` },
+            body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Erreur HTTP ${response.status}`);
+        NotificationManager.show('Entête enregistrée avec succès', 'success');
+        await loadSettingsData();
+    } catch (err) {
+        NotificationManager.show('Erreur: ' + err.message, 'error');
+    }
+};
+
 window.handleSaveCompanySettings = async function(event) {
     event.preventDefault();
     
@@ -9839,24 +9898,33 @@ window.printContract = async function(employeeId) {
         const emp = empData.data;
         if (!emp) return alert('Employé introuvable.');
 
-        // Récupérer le modèle de contrat selon le type
-        // ✅ FIX : utiliser l'entreprise RÉELLE de l'employé (emp.company_id), pas l'entreprise
-        // actuellement sélectionnée dans le menu déroulant (appState.currentCompanyId).
-        // Sans ce fix, le contrat imprimé dépendait de l'entreprise affichée dans l'UI
-        // au moment du clic, et non de l'employé réellement concerné.
+        // Entreprise RÉELLE de l'employé (pas l'entreprise sélectionnée dans le menu)
         const companyId = emp.company_id || appState.currentCompanyId || 0;
         const tplType   = emp.contract_type === 'CDD' ? 'contrat_cdd' : 'contrat_cdi';
-        const tplData   = await apiFetch(`hr/templates?companyId=${companyId}`);
+
+        // ✅ Modèle unique de référence (company_id=0) pour toutes les entreprises
+        const tplData   = await apiFetch(`hr/templates?companyId=0`);
         const templates = tplData.data || [];
+        let tpl = templates.find(t => t.template_type === tplType && t.company_id === 0);
 
-        // Priorité : modèle spécifique à l'entreprise, sinon modèle global
-        let tpl = templates.find(t => t.template_type === tplType && t.company_id === companyId)
-               || templates.find(t => t.template_type === tplType);
-
-        if (!tpl?.template_html) return alert('Aucun modèle de contrat disponible. Créez-en un dans l\'onglet Modèles.');
+        if (!tpl?.template_html) return alert('Aucun modèle de contrat de référence disponible. Contactez un administrateur.');
 
         // Récupérer infos entreprise
         const companyInfo = appState.user?.companiesList?.find(c => c.id === companyId) || {};
+
+        // ✅ Récupération de l'Entête propre à l'entreprise (bannière), avec fallback texte
+        let headerBlock;
+        try {
+            const enteteRes = await apiFetch(`hr/company-entete?companyId=${companyId}`);
+            const entete = enteteRes.data;
+            if (entete?.entete_base64) {
+                headerBlock = `<img src="data:${entete.entete_mime_type};base64,${entete.entete_base64}" alt="${companyInfo.name || 'Entreprise'}" style="width:100%;display:block"/>`;
+            } else {
+                headerBlock = `<div style="width:100%;padding:14px;text-align:center;background:#1a3a5c;color:#fff;font-size:14pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${companyInfo.name || emp.company_name || 'Entreprise'}</div>`;
+            }
+        } catch (e) {
+            headerBlock = `<div style="width:100%;padding:14px;text-align:center;background:#1a3a5c;color:#fff;font-size:14pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${companyInfo.name || emp.company_name || 'Entreprise'}</div>`;
+        }
 
         // Substitution des variables {{variable}}
         const today = new Date();
@@ -9912,7 +9980,7 @@ window.printContract = async function(employeeId) {
             reference_contrat:       `CTR-${companyId}-${emp.employee_code}-${today.getFullYear()}`,
             lieu_signature:          'Cotonou',
             date_signature:          dateStr,
-            header_image_url:        window.location.origin + '/assets/header-douke.png',
+            header_block:            headerBlock,
             periode_essai_phrase:    periodeEssaiPhrase,
             periode_essai_fin:       periodeEssaiFin,
             missions_bloc:           missionsBloc,
