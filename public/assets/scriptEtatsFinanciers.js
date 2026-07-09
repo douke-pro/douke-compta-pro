@@ -659,7 +659,7 @@
         // EN-TÊTE
         html += '<div class="flex items-center justify-between pb-4 border-b-2 border-primary">'
             + '<div class="flex items-center gap-4">'
-            + '<img src="assets/LOGO_DOUKE.png" alt="Cabinet DOUKE" class="h-10 object-contain">'
+            + '<img src="assets/LOGO_DOUKE_COMPTA.png" alt="Cabinet DOUKE" class="h-10 object-contain">'
             + '<div>'
             + '<p class="text-xs font-bold text-gray-500 uppercase">Cabinet DOUKE — Rapport de Gestion Périodique</p>'
             + '<p class="text-lg font-black text-gray-900 dark:text-white">' + companyName + '</p>'

@@ -2618,7 +2618,7 @@ function printModalContent(containerId, title) {
 
     var header = '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1a73e8;padding-bottom:10px;margin-bottom:16px;">'
         + '<div style="display:flex;align-items:center;gap:12px;">'
-        + '<img src="' + origin + '/assets/LOGO_DOUKE.png" alt="Cabinet DOUKE" style="height:40px;object-fit:contain;">'
+        + '<img src="' + origin + '/assets/LOGO_DOUKE_COMPTA.png" alt="Cabinet DOUKE" style="height:40px;object-fit:contain;">'
         + '<div>'
         + '<p style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;">Cabinet DOUKE — Doukè Compta Pro</p>'
         + '<p style="font-size:14px;font-weight:900;color:#111;">' + (title || 'Document') + '</p>'
@@ -9934,11 +9934,11 @@ window.printContract = async function(employeeId) {
                 headerImageUrl = `data:${entete.entete_mime_type};base64,${entete.entete_base64}`;
                 headerBlock = `<img src="${headerImageUrl}" alt="${companyInfo.name || 'Entreprise'}" style="width:100%;display:block"/>`;
             } else {
-                headerImageUrl = 'https://douke-compta-pro.onrender.com/assets/LOGO_DOUKE.png';
+                headerImageUrl = 'https://douke-compta-pro.onrender.com/assets/LOGO_DOUKE_COMPTA.png';
                 headerBlock = `<div style="width:100%;padding:14px;text-align:center;background:#1a3a5c;color:#fff;font-size:14pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${companyInfo.name || emp.company_name || 'Entreprise'}</div>`;
             }
         } catch (e) {
-            headerImageUrl = 'https://douke-compta-pro.onrender.com/assets/LOGO_DOUKE.png';
+            headerImageUrl = 'https://douke-compta-pro.onrender.com/assets/LOGO_DOUKE_COMPTA.png';
             headerBlock = `<div style="width:100%;padding:14px;text-align:center;background:#1a3a5c;color:#fff;font-size:14pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${companyInfo.name || emp.company_name || 'Entreprise'}</div>`;
         }
 
