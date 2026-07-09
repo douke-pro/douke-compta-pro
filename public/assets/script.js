@@ -9919,6 +9919,62 @@ window.printContract = async function(employeeId) {
         };
 
         let html = tpl.template_html;
+html = html.replace('<head><meta charset="UTF-8">', '<head><meta charset="UTF-8"><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>');
+        html = html.replace('<body>', `<body>
+<div id="contractEditToolbar" class="no-print" contenteditable="false" style="position:sticky;top:0;z-index:9999;background:#f1f3f5;border-bottom:1px solid #ccc;padding:6px 10px;font-family:sans-serif;font-size:13px;display:flex;gap:8px;align-items:center;">
+  <button id="contractEditBtn" type="button" contenteditable="false" style="cursor:pointer;padding:4px 10px;">✏️ Modifier</button>
+  <button id="contractPrintBtn" type="button" contenteditable="false" style="cursor:pointer;padding:4px 10px;">🖨️ Imprimer</button>
+  <button id="contractDownloadBtn" type="button" contenteditable="false" style="cursor:pointer;padding:4px 10px;">⬇️ Télécharger PDF</button>
+  <button id="contractCloseBtn" type="button" contenteditable="false" style="cursor:pointer;padding:4px 10px;">✖ Fermer</button>
+  <span contenteditable="false" style="color:#666;">Cliquez sur "Modifier" pour éditer, cliquez à nouveau pour verrouiller.</span>
+</div>
+<style>
+  @media print { .no-print { display: none !important; } }
+</style>
+<script>
+  (function(){
+    var btn = document.getElementById('contractEditBtn');
+    if (btn) {
+      btn.addEventListener('click', function(){
+        var on = document.designMode === 'on';
+        document.designMode = on ? 'off' : 'on';
+        btn.textContent = on ? '✏️ Modifier' : '🔒 Verrouiller';
+      });
+    }
+    var printBtn = document.getElementById('contractPrintBtn');
+    if (printBtn) { printBtn.addEventListener('click', function(){ window.print(); }); }
+    var closeBtn = document.getElementById('contractCloseBtn');
+    if (closeBtn) { closeBtn.addEventListener('click', function(){ window.close(); }); }
+    var downloadBtn = document.getElementById('contractDownloadBtn');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', function(){
+        var toolbar = document.getElementById('contractEditToolbar');
+        if (toolbar) toolbar.style.display = 'none';
+        html2canvas(document.body, {scale:2}).then(function(canvas){
+          if (toolbar) toolbar.style.display = 'flex';
+          var imgData = canvas.toDataURL('image/png');
+          var pdf = new window.jspdf.jsPDF('p','mm','a4');
+          var pageWidth = pdf.internal.pageSize.getWidth();
+          var pageHeight = pdf.internal.pageSize.getHeight();
+          var imgWidth = pageWidth;
+          var imgHeight = canvas.height * imgWidth / canvas.width;
+          var heightLeft = imgHeight;
+          var position = 0;
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+          while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+          }
+          pdf.save('contrat.pdf');
+        });
+      });
+    }
+  })();
+<\/script>`);
+
         Object.entries(vars).forEach(([k, v]) => {
             html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v);
         });
