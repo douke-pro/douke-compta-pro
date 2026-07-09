@@ -9916,19 +9916,15 @@ window.printContract = async function(employeeId) {
 
         // ✅ Récupération de l'Entête propre à l'entreprise (bannière), avec fallback texte
         let headerBlock;
-        let headerImageUrl = '';
         try {
             const enteteRes = await apiFetch(`hr/company-entete?companyId=${companyId}`);
             const entete = enteteRes.data;
             if (entete?.entete_base64) {
-                headerImageUrl = `data:${entete.entete_mime_type};base64,${entete.entete_base64}`;
-                headerBlock = `<img src="${headerImageUrl}" alt="${companyInfo.name || 'Entreprise'}" style="width:100%;display:block"/>`;
+                headerBlock = `<img src="data:${entete.entete_mime_type};base64,${entete.entete_base64}" alt="${companyInfo.name || 'Entreprise'}" style="width:100%;display:block"/>`;
             } else {
-                headerImageUrl = 'https://douke-compta-pro.onrender.com/assets/LOGO_DOUKE.png';
                 headerBlock = `<div style="width:100%;padding:14px;text-align:center;background:#1a3a5c;color:#fff;font-size:14pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${companyInfo.name || emp.company_name || 'Entreprise'}</div>`;
             }
         } catch (e) {
-            headerImageUrl = 'https://douke-compta-pro.onrender.com/assets/LOGO_DOUKE.png';
             headerBlock = `<div style="width:100%;padding:14px;text-align:center;background:#1a3a5c;color:#fff;font-size:14pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${companyInfo.name || emp.company_name || 'Entreprise'}</div>`;
         }
 
@@ -9987,7 +9983,6 @@ window.printContract = async function(employeeId) {
             lieu_signature:          'Cotonou',
             date_signature:          dateStr,
             header_block:            headerBlock,
-            header_image_url:        headerImageUrl,
             periode_essai_phrase:    periodeEssaiPhrase,
             periode_essai_fin:       periodeEssaiFin,
             missions_bloc:           missionsBloc,
