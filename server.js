@@ -211,794 +211,803 @@ const initDB = async (retries = 5, delay = 3000) => {
             console.log('   ✓ revoked_tokens + notification_state');
             console.log('   ✓ fiscal_year_balances');
             console.log('   ✓ employees + payslips + document_templates + company_documents');
-
-            // ✅ V27 — Insertion modèles par défaut (Option A — company_id = 0)
-            // Supprimer les anciens modèles globaux et réinsérer (idempotent)
-            await pool.query('DELETE FROM document_templates WHERE company_id = 0');
-            await pool.query(`
-                INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
-                VALUES
-                (0, 'contrat_cdi', 'Contrat CDI — Modèle par défaut (Bénin/OHADA)', $tmpl_cdi$
-<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<style>
-body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:20px}
-.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #1a3a5c;padding-bottom:15px}
-.header h1{font-size:16pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
-.header h2{font-size:13pt;color:#1a3a5c;margin:0}
-.block{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:12px 16px;margin:16px 0;border-radius:4px}
-.block h3{font-size:11pt;color:#1a3a5c;margin:0 0 8px 0;text-transform:uppercase}
-.row{display:flex;gap:20px;margin:6px 0}.field{flex:1}
-.field label{font-size:9pt;color:#666;display:block;margin-bottom:2px}
-.field span{font-weight:bold;font-size:11pt}
-.article{margin:18px 0}
-.article h4{font-size:11pt;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #dde;padding-bottom:4px;margin-bottom:8px}
-.article p{margin:6px 0;line-height:1.6;text-align:justify}
-.hl{background:#fff3cd;padding:2px 6px;border-radius:3px;font-weight:bold}
-.signatures{display:flex;justify-content:space-between;margin-top:50px}
-.sig-block{text-align:center;width:45%}
-.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:8px;font-size:10pt}
-.legal-ref{font-size:9pt;color:#888;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:10px}
-</style></head><body>
-<div class="header"><h1>{{nom_entreprise}}</h1><h2>CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE (CDI)</h2>
-<p style="font-size:10pt;color:#555">Ref : {{reference_contrat}} | Date : {{date_signature}}</p></div>
-<div class="block"><h3>L'Employeur</h3>
-<div class="row"><div class="field"><label>Raison sociale</label><span>{{nom_entreprise}}</span></div><div class="field"><label>Forme juridique</label><span>{{forme_juridique}}</span></div></div>
-<div class="row"><div class="field"><label>Siège social</label><span>{{adresse_entreprise}}</span></div><div class="field"><label>RCCM / IFU</label><span>{{rccm_ifu}}</span></div></div>
-<div class="row"><div class="field"><label>Représenté par</label><span>{{representant_entreprise}}</span></div><div class="field"><label>Qualité</label><span>{{qualite_representant}}</span></div></div></div>
-<div class="block"><h3>Le Salarié</h3>
-<div class="row"><div class="field"><label>Nom et Prénoms</label><span>{{nom}}</span></div><div class="field"><label>Date de naissance</label><span>{{date_naissance}}</span></div></div>
-<div class="row"><div class="field"><label>Nationalité</label><span>{{nationalite}}</span></div><div class="field"><label>N° Pièce d'identité</label><span>{{numero_piece}}</span></div></div>
-<div class="row"><div class="field"><label>Adresse</label><span>{{adresse_salarie}}</span></div><div class="field"><label>N° CNSS</label><span>{{cnss}}</span></div></div></div>
-<div class="article"><h4>Article 1 — Engagement et Poste</h4>
-<p>L'employeur engage <span class="hl">{{nom}}</span> à compter du <span class="hl">{{date_debut}}</span> en qualité de <span class="hl">{{poste}}</span>, département <strong>{{departement}}</strong>.</p>
-<p>Contrat conclu conformément à la <strong>Loi n° 98-004 du 27 janvier 1998</strong> portant Code du Travail en République du Bénin, pour une durée indéterminée.</p></div>
-<div class="article"><h4>Article 2 — Période d'Essai</h4>
-<p>Période d'essai de <span class="hl">{{duree_essai}}</span>, renouvelable une fois par accord des parties. Rupture possible sans préavis ni indemnité durant cette période.</p></div>
-<div class="article"><h4>Article 3 — Rémunération</h4>
-<p>Salaire brut mensuel : <span class="hl">{{salaire}} FCFA</span>, payable le dernier jour ouvré du mois. Supérieur au SMIG (52 000 FCFA — Décret 2023-015). CNSS : 3,6% salarié / 15,4% patronal. ITS progressif appliqué conformément au CGI.</p></div>
-<div class="article"><h4>Article 4 — Durée et Lieu de Travail</h4>
-<p>Durée hebdomadaire : <strong>40 heures</strong> (art. 142 CT). Lieu : <span class="hl">{{lieu_travail}}</span>.</p></div>
-<div class="article"><h4>Article 5 — Congés Payés</h4>
-<p>2,2 jours ouvrables par mois de travail effectif (26,4 jours/an) — art. 179 CT.</p></div>
-<div class="article"><h4>Article 6 — Obligations du Salarié</h4>
-<p>Le salarié s'engage à exercer ses fonctions avec diligence, loyauté et confidentialité, et à respecter le règlement intérieur de l'entreprise.</p></div>
-<div class="article"><h4>Article 7 — Rupture du Contrat</h4>
-<p>Régie par les articles 49 à 84 du Code du Travail. Préavis : <span class="hl">{{duree_preavis}}</span> sauf faute lourde. Indemnités calculées conformément aux dispositions légales.</p></div>
-<div class="article"><h4>Article 8 — Litiges</h4>
-<p>Tout litige sera soumis à la juridiction compétente du lieu d'exécution du travail — Code du Travail béninois et Actes Uniformes OHADA.</p></div>
-<div class="signatures">
-<div class="sig-block"><p><strong>Pour l'Employeur</strong></p><p style="font-size:10pt">{{representant_entreprise}}<br>{{qualite_representant}}</p><div class="sig-line">Signature et cachet</div></div>
-<div class="sig-block"><p><strong>Le Salarié</strong></p><p style="font-size:10pt">{{nom}}<br>Lu et approuvé</p><div class="sig-line">Signature manuscrite</div></div>
-</div>
-<div class="legal-ref">Loi n° 98-004 du 27/01/1998 — Code du Travail Bénin | SMIG : 52 000 FCFA | CNSS : 3,6% salarié / 15,4% patronal | OHADA</div>
-</body></html>
-$tmpl_cdi$, NULL),
-                (0, 'contrat_cdd', 'Contrat CDD — Modèle par défaut (Bénin/OHADA)', $tmpl_cdd$
-<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<style>
-body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:20px}
-.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #7b2d00;padding-bottom:15px}
-.header h1{font-size:16pt;color:#7b2d00;margin:0 0 5px 0;text-transform:uppercase}
-.header h2{font-size:13pt;color:#7b2d00;margin:0}
-.block{background:#fdf5f0;border-left:4px solid #7b2d00;padding:12px 16px;margin:16px 0;border-radius:4px}
-.block h3{font-size:11pt;color:#7b2d00;margin:0 0 8px 0;text-transform:uppercase}
-.row{display:flex;gap:20px;margin:6px 0}.field{flex:1}
-.field label{font-size:9pt;color:#666;display:block;margin-bottom:2px}
-.field span{font-weight:bold;font-size:11pt}
-.alert-box{background:#fff3cd;border-left:4px solid #ffc107;padding:10px 14px;border-radius:4px;margin:12px 0;font-size:10pt}
-.article{margin:18px 0}
-.article h4{font-size:11pt;color:#7b2d00;text-transform:uppercase;border-bottom:1px solid #f0d0c0;padding-bottom:4px;margin-bottom:8px}
-.article p{margin:6px 0;line-height:1.6;text-align:justify}
-.hl{background:#fff3cd;padding:2px 6px;border-radius:3px;font-weight:bold}
-.signatures{display:flex;justify-content:space-between;margin-top:50px}
-.sig-block{text-align:center;width:45%}
-.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:8px;font-size:10pt}
-.legal-ref{font-size:9pt;color:#888;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:10px}
-</style></head><body>
-<div class="header"><h1>{{nom_entreprise}}</h1><h2>CONTRAT DE TRAVAIL À DURÉE DÉTERMINÉE (CDD)</h2>
-<p style="font-size:10pt;color:#555">Ref : {{reference_contrat}} | Date : {{date_signature}}</p></div>
-<div class="alert-box">⚠️ <strong>Motif de recours au CDD :</strong> {{motif_cdd}} — art. 33 Code du Travail béninois.</div>
-<div class="block"><h3>L'Employeur</h3>
-<div class="row"><div class="field"><label>Raison sociale</label><span>{{nom_entreprise}}</span></div><div class="field"><label>Forme juridique</label><span>{{forme_juridique}}</span></div></div>
-<div class="row"><div class="field"><label>Siège social</label><span>{{adresse_entreprise}}</span></div><div class="field"><label>RCCM / IFU</label><span>{{rccm_ifu}}</span></div></div>
-<div class="row"><div class="field"><label>Représenté par</label><span>{{representant_entreprise}}</span></div><div class="field"><label>Qualité</label><span>{{qualite_representant}}</span></div></div></div>
-<div class="block"><h3>Le Salarié</h3>
-<div class="row"><div class="field"><label>Nom et Prénoms</label><span>{{nom}}</span></div><div class="field"><label>Date de naissance</label><span>{{date_naissance}}</span></div></div>
-<div class="row"><div class="field"><label>Nationalité</label><span>{{nationalite}}</span></div><div class="field"><label>N° Pièce d'identité</label><span>{{numero_piece}}</span></div></div>
-<div class="row"><div class="field"><label>Adresse</label><span>{{adresse_salarie}}</span></div><div class="field"><label>N° CNSS</label><span>{{cnss}}</span></div></div></div>
-<div class="article"><h4>Article 1 — Objet et Durée</h4>
-<p>Engagement de <span class="hl">{{nom}}</span> du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span> en qualité de <span class="hl">{{poste}}</span>.</p>
-<p>Conformément à l'art. 33 CT, ce contrat ne peut être renouvelé qu'une seule fois. Toute poursuite au-delà du terme entraîne transformation automatique en CDI.</p></div>
-<div class="article"><h4>Article 2 — Période d'Essai</h4>
-<p>Période d'essai de <span class="hl">{{duree_essai}}</span>. Rupture possible sans préavis ni indemnité durant cette période, hors abus de droit.</p></div>
-<div class="article"><h4>Article 3 — Rémunération</h4>
-<p>Salaire brut mensuel : <span class="hl">{{salaire}} FCFA</span>, supérieur au SMIG (52 000 FCFA). CNSS : 3,6% salarié / 15,4% patronal. ITS progressif CGI art. 119-125.</p>
-<p>Le salarié sous CDD bénéficie des mêmes droits que le salarié sous CDI pour un travail équivalent (art. 10 CT).</p></div>
-<div class="article"><h4>Article 4 — Durée et Lieu de Travail</h4>
-<p>40 heures/semaine (art. 142 CT). Lieu : <span class="hl">{{lieu_travail}}</span>.</p></div>
-<div class="article"><h4>Article 5 — Congés et Droits Sociaux</h4>
-<p>Congés payés au prorata (2,2 jours/mois). Prestations CNSS complètes : accidents du travail, maternité, allocations familiales.</p></div>
-<div class="article"><h4>Article 6 — Rupture Anticipée</h4>
-<p>Uniquement en cas de faute lourde, force majeure, accord mutuel ou décision judiciaire. Toute rupture unilatérale injustifiée engage la partie fautive à indemniser les rémunérations restant à courir.</p></div>
-<div class="article"><h4>Article 7 — Litiges</h4>
-<p>Juridiction compétente du lieu d'exécution — Code du Travail béninois et Actes Uniformes OHADA.</p></div>
-<div class="signatures">
-<div class="sig-block"><p><strong>Pour l'Employeur</strong></p><p style="font-size:10pt">{{representant_entreprise}}<br>{{qualite_representant}}</p><div class="sig-line">Signature et cachet</div></div>
-<div class="sig-block"><p><strong>Le Salarié</strong></p><p style="font-size:10pt">{{nom}}<br>Lu et approuvé</p><div class="sig-line">Signature manuscrite</div></div>
-</div>
-<div class="legal-ref">Loi n° 98-004 — Art. 33-42 CDD | SMIG 52 000 FCFA | CNSS 3,6%/15,4% | ITS CGI art.119-125 | OHADA</div>
-</body></html>
-$tmpl_cdd$, NULL),
-                (0, 'fiche_paie', 'Bulletin de Paie — Modèle par défaut (Bénin 2026)', $tmpl_fp$
-<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<style>
-body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1a1a;margin:0;padding:16px}
-.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px}
-.header-left h1{font-size:15pt;color:#1a3a5c;margin:0 0 4px 0}
-.header-left p{margin:2px 0;font-size:10pt;color:#555}
-.header-right{text-align:right}
-.header-right h2{font-size:13pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase}
-.periode-badge{display:inline-block;background:#1a3a5c;color:white;padding:4px 14px;border-radius:20px;font-size:11pt;font-weight:bold;margin:6px 0}
-.ei{display:flex;gap:12px;background:#f5f7fa;border-radius:6px;padding:10px 14px;margin:12px 0;flex-wrap:wrap}
-.ei-b{min-width:120px}
-.ei-b label{font-size:9pt;color:#888;display:block}
-.ei-b span{font-weight:bold;font-size:10pt}
-table.paie{width:100%;border-collapse:collapse;margin:14px 0;font-size:10pt}
-table.paie thead th{background:#1a3a5c;color:white;padding:7px 10px;text-align:left}
-table.paie thead th:nth-child(n+4){text-align:right}
-table.paie tbody tr:nth-child(even){background:#f5f7fa}
-table.paie tbody td{padding:6px 10px;border-bottom:1px solid #eee}
-table.paie tbody td.amt{text-align:right;font-weight:bold}
-table.paie tbody td.dbt{text-align:right;font-weight:bold;color:#c0392b}
-table.paie tr.sh td{background:#e8edf5;font-weight:bold;color:#1a3a5c;padding:5px 10px}
-.totaux-box{background:#1a3a5c;color:white;padding:12px 20px;border-radius:8px;min-width:260px;margin-left:auto;margin-top:8px}
-.tr{display:flex;justify-content:space-between;margin:3px 0;font-size:11pt}
-.tr.net{font-size:14pt;font-weight:bold;border-top:1px solid rgba(255,255,255,0.4);padding-top:7px;margin-top:7px}
-.info-box{background:#f0f9ff;border:1px solid #b3d9f0;border-radius:6px;padding:8px 14px;margin:10px 0;font-size:10pt}
-.pat-box{background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:8px 14px;margin:10px 0;font-size:10pt}
-.signatures{display:flex;justify-content:space-between;margin-top:28px}
-.sig-block{text-align:center;width:45%}
-.sig-line{border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:10pt}
-.legal-ref{font-size:8pt;color:#aaa;text-align:center;margin-top:18px;border-top:1px solid #eee;padding-top:8px}
-</style></head><body>
-<div class="header">
-<div class="header-left"><h1>{{nom_entreprise}}</h1><p>{{adresse_entreprise}}</p><p>RCCM : {{rccm}} | IFU : {{ifu}}</p><p>N° Employeur CNSS : {{numero_employeur_cnss}}</p></div>
-<div class="header-right"><h2>Bulletin de Paie</h2><div class="periode-badge">{{periode}}</div><p>Date de paiement : <strong>{{date_paiement}}</strong></p></div>
-</div>
-<div class="ei">
-<div class="ei-b"><label>Nom et Prénoms</label><span>{{nom}}</span></div>
-<div class="ei-b"><label>Poste</label><span>{{poste}}</span></div>
-<div class="ei-b"><label>Matricule</label><span>{{matricule}}</span></div>
-<div class="ei-b"><label>N° CNSS</label><span>{{cnss}}</span></div>
-<div class="ei-b"><label>Contrat</label><span>{{type_contrat}}</span></div>
-<div class="ei-b"><label>Embauche</label><span>{{date_embauche}}</span></div>
-</div>
-<table class="paie">
-<thead><tr><th>Libellé</th><th>Base</th><th>Taux</th><th>Gains (FCFA)</th><th>Retenues (FCFA)</th></tr></thead>
-<tbody>
-<tr class="sh"><td colspan="5">RÉMUNÉRATION</td></tr>
-<tr><td>Salaire de Base</td><td>{{heures_travaillees}}h</td><td>—</td><td class="amt">{{salaire_base}}</td><td></td></tr>
-<tr><td>Prime de Transport</td><td>—</td><td>—</td><td class="amt">{{prime_transport}}</td><td></td></tr>
-<tr><td>Autres Primes</td><td>—</td><td>—</td><td class="amt">{{autres_primes}}</td><td></td></tr>
-<tr class="sh"><td colspan="5">COTISATIONS CNSS — PART SALARIALE</td></tr>
-<tr><td>CNSS — Vieillesse / Prestations familiales</td><td>{{salaire_brut}}</td><td>3,6 %</td><td></td><td class="dbt">{{cnss_salarie}}</td></tr>
-<tr class="sh"><td colspan="5">IMPÔT SUR TRAITEMENTS ET SALAIRES (ITS) — CGI art. 119-125</td></tr>
-<tr><td>Base imposable (Brut − CNSS)</td><td>{{base_imposable}}</td><td>Progressif 0%→30%</td><td></td><td></td></tr>
-<tr><td>Exonération tranche 0→60 000 FCFA</td><td>60 000</td><td>0 %</td><td></td><td class="dbt">0</td></tr>
-<tr><td>ITS calculé sur tranches supérieures</td><td>{{base_imposable}}</td><td>Barème CGI</td><td></td><td class="dbt">{{its}}</td></tr>
-<tr class="sh"><td colspan="5">AUTRES DÉDUCTIONS</td></tr>
-<tr><td>Avance sur salaire</td><td>—</td><td>—</td><td></td><td class="dbt">{{avance_salaire}}</td></tr>
-<tr><td>Autres retenues</td><td>—</td><td>—</td><td></td><td class="dbt">{{autres_retenues}}</td></tr>
-</tbody>
-</table>
-<div class="info-box">📅 <strong>Congés Payés</strong> — Acquis ce mois : <strong>{{conges_acquis}} j</strong> | Pris : <strong>{{conges_pris}} j</strong> | Solde : <strong>{{conges_solde}} j</strong></div>
-<div class="pat-box">📊 <strong>Charges Patronales</strong> (info — non déduites du net) — CNSS Patronal 15,4% : <strong>{{cnss_patronal}} FCFA</strong> | VPS 3% : <strong>{{vps}} FCFA</strong></div>
-<div class="totaux-box">
-<div class="tr"><span>Total Gains</span><span>{{total_gains}} FCFA</span></div>
-<div class="tr"><span>Total Retenues</span><span>{{total_retenues}} FCFA</span></div>
-<div class="tr net"><span>NET À PAYER</span><span>{{net_a_payer}} FCFA</span></div>
-</div>
-<div class="signatures">
-<div class="sig-block"><p><strong>L'Employeur</strong></p><div class="sig-line">Signature et cachet</div></div>
-<div class="sig-block"><p><strong>Le Salarié</strong><br><small>Reçu la somme de {{net_a_payer}} FCFA</small></p><div class="sig-line">Signature</div></div>
-</div>
-<div class="legal-ref">Bulletin conforme — Code du Travail Bénin Loi 98-004 | CNSS 3,6%/15,4% | ITS CGI art.119-125 | Exonération 60 000 FCFA | SMIG 52 000 FCFA | VPS art.191-195 CGI</div>
-</body></html>
-$tmpl_fp$, NULL)
-;
-            `);
-            console.log('   ✓ Modèles par défaut CDI/CDD/Fiche de paie insérés (Option A)');
-
-            // ✅ V27 — Modèles personnalisés CCI PARTNERS (company_id = 12)
-            // Supprimer et réinsérer pour forcer la mise à jour
-            await pool.query('DELETE FROM document_templates WHERE company_id = 12');
-            await pool.query(`
-                INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
-                VALUES (12, 'contrat_cdd', 'Contrat CDD — CCI PARTNERS', $cci_cdd$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11.5pt;color:#1a1a1a;margin:0;padding:20px 25px}
-@media print{@page{margin:15mm 20mm;size:A4}.pb{page-break-before:always}.no-break{page-break-inside:avoid}}
-.header{display:flex;align-items:stretch;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c}
-.header-logo{background:#1a3a5c;color:#fff;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:160px}
-.header-logo .logo-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.header-logo .brand-top{font-size:14pt;font-weight:900;color:#fff;letter-spacing:1px}
-.header-logo .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
-.header-content{flex:1;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
-.header-content h1{font-size:14pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase;letter-spacing:1px}
-.header-content h2{font-size:12pt;color:#1a3a5c;margin:0}
-.header-content p{font-size:10pt;color:#555;margin:4px 0}
-.pblock{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:8px 14px;margin:8px 0;border-radius:4px}
-.pblock h3{font-size:10pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
-.pblock p{margin:3px 0;font-size:11pt;line-height:1.5}
-.sep{text-align:center;font-weight:bold;color:#1a3a5c;margin:6px 0;font-size:11pt}
-.intro{text-align:center;margin:8px 0;font-size:11pt}
-.art{margin:10px 0}
-.art h4{font-size:11pt;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #dde;padding-bottom:3px;margin:0 0 5px 0}
-.art p{margin:4px 0;line-height:1.6;text-align:justify;font-size:11pt}
-.art ul{margin:4px 0;padding-left:18px}
-.art ul li{margin:3px 0;line-height:1.5;font-size:11pt}
-.hl{background:#fff3cd;padding:1px 4px;border-radius:3px;font-weight:bold}
-.sigs{display:flex;justify-content:space-between;margin-top:40px}
-.sig{text-align:center;width:45%}
-.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:6px;font-size:10pt}
-.legal{font-size:8pt;color:#aaa;text-align:center;margin-top:14px;border-top:1px solid #eee;padding-top:6px}</style></head><body>
-
-<!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
-<div class="header no-break">
-  <div class="header-logo">
-    <img src="data:image/png;base64,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" style="width:160px;height:auto;display:block" alt="CCI Partners"/>
-  </div>
-  <div class="header-content">
-    <h1>CONTRAT DE TRAVAIL</h1>
-    <h2>À DURÉE DÉTERMINÉE (CDD)</h2>
-    <p>Ref : {{reference_contrat}} &nbsp;|&nbsp; Fait à {{lieu_signature}}, le {{date_signature}}</p>
-  </div>
-</div>
-
-<p class="intro no-break"><strong>ENTRE</strong></p>
-
-<div class="pblock no-break">
-  <h3>L'Employeur</h3>
-  <p>Raison Sociale : <strong>{{nom_entreprise}}</strong></p>
-  <p>Représentée par : <strong>{{representant_entreprise}}</strong> &nbsp; Siège Social / Adresse : <strong>{{adresse_entreprise}}</strong></p>
-  <p style="margin-top:5px;font-style:italic">Ci-après désigné <strong>« Employeur »</strong></p>
-</div>
-
-<p class="sep">D'UNE PART,<br>Et</p>
-
-<div class="pblock no-break">
-  <h3>L'Employé(e)</h3>
-  <p>Madame / Monsieur : <strong>{{nom}}</strong></p>
-  <p>Date et lieu de Naissance : <strong>{{date_naissance}}</strong> &nbsp;&nbsp; Nationalité : <strong>{{nationalite}}</strong></p>
-  <p>Résident(e) habituellement à : <strong>{{adresse_salarie}}</strong></p>
-  <p>Situation Matrimoniale : <strong>{{situation_matrimoniale}}</strong></p>
-  <p style="margin-top:5px;font-style:italic">Ci-après désigné <strong>« Employé »</strong></p>
-</div>
-
-<p class="sep">D'AUTRE PART</p>
-<p class="intro">L'employeur et l'employé sont collectivement appelés les <strong>« Parties »</strong> et individuellement une <strong>« Partie »</strong>.</p>
-<p class="intro"><strong>Il a été convenu de ce qui suit :</strong></p>
-
-<div class="art no-break">
-  <h4>Article 1 : Objet du contrat</h4>
-  <p>Le présent contrat de travail à durée déterminée a pour objet de déterminer les conditions et modalités selon lesquelles l'employé accepte de mettre à la disposition de <strong>{{nom_entreprise}}</strong>, son savoir-faire, son temps, et sa loyauté en tant que <span class="hl">{{poste}}</span> pour atteindre des objectifs moyennant une rémunération convenue.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 2 : Durée du Contrat</h4>
-  <p>Le présent contrat est conclu pour une durée déterminée de <span class="hl">{{duree_contrat}}</span> allant du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span>, sous réserve de son interruption anticipée selon les conditions prévues à l'article 13 ci-dessous.</p>
-  <p>Il prend fin de plein droit à l'échéance du terme ci-dessus indiqué et peut être transformé en contrat à durée indéterminée sur accord des parties.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 3 : Fonctions de l'Employé</h4>
-  <p>L'employé se met à la disposition de l'entreprise en qualité de <span class="hl">{{poste}}</span>.</p>
-  <p>Toutefois, en cas de nécessité, l'employé pourra être amené à exercer toutes autres attributions à lui confiées par l'entreprise dans la mesure de ses qualifications.</p>
-</div>
-
-<!-- ========== PAGE 2 : Art.4-8 ========== -->
-<div class="pb"></div>
-
-<div class="art no-break">
-  <h4>Article 4 : Engagement de l'Employé</h4>
-  <p>L'employé déclare être libre de tous engagements professionnels et s'engage à :</p>
-  <ul>
-    <li>Exercer ses attributions sous l'autorité de ses supérieurs hiérarchiques et à se soumettre aux règles applicables dans l'entreprise et notamment aux règles de discipline, s'acquitter avec loyauté, responsabilité et fidélité des travaux ou missions qui lui seront confiés ;</li>
-    <li>Effectuer les déplacements nécessaires et se rendre en tous lieux où l'entreprise aura besoin de ses services dans les limites des accords ;</li>
-    <li>Informer son employeur sans délai de tout changement qui interviendrait dans sa situation professionnelle comme personnelle, notamment en cas de changement d'adresse ou de situation matrimoniale ;</li>
-    <li>S'abstenir de toute attitude de nature à jeter le discrédit sur l'activité de l'entreprise ou les supérieurs hiérarchiques dont il relève ;</li>
-    <li>Assister aux formations organisées par les partenaires avec un accord de son supérieur ;</li>
-    <li>Aviser son employeur de tout incident affectant l'exécution de son travail, dans un délai de 24h maximum, en vue de la prise des dispositions auprès la Caisse Nationale de Sécurité Sociale (CNSS) ;</li>
-    <li>Restituer à l'expiration du contrat quel qu'en soit la cause, tout matériel à lui confié par l'employeur.</li>
-  </ul>
-</div>
-
-<div class="art no-break">
-  <h4>Article 5 : Actions d'accompagnement et de formation, tuteur et référent</h4>
-  <p>L'employé s'engage à suivre toutes les actions d'accompagnement, de formation, de tutorat et de validation des acquis prévues et concourant à son évolution professionnelle.</p>
-  <p>À ce titre, il bénéficie d'un accompagnement par les référents désignés par <strong>{{nom_entreprise}}</strong> et chargés d'assurer le suivi de son parcours professionnel.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 6 : Lieu et horaire de travail</h4>
-  <p>Les horaires de travail de l'employé sont ceux de l'entreprise, non contraires aux dispositions légales en vigueur en République du Bénin.</p>
-  <p>Les horaires de <strong>{{nom_entreprise}}</strong> sont de <span class="hl">{{heures_mensuelles}}</span> heures par mois réparties suivant le calendrier des rotations mensuelles.</p>
-  <p>Le lieu de travail est le siège de <strong>{{nom_entreprise}}</strong> et tout autre endroit désigné par l'employeur.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 7 : Rémunération</h4>
-  <p>L'employé percevra une rémunération nette mensuelle de <span class="hl">{{salaire_net}} FCFA</span>.</p>
-  <p>Cette rémunération sera versée mensuellement à l'employé par virement bancaire, chèque ou tout autre moyen de paiement légal. Il est versé au plus tard le <span class="hl">{{jour_paiement}}</span> du mois suivant. En cas de difficulté financière, l'employeur doit informer l'employé et convenir avec lui d'une prochaine échéance.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 8 : Frais de mission</h4>
-  <p>En cas de mission hors du lieu d'exercice habituel de ses fonctions, des frais de missions relatifs à l'hébergement, la restauration et au déplacement sont accordés à l'employé conformément aux règles applicables au sein de l'entreprise.</p>
-</div>
-
-<!-- ========== PAGE 3 : Art.9-12 ========== -->
-<div class="pb"></div>
-
-<div class="art no-break">
-  <h4>Article 9 : Avantages sociaux</h4>
-  <p>L'affiliation de l'employé à la Caisse Nationale de Sécurité Sociale (CNSS) en vue de lui permettre de bénéficier des avantages sociaux reconnus par la réglementation en vigueur au Bénin, sera faite par l'entreprise dès confirmation de sa période d'essai.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 10 : Congés</h4>
-  <p>L'employé a droit à deux (02) jours ouvrables de congés par mois de service effectif soit vingt-quatre (24) jours de travail ouvrables par an. La jouissance de ses congés sera planifiée en accord avec l'employeur et est valable dès la fin de la première année.</p>
-  <p>En cas d'arrêt pour cause de maladie, l'employé devra présenter à l'entreprise sans délai un certificat émis par un médecin agréé.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 11 : Clause d'exclusivité</h4>
-  <p>L'employé s'interdit d'exercer pendant la durée de son contrat même en dehors des heures de travail, une activité à caractère professionnel susceptible de concurrencer son employeur dans ses activités professionnelles ou de nuire à l'exécution normale des services convenus.</p>
-  <p>L'employé s'interdit d'utiliser les outils de travail (ordinateur ; téléphone ; imprimante ; connexion et tout autre outil) à des fins personnelles.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 12 : Clause de confidentialité</h4>
-  <p>L'employé s'interdit totalement de divulguer, pendant ou après son emploi, tous renseignements de nature confidentielle qu'il aurait pu recueillir.</p>
-  <p>L'employé considérera comme strictement confidentiel et s'interdit de divulguer toutes informations, documents, données dont il pourra avoir connaissance à l'occasion de l'exécution du présent contrat. En conséquence, il s'interdit notamment de :</p>
-  <ul>
-    <li>Divulguer tout renseignement de nature confidentielle qu'il aurait pu recueillir dans le cadre de l'exercice de ses fonctions ou lié à celle-ci ;</li>
-    <li>Utiliser les informations confidentielles dont il a eu connaissance au cours de ses missions et à l'occasion des travaux réalisés.</li>
-  </ul>
-  <p>Toutefois, l'employé ne serait tenu pour responsable d'aucune divulgation si les éléments étaient dans le domaine public à date de la divulgation, ou s'il en avait connaissance ou les obtient de tiers par des moyens légitimes.</p>
-  <p>L'employé ne doit pas prendre de position qui altérerait l'exercice indépendant et impartial de ses fonctions. Ce devoir de réserve se prolonge au-delà de l'exercice des fonctions. Il doit également éviter tout conflit d'intérêt.</p>
-  <p>Il est entendu par conflit d'intérêts toute situation d'interférence entre un intérêt public ou privé qui peut perturber l'exécution indépendante, impartiale et objective des services convenus.</p>
-</div>
-
-<!-- ========== PAGE 4 : Art.13-16 + Signatures ========== -->
-<div class="pb"></div>
-
-<div class="art no-break">
-  <h4>Article 13 : Résiliation</h4>
-  <p>Ce contrat de travail cesse de plein droit au terme des <span class="hl">{{duree_contrat}}</span> prévus au contrat et peut être systématiquement renouvelé. À la fin de ce contrat de travail, s'il n'est pas renouvelé, l'employé perd la qualité d'employé de l'Entreprise.</p>
-  <p>Ce contrat de travail peut prendre fin avant son terme :</p>
-  <ul>
-    <li>Sur accord écrit des deux Parties ;</li>
-    <li>À tout moment, hors période d'essai, par la volonté de l'une des Parties sous réserve d'un préavis d'<strong>un (1) mois</strong> ;</li>
-    <li>Sur démission, abandon de poste ou absence injustifiée de l'employé à son poste pendant une durée de quarante-huit (48) heures ;</li>
-    <li>En cas de mauvaise performance de l'employé rendant impossible son maintien au sein de la structure ;</li>
-    <li>En cas de décès de l'employé ;</li>
-    <li>En cas de force majeure dûment justifiée par écrit dans les sept (07) jours suivant sa constatation par la Partie qui s'en prévaut ;</li>
-    <li>Sans préavis en cas de faute lourde de l'employé dûment notifiée à celui-ci, sous réserve de l'appréciation de la juridiction compétente en ce qui concerne la gravité de la faute ;</li>
-    <li>En cas de violation délibérée dûment constatée des clauses du présent contrat par l'une des Parties.</li>
-  </ul>
-  <p>Il est notamment précisé qu'est considérée comme faute lourde, toute fausse déclaration constatée dans le curriculum vitae ou autre document produit par l'employé ou toute rétention d'informations utiles et déterminantes pour la conclusion du présent contrat.</p>
-  <p>En cas de résiliation du présent contrat, l'ensemble des matériels et toutes autres pièces confiés ou remis à l'employé, ou tout document ou somme d'argent qu'il détiendrait par devers lui, doit être restitué à l'entreprise sans délai.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 14 : Attribution de juridiction</h4>
-  <p>Tout litige relatif à la conclusion, à l'exécution du présent contrat, à défaut de règlement amiable dans un délai de trente (30) jours à compter de la notification du litige par une partie, sera porté devant les juridictions sociales compétentes.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 15 : Dispositions diverses</h4>
-  <p>Pour ce qui n'est pas précisé au présent contrat, les Parties s'en remettent aux dispositions du Code du Travail fixant les modalités de sa mise en œuvre, des accords du travail ainsi que toutes autres dispositions législatives et réglementaires en République du Bénin.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 16 : Enregistrement</h4>
-  <p>Le présent contrat est enregistré dès sa signature pour servir et valoir ce que de droit.</p>
-</div>
-
-<p class="intro no-break" style="margin-top:16px"><strong>Fait à <span class="hl">{{lieu_signature}}</span> en trois exemplaires, le <span class="hl">{{date_signature}}</span></strong></p>
-
-<div class="sigs no-break">
-  <div class="sig">
-    <p><strong>Le Manager</strong></p>
-    <p style="font-size:10pt">{{representant_entreprise}}</p>
-    <div class="sig-line">Signature et cachet</div>
-  </div>
-  <div class="sig">
-    <p><strong>L'Employé(e)</strong></p>
-    <p style="font-size:10pt">{{nom}}</p>
-    <div class="sig-line">Signature</div>
-  </div>
-</div>
-
-<div class="legal">Contrat conforme — Code du Travail Bénin Loi n° 98-004 | CNSS affiliée dès confirmation période d'essai | OHADA</div>
-</body></html>$cci_cdd$, NULL)
-            `);
-            await pool.query(`
-                INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
-                VALUES (12, 'contrat_cdi', 'Contrat CDI — CCI PARTNERS', $cci_cdi$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11.5pt;color:#1a1a1a;margin:0;padding:20px 25px}
-@media print{@page{margin:15mm 20mm;size:A4}.pb{page-break-before:always}.no-break{page-break-inside:avoid}}
-.header{display:flex;align-items:stretch;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c}
-.header-logo{background:#1a3a5c;color:#fff;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:160px}
-.header-logo .logo-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.header-logo .brand-top{font-size:14pt;font-weight:900;color:#fff;letter-spacing:1px}
-.header-logo .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
-.header-content{flex:1;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
-.header-content h1{font-size:14pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase;letter-spacing:1px}
-.header-content h2{font-size:12pt;color:#1a3a5c;margin:0}
-.header-content p{font-size:10pt;color:#555;margin:4px 0}
-.pblock{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:8px 14px;margin:8px 0;border-radius:4px}
-.pblock h3{font-size:10pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
-.pblock p{margin:3px 0;font-size:11pt;line-height:1.5}
-.sep{text-align:center;font-weight:bold;color:#1a3a5c;margin:6px 0;font-size:11pt}
-.intro{text-align:center;margin:8px 0;font-size:11pt}
-.art{margin:10px 0}
-.art h4{font-size:11pt;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #dde;padding-bottom:3px;margin:0 0 5px 0}
-.art p{margin:4px 0;line-height:1.6;text-align:justify;font-size:11pt}
-.art ul{margin:4px 0;padding-left:18px}
-.art ul li{margin:3px 0;line-height:1.5;font-size:11pt}
-.hl{background:#fff3cd;padding:1px 4px;border-radius:3px;font-weight:bold}
-.sigs{display:flex;justify-content:space-between;margin-top:40px}
-.sig{text-align:center;width:45%}
-.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:6px;font-size:10pt}
-.legal{font-size:8pt;color:#aaa;text-align:center;margin-top:14px;border-top:1px solid #eee;padding-top:6px}</style></head><body>
-
-<!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
-<div class="header no-break">
-  <div class="header-logo">
-    <img src="data:image/png;base64,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" style="width:160px;height:auto;display:block" alt="CCI Partners"/>
-  </div>
-  <div class="header-content">
-    <h1>CONTRAT DE TRAVAIL</h1>
-    <h2>À DURÉE INDÉTERMINÉE (CDI)</h2>
-    <p>Ref : {{reference_contrat}} &nbsp;|&nbsp; Fait à {{lieu_signature}}, le {{date_signature}}</p>
-  </div>
-</div>
-
-<p class="intro no-break"><strong>ENTRE</strong></p>
-
-<div class="pblock no-break">
-  <h3>L'Employeur</h3>
-  <p>Raison Sociale : <strong>{{nom_entreprise}}</strong></p>
-  <p>Représentée par : <strong>{{representant_entreprise}}</strong> &nbsp; Siège Social / Adresse : <strong>{{adresse_entreprise}}</strong></p>
-  <p style="margin-top:5px;font-style:italic">Ci-après désigné <strong>« Employeur »</strong></p>
-</div>
-
-<p class="sep">D'UNE PART,<br>Et</p>
-
-<div class="pblock no-break">
-  <h3>L'Employé(e)</h3>
-  <p>Madame / Monsieur : <strong>{{nom}}</strong></p>
-  <p>Date et lieu de Naissance : <strong>{{date_naissance}}</strong> &nbsp;&nbsp; Nationalité : <strong>{{nationalite}}</strong></p>
-  <p>Résident(e) habituellement à : <strong>{{adresse_salarie}}</strong></p>
-  <p>Situation Matrimoniale : <strong>{{situation_matrimoniale}}</strong></p>
-  <p style="margin-top:5px;font-style:italic">Ci-après désigné <strong>« Employé »</strong></p>
-</div>
-
-<p class="sep">D'AUTRE PART</p>
-<p class="intro">L'employeur et l'employé sont collectivement appelés les <strong>« Parties »</strong> et individuellement une <strong>« Partie »</strong>.</p>
-<p class="intro"><strong>Il a été convenu de ce qui suit :</strong></p>
-
-<div class="art no-break">
-  <h4>Article 1 : Objet du contrat</h4>
-  <p>Le présent contrat de travail à durée indéterminée a pour objet de déterminer les conditions et modalités selon lesquelles l'employé accepte de mettre à la disposition de <strong>{{nom_entreprise}}</strong>, son savoir-faire, son temps, et sa loyauté en tant que <span class="hl">{{poste}}</span> pour atteindre des objectifs moyennant une rémunération convenue.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 2 : Prise d'Effet, Durée et Période d'Essai</h4>
-  <p>Le présent contrat est conclu pour une durée déterminée de <span class="hl">{{duree_contrat}}</span> allant du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span>, sous réserve de son interruption anticipée selon les conditions prévues à l'article 14 ci-dessous.</p>
-  <p>Il prend fin de plein droit à l'échéance du terme ci-dessus indiqué et peut être transformé en contrat à durée indéterminée sur accord des parties.</p>
-  {{periode_essai_phrase}}
-</div>
-
-<div class="art no-break">
-  <h4>Article 3 : Fonctions de l'Employé</h4>
-  <p>L'employé se met à la disposition de l'entreprise en qualité de <span class="hl">{{poste}}</span>.</p>
-  {{missions_bloc}}
-  <p>Toutefois, en cas de nécessité, l'employé pourra être amené à exercer toutes autres attributions à lui confiées par l'entreprise dans la mesure de ses qualifications.</p>
-</div>
-
-<!-- ========== PAGE 2 : Art.4-8 ========== -->
-<div class="pb"></div>
-
-<div class="art no-break">
-  <h4>Article 4 : Engagement de l'Employé</h4>
-  <p>L'employé déclare être libre de tous engagements professionnels et s'engage à :</p>
-  <ul>
-    <li>Exercer ses attributions sous l'autorité de ses supérieurs hiérarchiques et à se soumettre aux règles applicables dans l'entreprise et notamment aux règles de discipline, s'acquitter avec loyauté, responsabilité et fidélité des travaux ou missions qui lui seront confiés ;</li>
-    <li>Effectuer les déplacements nécessaires et se rendre en tous lieux où l'entreprise aura besoin de ses services dans les limites des accords ;</li>
-    <li>Informer son employeur sans délai de tout changement qui interviendrait dans sa situation professionnelle comme personnelle, notamment en cas de changement d'adresse ou de situation matrimoniale ;</li>
-    <li>S'abstenir de toute attitude de nature à jeter le discrédit sur l'activité de l'entreprise ou les supérieurs hiérarchiques dont il relève ;</li>
-    <li>Assister aux formations organisées par les partenaires avec un accord de son supérieur ;</li>
-    <li>Aviser son employeur de tout incident affectant l'exécution de son travail, dans un délai de 24h maximum, en vue de la prise des dispositions auprès la Caisse Nationale de Sécurité Sociale (CNSS) ;</li>
-    <li>Restituer à l'expiration du contrat quel qu'en soit la cause, tout matériel à lui confié par l'employeur.</li>
-  </ul>
-</div>
-
-<div class="art no-break">
-  <h4>Article 5 : Actions d'accompagnement et de formation, tuteur et référent</h4>
-  <p>L'employé s'engage à suivre toutes les actions d'accompagnement, de formation, de tutorat et de validation des acquis prévues et concourant à son évolution professionnelle.</p>
-  <p>À ce titre, il bénéficie d'un accompagnement par les référents désignés par <strong>{{nom_entreprise}}</strong> et chargés d'assurer le suivi de son parcours professionnel.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 6 : Lieu et horaire de travail</h4>
-  <p>Les horaires de travail de l'employé sont ceux de l'entreprise, non contraires aux dispositions légales en vigueur en République du Bénin.</p>
-  <p>Les horaires de <strong>{{nom_entreprise}}</strong> sont de <span class="hl">{{heures_mensuelles}}</span> heures par mois réparties suivant le calendrier des rotations mensuelles.</p>
-  <p>Le lieu de travail est le siège de <strong>{{nom_entreprise}}</strong> et tout autre endroit désigné par l'employeur.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 7 : Rémunération</h4>
-  <p>L'employé percevra une rémunération nette mensuelle de <span class="hl">{{salaire_net}} FCFA</span>.</p>
-  <p>Cette rémunération sera versée mensuellement à l'employé par virement bancaire, chèque ou tout autre moyen de paiement légal. Il est versé au plus tard le <span class="hl">{{jour_paiement}}</span> du mois suivant. En cas de difficulté financière, l'employeur doit informer l'employé et convenir avec lui d'une prochaine échéance.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 8 : Frais de mission</h4>
-  <p>En cas de mission hors du lieu d'exercice habituel de ses fonctions, des frais de missions relatifs à l'hébergement, la restauration et au déplacement sont accordés à l'employé conformément aux règles applicables au sein de l'entreprise.</p>
-</div>
-
-<!-- ========== PAGE 3 : Art.9-12 ========== -->
-<div class="pb"></div>
-
-<div class="art no-break">
-  <h4>Article 9 : Avantages sociaux</h4>
-  <p>L'affiliation de l'employé à la Caisse Nationale de Sécurité Sociale (CNSS) en vue de lui permettre de bénéficier des avantages sociaux reconnus par la réglementation en vigueur au Bénin, sera faite par l'entreprise dès confirmation de sa période d'essai.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 10 : Congés</h4>
-  <p>L'employé a droit à deux (02) jours ouvrables de congés par mois de service effectif soit vingt-quatre (24) jours de travail ouvrables par an. La jouissance de ses congés sera planifiée en accord avec l'employeur et est valable dès la fin de la première année.</p>
-  <p>En cas d'arrêt pour cause de maladie, l'employé devra présenter à l'entreprise sans délai un certificat émis par un médecin agréé.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 11 : Clause d'exclusivité</h4>
-  <p>L'employé s'interdit d'exercer pendant la durée de son contrat même en dehors des heures de travail, une activité à caractère professionnel susceptible de concurrencer son employeur dans ses activités professionnelles ou de nuire à l'exécution normale des services convenus.</p>
-  <p>L'employé s'interdit d'utiliser les outils de travail (ordinateur ; téléphone ; imprimante ; connexion et tout autre outil) à des fins personnelles.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 12 : Clause de confidentialité</h4>
-  <p>L'employé s'interdit totalement de divulguer, pendant ou après son emploi, tous renseignements de nature confidentielle qu'il aurait pu recueillir.</p>
-  <p>L'employé considérera comme strictement confidentiel et s'interdit de divulguer toutes informations, documents, données dont il pourra avoir connaissance à l'occasion de l'exécution du présent contrat. En conséquence, il s'interdit notamment de :</p>
-  <ul>
-    <li>Divulguer tout renseignement de nature confidentielle qu'il aurait pu recueillir dans le cadre de l'exercice de ses fonctions ou lié à celle-ci ;</li>
-    <li>Utiliser les informations confidentielles dont il a eu connaissance au cours de ses missions et à l'occasion des travaux réalisés.</li>
-  </ul>
-  <p>Toutefois, l'employé ne serait tenu pour responsable d'aucune divulgation si les éléments étaient dans le domaine public à date de la divulgation, ou s'il en avait connaissance ou les obtient de tiers par des moyens légitimes.</p>
-  <p>L'employé ne doit pas prendre de position qui altérerait l'exercice indépendant et impartial de ses fonctions. Ce devoir de réserve se prolonge au-delà de l'exercice des fonctions. Il doit également éviter tout conflit d'intérêt.</p>
-  <p>Il est entendu par conflit d'intérêts toute situation d'interférence entre un intérêt public ou privé qui peut perturber l'exécution indépendante, impartiale et objective des services convenus.</p>
-</div>
-
-<!-- ========== PAGE 4 : Art.13-16 + Signatures ========== -->
-<div class="pb"></div>
-
-<div class="art no-break">
-  <h4>Article 13 : Rupture du Contrat</h4>
-  <p>Ce contrat de travail cesse de plein droit au terme des <span class="hl">{{duree_contrat}}</span> prévus au contrat et peut être systématiquement renouvelé. À la fin de ce contrat de travail, s'il n'est pas renouvelé, l'employé perd la qualité d'employé de l'Entreprise.</p>
-  <p>Ce contrat de travail peut prendre fin avant son terme :</p>
-  <ul>
-    <li>Par démission de l'employé avec respect du préavis ;</li>
-    <li>Par licenciement prononcé par l'employeur pour motif réel et sérieux ;</li>
-    <li>Par rupture conventionnelle sur accord écrit des deux Parties ;</li>
-    <li>À tout moment, hors période d'essai, par la volonté de l'une des Parties sous réserve d'un préavis de <span class="hl">{{{{duree_preavis}}}}</span> ;</li>
-    <li>Sur démission, abandon de poste ou absence injustifiée de l'employé à son poste pendant une durée de quarante-huit (48) heures ;</li>
-    <li>En cas de mauvaise performance de l'employé rendant impossible son maintien au sein de la structure ;</li>
-    <li>En cas de décès de l'employé ;</li>
-    <li>En cas de force majeure dûment justifiée par écrit dans les sept (07) jours suivant sa constatation par la Partie qui s'en prévaut ;</li>
-    <li>Sans préavis en cas de faute lourde de l'employé dûment notifiée à celui-ci, sous réserve de l'appréciation de la juridiction compétente en ce qui concerne la gravité de la faute ;</li>
-    <li>En cas de violation délibérée dûment constatée des clauses du présent contrat par l'une des Parties.</li>
-  </ul>
-  <p>Il est notamment précisé qu'est considérée comme faute lourde, toute fausse déclaration constatée dans le curriculum vitae ou autre document produit par l'employé ou toute rétention d'informations utiles et déterminantes pour la conclusion du présent contrat.</p>
-  <p>En cas de résiliation du présent contrat, l'ensemble des matériels et toutes autres pièces confiés ou remis à l'employé, ou tout document ou somme d'argent qu'il détiendrait par devers lui, doit être restitué à l'entreprise sans délai.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 14 : Attribution de juridiction</h4>
-  <p>Tout litige relatif à la conclusion, à l'exécution du présent contrat, à défaut de règlement amiable dans un délai de trente (30) jours à compter de la notification du litige par une partie, sera porté devant les juridictions sociales compétentes.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 15 : Dispositions diverses</h4>
-  <p>Pour ce qui n'est pas précisé au présent contrat, les Parties s'en remettent aux dispositions du Code du Travail fixant les modalités de sa mise en œuvre, des accords du travail ainsi que toutes autres dispositions législatives et réglementaires en République du Bénin.</p>
-</div>
-
-<div class="art no-break">
-  <h4>Article 16 : Enregistrement</h4>
-  <p>Le présent contrat est enregistré dès sa signature pour servir et valoir ce que de droit.</p>
-</div>
-
-<p class="intro no-break" style="margin-top:16px"><strong>Fait à <span class="hl">{{lieu_signature}}</span> en trois exemplaires, le <span class="hl">{{date_signature}}</span></strong></p>
-
-<div class="sigs no-break">
-  <div class="sig">
-    <p><strong>Le Manager</strong></p>
-    <p style="font-size:10pt">{{representant_entreprise}}</p>
-    <div class="sig-line">Signature et cachet</div>
-  </div>
-  <div class="sig">
-    <p><strong>L'Employé(e)</strong></p>
-    <p style="font-size:10pt">{{nom}}</p>
-    <div class="sig-line">Signature</div>
-  </div>
-</div>
-
-<div class="legal">Contrat conforme — Code du Travail Bénin Loi n° 98-004 | CNSS affiliée dès confirmation période d'essai | OHADA</div>
-</body></html>$cci_cdi$, NULL)
-            `);
-            await pool.query(`
-                INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
-                VALUES (12, 'fiche_paie', 'Bulletin de Paie — CCI PARTNERS', $cci_fp$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bulletin de Paie</title>
-<style>
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:10.5pt;color:#2d3748;line-height:1.5;margin:0;padding:24px;background-color:#ffffff}
-.header{display:flex;justify-content:space-between;align-items:stretch;margin-bottom:20px;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(26,58,92,0.13)}
-.header-left{background:#1a3a5c;color:#fff;padding:18px 22px;display:flex;flex-direction:column;justify-content:center;min-width:220px;max-width:260px}
-.header-left .logo-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.header-left .logo-icon{width:44px;height:44px;flex-shrink:0}
-.header-left .logo-text{display:flex;flex-direction:column;line-height:1.1}
-.header-left .logo-text .brand-top{font-size:13pt;font-weight:900;color:#fff;letter-spacing:1px}
-.header-left .logo-text .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
-.header-left p{margin:2px 0;font-size:8.5pt;color:#c8dff0}
-.header-left .ref-fiche{font-size:8pt;color:#7fb3d3;margin-top:6px;font-style:italic}
-.header-right{flex:1;background:#fff;padding:18px 22px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;border:1px solid #e2e8f0;border-left:none;border-radius:0 8px 8px 0}
-.header-right h2{font-size:18pt;color:#1a3a5c;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:1.5px;font-weight:900}
-.periode-badge{display:inline-block;background:#1a3a5c;color:#fff;padding:5px 18px;border-radius:6px;font-size:10.5pt;font-weight:700;margin:4px 0 10px 0;letter-spacing:0.5px}
-.header-right p{margin:0;font-size:9.5pt;color:#4a5568}
-.ref-fiche{font-size:9pt;color:#718096;margin-top:4px;font-style:italic}
-.ei{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px}
-.ei-b{display:flex;flex-direction:column}
-.ei-b label{font-size:8.5pt;color:#718096;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:2px}
-.ei-b span{font-weight:600;font-size:10pt;color:#1a202c}
-table.paie{width:100%;border-collapse:collapse;margin:20px 0;font-size:9.5pt}
-table.paie thead th{background:#1a3a5c;color:#ffffff;padding:8px 12px;text-align:left;font-weight:600;text-transform:uppercase;font-size:8.5pt;letter-spacing:0.5px}
-table.paie thead th:nth-child(n+4){text-align:right}
-table.paie tbody tr{border-bottom:1px solid #edf2f7}
-table.paie tbody tr:nth-child(even){background:#f8fafc}
-table.paie tbody td{padding:8px 12px;vertical-align:middle}
-table.paie tbody td.amt{text-align:right;font-weight:600;color:#2d3748}
-table.paie tbody td.dbt{text-align:right;font-weight:600;color:#e53e3e}
-table.paie tr.sh td{background:#edf2f7;font-weight:700;color:#2b6cb0;padding:6px 12px;font-size:8.5pt;letter-spacing:0.3px;border-bottom:1px solid #cbd5e0}
-.info-box,.pat-box{border-radius:6px;padding:10px 14px;margin:12px 0;font-size:9.5pt;display:flex;align-items:center;gap:6px}
-.info-box{background:#ebf8ff;border:1px solid #bee3f8;color:#2b6cb0}
-.pat-box{background:#fffaf0;border:1px solid #feebc8;color:#dd6b20}
-.totaux-container{display:flex;justify-content:flex-end;margin-top:16px}
-.totaux-box{background:#1a3a5c;color:#ffffff;padding:16px;border-radius:8px;width:300px}
-.tr{display:flex;justify-content:space-between;margin:4px 0;font-size:10pt;opacity:0.9}
-.tr.net{font-size:13pt;font-weight:700;border-top:1px solid rgba(255,255,255,0.25);padding-top:10px;margin-top:10px;opacity:1}
-.mention{text-align:center;font-size:9pt;color:#4a5568;margin-top:16px;font-style:italic}
-.signatures{display:flex;justify-content:space-between;margin-top:40px;page-break-inside:avoid}
-.sig-block{text-align:center;width:42%}
-.sig-block p{margin:0 0 4px 0}
-.sig-line{border-top:1px solid #a0aec0;margin-top:50px;padding-top:6px;font-size:9pt;color:#718096;font-style:italic}
-.legal-ref{font-size:7.5pt;color:#a0aec0;text-align:center;margin-top:35px;border-top:1px solid #e2e8f0;padding-top:10px;line-height:1.4}
-@media print{
-  body{padding:0;background:white}
-  .totaux-box{background:#1a3a5c !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  table.paie thead th{background:#1a3a5c !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  table.paie tr.sh td{background:#edf2f7 !important;-webkit-print-color-adjust:exact}
-  .ei{background:#f8fafc !important;-webkit-print-color-adjust:exact}
-  .info-box{background:#ebf8ff !important;-webkit-print-color-adjust:exact}
-  .pat-box{background:#fffaf0 !important;-webkit-print-color-adjust:exact}
-}
-</style></head><body>
-
-<div class="header">
-  <div class="header-left">
-    <div class="logo-wrap">
-      <svg class="logo-icon" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-        <rect width="44" height="44" rx="6" fill="#fff" opacity="0.12"/>
-        <rect x="4" y="10" width="6" height="24" rx="2" fill="#fff"/>
-        <rect x="13" y="10" width="6" height="24" rx="2" fill="#fff"/>
-        <rect x="4" y="10" width="15" height="6" rx="2" fill="#fff"/>
-        <rect x="26" y="10" width="14" height="6" rx="2" fill="#4a9fd4"/>
-        <rect x="26" y="10" width="5" height="24" rx="2" fill="#4a9fd4"/>
-        <rect x="26" y="28" width="14" height="6" rx="2" fill="#4a9fd4"/>
-        <rect x="26" y="19" width="14" height="5" rx="2" fill="#4a9fd4" opacity="0.6"/>
-      </svg>
-      <div class="logo-text">
-        <span class="brand-top">CCI</span>
-        <span class="brand-sub">Partners</span>
-      </div>
-    </div>
-    <p>{{adresse_entreprise}}</p>
-    <p>IFU : {{ifu}}</p>
-    <p>N° Employeur CNSS : {{numero_employeur_cnss}}</p>
-    <p class="ref-fiche">Fiche N° {{reference_fiche}}</p>
-  </div>
-  <div class="header-right">
-    <h2>Bulletin de Paie</h2>
-    <div class="periode-badge">{{periode}}</div>
-    <p>{{nom_entreprise}}</p>
-    <p>Date de paiement : <strong>{{date_paiement}}</strong></p>
-  </div>
-</div>
-
-<div class="ei">
-  <div class="ei-b"><label>Nom et Prénom</label><span>{{nom}}</span></div>
-  <div class="ei-b"><label>Adresse</label><span>{{adresse_salarie}}</span></div>
-  <div class="ei-b"><label>Numéro Employé</label><span>{{matricule}}</span></div>
-  <div class="ei-b"><label>Téléphone</label><span>{{telephone}}</span></div>
-  <div class="ei-b"><label>Nature du Contrat</label><span>{{type_contrat}}</span></div>
-  <div class="ei-b"><label>Emploi / Poste</label><span>{{poste}}</span></div>
-</div>
-
-<table class="paie">
-  <thead>
-    <tr>
-      <th>Libellé</th>
-      <th>Heures</th>
-      <th>Taux Horaire</th>
-      <th>Gains (FCFA)</th>
-      <th>Retenues (FCFA)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr class="sh"><td colspan="5">RÉMUNÉRATION</td></tr>
-    <tr><td>Salaire de Base</td><td>{{heures_travaillees}}</td><td>{{taux_horaire}}</td><td class="amt">{{salaire_base}}</td><td></td></tr>
-    <tr><td>Heures Supplémentaires à 25%</td><td>{{hs_25_heures}}</td><td>{{hs_25_taux}}</td><td class="amt">{{hs_25_montant}}</td><td></td></tr>
-    <tr><td>Heures Supplémentaires à 50%</td><td>{{hs_50_heures}}</td><td>{{hs_50_taux}}</td><td class="amt">{{hs_50_montant}}</td><td></td></tr>
-
-    <tr class="sh"><td colspan="5">COTISATIONS SOCIALES — PART PATRONALE</td></tr>
-    <tr><td>CNSS — Assurance maladie / Cotisation familiale / Risque professionnel</td><td>{{salaire_brut}}</td><td>15,4 %</td><td></td><td class="dbt">{{cnss_patronal}}</td></tr>
-
-    <tr class="sh"><td colspan="5">COTISATIONS SOCIALES — PART SALARIALE</td></tr>
-    <tr><td>CNSS — Assurance vieillesse (Part ouvrière)</td><td>{{salaire_brut}}</td><td>3,6 %</td><td></td><td class="dbt">{{cnss_salarie}}</td></tr>
-
-    <tr class="sh"><td colspan="5">IMPÔT SUR TRAITEMENTS ET SALAIRES (ITS) — CGI art. 119-125</td></tr>
-    <tr><td>Base imposable (Brut − CNSS salarié)</td><td>{{base_imposable}}</td><td>Progressif 0%→30%</td><td></td><td></td></tr>
-    <tr><td>ITS calculé sur tranches (exonération 0→60 000 FCFA)</td><td>{{base_imposable}}</td><td>Barème CGI</td><td></td><td class="dbt">{{its}}</td></tr>
-
-    <tr class="sh"><td colspan="5">AUTRES DÉDUCTIONS</td></tr>
-    <tr><td>Avance sur salaire</td><td>—</td><td>—</td><td></td><td class="dbt">{{avance_salaire}}</td></tr>
-    <tr><td>Autres retenues</td><td>—</td><td>—</td><td></td><td class="dbt">{{autres_retenues}}</td></tr>
-  </tbody>
-</table>
-
-<div class="info-box">📅 Congés — Acquis ce mois : <strong>{{conges_acquis}} j</strong> &nbsp;|&nbsp; Pris : <strong>{{conges_pris}} j</strong> &nbsp;|&nbsp; Solde : <strong>{{conges_solde}} j</strong></div>
-<div class="pat-box">📊 Charges Patronales CNSS 15,4% : <strong>{{cnss_patronal}} FCFA</strong> &nbsp;|&nbsp; VPS 3% : <strong>{{vps}} FCFA</strong></div>
-
-<div class="totaux-container">
-  <div class="totaux-box">
-    <div class="tr"><span>SALAIRE BRUT</span><span>{{salaire_brut}} FCFA</span></div>
-    <div class="tr"><span>Total Cotisations</span><span>{{total_retenues}} FCFA</span></div>
-    <div class="tr net"><span>NET À PAYER</span><span>{{net_a_payer}} FCFA</span></div>
-  </div>
-</div>
-
-<p class="mention">Payé par virement bancaire / chèque N° ………………………………… le : ………………………………</p>
-<p class="mention" style="margin-top:4px;font-size:8pt;color:#a0aec0">Salaire net imposable : <strong>{{net_a_payer}} FCFA</strong> &nbsp;|&nbsp; A CONSERVER SANS LIMITATION DE DURÉE</p>
-
-<div class="signatures">
-  <div class="sig-block">
-    <p><strong>L'Employeur</strong></p>
-    <p style="font-size:9.5pt;color:#4a5568">{{representant_entreprise}}</p>
-    <div class="sig-line">Signature et cachet</div>
-  </div>
-  <div class="sig-block">
-    <p><strong>L'Employé(e)</strong></p>
-    <p style="font-size:9pt;color:#718096">Reçu la somme de <strong>{{net_a_payer}} FCFA</strong></p>
-    <div class="sig-line">Signature</div>
-  </div>
-</div>
-
-<div class="legal-ref">
-  Bulletin conforme — Code du Travail Bénin Loi n° 98-004 | CNSS 3,6% salarié / 15,4% patronal | ITS CGI art.119-125 | Exonération 60 000 FCFA | SMIG 52 000 FCFA | VPS art.191-195 CGI
-</div>
-</body></html>$cci_fp$, NULL)
-            `);
-            console.log('   ✓ Modèles CDI/CDD/Fiche de paie personnalisés CCI PARTNERS (company_id=12) vérifiés');
+            // ═══════════════════════════════════════════════════════════════
+            // ⛔ SEEDING DÉSACTIVÉ (neutralisé le 2026-07-09T21:00:49.938393)
+            // Ce bloc supprimait et réinsérait les templates par défaut (company_id=0)
+            // et CCI PARTNERS (company_id=12) À CHAQUE redémarrage du serveur, écrasant
+            // silencieusement toute correction faite en base (surbrillance, structure,
+            // champs identité). Les templates sont maintenant gérés directement en base
+            // / via l'interface admin. Ne pas réactiver sans adapter la logique en
+            // INSERT ... ON CONFLICT DO NOTHING (jamais de DELETE inconditionnel).
+            // ═══════════════════════════════════════════════════════════════
+
+//             // ✅ V27 — Insertion modèles par défaut (Option A — company_id = 0)
+//             // Supprimer les anciens modèles globaux et réinsérer (idempotent)
+//             await pool.query('DELETE FROM document_templates WHERE company_id = 0');
+//             await pool.query(`
+//                 INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
+//                 VALUES
+//                 (0, 'contrat_cdi', 'Contrat CDI — Modèle par défaut (Bénin/OHADA)', $tmpl_cdi$
+// <!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+// <style>
+// body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:20px}
+// .header{text-align:center;margin-bottom:30px;border-bottom:2px solid #1a3a5c;padding-bottom:15px}
+// .header h1{font-size:16pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
+// .header h2{font-size:13pt;color:#1a3a5c;margin:0}
+// .block{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:12px 16px;margin:16px 0;border-radius:4px}
+// .block h3{font-size:11pt;color:#1a3a5c;margin:0 0 8px 0;text-transform:uppercase}
+// .row{display:flex;gap:20px;margin:6px 0}.field{flex:1}
+// .field label{font-size:9pt;color:#666;display:block;margin-bottom:2px}
+// .field span{font-weight:bold;font-size:11pt}
+// .article{margin:18px 0}
+// .article h4{font-size:11pt;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #dde;padding-bottom:4px;margin-bottom:8px}
+// .article p{margin:6px 0;line-height:1.6;text-align:justify}
+// .hl{background:#fff3cd;padding:2px 6px;border-radius:3px;font-weight:bold}
+// .signatures{display:flex;justify-content:space-between;margin-top:50px}
+// .sig-block{text-align:center;width:45%}
+// .sig-line{border-top:1px solid #333;margin-top:50px;padding-top:8px;font-size:10pt}
+// .legal-ref{font-size:9pt;color:#888;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:10px}
+// </style></head><body>
+// <div class="header"><h1>{{nom_entreprise}}</h1><h2>CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE (CDI)</h2>
+// <p style="font-size:10pt;color:#555">Ref : {{reference_contrat}} | Date : {{date_signature}}</p></div>
+// <div class="block"><h3>L'Employeur</h3>
+// <div class="row"><div class="field"><label>Raison sociale</label><span>{{nom_entreprise}}</span></div><div class="field"><label>Forme juridique</label><span>{{forme_juridique}}</span></div></div>
+// <div class="row"><div class="field"><label>Siège social</label><span>{{adresse_entreprise}}</span></div><div class="field"><label>RCCM / IFU</label><span>{{rccm_ifu}}</span></div></div>
+// <div class="row"><div class="field"><label>Représenté par</label><span>{{representant_entreprise}}</span></div><div class="field"><label>Qualité</label><span>{{qualite_representant}}</span></div></div></div>
+// <div class="block"><h3>Le Salarié</h3>
+// <div class="row"><div class="field"><label>Nom et Prénoms</label><span>{{nom}}</span></div><div class="field"><label>Date de naissance</label><span>{{date_naissance}}</span></div></div>
+// <div class="row"><div class="field"><label>Nationalité</label><span>{{nationalite}}</span></div><div class="field"><label>N° Pièce d'identité</label><span>{{numero_piece}}</span></div></div>
+// <div class="row"><div class="field"><label>Adresse</label><span>{{adresse_salarie}}</span></div><div class="field"><label>N° CNSS</label><span>{{cnss}}</span></div></div></div>
+// <div class="article"><h4>Article 1 — Engagement et Poste</h4>
+// <p>L'employeur engage <span class="hl">{{nom}}</span> à compter du <span class="hl">{{date_debut}}</span> en qualité de <span class="hl">{{poste}}</span>, département <strong>{{departement}}</strong>.</p>
+// <p>Contrat conclu conformément à la <strong>Loi n° 98-004 du 27 janvier 1998</strong> portant Code du Travail en République du Bénin, pour une durée indéterminée.</p></div>
+// <div class="article"><h4>Article 2 — Période d'Essai</h4>
+// <p>Période d'essai de <span class="hl">{{duree_essai}}</span>, renouvelable une fois par accord des parties. Rupture possible sans préavis ni indemnité durant cette période.</p></div>
+// <div class="article"><h4>Article 3 — Rémunération</h4>
+// <p>Salaire brut mensuel : <span class="hl">{{salaire}} FCFA</span>, payable le dernier jour ouvré du mois. Supérieur au SMIG (52 000 FCFA — Décret 2023-015). CNSS : 3,6% salarié / 15,4% patronal. ITS progressif appliqué conformément au CGI.</p></div>
+// <div class="article"><h4>Article 4 — Durée et Lieu de Travail</h4>
+// <p>Durée hebdomadaire : <strong>40 heures</strong> (art. 142 CT). Lieu : <span class="hl">{{lieu_travail}}</span>.</p></div>
+// <div class="article"><h4>Article 5 — Congés Payés</h4>
+// <p>2,2 jours ouvrables par mois de travail effectif (26,4 jours/an) — art. 179 CT.</p></div>
+// <div class="article"><h4>Article 6 — Obligations du Salarié</h4>
+// <p>Le salarié s'engage à exercer ses fonctions avec diligence, loyauté et confidentialité, et à respecter le règlement intérieur de l'entreprise.</p></div>
+// <div class="article"><h4>Article 7 — Rupture du Contrat</h4>
+// <p>Régie par les articles 49 à 84 du Code du Travail. Préavis : <span class="hl">{{duree_preavis}}</span> sauf faute lourde. Indemnités calculées conformément aux dispositions légales.</p></div>
+// <div class="article"><h4>Article 8 — Litiges</h4>
+// <p>Tout litige sera soumis à la juridiction compétente du lieu d'exécution du travail — Code du Travail béninois et Actes Uniformes OHADA.</p></div>
+// <div class="signatures">
+// <div class="sig-block"><p><strong>Pour l'Employeur</strong></p><p style="font-size:10pt">{{representant_entreprise}}<br>{{qualite_representant}}</p><div class="sig-line">Signature et cachet</div></div>
+// <div class="sig-block"><p><strong>Le Salarié</strong></p><p style="font-size:10pt">{{nom}}<br>Lu et approuvé</p><div class="sig-line">Signature manuscrite</div></div>
+// </div>
+// <div class="legal-ref">Loi n° 98-004 du 27/01/1998 — Code du Travail Bénin | SMIG : 52 000 FCFA | CNSS : 3,6% salarié / 15,4% patronal | OHADA</div>
+// </body></html>
+// $tmpl_cdi$, NULL),
+//                 (0, 'contrat_cdd', 'Contrat CDD — Modèle par défaut (Bénin/OHADA)', $tmpl_cdd$
+// <!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+// <style>
+// body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a1a;margin:0;padding:20px}
+// .header{text-align:center;margin-bottom:30px;border-bottom:2px solid #7b2d00;padding-bottom:15px}
+// .header h1{font-size:16pt;color:#7b2d00;margin:0 0 5px 0;text-transform:uppercase}
+// .header h2{font-size:13pt;color:#7b2d00;margin:0}
+// .block{background:#fdf5f0;border-left:4px solid #7b2d00;padding:12px 16px;margin:16px 0;border-radius:4px}
+// .block h3{font-size:11pt;color:#7b2d00;margin:0 0 8px 0;text-transform:uppercase}
+// .row{display:flex;gap:20px;margin:6px 0}.field{flex:1}
+// .field label{font-size:9pt;color:#666;display:block;margin-bottom:2px}
+// .field span{font-weight:bold;font-size:11pt}
+// .alert-box{background:#fff3cd;border-left:4px solid #ffc107;padding:10px 14px;border-radius:4px;margin:12px 0;font-size:10pt}
+// .article{margin:18px 0}
+// .article h4{font-size:11pt;color:#7b2d00;text-transform:uppercase;border-bottom:1px solid #f0d0c0;padding-bottom:4px;margin-bottom:8px}
+// .article p{margin:6px 0;line-height:1.6;text-align:justify}
+// .hl{background:#fff3cd;padding:2px 6px;border-radius:3px;font-weight:bold}
+// .signatures{display:flex;justify-content:space-between;margin-top:50px}
+// .sig-block{text-align:center;width:45%}
+// .sig-line{border-top:1px solid #333;margin-top:50px;padding-top:8px;font-size:10pt}
+// .legal-ref{font-size:9pt;color:#888;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:10px}
+// </style></head><body>
+// <div class="header"><h1>{{nom_entreprise}}</h1><h2>CONTRAT DE TRAVAIL À DURÉE DÉTERMINÉE (CDD)</h2>
+// <p style="font-size:10pt;color:#555">Ref : {{reference_contrat}} | Date : {{date_signature}}</p></div>
+// <div class="alert-box">⚠️ <strong>Motif de recours au CDD :</strong> {{motif_cdd}} — art. 33 Code du Travail béninois.</div>
+// <div class="block"><h3>L'Employeur</h3>
+// <div class="row"><div class="field"><label>Raison sociale</label><span>{{nom_entreprise}}</span></div><div class="field"><label>Forme juridique</label><span>{{forme_juridique}}</span></div></div>
+// <div class="row"><div class="field"><label>Siège social</label><span>{{adresse_entreprise}}</span></div><div class="field"><label>RCCM / IFU</label><span>{{rccm_ifu}}</span></div></div>
+// <div class="row"><div class="field"><label>Représenté par</label><span>{{representant_entreprise}}</span></div><div class="field"><label>Qualité</label><span>{{qualite_representant}}</span></div></div></div>
+// <div class="block"><h3>Le Salarié</h3>
+// <div class="row"><div class="field"><label>Nom et Prénoms</label><span>{{nom}}</span></div><div class="field"><label>Date de naissance</label><span>{{date_naissance}}</span></div></div>
+// <div class="row"><div class="field"><label>Nationalité</label><span>{{nationalite}}</span></div><div class="field"><label>N° Pièce d'identité</label><span>{{numero_piece}}</span></div></div>
+// <div class="row"><div class="field"><label>Adresse</label><span>{{adresse_salarie}}</span></div><div class="field"><label>N° CNSS</label><span>{{cnss}}</span></div></div></div>
+// <div class="article"><h4>Article 1 — Objet et Durée</h4>
+// <p>Engagement de <span class="hl">{{nom}}</span> du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span> en qualité de <span class="hl">{{poste}}</span>.</p>
+// <p>Conformément à l'art. 33 CT, ce contrat ne peut être renouvelé qu'une seule fois. Toute poursuite au-delà du terme entraîne transformation automatique en CDI.</p></div>
+// <div class="article"><h4>Article 2 — Période d'Essai</h4>
+// <p>Période d'essai de <span class="hl">{{duree_essai}}</span>. Rupture possible sans préavis ni indemnité durant cette période, hors abus de droit.</p></div>
+// <div class="article"><h4>Article 3 — Rémunération</h4>
+// <p>Salaire brut mensuel : <span class="hl">{{salaire}} FCFA</span>, supérieur au SMIG (52 000 FCFA). CNSS : 3,6% salarié / 15,4% patronal. ITS progressif CGI art. 119-125.</p>
+// <p>Le salarié sous CDD bénéficie des mêmes droits que le salarié sous CDI pour un travail équivalent (art. 10 CT).</p></div>
+// <div class="article"><h4>Article 4 — Durée et Lieu de Travail</h4>
+// <p>40 heures/semaine (art. 142 CT). Lieu : <span class="hl">{{lieu_travail}}</span>.</p></div>
+// <div class="article"><h4>Article 5 — Congés et Droits Sociaux</h4>
+// <p>Congés payés au prorata (2,2 jours/mois). Prestations CNSS complètes : accidents du travail, maternité, allocations familiales.</p></div>
+// <div class="article"><h4>Article 6 — Rupture Anticipée</h4>
+// <p>Uniquement en cas de faute lourde, force majeure, accord mutuel ou décision judiciaire. Toute rupture unilatérale injustifiée engage la partie fautive à indemniser les rémunérations restant à courir.</p></div>
+// <div class="article"><h4>Article 7 — Litiges</h4>
+// <p>Juridiction compétente du lieu d'exécution — Code du Travail béninois et Actes Uniformes OHADA.</p></div>
+// <div class="signatures">
+// <div class="sig-block"><p><strong>Pour l'Employeur</strong></p><p style="font-size:10pt">{{representant_entreprise}}<br>{{qualite_representant}}</p><div class="sig-line">Signature et cachet</div></div>
+// <div class="sig-block"><p><strong>Le Salarié</strong></p><p style="font-size:10pt">{{nom}}<br>Lu et approuvé</p><div class="sig-line">Signature manuscrite</div></div>
+// </div>
+// <div class="legal-ref">Loi n° 98-004 — Art. 33-42 CDD | SMIG 52 000 FCFA | CNSS 3,6%/15,4% | ITS CGI art.119-125 | OHADA</div>
+// </body></html>
+// $tmpl_cdd$, NULL),
+//                 (0, 'fiche_paie', 'Bulletin de Paie — Modèle par défaut (Bénin 2026)', $tmpl_fp$
+// <!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+// <style>
+// body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1a1a;margin:0;padding:16px}
+// .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px}
+// .header-left h1{font-size:15pt;color:#1a3a5c;margin:0 0 4px 0}
+// .header-left p{margin:2px 0;font-size:10pt;color:#555}
+// .header-right{text-align:right}
+// .header-right h2{font-size:13pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase}
+// .periode-badge{display:inline-block;background:#1a3a5c;color:white;padding:4px 14px;border-radius:20px;font-size:11pt;font-weight:bold;margin:6px 0}
+// .ei{display:flex;gap:12px;background:#f5f7fa;border-radius:6px;padding:10px 14px;margin:12px 0;flex-wrap:wrap}
+// .ei-b{min-width:120px}
+// .ei-b label{font-size:9pt;color:#888;display:block}
+// .ei-b span{font-weight:bold;font-size:10pt}
+// table.paie{width:100%;border-collapse:collapse;margin:14px 0;font-size:10pt}
+// table.paie thead th{background:#1a3a5c;color:white;padding:7px 10px;text-align:left}
+// table.paie thead th:nth-child(n+4){text-align:right}
+// table.paie tbody tr:nth-child(even){background:#f5f7fa}
+// table.paie tbody td{padding:6px 10px;border-bottom:1px solid #eee}
+// table.paie tbody td.amt{text-align:right;font-weight:bold}
+// table.paie tbody td.dbt{text-align:right;font-weight:bold;color:#c0392b}
+// table.paie tr.sh td{background:#e8edf5;font-weight:bold;color:#1a3a5c;padding:5px 10px}
+// .totaux-box{background:#1a3a5c;color:white;padding:12px 20px;border-radius:8px;min-width:260px;margin-left:auto;margin-top:8px}
+// .tr{display:flex;justify-content:space-between;margin:3px 0;font-size:11pt}
+// .tr.net{font-size:14pt;font-weight:bold;border-top:1px solid rgba(255,255,255,0.4);padding-top:7px;margin-top:7px}
+// .info-box{background:#f0f9ff;border:1px solid #b3d9f0;border-radius:6px;padding:8px 14px;margin:10px 0;font-size:10pt}
+// .pat-box{background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:8px 14px;margin:10px 0;font-size:10pt}
+// .signatures{display:flex;justify-content:space-between;margin-top:28px}
+// .sig-block{text-align:center;width:45%}
+// .sig-line{border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:10pt}
+// .legal-ref{font-size:8pt;color:#aaa;text-align:center;margin-top:18px;border-top:1px solid #eee;padding-top:8px}
+// </style></head><body>
+// <div class="header">
+// <div class="header-left"><h1>{{nom_entreprise}}</h1><p>{{adresse_entreprise}}</p><p>RCCM : {{rccm}} | IFU : {{ifu}}</p><p>N° Employeur CNSS : {{numero_employeur_cnss}}</p></div>
+// <div class="header-right"><h2>Bulletin de Paie</h2><div class="periode-badge">{{periode}}</div><p>Date de paiement : <strong>{{date_paiement}}</strong></p></div>
+// </div>
+// <div class="ei">
+// <div class="ei-b"><label>Nom et Prénoms</label><span>{{nom}}</span></div>
+// <div class="ei-b"><label>Poste</label><span>{{poste}}</span></div>
+// <div class="ei-b"><label>Matricule</label><span>{{matricule}}</span></div>
+// <div class="ei-b"><label>N° CNSS</label><span>{{cnss}}</span></div>
+// <div class="ei-b"><label>Contrat</label><span>{{type_contrat}}</span></div>
+// <div class="ei-b"><label>Embauche</label><span>{{date_embauche}}</span></div>
+// </div>
+// <table class="paie">
+// <thead><tr><th>Libellé</th><th>Base</th><th>Taux</th><th>Gains (FCFA)</th><th>Retenues (FCFA)</th></tr></thead>
+// <tbody>
+// <tr class="sh"><td colspan="5">RÉMUNÉRATION</td></tr>
+// <tr><td>Salaire de Base</td><td>{{heures_travaillees}}h</td><td>—</td><td class="amt">{{salaire_base}}</td><td></td></tr>
+// <tr><td>Prime de Transport</td><td>—</td><td>—</td><td class="amt">{{prime_transport}}</td><td></td></tr>
+// <tr><td>Autres Primes</td><td>—</td><td>—</td><td class="amt">{{autres_primes}}</td><td></td></tr>
+// <tr class="sh"><td colspan="5">COTISATIONS CNSS — PART SALARIALE</td></tr>
+// <tr><td>CNSS — Vieillesse / Prestations familiales</td><td>{{salaire_brut}}</td><td>3,6 %</td><td></td><td class="dbt">{{cnss_salarie}}</td></tr>
+// <tr class="sh"><td colspan="5">IMPÔT SUR TRAITEMENTS ET SALAIRES (ITS) — CGI art. 119-125</td></tr>
+// <tr><td>Base imposable (Brut − CNSS)</td><td>{{base_imposable}}</td><td>Progressif 0%→30%</td><td></td><td></td></tr>
+// <tr><td>Exonération tranche 0→60 000 FCFA</td><td>60 000</td><td>0 %</td><td></td><td class="dbt">0</td></tr>
+// <tr><td>ITS calculé sur tranches supérieures</td><td>{{base_imposable}}</td><td>Barème CGI</td><td></td><td class="dbt">{{its}}</td></tr>
+// <tr class="sh"><td colspan="5">AUTRES DÉDUCTIONS</td></tr>
+// <tr><td>Avance sur salaire</td><td>—</td><td>—</td><td></td><td class="dbt">{{avance_salaire}}</td></tr>
+// <tr><td>Autres retenues</td><td>—</td><td>—</td><td></td><td class="dbt">{{autres_retenues}}</td></tr>
+// </tbody>
+// </table>
+// <div class="info-box">📅 <strong>Congés Payés</strong> — Acquis ce mois : <strong>{{conges_acquis}} j</strong> | Pris : <strong>{{conges_pris}} j</strong> | Solde : <strong>{{conges_solde}} j</strong></div>
+// <div class="pat-box">📊 <strong>Charges Patronales</strong> (info — non déduites du net) — CNSS Patronal 15,4% : <strong>{{cnss_patronal}} FCFA</strong> | VPS 3% : <strong>{{vps}} FCFA</strong></div>
+// <div class="totaux-box">
+// <div class="tr"><span>Total Gains</span><span>{{total_gains}} FCFA</span></div>
+// <div class="tr"><span>Total Retenues</span><span>{{total_retenues}} FCFA</span></div>
+// <div class="tr net"><span>NET À PAYER</span><span>{{net_a_payer}} FCFA</span></div>
+// </div>
+// <div class="signatures">
+// <div class="sig-block"><p><strong>L'Employeur</strong></p><div class="sig-line">Signature et cachet</div></div>
+// <div class="sig-block"><p><strong>Le Salarié</strong><br><small>Reçu la somme de {{net_a_payer}} FCFA</small></p><div class="sig-line">Signature</div></div>
+// </div>
+// <div class="legal-ref">Bulletin conforme — Code du Travail Bénin Loi 98-004 | CNSS 3,6%/15,4% | ITS CGI art.119-125 | Exonération 60 000 FCFA | SMIG 52 000 FCFA | VPS art.191-195 CGI</div>
+// </body></html>
+// $tmpl_fp$, NULL)
+// ;
+//             `);
+//             console.log('   ✓ Modèles par défaut CDI/CDD/Fiche de paie insérés (Option A)');
+
+//             // ✅ V27 — Modèles personnalisés CCI PARTNERS (company_id = 12)
+//             // Supprimer et réinsérer pour forcer la mise à jour
+//             await pool.query('DELETE FROM document_templates WHERE company_id = 12');
+//             await pool.query(`
+//                 INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
+//                 VALUES (12, 'contrat_cdd', 'Contrat CDD — CCI PARTNERS', $cci_cdd$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11.5pt;color:#1a1a1a;margin:0;padding:20px 25px}
+// @media print{@page{margin:15mm 20mm;size:A4}.pb{page-break-before:always}.no-break{page-break-inside:avoid}}
+// .header{display:flex;align-items:stretch;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c}
+// .header-logo{background:#1a3a5c;color:#fff;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:160px}
+// .header-logo .logo-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+// .header-logo .brand-top{font-size:14pt;font-weight:900;color:#fff;letter-spacing:1px}
+// .header-logo .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+// .header-content{flex:1;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+// .header-content h1{font-size:14pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase;letter-spacing:1px}
+// .header-content h2{font-size:12pt;color:#1a3a5c;margin:0}
+// .header-content p{font-size:10pt;color:#555;margin:4px 0}
+// .pblock{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:8px 14px;margin:8px 0;border-radius:4px}
+// .pblock h3{font-size:10pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
+// .pblock p{margin:3px 0;font-size:11pt;line-height:1.5}
+// .sep{text-align:center;font-weight:bold;color:#1a3a5c;margin:6px 0;font-size:11pt}
+// .intro{text-align:center;margin:8px 0;font-size:11pt}
+// .art{margin:10px 0}
+// .art h4{font-size:11pt;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #dde;padding-bottom:3px;margin:0 0 5px 0}
+// .art p{margin:4px 0;line-height:1.6;text-align:justify;font-size:11pt}
+// .art ul{margin:4px 0;padding-left:18px}
+// .art ul li{margin:3px 0;line-height:1.5;font-size:11pt}
+// .hl{background:#fff3cd;padding:1px 4px;border-radius:3px;font-weight:bold}
+// .sigs{display:flex;justify-content:space-between;margin-top:40px}
+// .sig{text-align:center;width:45%}
+// .sig-line{border-top:1px solid #333;margin-top:50px;padding-top:6px;font-size:10pt}
+// .legal{font-size:8pt;color:#aaa;text-align:center;margin-top:14px;border-top:1px solid #eee;padding-top:6px}</style></head><body>
+
+// <!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
+// <div class="header no-break">
+//   <div class="header-logo">
+//     <img src="data:image/png;base64,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" style="width:160px;height:auto;display:block" alt="CCI Partners"/>
+//   </div>
+//   <div class="header-content">
+//     <h1>CONTRAT DE TRAVAIL</h1>
+//     <h2>À DURÉE DÉTERMINÉE (CDD)</h2>
+//     <p>Ref : {{reference_contrat}} &nbsp;|&nbsp; Fait à {{lieu_signature}}, le {{date_signature}}</p>
+//   </div>
+// </div>
+
+// <p class="intro no-break"><strong>ENTRE</strong></p>
+
+// <div class="pblock no-break">
+//   <h3>L'Employeur</h3>
+//   <p>Raison Sociale : <strong>{{nom_entreprise}}</strong></p>
+//   <p>Représentée par : <strong>{{representant_entreprise}}</strong> &nbsp; Siège Social / Adresse : <strong>{{adresse_entreprise}}</strong></p>
+//   <p style="margin-top:5px;font-style:italic">Ci-après désigné <strong>« Employeur »</strong></p>
+// </div>
+
+// <p class="sep">D'UNE PART,<br>Et</p>
+
+// <div class="pblock no-break">
+//   <h3>L'Employé(e)</h3>
+//   <p>Madame / Monsieur : <strong>{{nom}}</strong></p>
+//   <p>Date et lieu de Naissance : <strong>{{date_naissance}}</strong> &nbsp;&nbsp; Nationalité : <strong>{{nationalite}}</strong></p>
+//   <p>Résident(e) habituellement à : <strong>{{adresse_salarie}}</strong></p>
+//   <p>Situation Matrimoniale : <strong>{{situation_matrimoniale}}</strong></p>
+//   <p style="margin-top:5px;font-style:italic">Ci-après désigné <strong>« Employé »</strong></p>
+// </div>
+
+// <p class="sep">D'AUTRE PART</p>
+// <p class="intro">L'employeur et l'employé sont collectivement appelés les <strong>« Parties »</strong> et individuellement une <strong>« Partie »</strong>.</p>
+// <p class="intro"><strong>Il a été convenu de ce qui suit :</strong></p>
+
+// <div class="art no-break">
+//   <h4>Article 1 : Objet du contrat</h4>
+//   <p>Le présent contrat de travail à durée déterminée a pour objet de déterminer les conditions et modalités selon lesquelles l'employé accepte de mettre à la disposition de <strong>{{nom_entreprise}}</strong>, son savoir-faire, son temps, et sa loyauté en tant que <span class="hl">{{poste}}</span> pour atteindre des objectifs moyennant une rémunération convenue.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 2 : Durée du Contrat</h4>
+//   <p>Le présent contrat est conclu pour une durée déterminée de <span class="hl">{{duree_contrat}}</span> allant du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span>, sous réserve de son interruption anticipée selon les conditions prévues à l'article 13 ci-dessous.</p>
+//   <p>Il prend fin de plein droit à l'échéance du terme ci-dessus indiqué et peut être transformé en contrat à durée indéterminée sur accord des parties.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 3 : Fonctions de l'Employé</h4>
+//   <p>L'employé se met à la disposition de l'entreprise en qualité de <span class="hl">{{poste}}</span>.</p>
+//   <p>Toutefois, en cas de nécessité, l'employé pourra être amené à exercer toutes autres attributions à lui confiées par l'entreprise dans la mesure de ses qualifications.</p>
+// </div>
+
+// <!-- ========== PAGE 2 : Art.4-8 ========== -->
+// <div class="pb"></div>
+
+// <div class="art no-break">
+//   <h4>Article 4 : Engagement de l'Employé</h4>
+//   <p>L'employé déclare être libre de tous engagements professionnels et s'engage à :</p>
+//   <ul>
+//     <li>Exercer ses attributions sous l'autorité de ses supérieurs hiérarchiques et à se soumettre aux règles applicables dans l'entreprise et notamment aux règles de discipline, s'acquitter avec loyauté, responsabilité et fidélité des travaux ou missions qui lui seront confiés ;</li>
+//     <li>Effectuer les déplacements nécessaires et se rendre en tous lieux où l'entreprise aura besoin de ses services dans les limites des accords ;</li>
+//     <li>Informer son employeur sans délai de tout changement qui interviendrait dans sa situation professionnelle comme personnelle, notamment en cas de changement d'adresse ou de situation matrimoniale ;</li>
+//     <li>S'abstenir de toute attitude de nature à jeter le discrédit sur l'activité de l'entreprise ou les supérieurs hiérarchiques dont il relève ;</li>
+//     <li>Assister aux formations organisées par les partenaires avec un accord de son supérieur ;</li>
+//     <li>Aviser son employeur de tout incident affectant l'exécution de son travail, dans un délai de 24h maximum, en vue de la prise des dispositions auprès la Caisse Nationale de Sécurité Sociale (CNSS) ;</li>
+//     <li>Restituer à l'expiration du contrat quel qu'en soit la cause, tout matériel à lui confié par l'employeur.</li>
+//   </ul>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 5 : Actions d'accompagnement et de formation, tuteur et référent</h4>
+//   <p>L'employé s'engage à suivre toutes les actions d'accompagnement, de formation, de tutorat et de validation des acquis prévues et concourant à son évolution professionnelle.</p>
+//   <p>À ce titre, il bénéficie d'un accompagnement par les référents désignés par <strong>{{nom_entreprise}}</strong> et chargés d'assurer le suivi de son parcours professionnel.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 6 : Lieu et horaire de travail</h4>
+//   <p>Les horaires de travail de l'employé sont ceux de l'entreprise, non contraires aux dispositions légales en vigueur en République du Bénin.</p>
+//   <p>Les horaires de <strong>{{nom_entreprise}}</strong> sont de <span class="hl">{{heures_mensuelles}}</span> heures par mois réparties suivant le calendrier des rotations mensuelles.</p>
+//   <p>Le lieu de travail est le siège de <strong>{{nom_entreprise}}</strong> et tout autre endroit désigné par l'employeur.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 7 : Rémunération</h4>
+//   <p>L'employé percevra une rémunération nette mensuelle de <span class="hl">{{salaire_net}} FCFA</span>.</p>
+//   <p>Cette rémunération sera versée mensuellement à l'employé par virement bancaire, chèque ou tout autre moyen de paiement légal. Il est versé au plus tard le <span class="hl">{{jour_paiement}}</span> du mois suivant. En cas de difficulté financière, l'employeur doit informer l'employé et convenir avec lui d'une prochaine échéance.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 8 : Frais de mission</h4>
+//   <p>En cas de mission hors du lieu d'exercice habituel de ses fonctions, des frais de missions relatifs à l'hébergement, la restauration et au déplacement sont accordés à l'employé conformément aux règles applicables au sein de l'entreprise.</p>
+// </div>
+
+// <!-- ========== PAGE 3 : Art.9-12 ========== -->
+// <div class="pb"></div>
+
+// <div class="art no-break">
+//   <h4>Article 9 : Avantages sociaux</h4>
+//   <p>L'affiliation de l'employé à la Caisse Nationale de Sécurité Sociale (CNSS) en vue de lui permettre de bénéficier des avantages sociaux reconnus par la réglementation en vigueur au Bénin, sera faite par l'entreprise dès confirmation de sa période d'essai.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 10 : Congés</h4>
+//   <p>L'employé a droit à deux (02) jours ouvrables de congés par mois de service effectif soit vingt-quatre (24) jours de travail ouvrables par an. La jouissance de ses congés sera planifiée en accord avec l'employeur et est valable dès la fin de la première année.</p>
+//   <p>En cas d'arrêt pour cause de maladie, l'employé devra présenter à l'entreprise sans délai un certificat émis par un médecin agréé.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 11 : Clause d'exclusivité</h4>
+//   <p>L'employé s'interdit d'exercer pendant la durée de son contrat même en dehors des heures de travail, une activité à caractère professionnel susceptible de concurrencer son employeur dans ses activités professionnelles ou de nuire à l'exécution normale des services convenus.</p>
+//   <p>L'employé s'interdit d'utiliser les outils de travail (ordinateur ; téléphone ; imprimante ; connexion et tout autre outil) à des fins personnelles.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 12 : Clause de confidentialité</h4>
+//   <p>L'employé s'interdit totalement de divulguer, pendant ou après son emploi, tous renseignements de nature confidentielle qu'il aurait pu recueillir.</p>
+//   <p>L'employé considérera comme strictement confidentiel et s'interdit de divulguer toutes informations, documents, données dont il pourra avoir connaissance à l'occasion de l'exécution du présent contrat. En conséquence, il s'interdit notamment de :</p>
+//   <ul>
+//     <li>Divulguer tout renseignement de nature confidentielle qu'il aurait pu recueillir dans le cadre de l'exercice de ses fonctions ou lié à celle-ci ;</li>
+//     <li>Utiliser les informations confidentielles dont il a eu connaissance au cours de ses missions et à l'occasion des travaux réalisés.</li>
+//   </ul>
+//   <p>Toutefois, l'employé ne serait tenu pour responsable d'aucune divulgation si les éléments étaient dans le domaine public à date de la divulgation, ou s'il en avait connaissance ou les obtient de tiers par des moyens légitimes.</p>
+//   <p>L'employé ne doit pas prendre de position qui altérerait l'exercice indépendant et impartial de ses fonctions. Ce devoir de réserve se prolonge au-delà de l'exercice des fonctions. Il doit également éviter tout conflit d'intérêt.</p>
+//   <p>Il est entendu par conflit d'intérêts toute situation d'interférence entre un intérêt public ou privé qui peut perturber l'exécution indépendante, impartiale et objective des services convenus.</p>
+// </div>
+
+// <!-- ========== PAGE 4 : Art.13-16 + Signatures ========== -->
+// <div class="pb"></div>
+
+// <div class="art no-break">
+//   <h4>Article 13 : Résiliation</h4>
+//   <p>Ce contrat de travail cesse de plein droit au terme des <span class="hl">{{duree_contrat}}</span> prévus au contrat et peut être systématiquement renouvelé. À la fin de ce contrat de travail, s'il n'est pas renouvelé, l'employé perd la qualité d'employé de l'Entreprise.</p>
+//   <p>Ce contrat de travail peut prendre fin avant son terme :</p>
+//   <ul>
+//     <li>Sur accord écrit des deux Parties ;</li>
+//     <li>À tout moment, hors période d'essai, par la volonté de l'une des Parties sous réserve d'un préavis d'<strong>un (1) mois</strong> ;</li>
+//     <li>Sur démission, abandon de poste ou absence injustifiée de l'employé à son poste pendant une durée de quarante-huit (48) heures ;</li>
+//     <li>En cas de mauvaise performance de l'employé rendant impossible son maintien au sein de la structure ;</li>
+//     <li>En cas de décès de l'employé ;</li>
+//     <li>En cas de force majeure dûment justifiée par écrit dans les sept (07) jours suivant sa constatation par la Partie qui s'en prévaut ;</li>
+//     <li>Sans préavis en cas de faute lourde de l'employé dûment notifiée à celui-ci, sous réserve de l'appréciation de la juridiction compétente en ce qui concerne la gravité de la faute ;</li>
+//     <li>En cas de violation délibérée dûment constatée des clauses du présent contrat par l'une des Parties.</li>
+//   </ul>
+//   <p>Il est notamment précisé qu'est considérée comme faute lourde, toute fausse déclaration constatée dans le curriculum vitae ou autre document produit par l'employé ou toute rétention d'informations utiles et déterminantes pour la conclusion du présent contrat.</p>
+//   <p>En cas de résiliation du présent contrat, l'ensemble des matériels et toutes autres pièces confiés ou remis à l'employé, ou tout document ou somme d'argent qu'il détiendrait par devers lui, doit être restitué à l'entreprise sans délai.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 14 : Attribution de juridiction</h4>
+//   <p>Tout litige relatif à la conclusion, à l'exécution du présent contrat, à défaut de règlement amiable dans un délai de trente (30) jours à compter de la notification du litige par une partie, sera porté devant les juridictions sociales compétentes.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 15 : Dispositions diverses</h4>
+//   <p>Pour ce qui n'est pas précisé au présent contrat, les Parties s'en remettent aux dispositions du Code du Travail fixant les modalités de sa mise en œuvre, des accords du travail ainsi que toutes autres dispositions législatives et réglementaires en République du Bénin.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 16 : Enregistrement</h4>
+//   <p>Le présent contrat est enregistré dès sa signature pour servir et valoir ce que de droit.</p>
+// </div>
+
+// <p class="intro no-break" style="margin-top:16px"><strong>Fait à <span class="hl">{{lieu_signature}}</span> en trois exemplaires, le <span class="hl">{{date_signature}}</span></strong></p>
+
+// <div class="sigs no-break">
+//   <div class="sig">
+//     <p><strong>Le Manager</strong></p>
+//     <p style="font-size:10pt">{{representant_entreprise}}</p>
+//     <div class="sig-line">Signature et cachet</div>
+//   </div>
+//   <div class="sig">
+//     <p><strong>L'Employé(e)</strong></p>
+//     <p style="font-size:10pt">{{nom}}</p>
+//     <div class="sig-line">Signature</div>
+//   </div>
+// </div>
+
+// <div class="legal">Contrat conforme — Code du Travail Bénin Loi n° 98-004 | CNSS affiliée dès confirmation période d'essai | OHADA</div>
+// </body></html>$cci_cdd$, NULL)
+//             `);
+//             await pool.query(`
+//                 INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
+//                 VALUES (12, 'contrat_cdi', 'Contrat CDI — CCI PARTNERS', $cci_cdi$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11.5pt;color:#1a1a1a;margin:0;padding:20px 25px}
+// @media print{@page{margin:15mm 20mm;size:A4}.pb{page-break-before:always}.no-break{page-break-inside:avoid}}
+// .header{display:flex;align-items:stretch;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c}
+// .header-logo{background:#1a3a5c;color:#fff;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:160px}
+// .header-logo .logo-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+// .header-logo .brand-top{font-size:14pt;font-weight:900;color:#fff;letter-spacing:1px}
+// .header-logo .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+// .header-content{flex:1;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+// .header-content h1{font-size:14pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase;letter-spacing:1px}
+// .header-content h2{font-size:12pt;color:#1a3a5c;margin:0}
+// .header-content p{font-size:10pt;color:#555;margin:4px 0}
+// .pblock{background:#f5f7fa;border-left:4px solid #1a3a5c;padding:8px 14px;margin:8px 0;border-radius:4px}
+// .pblock h3{font-size:10pt;color:#1a3a5c;margin:0 0 5px 0;text-transform:uppercase}
+// .pblock p{margin:3px 0;font-size:11pt;line-height:1.5}
+// .sep{text-align:center;font-weight:bold;color:#1a3a5c;margin:6px 0;font-size:11pt}
+// .intro{text-align:center;margin:8px 0;font-size:11pt}
+// .art{margin:10px 0}
+// .art h4{font-size:11pt;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #dde;padding-bottom:3px;margin:0 0 5px 0}
+// .art p{margin:4px 0;line-height:1.6;text-align:justify;font-size:11pt}
+// .art ul{margin:4px 0;padding-left:18px}
+// .art ul li{margin:3px 0;line-height:1.5;font-size:11pt}
+// .hl{background:#fff3cd;padding:1px 4px;border-radius:3px;font-weight:bold}
+// .sigs{display:flex;justify-content:space-between;margin-top:40px}
+// .sig{text-align:center;width:45%}
+// .sig-line{border-top:1px solid #333;margin-top:50px;padding-top:6px;font-size:10pt}
+// .legal{font-size:8pt;color:#aaa;text-align:center;margin-top:14px;border-top:1px solid #eee;padding-top:6px}</style></head><body>
+
+// <!-- ========== PAGE 1 : En-tête + Parties + Art.1-3 ========== -->
+// <div class="header no-break">
+//   <div class="header-logo">
+//     <img src="data:image/png;base64,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" style="width:160px;height:auto;display:block" alt="CCI Partners"/>
+//   </div>
+//   <div class="header-content">
+//     <h1>CONTRAT DE TRAVAIL</h1>
+//     <h2>À DURÉE INDÉTERMINÉE (CDI)</h2>
+//     <p>Ref : {{reference_contrat}} &nbsp;|&nbsp; Fait à {{lieu_signature}}, le {{date_signature}}</p>
+//   </div>
+// </div>
+
+// <p class="intro no-break"><strong>ENTRE</strong></p>
+
+// <div class="pblock no-break">
+//   <h3>L'Employeur</h3>
+//   <p>Raison Sociale : <strong>{{nom_entreprise}}</strong></p>
+//   <p>Représentée par : <strong>{{representant_entreprise}}</strong> &nbsp; Siège Social / Adresse : <strong>{{adresse_entreprise}}</strong></p>
+//   <p style="margin-top:5px;font-style:italic">Ci-après désigné <strong>« Employeur »</strong></p>
+// </div>
+
+// <p class="sep">D'UNE PART,<br>Et</p>
+
+// <div class="pblock no-break">
+//   <h3>L'Employé(e)</h3>
+//   <p>Madame / Monsieur : <strong>{{nom}}</strong></p>
+//   <p>Date et lieu de Naissance : <strong>{{date_naissance}}</strong> &nbsp;&nbsp; Nationalité : <strong>{{nationalite}}</strong></p>
+//   <p>Résident(e) habituellement à : <strong>{{adresse_salarie}}</strong></p>
+//   <p>Situation Matrimoniale : <strong>{{situation_matrimoniale}}</strong></p>
+//   <p style="margin-top:5px;font-style:italic">Ci-après désigné <strong>« Employé »</strong></p>
+// </div>
+
+// <p class="sep">D'AUTRE PART</p>
+// <p class="intro">L'employeur et l'employé sont collectivement appelés les <strong>« Parties »</strong> et individuellement une <strong>« Partie »</strong>.</p>
+// <p class="intro"><strong>Il a été convenu de ce qui suit :</strong></p>
+
+// <div class="art no-break">
+//   <h4>Article 1 : Objet du contrat</h4>
+//   <p>Le présent contrat de travail à durée indéterminée a pour objet de déterminer les conditions et modalités selon lesquelles l'employé accepte de mettre à la disposition de <strong>{{nom_entreprise}}</strong>, son savoir-faire, son temps, et sa loyauté en tant que <span class="hl">{{poste}}</span> pour atteindre des objectifs moyennant une rémunération convenue.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 2 : Prise d'Effet, Durée et Période d'Essai</h4>
+//   <p>Le présent contrat est conclu pour une durée déterminée de <span class="hl">{{duree_contrat}}</span> allant du <span class="hl">{{date_debut}}</span> au <span class="hl">{{date_fin}}</span>, sous réserve de son interruption anticipée selon les conditions prévues à l'article 14 ci-dessous.</p>
+//   <p>Il prend fin de plein droit à l'échéance du terme ci-dessus indiqué et peut être transformé en contrat à durée indéterminée sur accord des parties.</p>
+//   {{periode_essai_phrase}}
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 3 : Fonctions de l'Employé</h4>
+//   <p>L'employé se met à la disposition de l'entreprise en qualité de <span class="hl">{{poste}}</span>.</p>
+//   {{missions_bloc}}
+//   <p>Toutefois, en cas de nécessité, l'employé pourra être amené à exercer toutes autres attributions à lui confiées par l'entreprise dans la mesure de ses qualifications.</p>
+// </div>
+
+// <!-- ========== PAGE 2 : Art.4-8 ========== -->
+// <div class="pb"></div>
+
+// <div class="art no-break">
+//   <h4>Article 4 : Engagement de l'Employé</h4>
+//   <p>L'employé déclare être libre de tous engagements professionnels et s'engage à :</p>
+//   <ul>
+//     <li>Exercer ses attributions sous l'autorité de ses supérieurs hiérarchiques et à se soumettre aux règles applicables dans l'entreprise et notamment aux règles de discipline, s'acquitter avec loyauté, responsabilité et fidélité des travaux ou missions qui lui seront confiés ;</li>
+//     <li>Effectuer les déplacements nécessaires et se rendre en tous lieux où l'entreprise aura besoin de ses services dans les limites des accords ;</li>
+//     <li>Informer son employeur sans délai de tout changement qui interviendrait dans sa situation professionnelle comme personnelle, notamment en cas de changement d'adresse ou de situation matrimoniale ;</li>
+//     <li>S'abstenir de toute attitude de nature à jeter le discrédit sur l'activité de l'entreprise ou les supérieurs hiérarchiques dont il relève ;</li>
+//     <li>Assister aux formations organisées par les partenaires avec un accord de son supérieur ;</li>
+//     <li>Aviser son employeur de tout incident affectant l'exécution de son travail, dans un délai de 24h maximum, en vue de la prise des dispositions auprès la Caisse Nationale de Sécurité Sociale (CNSS) ;</li>
+//     <li>Restituer à l'expiration du contrat quel qu'en soit la cause, tout matériel à lui confié par l'employeur.</li>
+//   </ul>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 5 : Actions d'accompagnement et de formation, tuteur et référent</h4>
+//   <p>L'employé s'engage à suivre toutes les actions d'accompagnement, de formation, de tutorat et de validation des acquis prévues et concourant à son évolution professionnelle.</p>
+//   <p>À ce titre, il bénéficie d'un accompagnement par les référents désignés par <strong>{{nom_entreprise}}</strong> et chargés d'assurer le suivi de son parcours professionnel.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 6 : Lieu et horaire de travail</h4>
+//   <p>Les horaires de travail de l'employé sont ceux de l'entreprise, non contraires aux dispositions légales en vigueur en République du Bénin.</p>
+//   <p>Les horaires de <strong>{{nom_entreprise}}</strong> sont de <span class="hl">{{heures_mensuelles}}</span> heures par mois réparties suivant le calendrier des rotations mensuelles.</p>
+//   <p>Le lieu de travail est le siège de <strong>{{nom_entreprise}}</strong> et tout autre endroit désigné par l'employeur.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 7 : Rémunération</h4>
+//   <p>L'employé percevra une rémunération nette mensuelle de <span class="hl">{{salaire_net}} FCFA</span>.</p>
+//   <p>Cette rémunération sera versée mensuellement à l'employé par virement bancaire, chèque ou tout autre moyen de paiement légal. Il est versé au plus tard le <span class="hl">{{jour_paiement}}</span> du mois suivant. En cas de difficulté financière, l'employeur doit informer l'employé et convenir avec lui d'une prochaine échéance.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 8 : Frais de mission</h4>
+//   <p>En cas de mission hors du lieu d'exercice habituel de ses fonctions, des frais de missions relatifs à l'hébergement, la restauration et au déplacement sont accordés à l'employé conformément aux règles applicables au sein de l'entreprise.</p>
+// </div>
+
+// <!-- ========== PAGE 3 : Art.9-12 ========== -->
+// <div class="pb"></div>
+
+// <div class="art no-break">
+//   <h4>Article 9 : Avantages sociaux</h4>
+//   <p>L'affiliation de l'employé à la Caisse Nationale de Sécurité Sociale (CNSS) en vue de lui permettre de bénéficier des avantages sociaux reconnus par la réglementation en vigueur au Bénin, sera faite par l'entreprise dès confirmation de sa période d'essai.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 10 : Congés</h4>
+//   <p>L'employé a droit à deux (02) jours ouvrables de congés par mois de service effectif soit vingt-quatre (24) jours de travail ouvrables par an. La jouissance de ses congés sera planifiée en accord avec l'employeur et est valable dès la fin de la première année.</p>
+//   <p>En cas d'arrêt pour cause de maladie, l'employé devra présenter à l'entreprise sans délai un certificat émis par un médecin agréé.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 11 : Clause d'exclusivité</h4>
+//   <p>L'employé s'interdit d'exercer pendant la durée de son contrat même en dehors des heures de travail, une activité à caractère professionnel susceptible de concurrencer son employeur dans ses activités professionnelles ou de nuire à l'exécution normale des services convenus.</p>
+//   <p>L'employé s'interdit d'utiliser les outils de travail (ordinateur ; téléphone ; imprimante ; connexion et tout autre outil) à des fins personnelles.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 12 : Clause de confidentialité</h4>
+//   <p>L'employé s'interdit totalement de divulguer, pendant ou après son emploi, tous renseignements de nature confidentielle qu'il aurait pu recueillir.</p>
+//   <p>L'employé considérera comme strictement confidentiel et s'interdit de divulguer toutes informations, documents, données dont il pourra avoir connaissance à l'occasion de l'exécution du présent contrat. En conséquence, il s'interdit notamment de :</p>
+//   <ul>
+//     <li>Divulguer tout renseignement de nature confidentielle qu'il aurait pu recueillir dans le cadre de l'exercice de ses fonctions ou lié à celle-ci ;</li>
+//     <li>Utiliser les informations confidentielles dont il a eu connaissance au cours de ses missions et à l'occasion des travaux réalisés.</li>
+//   </ul>
+//   <p>Toutefois, l'employé ne serait tenu pour responsable d'aucune divulgation si les éléments étaient dans le domaine public à date de la divulgation, ou s'il en avait connaissance ou les obtient de tiers par des moyens légitimes.</p>
+//   <p>L'employé ne doit pas prendre de position qui altérerait l'exercice indépendant et impartial de ses fonctions. Ce devoir de réserve se prolonge au-delà de l'exercice des fonctions. Il doit également éviter tout conflit d'intérêt.</p>
+//   <p>Il est entendu par conflit d'intérêts toute situation d'interférence entre un intérêt public ou privé qui peut perturber l'exécution indépendante, impartiale et objective des services convenus.</p>
+// </div>
+
+// <!-- ========== PAGE 4 : Art.13-16 + Signatures ========== -->
+// <div class="pb"></div>
+
+// <div class="art no-break">
+//   <h4>Article 13 : Rupture du Contrat</h4>
+//   <p>Ce contrat de travail cesse de plein droit au terme des <span class="hl">{{duree_contrat}}</span> prévus au contrat et peut être systématiquement renouvelé. À la fin de ce contrat de travail, s'il n'est pas renouvelé, l'employé perd la qualité d'employé de l'Entreprise.</p>
+//   <p>Ce contrat de travail peut prendre fin avant son terme :</p>
+//   <ul>
+//     <li>Par démission de l'employé avec respect du préavis ;</li>
+//     <li>Par licenciement prononcé par l'employeur pour motif réel et sérieux ;</li>
+//     <li>Par rupture conventionnelle sur accord écrit des deux Parties ;</li>
+//     <li>À tout moment, hors période d'essai, par la volonté de l'une des Parties sous réserve d'un préavis de <span class="hl">{{{{duree_preavis}}}}</span> ;</li>
+//     <li>Sur démission, abandon de poste ou absence injustifiée de l'employé à son poste pendant une durée de quarante-huit (48) heures ;</li>
+//     <li>En cas de mauvaise performance de l'employé rendant impossible son maintien au sein de la structure ;</li>
+//     <li>En cas de décès de l'employé ;</li>
+//     <li>En cas de force majeure dûment justifiée par écrit dans les sept (07) jours suivant sa constatation par la Partie qui s'en prévaut ;</li>
+//     <li>Sans préavis en cas de faute lourde de l'employé dûment notifiée à celui-ci, sous réserve de l'appréciation de la juridiction compétente en ce qui concerne la gravité de la faute ;</li>
+//     <li>En cas de violation délibérée dûment constatée des clauses du présent contrat par l'une des Parties.</li>
+//   </ul>
+//   <p>Il est notamment précisé qu'est considérée comme faute lourde, toute fausse déclaration constatée dans le curriculum vitae ou autre document produit par l'employé ou toute rétention d'informations utiles et déterminantes pour la conclusion du présent contrat.</p>
+//   <p>En cas de résiliation du présent contrat, l'ensemble des matériels et toutes autres pièces confiés ou remis à l'employé, ou tout document ou somme d'argent qu'il détiendrait par devers lui, doit être restitué à l'entreprise sans délai.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 14 : Attribution de juridiction</h4>
+//   <p>Tout litige relatif à la conclusion, à l'exécution du présent contrat, à défaut de règlement amiable dans un délai de trente (30) jours à compter de la notification du litige par une partie, sera porté devant les juridictions sociales compétentes.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 15 : Dispositions diverses</h4>
+//   <p>Pour ce qui n'est pas précisé au présent contrat, les Parties s'en remettent aux dispositions du Code du Travail fixant les modalités de sa mise en œuvre, des accords du travail ainsi que toutes autres dispositions législatives et réglementaires en République du Bénin.</p>
+// </div>
+
+// <div class="art no-break">
+//   <h4>Article 16 : Enregistrement</h4>
+//   <p>Le présent contrat est enregistré dès sa signature pour servir et valoir ce que de droit.</p>
+// </div>
+
+// <p class="intro no-break" style="margin-top:16px"><strong>Fait à <span class="hl">{{lieu_signature}}</span> en trois exemplaires, le <span class="hl">{{date_signature}}</span></strong></p>
+
+// <div class="sigs no-break">
+//   <div class="sig">
+//     <p><strong>Le Manager</strong></p>
+//     <p style="font-size:10pt">{{representant_entreprise}}</p>
+//     <div class="sig-line">Signature et cachet</div>
+//   </div>
+//   <div class="sig">
+//     <p><strong>L'Employé(e)</strong></p>
+//     <p style="font-size:10pt">{{nom}}</p>
+//     <div class="sig-line">Signature</div>
+//   </div>
+// </div>
+
+// <div class="legal">Contrat conforme — Code du Travail Bénin Loi n° 98-004 | CNSS affiliée dès confirmation période d'essai | OHADA</div>
+// </body></html>$cci_cdi$, NULL)
+//             `);
+//             await pool.query(`
+//                 INSERT INTO document_templates (company_id, template_type, template_name, template_html, created_by)
+//                 VALUES (12, 'fiche_paie', 'Bulletin de Paie — CCI PARTNERS', $cci_fp$<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+// <meta name="viewport" content="width=device-width, initial-scale=1.0">
+// <title>Bulletin de Paie</title>
+// <style>
+// body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:10.5pt;color:#2d3748;line-height:1.5;margin:0;padding:24px;background-color:#ffffff}
+// .header{display:flex;justify-content:space-between;align-items:stretch;margin-bottom:20px;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(26,58,92,0.13)}
+// .header-left{background:#1a3a5c;color:#fff;padding:18px 22px;display:flex;flex-direction:column;justify-content:center;min-width:220px;max-width:260px}
+// .header-left .logo-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+// .header-left .logo-icon{width:44px;height:44px;flex-shrink:0}
+// .header-left .logo-text{display:flex;flex-direction:column;line-height:1.1}
+// .header-left .logo-text .brand-top{font-size:13pt;font-weight:900;color:#fff;letter-spacing:1px}
+// .header-left .logo-text .brand-sub{font-size:7pt;color:#a8c4e0;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+// .header-left p{margin:2px 0;font-size:8.5pt;color:#c8dff0}
+// .header-left .ref-fiche{font-size:8pt;color:#7fb3d3;margin-top:6px;font-style:italic}
+// .header-right{flex:1;background:#fff;padding:18px 22px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;border:1px solid #e2e8f0;border-left:none;border-radius:0 8px 8px 0}
+// .header-right h2{font-size:18pt;color:#1a3a5c;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:1.5px;font-weight:900}
+// .periode-badge{display:inline-block;background:#1a3a5c;color:#fff;padding:5px 18px;border-radius:6px;font-size:10.5pt;font-weight:700;margin:4px 0 10px 0;letter-spacing:0.5px}
+// .header-right p{margin:0;font-size:9.5pt;color:#4a5568}
+// .ref-fiche{font-size:9pt;color:#718096;margin-top:4px;font-style:italic}
+// .ei{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px}
+// .ei-b{display:flex;flex-direction:column}
+// .ei-b label{font-size:8.5pt;color:#718096;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:2px}
+// .ei-b span{font-weight:600;font-size:10pt;color:#1a202c}
+// table.paie{width:100%;border-collapse:collapse;margin:20px 0;font-size:9.5pt}
+// table.paie thead th{background:#1a3a5c;color:#ffffff;padding:8px 12px;text-align:left;font-weight:600;text-transform:uppercase;font-size:8.5pt;letter-spacing:0.5px}
+// table.paie thead th:nth-child(n+4){text-align:right}
+// table.paie tbody tr{border-bottom:1px solid #edf2f7}
+// table.paie tbody tr:nth-child(even){background:#f8fafc}
+// table.paie tbody td{padding:8px 12px;vertical-align:middle}
+// table.paie tbody td.amt{text-align:right;font-weight:600;color:#2d3748}
+// table.paie tbody td.dbt{text-align:right;font-weight:600;color:#e53e3e}
+// table.paie tr.sh td{background:#edf2f7;font-weight:700;color:#2b6cb0;padding:6px 12px;font-size:8.5pt;letter-spacing:0.3px;border-bottom:1px solid #cbd5e0}
+// .info-box,.pat-box{border-radius:6px;padding:10px 14px;margin:12px 0;font-size:9.5pt;display:flex;align-items:center;gap:6px}
+// .info-box{background:#ebf8ff;border:1px solid #bee3f8;color:#2b6cb0}
+// .pat-box{background:#fffaf0;border:1px solid #feebc8;color:#dd6b20}
+// .totaux-container{display:flex;justify-content:flex-end;margin-top:16px}
+// .totaux-box{background:#1a3a5c;color:#ffffff;padding:16px;border-radius:8px;width:300px}
+// .tr{display:flex;justify-content:space-between;margin:4px 0;font-size:10pt;opacity:0.9}
+// .tr.net{font-size:13pt;font-weight:700;border-top:1px solid rgba(255,255,255,0.25);padding-top:10px;margin-top:10px;opacity:1}
+// .mention{text-align:center;font-size:9pt;color:#4a5568;margin-top:16px;font-style:italic}
+// .signatures{display:flex;justify-content:space-between;margin-top:40px;page-break-inside:avoid}
+// .sig-block{text-align:center;width:42%}
+// .sig-block p{margin:0 0 4px 0}
+// .sig-line{border-top:1px solid #a0aec0;margin-top:50px;padding-top:6px;font-size:9pt;color:#718096;font-style:italic}
+// .legal-ref{font-size:7.5pt;color:#a0aec0;text-align:center;margin-top:35px;border-top:1px solid #e2e8f0;padding-top:10px;line-height:1.4}
+// @media print{
+//   body{padding:0;background:white}
+//   .totaux-box{background:#1a3a5c !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+//   table.paie thead th{background:#1a3a5c !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+//   table.paie tr.sh td{background:#edf2f7 !important;-webkit-print-color-adjust:exact}
+//   .ei{background:#f8fafc !important;-webkit-print-color-adjust:exact}
+//   .info-box{background:#ebf8ff !important;-webkit-print-color-adjust:exact}
+//   .pat-box{background:#fffaf0 !important;-webkit-print-color-adjust:exact}
+// }
+// </style></head><body>
+
+// <div class="header">
+//   <div class="header-left">
+//     <div class="logo-wrap">
+//       <svg class="logo-icon" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+//         <rect width="44" height="44" rx="6" fill="#fff" opacity="0.12"/>
+//         <rect x="4" y="10" width="6" height="24" rx="2" fill="#fff"/>
+//         <rect x="13" y="10" width="6" height="24" rx="2" fill="#fff"/>
+//         <rect x="4" y="10" width="15" height="6" rx="2" fill="#fff"/>
+//         <rect x="26" y="10" width="14" height="6" rx="2" fill="#4a9fd4"/>
+//         <rect x="26" y="10" width="5" height="24" rx="2" fill="#4a9fd4"/>
+//         <rect x="26" y="28" width="14" height="6" rx="2" fill="#4a9fd4"/>
+//         <rect x="26" y="19" width="14" height="5" rx="2" fill="#4a9fd4" opacity="0.6"/>
+//       </svg>
+//       <div class="logo-text">
+//         <span class="brand-top">CCI</span>
+//         <span class="brand-sub">Partners</span>
+//       </div>
+//     </div>
+//     <p>{{adresse_entreprise}}</p>
+//     <p>IFU : {{ifu}}</p>
+//     <p>N° Employeur CNSS : {{numero_employeur_cnss}}</p>
+//     <p class="ref-fiche">Fiche N° {{reference_fiche}}</p>
+//   </div>
+//   <div class="header-right">
+//     <h2>Bulletin de Paie</h2>
+//     <div class="periode-badge">{{periode}}</div>
+//     <p>{{nom_entreprise}}</p>
+//     <p>Date de paiement : <strong>{{date_paiement}}</strong></p>
+//   </div>
+// </div>
+
+// <div class="ei">
+//   <div class="ei-b"><label>Nom et Prénom</label><span>{{nom}}</span></div>
+//   <div class="ei-b"><label>Adresse</label><span>{{adresse_salarie}}</span></div>
+//   <div class="ei-b"><label>Numéro Employé</label><span>{{matricule}}</span></div>
+//   <div class="ei-b"><label>Téléphone</label><span>{{telephone}}</span></div>
+//   <div class="ei-b"><label>Nature du Contrat</label><span>{{type_contrat}}</span></div>
+//   <div class="ei-b"><label>Emploi / Poste</label><span>{{poste}}</span></div>
+// </div>
+
+// <table class="paie">
+//   <thead>
+//     <tr>
+//       <th>Libellé</th>
+//       <th>Heures</th>
+//       <th>Taux Horaire</th>
+//       <th>Gains (FCFA)</th>
+//       <th>Retenues (FCFA)</th>
+//     </tr>
+//   </thead>
+//   <tbody>
+//     <tr class="sh"><td colspan="5">RÉMUNÉRATION</td></tr>
+//     <tr><td>Salaire de Base</td><td>{{heures_travaillees}}</td><td>{{taux_horaire}}</td><td class="amt">{{salaire_base}}</td><td></td></tr>
+//     <tr><td>Heures Supplémentaires à 25%</td><td>{{hs_25_heures}}</td><td>{{hs_25_taux}}</td><td class="amt">{{hs_25_montant}}</td><td></td></tr>
+//     <tr><td>Heures Supplémentaires à 50%</td><td>{{hs_50_heures}}</td><td>{{hs_50_taux}}</td><td class="amt">{{hs_50_montant}}</td><td></td></tr>
+
+//     <tr class="sh"><td colspan="5">COTISATIONS SOCIALES — PART PATRONALE</td></tr>
+//     <tr><td>CNSS — Assurance maladie / Cotisation familiale / Risque professionnel</td><td>{{salaire_brut}}</td><td>15,4 %</td><td></td><td class="dbt">{{cnss_patronal}}</td></tr>
+
+//     <tr class="sh"><td colspan="5">COTISATIONS SOCIALES — PART SALARIALE</td></tr>
+//     <tr><td>CNSS — Assurance vieillesse (Part ouvrière)</td><td>{{salaire_brut}}</td><td>3,6 %</td><td></td><td class="dbt">{{cnss_salarie}}</td></tr>
+
+//     <tr class="sh"><td colspan="5">IMPÔT SUR TRAITEMENTS ET SALAIRES (ITS) — CGI art. 119-125</td></tr>
+//     <tr><td>Base imposable (Brut − CNSS salarié)</td><td>{{base_imposable}}</td><td>Progressif 0%→30%</td><td></td><td></td></tr>
+//     <tr><td>ITS calculé sur tranches (exonération 0→60 000 FCFA)</td><td>{{base_imposable}}</td><td>Barème CGI</td><td></td><td class="dbt">{{its}}</td></tr>
+
+//     <tr class="sh"><td colspan="5">AUTRES DÉDUCTIONS</td></tr>
+//     <tr><td>Avance sur salaire</td><td>—</td><td>—</td><td></td><td class="dbt">{{avance_salaire}}</td></tr>
+//     <tr><td>Autres retenues</td><td>—</td><td>—</td><td></td><td class="dbt">{{autres_retenues}}</td></tr>
+//   </tbody>
+// </table>
+
+// <div class="info-box">📅 Congés — Acquis ce mois : <strong>{{conges_acquis}} j</strong> &nbsp;|&nbsp; Pris : <strong>{{conges_pris}} j</strong> &nbsp;|&nbsp; Solde : <strong>{{conges_solde}} j</strong></div>
+// <div class="pat-box">📊 Charges Patronales CNSS 15,4% : <strong>{{cnss_patronal}} FCFA</strong> &nbsp;|&nbsp; VPS 3% : <strong>{{vps}} FCFA</strong></div>
+
+// <div class="totaux-container">
+//   <div class="totaux-box">
+//     <div class="tr"><span>SALAIRE BRUT</span><span>{{salaire_brut}} FCFA</span></div>
+//     <div class="tr"><span>Total Cotisations</span><span>{{total_retenues}} FCFA</span></div>
+//     <div class="tr net"><span>NET À PAYER</span><span>{{net_a_payer}} FCFA</span></div>
+//   </div>
+// </div>
+
+// <p class="mention">Payé par virement bancaire / chèque N° ………………………………… le : ………………………………</p>
+// <p class="mention" style="margin-top:4px;font-size:8pt;color:#a0aec0">Salaire net imposable : <strong>{{net_a_payer}} FCFA</strong> &nbsp;|&nbsp; A CONSERVER SANS LIMITATION DE DURÉE</p>
+
+// <div class="signatures">
+//   <div class="sig-block">
+//     <p><strong>L'Employeur</strong></p>
+//     <p style="font-size:9.5pt;color:#4a5568">{{representant_entreprise}}</p>
+//     <div class="sig-line">Signature et cachet</div>
+//   </div>
+//   <div class="sig-block">
+//     <p><strong>L'Employé(e)</strong></p>
+//     <p style="font-size:9pt;color:#718096">Reçu la somme de <strong>{{net_a_payer}} FCFA</strong></p>
+//     <div class="sig-line">Signature</div>
+//   </div>
+// </div>
+
+// <div class="legal-ref">
+//   Bulletin conforme — Code du Travail Bénin Loi n° 98-004 | CNSS 3,6% salarié / 15,4% patronal | ITS CGI art.119-125 | Exonération 60 000 FCFA | SMIG 52 000 FCFA | VPS art.191-195 CGI
+// </div>
+// </body></html>$cci_fp$, NULL)
+//             `);
+//             console.log('   ✓ Modèles CDI/CDD/Fiche de paie personnalisés CCI PARTNERS (company_id=12) vérifiés');
 
             return;
 
