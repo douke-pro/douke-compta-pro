@@ -10240,7 +10240,7 @@ window.openHREmployeeModal = async function(employeeId = null) {
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Date de Naissance</label>
-                    <input id="emp-dob" type="date" value="${employee.date_naissance || ''}"
+                    <input id="emp-dob" type="date" value="${(employee.date_naissance || '').toString().slice(0,10)}"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
                 <div>
@@ -10262,6 +10262,12 @@ window.openHREmployeeModal = async function(employeeId = null) {
                     <input id="emp-urgence" type="text" value="${employee.contact_urgence || ''}"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="Nom et téléphone">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Adresse</label>
+                    <input id="emp-address" type="text" value="${employee.address || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Adresse de residence">
                 </div>
             </div>
             <div class="flex gap-3 pt-4">
@@ -10295,6 +10301,7 @@ window.saveHREmployee = async function(employeeId) {
         nationalite:      document.getElementById('emp-nationalite')?.value?.trim(),
         situation_matrimoniale: document.getElementById('emp-situation')?.value,
         contact_urgence:  document.getElementById('emp-urgence')?.value?.trim(),
+        address:          document.getElementById('emp-address')?.value?.trim(),
     };
     if (!body.full_name) return alert('Le nom complet est obligatoire.');
     try {
