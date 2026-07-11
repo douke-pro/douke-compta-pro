@@ -123,7 +123,9 @@ exports.updateEmployee = async (req, res) => {
         const {
             full_name, job_title, hire_date, contract_type,
             base_salary, status, email, phone, address,
-            id_number, id_type, cnss_number, notes
+            id_number, id_type, cnss_number, notes,
+            ifu_number, date_naissance, nationalite,
+            situation_matrimoniale, contact_urgence
         } = req.body;
 
         const existing = await pool.queryWithRetry(
@@ -148,6 +150,11 @@ exports.updateEmployee = async (req, res) => {
                 id_type       = COALESCE($11, id_type),
                 cnss_number   = COALESCE($12, cnss_number),
                 notes         = COALESCE($13, notes),
+                ifu_number              = COALESCE($16, ifu_number),
+                date_naissance          = COALESCE($17, date_naissance),
+                nationalite             = COALESCE($18, nationalite),
+                situation_matrimoniale  = COALESCE($19, situation_matrimoniale),
+                contact_urgence         = COALESCE($20, contact_urgence),
                 updated_at    = NOW()
              WHERE id = $14 AND company_id = $15
              RETURNING *`,
@@ -155,7 +162,9 @@ exports.updateEmployee = async (req, res) => {
              base_salary ? parseFloat(base_salary) : null,
              status, email, phone, address,
              id_number, id_type, cnss_number, notes,
-             employeeId, companyId]
+             employeeId, companyId,
+             ifu_number, date_naissance, nationalite,
+             situation_matrimoniale, contact_urgence]
         );
 
         res.json({ status: 'success', data: result.rows[0] });
