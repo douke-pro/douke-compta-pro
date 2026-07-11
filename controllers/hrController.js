@@ -76,7 +76,9 @@ exports.createEmployee = async (req, res) => {
             base_salary, status, email, phone, address,
             id_number, id_type, cnss_number, notes,
             ifu_number, date_naissance, nationalite,
-            situation_matrimoniale, contact_urgence
+            situation_matrimoniale, contact_urgence,
+            date_debut_contrat, periode_essai,
+            heures_travail_mensuelles, jour_paiement, missions
         } = req.body;
 
         if (!companyId || !full_name)
@@ -90,8 +92,10 @@ exports.createEmployee = async (req, res) => {
                  contract_type, base_salary, status, email, phone, address,
                  id_number, id_type, cnss_number, notes,
                  ifu_number, date_naissance, nationalite,
-                 situation_matrimoniale, contact_urgence, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+                 situation_matrimoniale, contact_urgence, created_by,
+                 date_debut_contrat, periode_essai,
+                 heures_travail_mensuelles, jour_paiement, missions)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
              RETURNING *`,
             [companyId, employee_code, full_name, job_title || null,
              hire_date || null, contract_type || 'CDI',
@@ -101,7 +105,10 @@ exports.createEmployee = async (req, res) => {
              notes || null, ifu_number || null,
              date_naissance || null, nationalite || null,
              situation_matrimoniale || null, contact_urgence || null,
-             parseInt(req.user.odooUid) || null]
+             parseInt(req.user.odooUid) || null,
+             date_debut_contrat || null, periode_essai || null,
+             heures_travail_mensuelles || null, jour_paiement || null,
+             JSON.stringify(Array.isArray(missions) ? missions : [])]
         );
 
         console.log(`✅ [createEmployee] ${full_name} (${employee_code}) — Company ${companyId}`);
@@ -125,7 +132,9 @@ exports.updateEmployee = async (req, res) => {
             base_salary, status, email, phone, address,
             id_number, id_type, cnss_number, notes,
             ifu_number, date_naissance, nationalite,
-            situation_matrimoniale, contact_urgence
+            situation_matrimoniale, contact_urgence,
+            date_debut_contrat, periode_essai,
+            heures_travail_mensuelles, jour_paiement, missions
         } = req.body;
 
         const existing = await pool.queryWithRetry(
@@ -155,6 +164,11 @@ exports.updateEmployee = async (req, res) => {
                 nationalite             = COALESCE($18, nationalite),
                 situation_matrimoniale  = COALESCE($19, situation_matrimoniale),
                 contact_urgence         = COALESCE($20, contact_urgence),
+                date_debut_contrat        = COALESCE($21, date_debut_contrat),
+                periode_essai              = COALESCE($22, periode_essai),
+                heures_travail_mensuelles  = COALESCE($23, heures_travail_mensuelles),
+                jour_paiement              = COALESCE($24, jour_paiement),
+                missions                   = COALESCE($25, missions),
                 updated_at    = NOW()
              WHERE id = $14 AND company_id = $15
              RETURNING *`,
@@ -164,7 +178,10 @@ exports.updateEmployee = async (req, res) => {
              id_number, id_type, cnss_number, notes,
              employeeId, companyId,
              ifu_number, date_naissance, nationalite,
-             situation_matrimoniale, contact_urgence]
+             situation_matrimoniale, contact_urgence,
+             date_debut_contrat || null, periode_essai || null,
+             heures_travail_mensuelles || null, jour_paiement || null,
+             missions !== undefined ? JSON.stringify(Array.isArray(missions) ? missions : []) : null]
         );
 
         res.json({ status: 'success', data: result.rows[0] });

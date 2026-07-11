@@ -9997,14 +9997,14 @@ window.printContract = async function(employeeId) {
             qualite_representant:    '{{qualite_representant}}',
             lieu_travail:            '{{lieu_travail}}',
             motif_cdd:               '{{motif_cdd}}',
-            date_debut:              emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('fr-FR') : '{{date_debut}}',
+            date_debut:              emp.date_debut_contrat ? new Date(emp.date_debut_contrat).toLocaleDateString('fr-FR') : (emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('fr-FR') : '{{date_debut}}'),
             date_fin:                '{{date_fin}}',
             duree_contrat:           '{{duree_contrat}}',
-            duree_essai:             '3 mois',
+            duree_essai:             emp.periode_essai || '3 mois',
             duree_preavis:           'un (1) mois',
             salaire_net:             emp.base_salary ? Number(emp.base_salary).toLocaleString('fr-FR') : '{{salaire_net}}',
-            heures_mensuelles:       '192',
-            jour_paiement:           '28',
+            heures_mensuelles:       emp.heures_travail_mensuelles || '192',
+            jour_paiement:           emp.jour_paiement || '28',
             reference_contrat:       `CTR-${companyId}-${emp.employee_code}-${today.getFullYear()}`,
             lieu_signature:          lieuSignature,
             date_signature:          dateSignatureFinal,
@@ -10171,6 +10171,21 @@ window.loadHRTemplates = async function() {
     }
 };
 
+window.addMissionRow = function(value) {
+    value = value || '';
+    const container = document.getElementById('emp-missions-container');
+    if (!container) return;
+    if (container.children.length >= 25) { alert('Maximum 25 missions.'); return; }
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 mission-row mb-2';
+    const safeValue = value.replace(/"/g, '&quot;');
+    row.innerHTML = `
+        <input type="text" class="emp-mission-input flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary" value="${safeValue}" placeholder="Ex: Tenue de la comptabilite generale">
+        <button type="button" onclick="this.parentElement.remove()" class="px-3 py-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition"><i class="fas fa-minus"></i></button>
+    `;
+    container.appendChild(row);
+};
+
 window.openHREmployeeModal = async function(employeeId = null) {
     const isEdit = !!employeeId;
     let employee = {};
@@ -10269,6 +10284,37 @@ window.openHREmployeeModal = async function(employeeId = null) {
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="Adresse de residence">
                 </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Date de Debut de Contrat</label>
+                    <input id="emp-date-debut" type="date" value="${(employee.date_debut_contrat || '').toString().slice(0,10)}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    <p class="text-xs text-gray-400 mt-1">Different de la date d'embauche si besoin</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Periode d'Essai</label>
+                    <input id="emp-periode-essai" type="text" value="${employee.periode_essai || ''}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Ex: 3 mois">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Heures de Travail Mensuelles</label>
+                    <input id="emp-heures-mensuelles" type="text" value="${employee.heures_travail_mensuelles || '192'}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Jour de Paiement du Salaire</label>
+                    <input id="emp-jour-paiement" type="text" value="${employee.jour_paiement || '28'}"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Ex: 28">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Missions du Poste</label>
+                <div id="emp-missions-container" class="space-y-2"></div>
+                <button type="button" onclick="window.addMissionRow()"
+                    class="mt-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-bold hover:bg-primary/20 transition">
+                    <i class="fas fa-plus mr-1"></i>Ajouter une mission
+                </button>
             </div>
             <div class="flex gap-3 pt-4">
                 <button onclick="window.saveHREmployee(${employeeId || 'null'})"
@@ -10283,6 +10329,8 @@ window.openHREmployeeModal = async function(employeeId = null) {
         </div>
     `;
     ModalManager.open(isEdit ? 'Modifier Employé' : 'Nouvel Employé', html);
+    const initialMissions = (Array.isArray(employee.missions) && employee.missions.length > 0) ? employee.missions : [''];
+    initialMissions.forEach(m => window.addMissionRow(m));
 };
 
 window.saveHREmployee = async function(employeeId) {
@@ -10302,6 +10350,11 @@ window.saveHREmployee = async function(employeeId) {
         situation_matrimoniale: document.getElementById('emp-situation')?.value,
         contact_urgence:  document.getElementById('emp-urgence')?.value?.trim(),
         address:          document.getElementById('emp-address')?.value?.trim(),
+        date_debut_contrat:        document.getElementById('emp-date-debut')?.value || null,
+        periode_essai:             document.getElementById('emp-periode-essai')?.value?.trim() || null,
+        heures_travail_mensuelles: document.getElementById('emp-heures-mensuelles')?.value?.trim() || null,
+        jour_paiement:             document.getElementById('emp-jour-paiement')?.value?.trim() || null,
+        missions:                  Array.from(document.querySelectorAll('.emp-mission-input')).map(el => el.value.trim()).filter(v => v !== ''),
     };
     if (!body.full_name) return alert('Le nom complet est obligatoire.');
     try {
