@@ -22,3 +22,4 @@ Thumbs.db
 public/assets/*.backup*
 public/assets/*.backup*
 *.bak
+fiche_paie_company*.html
