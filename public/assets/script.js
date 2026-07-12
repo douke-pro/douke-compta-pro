@@ -10221,6 +10221,16 @@ window.openHREmployeeModal = async function(employeeId = null) {
                         <option value="Consultant" ${employee.contract_type === 'Consultant' ? 'selected' : ''}>Consultant</option>
                     </select>
                 </div>
+                <div class="flex items-center gap-6 md:col-span-2 bg-gray-50 dark:bg-gray-900/30 rounded-xl p-3">
+                    <label class="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer">
+                        <input id="emp-cnss-eligible" type="checkbox" ${employee.cnss_eligible === false ? '' : 'checked'} class="w-4 h-4 rounded accent-primary">
+                        Eligible CNSS
+                    </label>
+                    <label class="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer">
+                        <input id="emp-its-eligible" type="checkbox" ${employee.its_eligible === false ? '' : 'checked'} class="w-4 h-4 rounded accent-primary">
+                        Eligible ITS
+                    </label>
+                </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Date d'Embauche</label>
                     <input id="emp-hire-date" type="date" value="${employee.hire_date ? employee.hire_date.substring(0,10) : ''}"
@@ -10355,6 +10365,8 @@ window.saveHREmployee = async function(employeeId) {
         heures_travail_mensuelles: document.getElementById('emp-heures-mensuelles')?.value?.trim() || null,
         jour_paiement:             document.getElementById('emp-jour-paiement')?.value?.trim() || null,
         missions:                  Array.from(document.querySelectorAll('.emp-mission-input')).map(el => el.value.trim()).filter(v => v !== ''),
+        cnss_eligible:             document.getElementById('emp-cnss-eligible')?.checked,
+        its_eligible:              document.getElementById('emp-its-eligible')?.checked,
     };
     if (!body.full_name) return alert('Le nom complet est obligatoire.');
     try {
