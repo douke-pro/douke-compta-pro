@@ -10404,12 +10404,12 @@ window.downloadPayslip = async function(payslipId) {
         const companyName = appState.user?.companiesList?.find(c => c.id === appState.currentCompanyId)?.name || '';
 
         // Recuperation dynamique de l'entete (logo) de l'entreprise, comme pour les contrats
-        let headerImgTag = `<img src="https://douke-compta-pro.onrender.com/assets/LOGO_DOUKE_COMPTA.png" style="width:180px;height:auto;display:block" alt="${companyName || 'Entreprise'}"/>`;
+        let headerImgTag = `<img src="https://douke-compta-pro.onrender.com/assets/LOGO_DOUKE_COMPTA.png" style="width:100%;height:auto;display:block" alt="${companyName || 'Entreprise'}"/>`;
         try {
             const enteteRes = await apiFetch(`hr/company-entete?companyId=${ps.company_id || appState.currentCompanyId}`);
             const entete = enteteRes.data;
             if (entete?.entete_base64) {
-                headerImgTag = `<img src="data:${entete.entete_mime_type};base64,${entete.entete_base64}" style="width:180px;height:auto;display:block" alt="${companyName || 'Entreprise'}"/>`;
+                headerImgTag = `<img src="data:${entete.entete_mime_type};base64,${entete.entete_base64}" style="width:100%;height:auto;display:block" alt="${companyName || 'Entreprise'}"/>`;
             }
         } catch (e) {
             console.error('Erreur recuperation entete pour fiche de paie:', e.message);
@@ -10455,12 +10455,12 @@ td,th{padding:3px 5px;vertical-align:middle}
   </div>
 </div>
 
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px 16px;border:2px solid #1a3a5c;border-radius:6px;background:#fff">
+<div style="margin-bottom:10px;border-radius:6px;overflow:hidden;border:1px solid #1a3a5c">
   ${headerImgTag}
-  <div style="text-align:right">
-    <div style="font-size:20pt;font-weight:900;color:#1a3a5c;text-transform:uppercase;letter-spacing:2px">BULLETIN DE PAIE</div>
-    <div style="display:inline-block;background:#1a3a5c;color:#fff;padding:4px 18px;border-radius:5px;font-size:11pt;font-weight:700;margin:6px 0">${periode}</div>
-    <div style="font-size:8.5pt;color:#4a5568;margin-top:2px">Fich N° ${ps.employee_code || ''}/CCIp &nbsp;|&nbsp; N° Employeur CNSS : ${ps.cnss_number || '—'}</div>
+  <div style="background:#1a3a5c;color:#fff;text-align:center;padding:10px 14px;font-family:Arial,sans-serif">
+    <div style="font-size:14pt;font-weight:900;text-transform:uppercase;letter-spacing:1px">BULLETIN DE PAIE</div>
+    <div style="font-size:12pt;margin-top:2px">${periode}</div>
+    <div style="font-size:9pt;color:#cfe0f0;margin-top:4px">Fiche N° ${ps.employee_code || ''} &nbsp;|&nbsp; N° Employeur CNSS : ${ps.cnss_number || '—'}</div>
   </div>
 </div>
 <div class="bloc-top">
