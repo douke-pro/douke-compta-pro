@@ -292,6 +292,7 @@ exports.calculatePayslipPreview = async (req, res) => {
         const companyId  = parseInt(req.query.companyId || req.validatedCompanyId);
         const employeeId = parseInt(req.query.employeeId);
         const primes      = parseFloat(req.query.primes) || 0;
+        const salaireBaseOverride = req.query.salaireBase !== undefined ? parseFloat(req.query.salaireBase) : null;
 
         if (!companyId || !employeeId)
             return res.status(400).json({ status: 'error', error: 'companyId et employeeId requis' });
@@ -306,10 +307,13 @@ exports.calculatePayslipPreview = async (req, res) => {
             return res.status(404).json({ status: 'error', error: 'Employe introuvable' });
 
         const emp = empResult.rows[0];
+        const salaireBase = (salaireBaseOverride !== null && !isNaN(salaireBaseOverride))
+            ? salaireBaseOverride
+            : (parseFloat(emp.base_salary) || 0);
 
         const result = await calculatePayslip({
             companyId,
-            salaireBase: parseFloat(emp.base_salary) || 0,
+            salaireBase,
             primes,
             cnssEligible: emp.cnss_eligible !== false,
             itsEligible: emp.its_eligible !== false
@@ -331,7 +335,8 @@ exports.createPayslip = async (req, res) => {
         const companyId = parseInt(req.validatedCompanyId || req.body?.companyId);
         const {
             employee_id, period_month, period_year,
-            gross_salary, deductions, net_salary, pdf_base64
+            gross_salary, deductions, net_salary, pdf_base64,
+            primes, cnss_salarie, cnss_patronal, vps, its, base_imposable
         } = req.body;
 
         if (!companyId || !employee_id || !period_month || !period_year)
@@ -348,15 +353,23 @@ exports.createPayslip = async (req, res) => {
         const result = await pool.queryWithRetry(
             `INSERT INTO payslips
                 (employee_id, company_id, period_month, period_year,
-                 gross_salary, deductions, net_salary, status, pdf_base64, generated_at, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'genere',$8,NOW(),$9)
-             RETURNING id, employee_id, period_month, period_year, gross_salary, net_salary, status`,
+                 gross_salary, deductions, net_salary, status, pdf_base64, generated_at, created_by,
+                 primes, cnss_salarie, cnss_patronal, vps, its, base_imposable)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,'genere',$8,NOW(),$9,$10,$11,$12,$13,$14,$15)
+             RETURNING id, employee_id, period_month, period_year, gross_salary, net_salary, status,
+                       primes, cnss_salarie, cnss_patronal, vps, its, base_imposable`,
             [employee_id, companyId, period_month, period_year,
              parseFloat(gross_salary) || 0,
              deductions ? JSON.stringify(deductions) : null,
              parseFloat(net_salary) || 0,
              pdf_base64 || null,
-             parseInt(req.user.odooUid) || null]
+             parseInt(req.user.odooUid) || null,
+             parseFloat(primes) || 0,
+             parseFloat(cnss_salarie) || 0,
+             parseFloat(cnss_patronal) || 0,
+             parseFloat(vps) || 0,
+             parseFloat(its) || 0,
+             parseFloat(base_imposable) || 0]
         );
 
         res.status(201).json({ status: 'success', data: result.rows[0] });

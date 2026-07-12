@@ -9835,7 +9835,7 @@ window.openPayslipModal = async function() {
             return alert('Aucun employé enregistré. Créez d\'abord un employé.');
         }
         const empOptions = employees.map(e =>
-            `<option value="${e.id}">${e.full_name} — ${e.employee_code}</option>`
+            `<option value="${e.id}" data-base-salary="${e.base_salary || 0}">${e.full_name} — ${e.employee_code}</option>`
         ).join('');
         const months = ['Janvier','Février','Mars','Avril','Mai','Juin',
                         'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -9848,7 +9848,7 @@ window.openPayslipModal = async function() {
         <div class="space-y-4 p-2">
             <div>
                 <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Employé *</label>
-                <select id="ps-employee" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                <select id="ps-employee" onchange="window.rapportPayslipFillBaseSalary()" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     ${empOptions}
                 </select>
             </div>
@@ -9867,19 +9867,59 @@ window.openPayslipModal = async function() {
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Salaire de Base (FCFA)</label>
+                    <input type="number" id="ps-base" placeholder="ex: 150000" min="0"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Primes (FCFA)</label>
+                    <input type="number" id="ps-primes" placeholder="ex: 10000" min="0" value="0"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+            </div>
+            <button type="button" onclick="window.calculatePayslipAuto()"
+                class="w-full py-2 bg-success/10 text-success border-2 border-success rounded-xl text-sm font-bold hover:bg-success/20 transition flex items-center justify-center gap-2">
+                <i class="fas fa-calculator"></i> Calculer automatiquement (CNSS / ITS / VPS)
+            </button>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Salaire Brut (FCFA)</label>
-                    <input type="number" id="ps-gross" placeholder="ex: 250000" min="0"
+                    <input type="number" id="ps-gross" placeholder="calcule ou saisi" min="0"
                         class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Salaire Net (FCFA)</label>
-                    <input type="number" id="ps-net" placeholder="ex: 200000" min="0"
+                    <input type="number" id="ps-net" placeholder="calcule ou saisi" min="0"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">CNSS Salarié (FCFA)</label>
+                    <input type="number" id="ps-cnss-salarie" placeholder="0" min="0" value="0"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">ITS (FCFA)</label>
+                    <input type="number" id="ps-its" placeholder="0" min="0" value="0"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">CNSS Patronal (FCFA, informatif)</label>
+                    <input type="number" id="ps-cnss-patronal" placeholder="0" min="0" value="0"
+                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">VPS (FCFA, informatif)</label>
+                    <input type="number" id="ps-vps" placeholder="0" min="0" value="0"
                         class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                 </div>
             </div>
             <div>
-                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Retenues (JSON optionnel)</label>
-                <textarea id="ps-deductions" rows="2" placeholder='{"CNSS": 5000, "ITS": 3000}'
+                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Retenues additionnelles (JSON optionnel)</label>
+                <textarea id="ps-deductions" rows="2" placeholder='{"Avance sur salaire": 5000}'
                     class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary font-mono"></textarea>
             </div>
             <button onclick="window.savePayslip()"
@@ -10083,12 +10123,45 @@ html = html.replace('<head><meta charset="UTF-8">', '<head><meta charset="UTF-8"
     } catch(err) { alert('Erreur: ' + err.message); }
 };
 
+window.rapportPayslipFillBaseSalary = function() {
+    const sel = document.getElementById('ps-employee');
+    const opt = sel?.selectedOptions?.[0];
+    const baseInput = document.getElementById('ps-base');
+    if (opt && baseInput) baseInput.value = opt.getAttribute('data-base-salary') || 0;
+};
+
+window.calculatePayslipAuto = async function() {
+    const employeeId = document.getElementById('ps-employee')?.value;
+    const salaireBase = parseFloat(document.getElementById('ps-base')?.value || 0);
+    const primes = parseFloat(document.getElementById('ps-primes')?.value || 0);
+
+    if (!employeeId) return alert('Sélectionnez un employé.');
+
+    try {
+        const res = await apiFetch(`hr/payslips/calculate?companyId=${appState.currentCompanyId}&employeeId=${employeeId}&primes=${primes}&salaireBase=${salaireBase}`);
+        const d = res.data;
+        document.getElementById('ps-gross').value = d.salaire_brut;
+        document.getElementById('ps-net').value = d.net_a_payer;
+        document.getElementById('ps-cnss-salarie').value = d.cnss_salarie;
+        document.getElementById('ps-cnss-patronal').value = d.cnss_patronal;
+        document.getElementById('ps-vps').value = d.vps;
+        document.getElementById('ps-its').value = d.its;
+        NotificationManager.show('Calcul effectué. Vérifiez les montants avant d\'enregistrer.', 'success');
+    } catch(err) { alert('Erreur calcul: ' + err.message); }
+};
+
 window.savePayslip = async function() {
     const employeeId  = document.getElementById('ps-employee')?.value;
     const periodMonth = parseInt(document.getElementById('ps-month')?.value);
     const periodYear  = parseInt(document.getElementById('ps-year')?.value);
     const grossSalary = parseFloat(document.getElementById('ps-gross')?.value || 0);
     const netSalary   = parseFloat(document.getElementById('ps-net')?.value || 0);
+    const primes        = parseFloat(document.getElementById('ps-primes')?.value || 0);
+    const cnssSalarie   = parseFloat(document.getElementById('ps-cnss-salarie')?.value || 0);
+    const cnssPatronal  = parseFloat(document.getElementById('ps-cnss-patronal')?.value || 0);
+    const vps           = parseFloat(document.getElementById('ps-vps')?.value || 0);
+    const its           = parseFloat(document.getElementById('ps-its')?.value || 0);
+    const baseImposable = Math.max(0, grossSalary - cnssSalarie);
     const deductionsRaw = document.getElementById('ps-deductions')?.value?.trim();
 
     if (!employeeId || !periodMonth || !periodYear)
@@ -10110,6 +10183,12 @@ window.savePayslip = async function() {
                 period_year:  periodYear,
                 gross_salary: grossSalary,
                 net_salary:   netSalary,
+                primes:          primes,
+                cnss_salarie:    cnssSalarie,
+                cnss_patronal:   cnssPatronal,
+                vps:             vps,
+                its:             its,
+                base_imposable:  baseImposable,
                 deductions:   deductions
             })
         });
