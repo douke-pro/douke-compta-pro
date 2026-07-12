@@ -529,6 +529,12 @@
             .reduce((s, a) => s + (a.debit - a.credit), 0);
         const tresNette  = tresBanque + tresCaisse;
 
+        // Flux de trésorerie sur la période (comptes 52x/53x/57x)
+        const isCompteTres = a => a.code.startsWith('52') || a.code.startsWith('53') || a.code.startsWith('57');
+        const encaissements = accounts.filter(isCompteTres).reduce((s, a) => s + a.debit, 0);
+        const decaissements = accounts.filter(isCompteTres).reduce((s, a) => s + a.credit, 0);
+        const varTres = encaissements - decaissements;
+
         // Encours
         const clients      = accounts.filter(a => a.code.startsWith('411') || a.code.startsWith('412'))
             .reduce((s, a) => s + (a.debit - a.credit), 0);
@@ -558,9 +564,11 @@
         if (tauxMarge > 30)                         alertes.push({ type: 'success', msg: `Bonne marge brute (${tauxMarge.toFixed(1)}%)` });
 
         return { ca, achats, varStocks, personnel, transports, services, impots,
-                 autresChg, dotations, chargesFin, impotRes, margeCommerciale,
-                 chargesExpl, ebitda, resBrut, resFin, resNet,
-                 tresBanque, tresCaisse, tresNette, clients, fournisseurs,
+                 autresChg, dotations, chargesFin, impotRes,
+                 margeBrute: margeCommerciale,
+                 chargesExpl, ebitda, resExpl: resBrut, resFin, resNet,
+                 tresBanque, tresCaisse, tresNette, encaissements, decaissements, varTres,
+                 clients, fournisseurs,
                  stocks, dettesCT, tauxMarge, tauxPersonnel, pointMort,
                  liquidite, delaiClient, delaiFourn, alertes };
     }
