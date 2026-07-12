@@ -266,6 +266,7 @@ exports.getPayslip = async (req, res) => {
 
         const result = await pool.queryWithRetry(
             `SELECT p.*, e.full_name, e.employee_code, e.job_title, e.cnss_number
+             , p.primes, p.cnss_salarie, p.cnss_patronal, p.vps, p.its, p.base_imposable
              FROM payslips p
              JOIN employees e ON e.id = p.employee_id
              WHERE p.id = $1 AND p.company_id = $2`,
