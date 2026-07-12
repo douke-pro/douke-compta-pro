@@ -1,0 +1,75 @@
+
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<style>
+body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1a1a;margin:0;padding:16px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px}
+.header-left h1{font-size:15pt;color:#1a3a5c;margin:0 0 4px 0}
+.header-left p{margin:2px 0;font-size:10pt;color:#555}
+.header-right{text-align:right}
+.header-right h2{font-size:13pt;color:#1a3a5c;margin:0 0 4px 0;text-transform:uppercase}
+.periode-badge{display:inline-block;background:#1a3a5c;color:white;padding:4px 14px;border-radius:20px;font-size:11pt;font-weight:bold;margin:6px 0}
+.ei{display:flex;gap:12px;background:#f5f7fa;border-radius:6px;padding:10px 14px;margin:12px 0;flex-wrap:wrap}
+.ei-b{min-width:120px}
+.ei-b label{font-size:9pt;color:#888;display:block}
+.ei-b span{font-weight:bold;font-size:10pt}
+table.paie{width:100%;border-collapse:collapse;margin:14px 0;font-size:10pt}
+table.paie thead th{background:#1a3a5c;color:white;padding:7px 10px;text-align:left}
+table.paie thead th:nth-child(n+4){text-align:right}
+table.paie tbody tr:nth-child(even){background:#f5f7fa}
+table.paie tbody td{padding:6px 10px;border-bottom:1px solid #eee}
+table.paie tbody td.amt{text-align:right;font-weight:bold}
+table.paie tbody td.dbt{text-align:right;font-weight:bold;color:#c0392b}
+table.paie tr.sh td{background:#e8edf5;font-weight:bold;color:#1a3a5c;padding:5px 10px}
+.totaux-box{background:#1a3a5c;color:white;padding:12px 20px;border-radius:8px;min-width:260px;margin-left:auto;margin-top:8px}
+.tr{display:flex;justify-content:space-between;margin:3px 0;font-size:11pt}
+.tr.net{font-size:14pt;font-weight:bold;border-top:1px solid rgba(255,255,255,0.4);padding-top:7px;margin-top:7px}
+.info-box{background:#f0f9ff;border:1px solid #b3d9f0;border-radius:6px;padding:8px 14px;margin:10px 0;font-size:10pt}
+.pat-box{background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:8px 14px;margin:10px 0;font-size:10pt}
+.signatures{display:flex;justify-content:space-between;margin-top:28px}
+.sig-block{text-align:center;width:45%}
+.sig-line{border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:10pt}
+.legal-ref{font-size:8pt;color:#aaa;text-align:center;margin-top:18px;border-top:1px solid #eee;padding-top:8px}
+</style></head><body>
+<div class="header">
+<div class="header-left"><h1>{{nom_entreprise}}</h1><p>{{adresse_entreprise}}</p><p>RCCM : {{rccm}} | IFU : {{ifu}}</p><p>N° Employeur CNSS : {{numero_employeur_cnss}}</p></div>
+<div class="header-right"><h2>Bulletin de Paie</h2><div class="periode-badge">{{periode}}</div><p>Date de paiement : <strong>{{date_paiement}}</strong></p></div>
+</div>
+<div class="ei">
+<div class="ei-b"><label>Nom et Prénoms</label><span>{{nom}}</span></div>
+<div class="ei-b"><label>Poste</label><span>{{poste}}</span></div>
+<div class="ei-b"><label>Matricule</label><span>{{matricule}}</span></div>
+<div class="ei-b"><label>N° CNSS</label><span>{{cnss}}</span></div>
+<div class="ei-b"><label>Contrat</label><span>{{type_contrat}}</span></div>
+<div class="ei-b"><label>Embauche</label><span>{{date_embauche}}</span></div>
+</div>
+<table class="paie">
+<thead><tr><th>Libellé</th><th>Base</th><th>Taux</th><th>Gains (FCFA)</th><th>Retenues (FCFA)</th></tr></thead>
+<tbody>
+<tr class="sh"><td colspan="5">RÉMUNÉRATION</td></tr>
+<tr><td>Salaire de Base</td><td>{{heures_travaillees}}h</td><td>—</td><td class="amt">{{salaire_base}}</td><td></td></tr>
+<tr><td>Prime de Transport</td><td>—</td><td>—</td><td class="amt">{{prime_transport}}</td><td></td></tr>
+<tr><td>Autres Primes</td><td>—</td><td>—</td><td class="amt">{{autres_primes}}</td><td></td></tr>
+<tr class="sh"><td colspan="5">COTISATIONS CNSS — PART SALARIALE</td></tr>
+<tr><td>CNSS — Vieillesse / Prestations familiales</td><td>{{salaire_brut}}</td><td>3,6 %</td><td></td><td class="dbt">{{cnss_salarie}}</td></tr>
+<tr class="sh"><td colspan="5">IMPÔT SUR TRAITEMENTS ET SALAIRES (ITS) — CGI art. 119-125</td></tr>
+<tr><td>Base imposable (Brut − CNSS)</td><td>{{base_imposable}}</td><td>Progressif 0%→30%</td><td></td><td></td></tr>
+<tr><td>Exonération tranche 0→60 000 FCFA</td><td>60 000</td><td>0 %</td><td></td><td class="dbt">0</td></tr>
+<tr><td>ITS calculé sur tranches supérieures</td><td>{{base_imposable}}</td><td>Barème CGI</td><td></td><td class="dbt">{{its}}</td></tr>
+<tr class="sh"><td colspan="5">AUTRES DÉDUCTIONS</td></tr>
+<tr><td>Avance sur salaire</td><td>—</td><td>—</td><td></td><td class="dbt">{{avance_salaire}}</td></tr>
+<tr><td>Autres retenues</td><td>—</td><td>—</td><td></td><td class="dbt">{{autres_retenues}}</td></tr>
+</tbody>
+</table>
+<div class="info-box">📅 <strong>Congés Payés</strong> — Acquis ce mois : <strong>{{conges_acquis}} j</strong> | Pris : <strong>{{conges_pris}} j</strong> | Solde : <strong>{{conges_solde}} j</strong></div>
+<div class="pat-box">📊 <strong>Charges Patronales</strong> (info — non déduites du net) — CNSS Patronal 15,4% : <strong>{{cnss_patronal}} FCFA</strong> | VPS 3% : <strong>{{vps}} FCFA</strong></div>
+<div class="totaux-box">
+<div class="tr"><span>Total Gains</span><span>{{total_gains}} FCFA</span></div>
+<div class="tr"><span>Total Retenues</span><span>{{total_retenues}} FCFA</span></div>
+<div class="tr net"><span>NET À PAYER</span><span>{{net_a_payer}} FCFA</span></div>
+</div>
+<div class="signatures">
+<div class="sig-block"><p><strong>L'Employeur</strong></p><div class="sig-line">Signature et cachet</div></div>
+<div class="sig-block"><p><strong>Le Salarié</strong><br><small>Reçu la somme de {{net_a_payer}} FCFA</small></p><div class="sig-line">Signature</div></div>
+</div>
+<div class="legal-ref">Bulletin conforme — Code du Travail Bénin Loi 98-004 | CNSS 3,6%/15,4% | ITS CGI art.119-125 | Exonération 60 000 FCFA | SMIG 52 000 FCFA | VPS art.191-195 CGI</div>
+</body></html>
