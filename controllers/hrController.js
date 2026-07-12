@@ -1,6 +1,7 @@
 'use strict';
 
 const pool = require('../services/dbService');
+const { calculatePayslip } = require('../services/payrollEngine');
 
 // =============================================================================
 // HELPER — Générer un code employé lié au plan comptable
@@ -277,6 +278,46 @@ exports.getPayslip = async (req, res) => {
         res.json({ status: 'success', data: result.rows[0] });
     } catch (error) {
         console.error('🚨 [getPayslip]', error.message);
+        res.status(500).json({ status: 'error', error: error.message });
+    }
+};
+
+// =============================================================================
+// 7bis. GET /api/hr/payslips/calculate?companyId=X&employeeId=Y&primes=N
+// Calcule un apercu de fiche de paie (CNSS/ITS/VPS) sans rien enregistrer.
+// Permissions : ADMIN, COLLABORATEUR
+// =============================================================================
+exports.calculatePayslipPreview = async (req, res) => {
+    try {
+        const companyId  = parseInt(req.query.companyId || req.validatedCompanyId);
+        const employeeId = parseInt(req.query.employeeId);
+        const primes      = parseFloat(req.query.primes) || 0;
+
+        if (!companyId || !employeeId)
+            return res.status(400).json({ status: 'error', error: 'companyId et employeeId requis' });
+
+        const empResult = await pool.queryWithRetry(
+            `SELECT id, full_name, base_salary, cnss_eligible, its_eligible
+             FROM employees WHERE id = $1 AND company_id = $2`,
+            [employeeId, companyId]
+        );
+
+        if (empResult.rows.length === 0)
+            return res.status(404).json({ status: 'error', error: 'Employe introuvable' });
+
+        const emp = empResult.rows[0];
+
+        const result = await calculatePayslip({
+            companyId,
+            salaireBase: parseFloat(emp.base_salary) || 0,
+            primes,
+            cnssEligible: emp.cnss_eligible !== false,
+            itsEligible: emp.its_eligible !== false
+        });
+
+        res.json({ status: 'success', data: { employee_id: emp.id, full_name: emp.full_name, primes, ...result } });
+    } catch (error) {
+        console.error('🚨 [calculatePayslipPreview]', error.message);
         res.status(500).json({ status: 'error', error: error.message });
     }
 };

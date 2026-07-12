@@ -65,6 +65,7 @@ router.delete('/employees/:id', protect, checkCompanyAccess, adminOnly,   hrCtrl
 
 // Lecture + téléchargement — ADMIN, COLLABORATEUR, USER
 router.get('/payslips',              protect, checkCompanyAccess, allowAll,      hrCtrl.listPayslips);
+router.get('/payslips/calculate',    protect, checkCompanyAccess, allowEditOnly, hrCtrl.calculatePayslipPreview);
 router.get('/payslips/:id',          protect, checkCompanyAccess, allowAll,      hrCtrl.getPayslip);
 router.get('/payslips/:id/download', protect, checkCompanyAccess, allowAll,      hrCtrl.downloadPayslip);
 
