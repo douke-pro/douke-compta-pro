@@ -12254,20 +12254,23 @@ window.openEditUserModal = async function(userId) {
 window.handleCreateUser = async function(event) {
     event.preventDefault();
     
-    const name = document.getElementById('new-user-name').value;
-    const email = document.getElementById('new-user-email').value;
-    const phone = document.getElementById('new-user-phone').value;
-    const role = document.getElementById('new-user-role').value;
-    const password = document.getElementById('new-user-password').value;
-    const passwordConfirm = document.getElementById('new-user-password-confirm').value;
+    // Lecture des champs — compatible avec les deux versions du formulaire (user-* et new-user-*)
+    const name = (document.getElementById('user-name') || document.getElementById('new-user-name'))?.value || '';
+    const email = (document.getElementById('user-email') || document.getElementById('new-user-email'))?.value || '';
+    const phone = (document.getElementById('user-phone') || document.getElementById('new-user-phone'))?.value || '';
+    const role = (document.getElementById('user-role') || document.getElementById('new-user-role'))?.value || '';
+    const password = (document.getElementById('user-password') || document.getElementById('new-user-password'))?.value || '';
+    const passwordConfirm = (document.getElementById('user-password-confirm') || document.getElementById('new-user-password-confirm'))?.value || password;
     
-    // Récupérer les entreprises cochées
-    const selectedCompanies = Array.from(document.querySelectorAll('input[name="user-companies"]:checked'))
-        .map(cb => parseInt(cb.value));
-    
+    // Récupérer les entreprises sélectionnées dans le select multiple
+    const companiesSelect = document.getElementById('user-companies');
+    const selectedCompanies = companiesSelect
+        ? Array.from(companiesSelect.selectedOptions).map(opt => parseInt(opt.value)).filter(v => !isNaN(v))
+        : [];
+
     // Validations
     if (selectedCompanies.length === 0) {
-        NotificationManager.show('Veuillez sélectionner au moins une entreprise', 'warning');
+        NotificationManager.show('Veuillez sélectionner au moins une entreprise (maintenez Ctrl pour plusieurs)', 'warning');
         return;
     }
     
@@ -13064,20 +13067,37 @@ async function loadCompanyDetailsEnriched() {
         const phoneElement = document.getElementById('company-phone');
         
         if (rccmElement) {
-            rccmElement.textContent = rccm;
+            // input → .value ; span/div → .textContent
+            if (rccmElement.tagName === 'INPUT' || rccmElement.tagName === 'TEXTAREA') {
+                rccmElement.value = rccm !== '-' ? rccm : '';
+            } else {
+                rccmElement.textContent = rccm;
+            }
         }
         
         if (phoneElement) {
-            phoneElement.textContent = phone;
+            if (phoneElement.tagName === 'INPUT' || phoneElement.tagName === 'TEXTAREA') {
+                phoneElement.value = phone !== '-' ? phone : '';
+            } else {
+                phoneElement.textContent = phone;
+            }
         }
         
         console.log('✅ [loadCompanyDetailsEnriched] RCCM:', rccm, '| Téléphone:', phone);
         
     } catch (error) {
         console.error('🚨 [loadCompanyDetailsEnriched] Erreur:', error);
-        // En cas d'erreur, afficher des valeurs par défaut
-        document.getElementById('company-rccm').textContent = '-';
-        document.getElementById('company-phone').textContent = '-';
+        // En cas d'erreur, ne pas écraser les valeurs déjà saisies
+        const rccmEl = document.getElementById('company-rccm');
+        const phoneEl = document.getElementById('company-phone');
+        if (rccmEl && !rccmEl.value) {
+            if (rccmEl.tagName === 'INPUT') rccmEl.value = '';
+            else rccmEl.textContent = '-';
+        }
+        if (phoneEl && !phoneEl.value) {
+            if (phoneEl.tagName === 'INPUT') phoneEl.value = '';
+            else phoneEl.textContent = '-';
+        }
     }
 }
 
