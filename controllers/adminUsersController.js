@@ -10,6 +10,12 @@
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
 
+// ✅ RBAC : correspondance profil applicatif → ID de groupe Odoo réel
+// CAISSIER pas encore mappé (aucun groupe Odoo dédié pour l'instant)
+const PROFILE_GROUP_MAP = {
+    COLLABORATEUR: 5, // Comptabilité / Collaborateur Multi Entreprises
+};
+
 /**
  * Récupère la liste de tous les utilisateurs
  * @route GET /api/admin/users
@@ -70,10 +76,13 @@ exports.getAllUsers = async (req, res) => {
                 const gName = group.name.toLowerCase();
 
                 let detectedProfile = null;
-                if (gName.includes('admin') || gName.includes('settings') || gName.includes('administration')) {
+                const idToProfile = Object.fromEntries(
+                    Object.entries(PROFILE_GROUP_MAP).map(([profile, id]) => [id, profile])
+                );
+                if (idToProfile[group.id]) {
+                    detectedProfile = idToProfile[group.id];
+                } else if (gName.includes('admin') || gName.includes('settings') || gName.includes('administration')) {
                     detectedProfile = 'ADMIN';
-                } else if (gName.includes('manager') || gName.includes('accountant') || gName.includes('comptable') || gName.includes('gestionnaire')) {
-                    detectedProfile = 'COLLABORATEUR';
                 } else if (gName.includes('cash') || gName.includes('caisse') || gName.includes('cashier')) {
                     detectedProfile = 'CAISSIER';
                 }
@@ -298,17 +307,40 @@ exports.createUser = async (req, res) => {
         });
 
         console.log(`✅ [createUser] Utilisateur créé avec ID: ${newUserId}`);
-        console.log(`⚠️ IMPORTANT: Assigner le rôle "${profile}" manuellement dans Odoo (Paramètres → Utilisateurs → ID ${newUserId})`);
+
+        // ✅ Assignation automatique du groupe Odoo correspondant au profil
+        let groupAssigned = false;
+        const targetGroupId = PROFILE_GROUP_MAP[profile];
+        if (targetGroupId) {
+            try {
+                await odooExecuteKw({
+                    uid: ADMIN_UID_INT,
+                    model: 'res.groups',
+                    method: 'write',
+                    args: [[targetGroupId], { user_ids: [[4, newUserId]] }],
+                    kwargs: {}
+                });
+                groupAssigned = true;
+                console.log(`✅ [createUser] Groupe ${targetGroupId} assigné à l'utilisateur ${newUserId}`);
+            } catch (groupErr) {
+                console.error(`⚠️ [createUser] Échec assignation groupe:`, groupErr.message);
+            }
+        } else {
+            console.log(`⚠️ [createUser] Pas de groupe Odoo mappé pour le profil "${profile}" — assignation manuelle requise`);
+        }
 
         res.status(201).json({
             status: 'success',
-            message: `Utilisateur créé avec succès. IMPORTANT: Assigner le rôle "${profile}" manuellement dans Odoo.`,
+            message: groupAssigned
+                ? `Utilisateur créé et rôle "${profile}" assigné avec succès.`
+                : `Utilisateur créé avec succès. IMPORTANT: Assigner le rôle "${profile}" manuellement dans Odoo.`,
             data: {
                 id: newUserId,
                 name,
                 email,
                 profile,
-                note: 'Les permissions doivent être configurées dans Odoo : Paramètres → Utilisateurs'
+                groupAssigned,
+                note: groupAssigned ? null : 'Les permissions doivent être configurées dans Odoo : Paramètres → Utilisateurs'
             }
         });
 
@@ -364,13 +396,10 @@ exports.updateUser = async (req, res) => {
             updateData.company_id = companies[0];
         }
 
-        // ✅ Ne PAS mettre à jour groups_id en Odoo 19
-        if (profile) {
-            console.log(`⚠️ Changement de profil demandé vers "${profile}" → À faire manuellement dans Odoo`);
-        }
+        // ✅ Réassignation du groupe gérée séparément après le write ci-dessous (via res.groups)
 
-        // Vérifier que l'objet n'est pas vide
-        if (Object.keys(updateData).length === 0) {
+        // Vérifier que l'objet n'est pas vide (profile compte comme donnée valide, géré séparément)
+        if (Object.keys(updateData).length === 0 && !profile) {
             return res.status(400).json({
                 status: 'error',
                 error: 'Aucune donnée à mettre à jour'
@@ -386,11 +415,48 @@ exports.updateUser = async (req, res) => {
             kwargs: {}
         });
 
+        // ✅ Réassignation du groupe Odoo si le profil a changé
+        let groupAssigned = null;
+        if (profile) {
+            const targetGroupId = PROFILE_GROUP_MAP[profile];
+            if (targetGroupId) {
+                try {
+                    // Retirer l'utilisateur de tous les groupes mappés, puis l'ajouter au bon
+                    for (const gid of Object.values(PROFILE_GROUP_MAP)) {
+                        await odooExecuteKw({
+                            uid: ADMIN_UID_INT,
+                            model: 'res.groups',
+                            method: 'write',
+                            args: [[gid], { user_ids: [[3, userId]] }], // 3 = délier
+                            kwargs: {}
+                        });
+                    }
+                    await odooExecuteKw({
+                        uid: ADMIN_UID_INT,
+                        model: 'res.groups',
+                        method: 'write',
+                        args: [[targetGroupId], { user_ids: [[4, userId]] }], // 4 = lier
+                        kwargs: {}
+                    });
+                    groupAssigned = true;
+                    console.log(`✅ [updateUser] Groupe ${targetGroupId} réassigné à l'utilisateur ${userId}`);
+                } catch (groupErr) {
+                    groupAssigned = false;
+                    console.error(`⚠️ [updateUser] Échec réassignation groupe:`, groupErr.message);
+                }
+            } else {
+                console.log(`⚠️ [updateUser] Pas de groupe Odoo mappé pour le profil "${profile}" — assignation manuelle requise`);
+            }
+        }
+
         console.log(`✅ [updateUser] Utilisateur ${userId} mis à jour`);
 
-        const responseMessage = profile 
-            ? `Utilisateur mis à jour. IMPORTANT: Modifier le rôle "${profile}" manuellement dans Odoo.`
-            : 'Utilisateur mis à jour avec succès';
+        let responseMessage = 'Utilisateur mis à jour avec succès';
+        if (profile) {
+            responseMessage = groupAssigned
+                ? `Utilisateur mis à jour et rôle "${profile}" réassigné avec succès.`
+                : `Utilisateur mis à jour. IMPORTANT: Modifier le rôle "${profile}" manuellement dans Odoo.`;
+        }
 
         res.json({
             status: 'success',
