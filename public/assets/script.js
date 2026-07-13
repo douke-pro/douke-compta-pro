@@ -9453,9 +9453,21 @@ window.handleSaveCompanySettings = async function(event) {
             body: JSON.stringify(data)
         });
         
-        NotificationManager.show('Paramètres entreprise enregistrés !', 'success');
+        // Mettre à jour le nom localement dans appState sans rechargement complet
+        if (data.name && appState.user?.companiesList) {
+            const idx = appState.user.companiesList.findIndex(c => c.id === companyId);
+            if (idx !== -1) {
+                appState.user.companiesList[idx].name = data.name;
+                // Mettre à jour le menu déroulant des entreprises si présent
+                const menuOpt = document.querySelector(`#company-select-menu option[value="${companyId}"]`);
+                if (menuOpt) menuOpt.textContent = data.name;
+            }
+        }
+        
+        NotificationManager.show('Paramètres entreprise enregistrés avec succès !', 'success');
     } catch (error) {
-        NotificationManager.show(`Erreur : ${error.message}`, 'error');
+        console.error('🚨 [handleSaveCompanySettings] Erreur:', error);
+        NotificationManager.show(`Erreur lors de la sauvegarde : ${error.message}`, 'error');
     }
 };
 
@@ -11501,22 +11513,26 @@ async function loadUsersForNotification() {
  * 🆕 Charge les entreprises pour le formulaire de création
  */
 async function loadCompaniesForUserForm() {
-    console.log('🏢 [loadCompaniesForUserForm] Chargement des entreprises...');
+    console.log('🏢 [loadCompaniesForUserForm] Chargement depuis appState...');
     
     try {
-        const response = await apiFetch('companies', { method: 'GET' });
-        const companies = response.data || [];
+        // Utilise les entreprises déjà chargées au login — pas d'appel Odoo supplémentaire
+        const companies = appState.user?.companiesList || [];
         
         const companiesSelect = document.getElementById('user-companies');
-        if (companiesSelect && companies.length > 0) {
-            companiesSelect.innerHTML = companies.map(company => `
-                <option value="${company.id}">
-                    ${company.name}
-                </option>
-            `).join('');
+        if (companiesSelect) {
+            if (companies.length > 0) {
+                companiesSelect.innerHTML = companies.map(company => `
+                    <option value="${company.id}">
+                        ${company.name}
+                    </option>
+                `).join('');
+                console.log(`✅ [loadCompaniesForUserForm] ${companies.length} entreprises chargées depuis appState`);
+            } else {
+                companiesSelect.innerHTML = '<option value="" disabled>Aucune entreprise disponible</option>';
+                console.warn('⚠️ [loadCompaniesForUserForm] companiesList vide dans appState');
+            }
         }
-        
-        console.log(`✅ [loadCompaniesForUserForm] ${companies.length} entreprises chargées`);
         
     } catch (error) {
         console.error('🚨 [loadCompaniesForUserForm] Erreur:', error);
