@@ -23,3 +23,6 @@ public/assets/*.backup*
 public/assets/*.backup*
 *.bak
 fiche_paie_company*.html
+
+# Fichiers de sauvegarde horodatés (générés localement, ne pas versionner)
+*.bak-*
