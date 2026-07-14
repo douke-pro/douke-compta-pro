@@ -59,7 +59,7 @@
                 </h3>
                 <p class="text-gray-600 dark:text-gray-400 mb-8">
                     Processus de clôture <strong>SYSCOHADA Révisé</strong> — écriture d'affectation
-                    du résultat et verrouillage réel dans Odoo avec piste d'audit complète.
+                    du résultat et verrouillage réel dans Douke avec piste d'audit complète.
                 </p>
 
                 <!-- Sélecteur d'année -->
@@ -169,7 +169,7 @@
             'open'          : { label: 'Exercice ouvert',               borderColor: 'border-gray-300',    badge: 'bg-gray-100 text-gray-700',      icon: 'fas fa-lock-open',      btnLabel: 'Démarrer la clôture',           btnFn: 'closingGoToStep1', btnColor: 'bg-primary' },
             'pre_check_ok'  : { label: 'Pré-vérifications validées',    borderColor: 'border-info',        badge: 'bg-blue-100 text-blue-700',      icon: 'fas fa-check-circle',   btnLabel: 'Étape 2 : Affecter le résultat',btnFn: 'closingGoToStep2', btnColor: 'bg-primary' },
             'result_posted' : { label: 'Résultat comptabilisé',         borderColor: 'border-warning',     badge: 'bg-yellow-100 text-yellow-700',  icon: 'fas fa-file-invoice',   btnLabel: 'Étape 3 : Verrouiller',         btnFn: 'closingGoToStep3', btnColor: 'bg-warning' },
-            'locked'        : { label: 'Exercice verrouillé dans Odoo', borderColor: 'border-orange-400',  badge: 'bg-orange-100 text-orange-700',  icon: 'fas fa-lock',           btnLabel: 'Étape 4 : Finaliser',           btnFn: 'closingGoToStep4', btnColor: 'bg-success' },
+            'locked'        : { label: 'Exercice verrouillé dans Douke', borderColor: 'border-orange-400',  badge: 'bg-orange-100 text-orange-700',  icon: 'fas fa-lock',           btnLabel: 'Étape 4 : Finaliser',           btnFn: 'closingGoToStep4', btnColor: 'bg-success' },
             'closed'        : { label: 'Clôture finalisée',             borderColor: 'border-success',     badge: 'bg-green-100 text-green-700',    icon: 'fas fa-check-double',   btnLabel: null,                            btnFn: null,               btnColor: null }
         }[data.status] || { label: 'Inconnu', borderColor: 'border-gray-300', badge: 'bg-gray-100 text-gray-700', icon: 'fas fa-question', btnLabel: null, btnFn: null, btnColor: null };
 
@@ -205,7 +205,7 @@
                     <div class="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl text-sm
                                 text-orange-800 dark:text-orange-200 mb-5 flex items-center gap-2">
                         <i class="fas fa-lock text-warning"></i>
-                        Lock Date Odoo actif : <strong>${data.lock_date}</strong>
+                        Lock Date Douke actif : <strong>${data.lock_date}</strong>
                         — Aucune écriture possible sur cette période
                     </div>
                 ` : ''}
@@ -264,7 +264,7 @@
         const steps = [
             { label: 'Pré-vérifications',    icon: 'fas fa-search' },
             { label: 'Affectation résultat', icon: 'fas fa-file-invoice' },
-            { label: 'Verrouillage Odoo',    icon: 'fas fa-lock' },
+            { label: 'Verrouillage Douke',    icon: 'fas fa-lock' },
             { label: 'Finalisation',         icon: 'fas fa-flag-checkered' }
         ];
 
@@ -492,7 +492,7 @@
                 <div class="bg-gray-50 dark:bg-gray-800 p-5 rounded-2xl
                             border border-gray-200 dark:border-gray-600">
                     <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-                        Écriture qui sera créée et validée dans Odoo
+                        Écriture qui sera créée et validée dans Douke
                     </p>
                     <table class="w-full text-sm">
                         <thead>
@@ -537,10 +537,10 @@
                             p-4 rounded-xl">
                     <p class="text-sm font-bold text-yellow-800 dark:text-yellow-200">
                         <i class="fas fa-exclamation-triangle text-warning mr-2"></i>
-                        L'écriture sera validée immédiatement dans Odoo
+                        L'écriture sera validée immédiatement dans Douke
                     </p>
                     <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                        Elle peut être extournée manuellement dans Odoo si une erreur est détectée.
+                        Elle peut être extournée manuellement dans Douke si une erreur est détectée.
                     </p>
                 </div>
 
@@ -554,7 +554,7 @@
                     <button onclick="window.closingPostResult()"
                         class="px-6 py-2.5 bg-primary text-white font-bold rounded-xl
                                hover:bg-primary/90 transition-colors shadow-md">
-                        <i class="fas fa-check mr-2"></i>Créer l'écriture dans Odoo
+                        <i class="fas fa-check mr-2"></i>Créer l'écriture dans Douke
                     </button>
                 </div>
             </div>
@@ -564,7 +564,7 @@
     window.closingPostResult = async function () {
         const companyId = getCompanyId();
         if (!confirm(
-            `Créer et valider l'écriture d'affectation du résultat ${closingState.fiscalYear} dans Odoo ?\n\n` +
+            `Créer et valider l'écriture d'affectation du résultat ${closingState.fiscalYear} dans Douke ?\n\n` +
             `Montant : ${closingState.preChecks.result.display}\n` +
             `Type : ${closingState.preChecks.result.type === 'profit' ? 'Bénéfice' : 'Perte'}`
         )) return;
@@ -586,7 +586,7 @@
                 throw new Error(response?.error || 'Échec création écriture');
             }
 
-            NotificationManager.show(`✅ ${response.move_name} créée et validée dans Odoo`, 'success');
+            NotificationManager.show(`✅ ${response.move_name} créée et validée dans Douke`, 'success');
             closingState.status = { status: 'result_posted' };
 
             // Rafraîchir le panneau principal en arrière-plan
@@ -604,7 +604,7 @@
     // =========================================================================
     window.closingGoToStep3 = function () {
         ModalManager.open(
-            '🔒 Étape 3 — Verrouillage dans Odoo',
+            '🔒 Étape 3 — Verrouillage dans Douke',
             generateStep3HTML()
         );
     };
@@ -623,7 +623,7 @@
                             <i class="fas fa-check text-success mt-0.5 flex-shrink-0"></i>
                             Pose <code class="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded
                                               text-xs font-mono">fiscalyear_lock_date = 31/12/${closingState.fiscalYear}</code>
-                            directement dans Odoo via l'API
+                            directement dans Douke via l'API
                         </li>
                         <li class="flex items-start gap-2">
                             <i class="fas fa-check text-success mt-0.5 flex-shrink-0"></i>
@@ -641,7 +641,7 @@
                             flex items-center justify-between">
                     <div>
                         <p class="text-sm font-bold text-gray-700 dark:text-gray-300">
-                            Lock Date qui sera appliqué dans Odoo
+                            Lock Date qui sera appliqué dans Douke
                         </p>
                         <p class="text-3xl font-black text-warning mt-1">
                             31/12/${closingState.fiscalYear}
@@ -671,7 +671,7 @@
     window.closingApplyLock = async function () {
         const companyId = getCompanyId();
         if (!confirm(
-            `Verrouiller l'exercice ${closingState.fiscalYear} dans Odoo ?\n\n` +
+            `Verrouiller l'exercice ${closingState.fiscalYear} dans Douke ?\n\n` +
             `Le déverrouillage sera possible mais intégralement tracé avec motif obligatoire.`
         )) return;
 
@@ -691,7 +691,7 @@
             }
 
             NotificationManager.show(
-                `✅ Exercice ${closingState.fiscalYear} verrouillé dans Odoo`,
+                `✅ Exercice ${closingState.fiscalYear} verrouillé dans Douke`,
                 'success'
             );
 
@@ -722,7 +722,7 @@
                     </div>
                     <h3 class="text-2xl font-black text-gray-900 dark:text-white">Dernière étape</h3>
                     <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm">
-                        L'exercice ${closingState.fiscalYear} est verrouillé dans Odoo.
+                        L'exercice ${closingState.fiscalYear} est verrouillé dans Douke.
                         Cliquez sur Finaliser pour archiver la clôture définitivement.
                     </p>
                 </div>
@@ -734,8 +734,8 @@
                     </p>
                     <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-1.5">
                         <li><i class="fas fa-check text-success mr-2"></i>Pré-vérifications validées</li>
-                        <li><i class="fas fa-check text-success mr-2"></i>Écriture d'affectation créée et validée dans Odoo</li>
-                        <li><i class="fas fa-check text-success mr-2"></i>Lock Date 31/12/${closingState.fiscalYear} actif dans Odoo</li>
+                        <li><i class="fas fa-check text-success mr-2"></i>Écriture d'affectation créée et validée dans Douke</li>
+                        <li><i class="fas fa-check text-success mr-2"></i>Lock Date 31/12/${closingState.fiscalYear} actif dans Douke</li>
                         <li><i class="fas fa-check text-success mr-2"></i>Piste d'audit complète dans Supabase</li>
                     </ul>
                 </div>
@@ -826,11 +826,11 @@
                 <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl text-left text-sm space-y-2">
                     <p class="text-gray-700 dark:text-gray-300">
                         <i class="fas fa-check text-success mr-2"></i>
-                        Écriture d'affectation validée dans Odoo
+                        Écriture d'affectation validée dans Douke
                     </p>
                     <p class="text-gray-700 dark:text-gray-300">
                         <i class="fas fa-check text-success mr-2"></i>
-                        Lock Date 31/12/${closingState.fiscalYear} actif dans Odoo
+                        Lock Date 31/12/${closingState.fiscalYear} actif dans Douke
                     </p>
                     <p class="text-gray-700 dark:text-gray-300">
                         <i class="fas fa-check text-success mr-2"></i>
@@ -994,10 +994,10 @@
                             p-4 rounded-xl">
                     <p class="text-sm font-bold text-yellow-800 dark:text-yellow-200">
                         <i class="fas fa-lock mr-2"></i>
-                        Re-pose le Lock Date 31/12/${closingState.fiscalYear} dans Odoo
+                        Re-pose le Lock Date 31/12/${closingState.fiscalYear} dans Douke
                     </p>
                     <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                        À utiliser après avoir effectué et validé vos corrections dans Odoo.
+                        À utiliser après avoir effectué et validé vos corrections dans Douke.
                     </p>
                 </div>
 
@@ -1052,7 +1052,7 @@
             }
 
             NotificationManager.show(
-                `✅ Exercice ${closingState.fiscalYear} re-verrouillé dans Odoo`,
+                `✅ Exercice ${closingState.fiscalYear} re-verrouillé dans Douke`,
                 'success'
             );
 
@@ -1160,7 +1160,7 @@
                             ${log.odoo_move_name ? `
                                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
                                     <i class="fas fa-file-invoice text-info mr-1"></i>
-                                    Pièce Odoo : <span class="font-mono">${log.odoo_move_name}</span>
+                                    Pièce Douke : <span class="font-mono">${log.odoo_move_name}</span>
                                 </p>
                             ` : ''}
                             ${log.ip_address && log.ip_address !== 'unknown' ? `
