@@ -134,12 +134,57 @@ exports.odooAuthenticate = async (email, password) => {
 
     console.log(`✅ [odooAuthenticate] UID récupéré : ${uid} pour ${email}`);
 
+    // ✅ FIX RBAC : détection du profil réel via res.groups (même logique que getAllUsers)
+    let profile = 'USER';
+
+    if (email === ODOO_CONFIG.username) {
+        profile = 'ADMIN';
+    } else {
+        try {
+            const groups = await exports.odooExecuteKw({
+                uid:    _parsedAdminUid,
+                model:  'res.groups',
+                method: 'search_read',
+                args:   [[['user_ids', 'in', [uid]]]],
+                kwargs: { fields: ['id', 'name'], limit: 20 }
+            });
+
+            // ⚠️ Doit rester synchronisé avec PROFILE_GROUP_MAP dans adminUsersController.js
+            const PROFILE_GROUP_MAP = { COLLABORATEUR: 5 };
+            const idToProfile = Object.fromEntries(
+                Object.entries(PROFILE_GROUP_MAP).map(([p, id]) => [id, p])
+            );
+            const PRIORITY = { ADMIN: 4, COLLABORATEUR: 3, CAISSIER: 2, USER: 1 };
+
+            let detected = 'USER';
+            for (const g of groups) {
+                let candidate = idToProfile[g.id] || null;
+                if (!candidate) {
+                    const gName = g.name.toLowerCase();
+                    if (gName.includes('admin') || gName.includes('settings') || gName.includes('administration')) {
+                        candidate = 'ADMIN';
+                    } else if (gName.includes('cash') || gName.includes('caisse') || gName.includes('cashier')) {
+                        candidate = 'CAISSIER';
+                    }
+                }
+                if (candidate && PRIORITY[candidate] > PRIORITY[detected]) {
+                    detected = candidate;
+                }
+            }
+            profile = detected;
+
+        } catch (groupError) {
+            console.warn(`⚠️ [odooAuthenticate] Détection groupe échouée pour ${email}, fallback USER: ${groupError.message}`);
+            profile = 'USER';
+        }
+    }
+
     return {
         uid,
         db,
-        profile: email === ODOO_CONFIG.username ? 'ADMIN' : 'USER',
-        name:    `Utilisateur Odoo (ID: ${uid})`,
-        email:   email,
+        profile,
+        name:  `Utilisateur Odoo (ID: ${uid})`,
+        email: email,
     };
 };
 

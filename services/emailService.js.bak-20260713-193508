@@ -8,12 +8,7 @@
 const { Resend } = require('resend');
 
 // Initialisation du client Resend
-let resend = null;
-if (process.env.RESEND_API_KEY) {
-    resend = new Resend(process.env.RESEND_API_KEY);
-} else {
-    console.warn('⚠️ [emailService] RESEND_API_KEY absente — envoi d\'emails désactivé.');
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Adresse expéditrice officielle — jamais modifiée
 const FROM_ADDRESS = 'DOUKÈ Compta Pro <contact@doukegf.bj>';

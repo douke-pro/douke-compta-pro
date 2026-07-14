@@ -8590,16 +8590,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 appState.currentCompanyName = response.data.defaultCompany?.name || null;
                 appState.user.selectedCompanyId = appState.currentCompanyId;
                 appState.user.companiesList     = response.data.companiesList || [];
-
-                // ✅ Restaurer l'entreprise réellement active avant le refresh (si valide)
-                const savedCompanyId = parseInt(localStorage.getItem('douke_active_company_id'));
-                if (savedCompanyId && appState.user.companiesList.some(c => c.id === savedCompanyId)) {
-                    appState.currentCompanyId = savedCompanyId;
-                    appState.user.selectedCompanyId = savedCompanyId;
-                    const restoredCompany = appState.user.companiesList.find(c => c.id === savedCompanyId);
-                    appState.currentCompanyName = restoredCompany ? restoredCompany.name : appState.currentCompanyName;
-                    console.log(`🏢 [DOMContentLoaded] Entreprise restaurée depuis localStorage: ${savedCompanyId}`);
-                }
                 console.log('✅ Utilisateur rechargé:', appState.user.name,
                             '| Company:', appState.currentCompanyId);
             } else {
@@ -8780,7 +8770,7 @@ window.switchSettingsTab = function(tabName) {
  */
 async function loadSettingsData() {
     try {
-        const companyId = _resolveActiveCompanyId();
+        const companyId = appState.currentCompanyId;
         
         console.log('📋 [loadSettingsData] Chargement pour company_id:', companyId);
         
@@ -8877,7 +8867,7 @@ function generateCompanySettingsHTML() {
                         <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                             Numéro RCCM
                         </label>
-                        <input type="text" id="company-settings-rccm" value="${data.registration_number || ''}" 
+                        <input type="text" id="company-rccm" value="${data.registration_number || ''}" 
                             ${!isAdmin ? 'disabled' : ''}
                             class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}" 
                             placeholder="Ex: RC/CTN/2024/B/123">
@@ -8909,7 +8899,7 @@ function generateCompanySettingsHTML() {
                         <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                             Téléphone
                         </label>
-                        <input type="tel" id="company-settings-phone" value="${data.phone || ''}" 
+                        <input type="tel" id="company-phone" value="${data.phone || ''}" 
                             ${!isAdmin ? 'disabled' : ''}
                             class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 ${!isAdmin ? 'bg-gray-100' : ''}" 
                             placeholder="+229 XX XX XX XX">
@@ -9447,15 +9437,15 @@ window.uploadCompanyEntete = async function() {
 window.handleSaveCompanySettings = async function(event) {
     event.preventDefault();
     
-    const companyId = _resolveActiveCompanyId();
+    const companyId = appState.currentCompanyId;
     const data = {
         name: document.getElementById('company-name').value,
         email: document.getElementById('company-email').value,
-        phone: document.getElementById('company-settings-phone').value,
+        phone: document.getElementById('company-phone').value,
         address: document.getElementById('company-address').value,
         city: document.getElementById('company-city').value,
         tax_id: document.getElementById('company-nif').value,
-        registration_number: document.getElementById('company-settings-rccm').value
+        registration_number: document.getElementById('company-rccm').value
     };
     
     try {
@@ -9473,18 +9463,6 @@ window.handleSaveCompanySettings = async function(event) {
                 const menuOpt = document.querySelector(`#company-select-menu option[value="${companyId}"]`);
                 if (menuOpt) menuOpt.textContent = data.name;
             }
-        }
-        
-        // ✅ Mettre à jour le cache local pour que le formulaire reste cohérent
-        // lors d'un changement d'onglet (sans attendre un rechargement complet)
-        if (window.settingsData?.company) {
-            window.settingsData.company.name = data.name;
-            window.settingsData.company.email = data.email;
-            window.settingsData.company.phone = data.phone;
-            window.settingsData.company.address = data.address;
-            window.settingsData.company.city = data.city;
-            window.settingsData.company.tax_id = data.tax_id;
-            window.settingsData.company.registration_number = data.registration_number;
         }
         
         NotificationManager.show('Paramètres entreprise enregistrés avec succès !', 'success');

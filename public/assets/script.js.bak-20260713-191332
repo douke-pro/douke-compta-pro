@@ -9475,18 +9475,6 @@ window.handleSaveCompanySettings = async function(event) {
             }
         }
         
-        // ✅ Mettre à jour le cache local pour que le formulaire reste cohérent
-        // lors d'un changement d'onglet (sans attendre un rechargement complet)
-        if (window.settingsData?.company) {
-            window.settingsData.company.name = data.name;
-            window.settingsData.company.email = data.email;
-            window.settingsData.company.phone = data.phone;
-            window.settingsData.company.address = data.address;
-            window.settingsData.company.city = data.city;
-            window.settingsData.company.tax_id = data.tax_id;
-            window.settingsData.company.registration_number = data.registration_number;
-        }
-        
         NotificationManager.show('Paramètres entreprise enregistrés avec succès !', 'success');
     } catch (error) {
         console.error('🚨 [handleSaveCompanySettings] Erreur:', error);
