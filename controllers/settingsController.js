@@ -90,30 +90,25 @@ exports.updateCompanySettings = async (req, res) => {
 
         console.log(`✏️ [updateCompanySettings] Company ID: ${companyId}`);
 
-        // Tentative via Odoo (production) avec fallback gracieux
-        try {
-            const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
-            const updateData = {};
-            if (name) updateData.name = name;
-            if (email) updateData.email = email;
-            if (phone) updateData.phone = phone;
-            if (address) updateData.street = address;
-            if (city) updateData.city = city;
-            if (tax_id) updateData.vat = tax_id;
-            if (registration_number) updateData.company_registry = registration_number;
+        // ✅ FIX : l'erreur Odoo n'est plus avalée — elle remonte au catch externe
+        const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (email) updateData.email = email;
+        if (phone) updateData.phone = phone;
+        if (address) updateData.street = address;
+        if (city) updateData.city = city;
+        if (tax_id) updateData.vat = tax_id;
+        if (registration_number) updateData.company_registry = registration_number;
 
-            await odooExecuteKw({
-                uid: ADMIN_UID_INT,
-                model: 'res.company',
-                method: 'write',
-                args: [[companyId], updateData],
-                kwargs: {}
-            });
-            console.log(`✅ [updateCompanySettings] Entreprise ${companyId} mise à jour via Odoo`);
-        } catch (odooError) {
-            // Odoo non disponible — log sans bloquer la réponse au client
-            console.warn(`⚠️ [updateCompanySettings] Odoo indisponible (${odooError.message}) — mise à jour locale uniquement`);
-        }
+        await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.company',
+            method: 'write',
+            args: [[companyId], updateData],
+            kwargs: {}
+        });
+        console.log(`✅ [updateCompanySettings] Entreprise ${companyId} mise à jour via Odoo`);
 
         res.json({
             status: 'success',
