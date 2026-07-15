@@ -475,17 +475,7 @@ exports.createJournalEntry = async (req, res) => {
             kwargs: { context: { allowed_company_ids: [companyId] } }
         });
 
-        console.log(`✅ Écriture créée: ID=${moveId}`);
-
-        await odooExecuteKw({
-            uid:    ADMIN_UID_INT,
-            model:  'account.move',
-            method: 'action_post',
-            args:   [[moveId]],
-            kwargs: { context: { allowed_company_ids: [companyId] } }
-        });
-
-        console.log('✅ Écriture validée');
+        console.log(`✅ Écriture créée (Brouillon): ID=${moveId}`);
 
         const moveRecord = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
@@ -505,7 +495,7 @@ exports.createJournalEntry = async (req, res) => {
             status:    'success',
             move_id:   moveId,
             move_name: moveName,
-            message:   `Écriture ${moveName} créée et validée par ${emetteurName}.`
+            message:   `Écriture ${moveName} créée en Brouillon par ${emetteurName}. Validation requise.`
         });
 
     } catch (error) {
@@ -572,8 +562,7 @@ exports.getJournalEntries = async (req, res) => {
         }
 
         let domain = [
-            ['company_id', '=', companyId],
-            ['state',      '=', 'posted']
+            ['company_id', '=', companyId]
         ];
 
         if (journal_id) domain.push(['journal_id', '=', parseInt(journal_id)]);
@@ -603,7 +592,8 @@ exports.getJournalEntries = async (req, res) => {
             journal: move.journal_id ? move.journal_id[1] : 'N/A',
             debit:   move.amount_total && move.amount_total > 0 ? move.amount_total : 0,
             credit:  move.amount_total && move.amount_total < 0 ? Math.abs(move.amount_total) : 0,
-            status:  move.state === 'posted' ? 'Validé' : 'Brouillon'
+            state:   move.state,
+            status:  move.state === 'posted' ? 'Validé' : (move.state === 'cancel' ? 'Annulé' : 'Brouillon')
         }));
 
         res.status(200).json({
@@ -615,6 +605,110 @@ exports.getJournalEntries = async (req, res) => {
     } catch (error) {
         console.error('🚨 getJournalEntries Error:', error.message);
         res.status(500).json({ status: 'error', error: 'Erreur récupération écritures.' });
+    }
+};
+
+// =============================================================================
+// 6b. VALIDATION / SUPPRESSION D'ÉCRITURE (uniquement si Brouillon)
+// =============================================================================
+
+/**
+ * Valide une écriture (Brouillon → Validé)
+ * @route POST /api/accounting/move/:id/validate
+ */
+exports.validateJournalEntry = async (req, res) => {
+    try {
+        const moveId    = parseInt(req.params.id);
+        const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
+
+        if (!moveId || !companyId) {
+            return res.status(400).json({ status: 'error', error: 'ID écriture et companyId requis.' });
+        }
+
+        const moveCheck = await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'account.move',
+            method: 'search_read',
+            args:   [[['id', '=', moveId], ['company_id', '=', companyId]]],
+            kwargs: { fields: ['id', 'state'], limit: 1, context: { allowed_company_ids: [companyId] } }
+        });
+
+        if (!moveCheck || moveCheck.length === 0) {
+            return res.status(404).json({ status: 'error', error: 'Écriture introuvable.' });
+        }
+
+        if (moveCheck[0].state !== 'draft') {
+            return res.status(409).json({
+                status: 'error',
+                error:  `Cette écriture est à l'état "${moveCheck[0].state}" — seule une écriture en Brouillon peut être validée.`
+            });
+        }
+
+        await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'account.move',
+            method: 'action_post',
+            args:   [[moveId]],
+            kwargs: { context: { allowed_company_ids: [companyId] } }
+        });
+
+        console.log(`✅ [validateJournalEntry] Écriture ${moveId} validée par ${req.user?.name || req.user?.email}`);
+
+        res.json({ status: 'success', message: 'Écriture validée avec succès.' });
+
+    } catch (error) {
+        console.error('🚨 validateJournalEntry Error:', error.message);
+        res.status(500).json({ status: 'error', error: `Échec de la validation : ${error.message}` });
+    }
+};
+
+/**
+ * Supprime une écriture — uniquement si elle est en Brouillon
+ * @route DELETE /api/accounting/move/:id
+ */
+exports.deleteJournalEntry = async (req, res) => {
+    try {
+        const moveId    = parseInt(req.params.id);
+        const companyId = req.validatedCompanyId || parseInt(req.query.companyId || req.body.companyId);
+
+        if (!moveId || !companyId) {
+            return res.status(400).json({ status: 'error', error: 'ID écriture et companyId requis.' });
+        }
+
+        const moveCheck = await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'account.move',
+            method: 'search_read',
+            args:   [[['id', '=', moveId], ['company_id', '=', companyId]]],
+            kwargs: { fields: ['id', 'state', 'name'], limit: 1, context: { allowed_company_ids: [companyId] } }
+        });
+
+        if (!moveCheck || moveCheck.length === 0) {
+            return res.status(404).json({ status: 'error', error: 'Écriture introuvable.' });
+        }
+
+        if (moveCheck[0].state !== 'draft') {
+            return res.status(409).json({
+                status: 'error',
+                error:  `Impossible de supprimer : écriture à l'état "${moveCheck[0].state}". Seule une écriture en Brouillon peut être supprimée.`
+            });
+        }
+
+        await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'account.move',
+            method: 'unlink',
+            args:   [[moveId]],
+            kwargs: { context: { allowed_company_ids: [companyId] } }
+        });
+
+        console.log(`🗑️ [deleteJournalEntry] Écriture ${moveCheck[0].name} (${moveId}) supprimée par ${req.user?.name || req.user?.email}`);
+
+        res.json({ status: 'success', message: 'Écriture supprimée avec succès.' });
+
+    } catch (error) {
+        console.error('🚨 deleteJournalEntry Error:', error.message);
+        res.status(500).json({ status: 'error', error: `Échec de la suppression : ${error.message}` });
     }
 };
 
@@ -1110,14 +1204,6 @@ exports.handleCaisseEntry = async (req, res) => {
             kwargs: { context: { allowed_company_ids: [companyId] } }
         });
 
-        await odooExecuteKw({
-            uid:    ADMIN_UID_INT,
-            model:  'account.move',
-            method: 'action_post',
-            args:   [[moveId]],
-            kwargs: { context: { allowed_company_ids: [companyId] } }
-        });
-
         const moveRecord = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.move',
@@ -1136,7 +1222,7 @@ exports.handleCaisseEntry = async (req, res) => {
             move_name: moveName,
             type:      type,
             amount:    parseFloat(amount),
-            message:   `${type} de ${parseFloat(amount).toLocaleString('fr-FR')} XOF enregistrée par ${emetteurName}.`
+            message:   `${type} de ${parseFloat(amount).toLocaleString('fr-FR')} XOF enregistrée en Brouillon par ${emetteurName}. Validation requise.`
         });
 
     } catch (error) {

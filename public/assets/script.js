@@ -1626,6 +1626,16 @@ function generateJournalHTML(entries) {
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-success">${debit}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-danger">${credit}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm ${statusClass}">${entry.status || 'Inconnu'}</td>
+                ${entry.status === 'Brouillon' ? `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right" onclick="event.stopPropagation()">
+                    <button onclick="window.handleValidateEntry(${entry.id})" class="text-success hover:text-success/80 mr-3" title="Valider">
+                        <i class="fas fa-check-circle"></i>
+                    </button>
+                    <button onclick="window.handleDeleteEntry(${entry.id})" class="text-danger hover:text-danger/80" title="Supprimer">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+                ` : '<td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-400">—</td>'}
             </tr>
         `;
     }).join('');
@@ -1642,6 +1652,7 @@ function generateJournalHTML(entries) {
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Débit</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Crédit</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1651,6 +1662,45 @@ function generateJournalHTML(entries) {
         </div>
     `;
 }
+
+/**
+ * Valide une écriture en Brouillon
+ */
+window.handleValidateEntry = async function(entryId) {
+    if (!confirm('Valider cette écriture ? Elle ne pourra plus être modifiée ni supprimée après validation.')) return;
+    try {
+        const companyId = appState.currentCompanyId;
+        await apiFetch(`accounting/move/${entryId}/validate`, {
+            method: 'POST',
+            body: JSON.stringify({ companyId })
+        });
+        NotificationManager.show('Écriture validée avec succès.', 'success');
+        if (typeof window.handleJournalApplyFilters === 'function') {
+            window.handleJournalApplyFilters();
+        }
+    } catch (error) {
+        console.error('❌ [handleValidateEntry]', error);
+        NotificationManager.show(error.message || 'Erreur lors de la validation.', 'error');
+    }
+};
+
+/**
+ * Supprime une écriture en Brouillon
+ */
+window.handleDeleteEntry = async function(entryId) {
+    if (!confirm('Supprimer définitivement cette écriture en Brouillon ? Action irréversible.')) return;
+    try {
+        const companyId = appState.currentCompanyId;
+        await apiFetch(`accounting/move/${entryId}?companyId=${companyId}`, { method: 'DELETE' });
+        NotificationManager.show('Écriture supprimée avec succès.', 'success');
+        if (typeof window.handleJournalApplyFilters === 'function') {
+            window.handleJournalApplyFilters();
+        }
+    } catch (error) {
+        console.error('❌ [handleDeleteEntry]', error);
+        NotificationManager.show(error.message || 'Erreur lors de la suppression.', 'error');
+    }
+};
 
 // =================================================================
 // HANDLERS DES FILTRES
