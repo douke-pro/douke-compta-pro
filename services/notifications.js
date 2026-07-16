@@ -6,6 +6,7 @@
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('./odooService');
+const pool = require('./dbService');
 
 // =============================================================================
 // HELPERS
@@ -124,30 +125,34 @@ const buildEmailBody = (type, title, message, link) => {
  */
 exports.send = async ({ userId, companyId, type, title, message, link }) => {
     try {
-        console.log(`📬 [notifications.send] userId:${userId} | type:${type} | title:"${title}"`);
+        console.log(`📬 [notifications.send] userId:${userId} | companyId:${companyId} | type:${type} | title:"${title}"`);
 
-        if (!userId || !title || !message) {
-            console.warn('⚠️ [notifications.send] Paramètres manquants — ignorée');
-            return { success: false, error: 'userId, title et message requis' };
+        if (!userId || !companyId || !title || !message) {
+            console.warn('⚠️ [notifications.send] Paramètres manquants (userId, companyId, title, message requis) — ignorée');
+            return { success: false, error: 'userId, companyId, title et message requis' };
         }
+
+        // ✅ FIX : 'link' n'existe pas en colonne — intégré directement dans le message
+        const fullMessage = link
+            ? `${message}\n\n🔗 ${(process.env.FRONTEND_URL || 'https://douke-compta-pro.onrender.com')}${link}`
+            : message;
 
         const result = await pool.queryWithRetry(
             `INSERT INTO app_notifications
-             (user_id, company_id, type, title, message, link, is_read, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, FALSE, NOW())
+             (recipient_uid, company_id, type, title, message, is_read, created_at)
+             VALUES ($1, $2, $3, $4, $5, FALSE, NOW())
              RETURNING id`,
             [
                 parseInt(userId),
-                companyId ? parseInt(companyId) : null,
+                parseInt(companyId),
                 type    || 'info',
                 title,
-                message,
-                link    || null
+                fullMessage
             ]
         );
 
         const notifId = result.rows[0]?.id;
-        console.log(`✅ [notifications.send] Notification ${notifId} créée pour userId:${userId}`);
+        console.log(`✅ [notifications.send] Notification ${notifId} créée pour recipient_uid:${userId}`);
         return { success: true, notificationId: notifId };
 
     } catch (error) {

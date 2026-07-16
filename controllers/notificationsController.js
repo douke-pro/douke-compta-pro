@@ -98,13 +98,48 @@ exports.getNotifications = async (req, res) => {
             })
             .filter(Boolean);
 
-        const unreadCount = formattedNotifications.filter(n => !n.read).length;
+        // ✅ FIX : fusion avec les notifications internes Postgres (app_notifications)
+        const companyIdForPg = req.validatedCompanyId || parseInt(req.query.companyId) || null;
 
-        console.log(`✅ [getNotifications] ${formattedNotifications.length} notifications formatées | ${unreadCount} non lues`);
+        let pgNotifications = [];
+        try {
+            const pgResult = await pool.query(
+                companyIdForPg
+                    ? `SELECT id, type, title, message, is_read, created_at, sender_name, sender_email
+                       FROM app_notifications
+                       WHERE recipient_uid = $1 AND company_id = $2
+                       ORDER BY created_at DESC LIMIT 50`
+                    : `SELECT id, type, title, message, is_read, created_at, sender_name, sender_email
+                       FROM app_notifications
+                       WHERE recipient_uid = $1
+                       ORDER BY created_at DESC LIMIT 50`,
+                companyIdForPg ? [userId, companyIdForPg] : [userId]
+            );
+
+            pgNotifications = pgResult.rows.map(row => ({
+                id:         `pg_${row.id}`,
+                type:       row.type || 'info',
+                priority:   'normal',
+                title:      row.title,
+                message:    row.message,
+                created_at: row.created_at,
+                read:       row.is_read,
+                sender_id:  row.sender_name || row.sender_email || 'Système'
+            }));
+        } catch (pgError) {
+            console.warn('⚠️ [getNotifications] Lecture app_notifications échouée (non bloquant):', pgError.message);
+        }
+
+        const allNotifications = [...formattedNotifications, ...pgNotifications]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        const unreadCount = allNotifications.filter(n => !n.read).length;
+
+        console.log(`✅ [getNotifications] ${allNotifications.length} notifications (${formattedNotifications.length} Odoo + ${pgNotifications.length} internes) | ${unreadCount} non lues`);
 
         res.json({
             status:       'success',
-            data:         formattedNotifications,
+            data:         allNotifications,
             unread_count: unreadCount
         });
 

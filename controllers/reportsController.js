@@ -450,8 +450,9 @@ exports.generateReports = async (req, res) => {
                 );
 
                 await notificationService.send({
-                    userId:  request.requested_by,
-                    type:    'financial_report_generated',
+                    userId:    request.requested_by,
+                    companyId: request.company_id,
+                    type:      'financial_report_generated',
                     title:   'Vos états financiers ont été générés',
                     message: `Votre demande #${String(requestId).padStart(5,'0')} a été traitée. Les rapports sont en cours de validation.`,
                     link:    `/reports/${requestId}`
@@ -541,8 +542,9 @@ exports.sendReportsToUser = async (req, res) => {
 
         // ✅ APRÈS — ajoutez ces lignes immédiatement après
        await notificationService.send({
-           userId:  request.requested_by,
-           type:    'financial_report_ready',
+           userId:    request.requested_by,
+           companyId: request.company_id,
+           type:      'financial_report_ready',
            title:   '✅ Vos états financiers sont disponibles',
            message: `Votre demande #${String(req.params.id).padStart(5,'0')} est validée. Connectez-vous pour télécharger vos documents.`,
            link:    `/reports/${req.params.id}`
