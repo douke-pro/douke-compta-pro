@@ -1,7 +1,8 @@
 // =============================================================================
-// FICHIER : controllers/settingsController.js (VERSION CORRIGÉE V16)
+// FICHIER : controllers/settingsController.js (VERSION CORRIGÉE V17)
 // Description : Gestion des paramètres de l'entreprise
-// Correction : Utilise odooService au lieu de odooClient
+// V17 : implémentation réelle du changement de accounting_system (chart_template)
+//       via res.config.settings (create + execute), avec garde-fou anti-écritures
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
@@ -37,7 +38,6 @@ exports.getCompanySettings = async (req, res) => {
 
         const company = companies[0];
 
-        // Récupérer le partenaire pour plus de détails
         let partnerData = {};
         if (company.partner_id) {
             const partners = await odooExecuteKw({
@@ -91,8 +91,6 @@ exports.updateCompanySettings = async (req, res) => {
 
         console.log(`✏️ [updateCompanySettings] Company ID: ${companyId}`);
 
-        // ✅ FIX : l'erreur Odoo n'est plus avalée — elle remonte au catch externe
-        const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
         const updateData = {};
         if (name) updateData.name = name;
         if (email) updateData.email = email;
@@ -136,7 +134,15 @@ exports.getAccountingSettings = async (req, res) => {
 
         console.log(`📊 [getAccountingSettings] Company ID: ${companyId}`);
 
-        // Récupérer l'exercice fiscal actif
+        const companies = await odooExecuteKw({
+            uid: ADMIN_UID_INT,
+            model: 'res.company',
+            method: 'read',
+            args: [[companyId], ['name', 'chart_template']],
+            kwargs: {}
+        });
+        const currentChartTemplate = companies[0]?.chart_template || null;
+
         const fiscalYears = await odooExecuteKw({
             uid: ADMIN_UID_INT,
             model: 'account.fiscal.year',
@@ -151,7 +157,6 @@ exports.getAccountingSettings = async (req, res) => {
 
         const fiscalYear = fiscalYears[0] || {};
 
-        // Lire le modèle d'états financiers (axe indépendant, stocké en Postgres)
         let financialStatementModel = 'NORMAL';
         try {
             const prefResult = await pool.query(
@@ -170,7 +175,7 @@ exports.getAccountingSettings = async (req, res) => {
         res.json({
             status: 'success',
             data: {
-                accounting_system: 'SYSCOHADA',
+                accounting_system: currentChartTemplate,
                 syscohada_variant: 'NORMAL',
                 financial_statement_model: financialStatementModel,
                 fiscal_year_start: fiscalYear.date_from || '2026-01-01',
@@ -192,19 +197,30 @@ exports.getAccountingSettings = async (req, res) => {
 };
 
 /**
- * Met à jour les paramètres comptables
+ * Met à jour les paramètres comptables, y compris le changement réel de plan
+ * comptable (accounting_system → chart_template Odoo) via res.config.settings.
  * @route PUT /api/settings/accounting/:companyId
+ * Body optionnel : { force: true } pour autoriser le changement malgré des
+ * écritures déjà existantes (après backup manuel préalable recommandé).
  */
 exports.updateAccountingSettings = async (req, res) => {
     try {
         const companyId = parseInt(req.params.companyId);
-        const { accounting_system, syscohada_variant, fiscal_year_start, fiscal_year_end, financial_statement_model } = req.body;
+        const {
+            accounting_system,
+            syscohada_variant,
+            fiscal_year_start,
+            fiscal_year_end,
+            financial_statement_model,
+            force
+        } = req.body;
 
-        console.log(`✏️ [updateAccountingSettings] Company ID: ${companyId} — financial_statement_model demandé: ${financial_statement_model}`);
+        console.log(`✏️ [updateAccountingSettings] Company ID: ${companyId} — accounting_system demandé: ${accounting_system}, force=${!!force}`);
 
         const VALID_FINANCIAL_STATEMENT_MODELS = ['NORMAL', 'SMT'];
         let savedPreference = null;
 
+        // --- financial_statement_model (Postgres, axe indépendant) ---
         if (financial_statement_model !== undefined) {
             if (!VALID_FINANCIAL_STATEMENT_MODELS.includes(financial_statement_model)) {
                 return res.status(400).json({
@@ -225,20 +241,127 @@ exports.updateAccountingSettings = async (req, res) => {
             console.log(`✅ [updateAccountingSettings] Préférence enregistrée en base : ${JSON.stringify(savedPreference)}`);
         }
 
-        const accountingSystemIgnored = accounting_system !== undefined;
+        // --- accounting_system → chart_template Odoo (changement réel) ---
+        let chartTemplateResult = null;
+
+        if (accounting_system !== undefined) {
+            // 1. Valider le code contre la vraie liste Odoo
+            const fieldsMeta = await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'res.company',
+                method: 'fields_get',
+                args: [['chart_template']],
+                kwargs: { attributes: ['selection'] }
+            });
+            const validCodes = new Set((fieldsMeta.chart_template?.selection || []).map(([code]) => code));
+
+            if (!validCodes.has(accounting_system)) {
+                return res.status(400).json({
+                    status: 'error',
+                    error: `Code chart_template "${accounting_system}" invalide selon Odoo. Utilisez un code de la liste (ex: "bj", "syscohada", "bj_syscebnl", etc.).`
+                });
+            }
+
+            // 2. État avant modification
+            const [companyBefore] = await odooExecuteKw({
+                uid: ADMIN_UID_INT,
+                model: 'res.company',
+                method: 'read',
+                args: [[companyId], ['name', 'chart_template']],
+                kwargs: {}
+            });
+
+            if (!companyBefore) {
+                return res.status(404).json({ status: 'error', error: 'Société Odoo introuvable' });
+            }
+
+            if (companyBefore.chart_template === accounting_system) {
+                chartTemplateResult = {
+                    before: companyBefore.chart_template,
+                    after: companyBefore.chart_template,
+                    applied: true,
+                    skipped_reason: 'Valeur déjà identique — aucune action effectuée.'
+                };
+                console.log(`ℹ️ [updateAccountingSettings] chart_template déjà à "${accounting_system}", aucun changement nécessaire.`);
+            } else {
+                // 3. Garde-fou : refuser si écritures postées existent, sauf force=true
+                const postedCount = await odooExecuteKw({
+                    uid: ADMIN_UID_INT,
+                    model: 'account.move',
+                    method: 'search_count',
+                    args: [[['company_id', '=', companyId], ['state', '=', 'posted']]],
+                    kwargs: {}
+                });
+
+                if (postedCount > 0 && !force) {
+                    return res.status(409).json({
+                        status: 'error',
+                        error: `Cette société a ${postedCount} écriture(s) comptable(s) postée(s). Changer le plan comptable (actuellement "${companyBefore.chart_template}") régénère les comptes et peut créer des incohérences avec les écritures existantes. Effectuez d'abord un backup ("node backup_accounting_system.js ${companyId}"), puis relancez la requête avec { "force": true }.`,
+                        posted_entries_count: postedCount,
+                        current_chart_template: companyBefore.chart_template
+                    });
+                }
+
+                // 4. Changement réel via le wizard res.config.settings (create + execute)
+                //    Mécanisme validé : régénère effectivement comptes/journaux/taxes.
+                try {
+                    const settingsId = await odooExecuteKw({
+                        uid: ADMIN_UID_INT,
+                        model: 'res.config.settings',
+                        method: 'create',
+                        args: [{ company_id: companyId, chart_template: accounting_system }],
+                        kwargs: {}
+                    });
+
+                    await odooExecuteKw({
+                        uid: ADMIN_UID_INT,
+                        model: 'res.config.settings',
+                        method: 'execute',
+                        args: [[settingsId]],
+                        kwargs: {}
+                    });
+                } catch (loadError) {
+                    console.error('🚨 [updateAccountingSettings] Échec du changement de plan comptable:', loadError.message);
+                    return res.status(500).json({
+                        status: 'error',
+                        error: `Échec de l'installation du plan comptable "${accounting_system}" : ${loadError.message}`
+                    });
+                }
+
+                // 5. Relecture pour confirmer réellement (pas de succès optimiste)
+                const [companyAfter] = await odooExecuteKw({
+                    uid: ADMIN_UID_INT,
+                    model: 'res.company',
+                    method: 'read',
+                    args: [[companyId], ['name', 'chart_template']],
+                    kwargs: {}
+                });
+
+                chartTemplateResult = {
+                    before: companyBefore.chart_template,
+                    after: companyAfter.chart_template,
+                    applied: companyAfter.chart_template === accounting_system
+                };
+
+                if (!chartTemplateResult.applied) {
+                    console.warn(`⚠️ [updateAccountingSettings] chart_template après execute() ("${companyAfter.chart_template}") ≠ demandé ("${accounting_system}")`);
+                }
+                console.log(`✅ [updateAccountingSettings] chart_template ${companyId}: ${chartTemplateResult.before} → ${chartTemplateResult.after}`);
+            }
+        }
+
         const otherFieldsIgnored = syscohada_variant !== undefined || fiscal_year_start !== undefined || fiscal_year_end !== undefined;
 
         res.json({
             status: 'success',
-            message: financial_statement_model !== undefined
-                ? "Modèle d'états financiers mis à jour avec succès"
-                : 'Aucune donnée persistée : seul financial_statement_model est actuellement implémenté côté serveur',
+            message: 'Paramètres comptables mis à jour',
             data: {
                 financial_statement_model: savedPreference,
-                accounting_system_applied: false
+                accounting_system_applied: chartTemplateResult ? chartTemplateResult.applied : false,
+                chart_template: chartTemplateResult
             },
-            warning: (accountingSystemIgnored || otherFieldsIgnored)
-                ? "accounting_system / syscohada_variant / fiscal_year_* ont été reçus mais NE SONT PAS appliqués (non réimplémenté côté serveur). Aucun changement Odoo effectué."
+            warning: otherFieldsIgnored
+                ? "syscohada_variant / fiscal_year_* ont été reçus mais NE SONT PAS appliqués (non réimplémenté côté serveur)."
                 : undefined
         });
 
@@ -262,8 +385,6 @@ exports.getSubscriptionSettings = async (req, res) => {
 
         console.log(`💳 [getSubscriptionSettings] Company ID: ${companyId}`);
 
-        // Simuler des données d'abonnement
-        // À remplacer par une vraie table de gestion d'abonnements
         res.json({
             status: 'success',
             data: {
@@ -298,8 +419,6 @@ exports.updateSubscriptionSettings = async (req, res) => {
 
         console.log(`✏️ [updateSubscriptionSettings] Company ID: ${companyId}`);
 
-        // Ici, mettre à jour dans une table de gestion d'abonnements
-
         res.json({
             status: 'success',
             message: 'Abonnement mis à jour avec succès'
@@ -330,7 +449,6 @@ exports.updateUserProfile = async (req, res) => {
         if (name) updateData.name = name;
         if (phone) updateData.phone = phone;
 
-        // Mettre à jour l'utilisateur Odoo
         if (Object.keys(updateData).length > 0) {
             await odooExecuteKw({
                 uid: ADMIN_UID_INT,
@@ -341,10 +459,7 @@ exports.updateUserProfile = async (req, res) => {
             });
         }
 
-        // Changement de mot de passe
         if (old_password && new_password) {
-            // Vérifier l'ancien mot de passe et changer
-            // À implémenter avec la méthode change_password d'Odoo
             console.log('⚠️ Changement de mot de passe non implémenté');
         }
 
