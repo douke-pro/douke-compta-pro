@@ -10,16 +10,17 @@ const pool = require('../services/dbService');
 // Sauvegarde complète (écritures + config) avant toute tentative réelle de changement de chart_template.
 // Réutilise le même pattern que backup_accounting_system.js.
 async function backupCompanyBeforeChartChange(companyId, triggeredBy) {
+    const CTX = { context: { allowed_company_ids: [companyId], company_id: companyId } };
     const [company] = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'res.company', method: 'read', args: [[companyId], []], kwargs: {} });
-    const moves = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.move', method: 'search_read', args: [[['company_id', '=', companyId]], []], kwargs: { limit: 0 } });
+    const moves = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.move', method: 'search_read', args: [[['company_id', '=', companyId]], []], kwargs: { limit: 0, ...CTX } });
     const moveIds = moves.map(m => m.id);
     let moveLines = [];
     if (moveIds.length > 0) {
-        moveLines = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.move.line', method: 'search_read', args: [[['move_id', 'in', moveIds]], []], kwargs: { limit: 0 } });
+        moveLines = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.move.line', method: 'search_read', args: [[['move_id', 'in', moveIds]], []], kwargs: { limit: 0, ...CTX } });
     }
-    const accounts = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.account', method: 'search_read', args: [[['company_ids', 'in', [companyId]]], []], kwargs: { limit: 0 } });
-    const journals = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.journal', method: 'search_read', args: [[['company_id', '=', companyId]], []], kwargs: { limit: 0 } });
-    const taxes = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.tax', method: 'search_read', args: [[['company_id', '=', companyId]], []], kwargs: { limit: 0 } });
+    const accounts = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.account', method: 'search_read', args: [[['company_ids', 'in', [companyId]]], []], kwargs: { limit: 0, ...CTX } });
+    const journals = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.journal', method: 'search_read', args: [[['company_id', '=', companyId]], []], kwargs: { limit: 0, ...CTX } });
+    const taxes = await odooExecuteKw({ uid: ADMIN_UID_INT, model: 'account.tax', method: 'search_read', args: [[['company_id', '=', companyId]], []], kwargs: { limit: 0, ...CTX } });
 
     const snapshot = { backup_version: '1.0', backup_date: new Date().toISOString(), company, moves, move_lines: moveLines, accounts, journals, taxes };
 
@@ -55,6 +56,16 @@ function resolveChartTemplate(accountingSystem, countryCode) {
         default:
             return { resolved: accountingSystem, usedFallback: false };
     }
+}
+
+// Inverse de resolveChartTemplate : traduit un code technique Odoo (chart_template)
+// vers le libellé métier attendu par le frontend (SYSCOHADA / SYCEBNL / FRENCH).
+function chartTemplateToAccountingSystem(chartTemplate) {
+    if (!chartTemplate) return null;
+    if (chartTemplate === 'fr') return 'FRENCH';
+    if (chartTemplate.endsWith('_syscebnl') || chartTemplate === 'syscebnl') return 'SYCEBNL';
+    if (OHADA_COUNTRY_CODES.includes(chartTemplate) || chartTemplate === 'syscohada') return 'SYSCOHADA';
+    return chartTemplate;
 }
 
 exports.getCompanySettings = async (req, res) => {
@@ -133,7 +144,7 @@ exports.getAccountingSettings = async (req, res) => {
         res.json({
             status: 'success',
             data: {
-                accounting_system: currentChartTemplate, syscohada_variant: 'NORMAL', financial_statement_model: financialStatementModel,
+                accounting_system: chartTemplateToAccountingSystem(currentChartTemplate), chart_template_code: currentChartTemplate, syscohada_variant: 'NORMAL', financial_statement_model: financialStatementModel,
                 fiscal_year_start: fiscalYear.date_from || '2026-01-01', fiscal_year_end: fiscalYear.date_to || '2026-12-31',
                 allow_negative_stock: false, enable_multi_currency: false, require_analytic: false
             }

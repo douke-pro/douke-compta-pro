@@ -13110,18 +13110,21 @@ window.saveAccountingSystem = async function() {
     try {
         console.log('💾 [saveAccountingSystem] Sauvegarde du système', newSystem);
         
-        // TODO: Appel API pour sauvegarder
         const companyId = appState.currentCompanyId;
-        // await apiFetch(`settings/accounting/${companyId}`, {
-        //     method: 'PATCH',
-        //     body: JSON.stringify({ accounting_system: newSystem })
-        // });
-        
-        // Mettre à jour l'affichage
-        document.getElementById('accounting-system-text').textContent = newSystem;
-        
-        NotificationManager.show(`Système comptable mis à jour : ${newSystem}`, 'success');
+        const response = await apiFetch(`settings/accounting/${companyId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ accounting_system: newSystem })
+        });
+
+        const appliedTemplate = response?.data?.chart_template?.after || newSystem;
+        document.getElementById('accounting-system-text').textContent = appliedTemplate;
+
+        NotificationManager.show(response?.message || `Système comptable mis à jour : ${newSystem}`, 'success');
         ModalManager.close();
+
+        if (typeof loadSettingsData === 'function') {
+            await loadSettingsData();
+        }
         
     } catch (error) {
         console.error('🚨 [saveAccountingSystem] Erreur:', error);
