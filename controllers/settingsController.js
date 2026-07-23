@@ -5,6 +5,7 @@
 // =============================================================================
 
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
+const pool = require('../services/dbService');
 
 /**
  * Récupère les paramètres de l'entreprise
@@ -150,6 +151,20 @@ exports.getAccountingSettings = async (req, res) => {
 
         const fiscalYear = fiscalYears[0] || {};
 
+        // Lire le modèle d'états financiers (axe indépendant, stocké en Postgres)
+        let financialStatementModel = 'NORMAL';
+        try {
+            const prefResult = await pool.query(
+                'SELECT financial_statement_model FROM company_accounting_preferences WHERE company_id = $1',
+                [companyId]
+            );
+            if (prefResult.rows.length > 0) {
+                financialStatementModel = prefResult.rows[0].financial_statement_model;
+            }
+        } catch (prefError) {
+            console.error('🚨 [getAccountingSettings] Erreur lecture company_accounting_preferences:', prefError.message);
+        }
+
         console.log(`✅ Paramètres comptables récupérés`);
 
         res.json({
@@ -157,6 +172,7 @@ exports.getAccountingSettings = async (req, res) => {
             data: {
                 accounting_system: 'SYSCOHADA',
                 syscohada_variant: 'NORMAL',
+                financial_statement_model: financialStatementModel,
                 fiscal_year_start: fiscalYear.date_from || '2026-01-01',
                 fiscal_year_end: fiscalYear.date_to || '2026-12-31',
                 allow_negative_stock: false,
@@ -182,18 +198,48 @@ exports.getAccountingSettings = async (req, res) => {
 exports.updateAccountingSettings = async (req, res) => {
     try {
         const companyId = parseInt(req.params.companyId);
-        const { accounting_system, syscohada_variant, fiscal_year_start, fiscal_year_end } = req.body;
+        const { accounting_system, syscohada_variant, fiscal_year_start, fiscal_year_end, financial_statement_model } = req.body;
 
-        console.log(`✏️ [updateAccountingSettings] Company ID: ${companyId}`);
+        console.log(`✏️ [updateAccountingSettings] Company ID: ${companyId} — financial_statement_model demandé: ${financial_statement_model}`);
 
-        // Ici, stocker dans des champs custom Odoo ou une table séparée
-        // Pour l'instant, retourner success
+        const VALID_FINANCIAL_STATEMENT_MODELS = ['NORMAL', 'SMT'];
+        let savedPreference = null;
 
-        console.log(`✅ Paramètres comptables mis à jour`);
+        if (financial_statement_model !== undefined) {
+            if (!VALID_FINANCIAL_STATEMENT_MODELS.includes(financial_statement_model)) {
+                return res.status(400).json({
+                    status: 'error',
+                    error: `Valeur financial_statement_model "${financial_statement_model}" invalide. Valeurs valides : ${VALID_FINANCIAL_STATEMENT_MODELS.join(', ')}.`
+                });
+            }
+
+            const upsertResult = await pool.query(
+                `INSERT INTO company_accounting_preferences (company_id, financial_statement_model, updated_at, updated_by)
+                 VALUES ($1, $2, now(), $3)
+                 ON CONFLICT (company_id)
+                 DO UPDATE SET financial_statement_model = $2, updated_at = now(), updated_by = $3
+                 RETURNING company_id, financial_statement_model, updated_at`,
+                [companyId, financial_statement_model, req.user?.email || req.user?.name || 'unknown']
+            );
+            savedPreference = upsertResult.rows[0];
+            console.log(`✅ [updateAccountingSettings] Préférence enregistrée en base : ${JSON.stringify(savedPreference)}`);
+        }
+
+        const accountingSystemIgnored = accounting_system !== undefined;
+        const otherFieldsIgnored = syscohada_variant !== undefined || fiscal_year_start !== undefined || fiscal_year_end !== undefined;
 
         res.json({
             status: 'success',
-            message: 'Paramètres comptables mis à jour avec succès'
+            message: financial_statement_model !== undefined
+                ? "Modèle d'états financiers mis à jour avec succès"
+                : 'Aucune donnée persistée : seul financial_statement_model est actuellement implémenté côté serveur',
+            data: {
+                financial_statement_model: savedPreference,
+                accounting_system_applied: false
+            },
+            warning: (accountingSystemIgnored || otherFieldsIgnored)
+                ? "accounting_system / syscohada_variant / fiscal_year_* ont été reçus mais NE SONT PAS appliqués (non réimplémenté côté serveur). Aucun changement Odoo effectué."
+                : undefined
         });
 
     } catch (error) {

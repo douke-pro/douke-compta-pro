@@ -9150,6 +9150,21 @@ function generateAccountingSettingsHTML() {
                     </p>
                 </div>
 
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                        Modèle d'États Financiers
+                    </label>
+                    <select id="financial-statement-model" disabled
+                        class="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 bg-gray-100">
+                        <option value="NORMAL" ${data.financial_statement_model === 'NORMAL' ? 'selected' : ''}>Système Normal</option>
+                        <option value="SMT" ${data.financial_statement_model === 'SMT' ? 'selected' : ''}>Système Minimal de Trésorerie (SMT)</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Axe indépendant du système comptable/taxation ci-dessus — détermine le format des états financiers générés.
+                    </p>
+                </div>
+
                 <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl">
                     <h5 class="font-bold text-gray-900 dark:text-white mb-4">
                         <i class="fas fa-calendar-alt mr-2 text-info"></i>Exercice Fiscal
@@ -9325,6 +9340,7 @@ window.handleEditAccountingSettings = function() {
     // Activer les champs
     document.getElementById('accounting-system').removeAttribute('disabled');
     document.getElementById('syscohada-variant').removeAttribute('disabled');
+    document.getElementById('financial-statement-model').removeAttribute('disabled');
     document.getElementById('fiscal-year-start').removeAttribute('disabled');
     document.getElementById('fiscal-year-end').removeAttribute('disabled');
     
@@ -9355,6 +9371,7 @@ window.handleSaveAccountingSettings = async function(event) {
     const data = {
         accounting_system: document.getElementById('accounting-system').value,
         syscohada_variant: document.getElementById('syscohada-variant').value,
+        financial_statement_model: document.getElementById('financial-statement-model').value,
         fiscal_year_start: document.getElementById('fiscal-year-start').value,
         fiscal_year_end: document.getElementById('fiscal-year-end').value
     };
