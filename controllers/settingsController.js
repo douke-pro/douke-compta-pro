@@ -225,16 +225,11 @@ exports.updateAccountingSettings = async (req, res) => {
                 }
 
                 try {
-                    try {
-                        await odooExecuteKw({
-                            uid: ADMIN_UID_INT, model: 'account.chart.template', method: 'try_loading',
-                            args: [[], resolvedChartTemplate],
-                            kwargs: { company: companyId, install_demo: false }
-                        });
-                    } catch (loadError) {
-                        console.error('🚨 Échec installation plan comptable:', loadError.message);
-                        return res.status(500).json({ status: 'error', error: `Échec de l'installation du plan comptable "${resolvedChartTemplate}" : ${loadError.message}` });
-                    }
+                    await odooExecuteKw({
+                        uid: ADMIN_UID_INT, model: 'account.chart.template', method: 'try_loading',
+                        args: [[], resolvedChartTemplate],
+                        kwargs: { company: companyId, install_demo: false }
+                    });
                 } catch (loadError) {
                     console.error('🚨 Échec installation plan comptable:', loadError.message);
                     return res.status(500).json({ status: 'error', error: `Échec de l'installation du plan comptable "${resolvedChartTemplate}" : ${loadError.message}` });
