@@ -26,3 +26,15 @@ fiche_paie_company*.html
 
 # Fichiers de sauvegarde horodatés (générés localement, ne pas versionner)
 *.bak-*
+diag_*.js
+check_*.js
+backup_*.js
+test_*.js
+verify_state.js
+find_*.js
+find_*.sh
+run_ddl.js
+introspect_*.js
+diagnose_*.js
+diagnostic_*.js
+list_*.js
