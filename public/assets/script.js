@@ -2652,7 +2652,7 @@ function printModalContent(containerId, title) {
         '.text-gray-400, .text-gray-500, .text-gray-600 { color: #666 !important; }',
         '.bg-primary\/10, [class*="bg-primary/10"] { background: #e8f0fe !important; }',
         '.bg-success\/10, [class*="bg-success/10"] { background: #e6f4ea !important; }',
-        '.hidden, [class*="hidden"] { display: none !important; }',
+        '.hidden, [class~="hidden"] { display: none !important; }',
         'button, .no-print { display: none !important; }',
         '.flex { display: flex; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }',
         '.gap-2 { gap: 6px; } .gap-3 { gap: 8px; } .gap-4 { gap: 12px; }',
