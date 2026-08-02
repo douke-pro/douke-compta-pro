@@ -800,6 +800,7 @@
             .replace(/src="assets\//g, 'src="' + origin + '/assets/');
         var css = '@page { size: A4 portrait; margin: 15mm 15mm 20mm 15mm; }'
             + '* { box-sizing: border-box; margin: 0; padding: 0; }'
+            + 'svg { width: 1em; height: 1em; max-width: 24px; max-height: 24px; vertical-align: middle; }'
             + 'body { font-family: Arial, sans-serif; font-size: 10pt; color: #111; width: 210mm; max-width: 210mm; }'
             + 'table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }'
             + 'th { background: #e8f0fe; font-size: 8pt; font-weight: 700; text-transform: uppercase; padding: 5px 7px; text-align: left; border: 1px solid #c5cae9; color: #1a237e; }'
