@@ -377,7 +377,7 @@
                 <div class="space-y-3 mb-5">
                     <div>
                         <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Période</label>
-                        <div class="grid grid-cols-3 gap-2">
+                        <div class="grid grid-cols-4 gap-2">
                             <button onclick="window.rapportGestionSetPeriode('mensuel', this)"
                                 class="rg-periode-btn text-xs py-2 px-3 rounded-lg border-2 border-success bg-success/10 text-success font-bold transition-all">
                                 Mensuel
@@ -389,6 +389,10 @@
                             <button onclick="window.rapportGestionSetPeriode('semestriel', this)"
                                 class="rg-periode-btn text-xs py-2 px-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-bold transition-all">
                                 Semestriel
+                            </button>
+                            <button onclick="window.rapportGestionSetPeriode('annuel', this)"
+                                class="rg-periode-btn text-xs py-2 px-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-bold transition-all">
+                                Annuel
                             </button>
                         </div>
                     </div>
@@ -438,6 +442,7 @@
         if      (type === 'mensuel')     end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
         else if (type === 'trimestriel') end = new Date(start.getFullYear(), start.getMonth() + 3, 0);
         else if (type === 'semestriel')  end = new Date(start.getFullYear(), start.getMonth() + 6, 0);
+        else if (type === 'annuel')      end = new Date(start.getFullYear(), start.getMonth() + 12, 0);
 
         const to = document.getElementById('rg-date-to');
         if (to) to.value = end.toISOString().split('T')[0];
