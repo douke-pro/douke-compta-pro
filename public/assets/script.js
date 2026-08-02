@@ -2633,9 +2633,10 @@ function printModalContent(containerId, title) {
         .replace(/src="assets\//g, 'src="' + origin + '/assets/');
 
     var css = [
-        '@page { size: A4 portrait; margin: 15mm 15mm 20mm 15mm; }',
+        '@page { size: A4 landscape; margin: 10mm 10mm 15mm 10mm; }',
         '* { box-sizing: border-box; margin: 0; padding: 0; }',
-        'body { font-family: Arial, sans-serif; font-size: 10pt; color: #111; width: 210mm; max-width: 210mm; }',
+        'svg { width: 1em; height: 1em; max-width: 24px; max-height: 24px; vertical-align: middle; }',
+        'body { font-family: Arial, sans-serif; font-size: 9pt; color: #111; width: 297mm; max-width: 297mm; }',
         'table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9pt; }',
         'th { background: #e8f0fe; font-size: 8pt; font-weight: 700; text-transform: uppercase; padding: 5px 7px; text-align: left; border: 1px solid #c5cae9; color: #1a237e; }',
         'td { padding: 4px 7px; border: 1px solid #e0e0e0; font-size: 9pt; vertical-align: top; }',
@@ -2679,7 +2680,7 @@ function printModalContent(containerId, title) {
         'h1 { font-size: 14pt; } h2 { font-size: 12pt; } h3 { font-size: 11pt; }',
         '@media print {',
         '  @page { size: A4 portrait; margin: 15mm 15mm 20mm 15mm; }',
-        '  body { width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        '  body { width: 297mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
         '  thead { display: table-header-group; }',
         '  tfoot { display: table-footer-group; }',
         '  tr { page-break-inside: avoid; }',
