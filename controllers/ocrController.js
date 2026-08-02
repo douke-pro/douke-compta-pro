@@ -37,9 +37,9 @@ exports.uploadAndScan = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Authentification requise' });
         }
 
-        // ✅ Query string en priorité — le frontend envoie ?companyId=X
-        const companyId = parseInt(req.query.companyId)
-            || req.validatedCompanyId
+        // ✅ SECURISE : req.validatedCompanyId (verifie serveur via checkCompanyAccess) en priorite
+        const companyId = req.validatedCompanyId
+            || parseInt(req.query.companyId)
             || req.user.companyId
             || req.user.currentCompanyId
             || req.user.entrepriseContextId
@@ -362,9 +362,9 @@ exports.validateAndCreateEntry = async (req, res) => {
         console.log('🚀 [validateAndCreateEntry] === DÉBUT VALIDATION ===');
         console.log('📦 [validateAndCreateEntry] Body:', JSON.stringify(req.body, null, 2));
 
-        // ✅ req.body.companyId en priorité — c'est ce que le frontend envoie
-        const companyId = parseInt(req.body?.companyId)
-            || req.validatedCompanyId
+        // ✅ SECURISE : req.validatedCompanyId en priorite
+        const companyId = req.validatedCompanyId
+            || parseInt(req.body?.companyId)
             || req.user?.companyId
             || req.user?.currentCompanyId
             || parseInt(req.query.companyId);
@@ -644,8 +644,8 @@ exports.validateAndCreateEntry = async (req, res) => {
 
 exports.getHistory = async (req, res) => {
     try {
-        const companyId = parseInt(req.query.companyId)
-            || req.validatedCompanyId
+        const companyId = req.validatedCompanyId
+            || parseInt(req.query.companyId)
             || req.user?.companyId
             || req.user?.currentCompanyId;
 
@@ -690,8 +690,8 @@ exports.getHistory = async (req, res) => {
 exports.deleteDocument = async (req, res) => {
     try {
         const documentId = req.params.id;
-        const companyId = parseInt(req.query.companyId)
-            || req.validatedCompanyId
+        const companyId = req.validatedCompanyId
+            || parseInt(req.query.companyId)
             || req.user?.companyId
             || req.user?.currentCompanyId;
 

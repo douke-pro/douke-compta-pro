@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, restrictTo } = require('../middleware/auth');
 
 // 🔧 IMPORTER LE CONTRÔLEUR
 const companyController = require('../controllers/companyController');
@@ -10,6 +10,6 @@ router.post('/create', protect, companyController.createCompanyWithIsolation);
 router.get('/list', protect, companyController.listUserCompanies);
 
 // 🆕 NOUVELLE ROUTE (pour la liste des entreprises)
-router.get('/', protect, companyController.getCompanies);
+router.get('/', protect, restrictTo('ADMIN'), companyController.getCompanies);
 
 module.exports = router;

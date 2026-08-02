@@ -13,7 +13,7 @@ const express  = require('express');
 const router   = express.Router();
 const multer   = require('multer');
 const path     = require('path');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, checkCompanyAccess } = require('../middleware/auth');
 const ocrController         = require('../controllers/ocrController');
 const { odooExecuteKw, ADMIN_UID_INT } = require('../services/odooService');
 
@@ -63,7 +63,7 @@ const upload = multer({
 //    (company 7 technique de l'admin) écrase la company réellement sélectionnée
 // =============================================================================
 
-router.get('/accounts', authenticateToken, async (req, res) => {
+router.get('/accounts', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
         // ✅ Query string en priorité absolue
         const companyId = parseInt(req.query.companyId)
@@ -119,10 +119,10 @@ router.get('/accounts', authenticateToken, async (req, res) => {
 // ROUTES OCR
 // =============================================================================
 
-router.post('/process',             authenticateToken, upload.single('file'), ocrController.uploadAndScan);
-router.post('/validate-and-create', authenticateToken, ocrController.validateAndCreateEntry);
-router.get('/history',              authenticateToken, ocrController.getHistory);
-router.delete('/:id',               authenticateToken, ocrController.deleteDocument);
+router.post('/process',             authenticateToken, checkCompanyAccess, upload.single('file'), ocrController.uploadAndScan);
+router.post('/validate-and-create', authenticateToken, checkCompanyAccess, ocrController.validateAndCreateEntry);
+router.get('/history',              authenticateToken, checkCompanyAccess, ocrController.getHistory);
+router.delete('/:id',               authenticateToken, checkCompanyAccess, ocrController.deleteDocument);
 
 // =============================================================================
 // GESTION ERREURS MULTER

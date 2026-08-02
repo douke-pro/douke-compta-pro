@@ -54,9 +54,10 @@ router.put ('/chart-of-accounts', protect, checkCompanyAccess, checkWritePermiss
 // ROUTE COMPTES — ODOO 19 COMPATIBLE
 // =============================================================================
 
-router.get('/accounts', authenticateToken, async (req, res) => {
+router.get('/accounts', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
-        const companyId = req.user.currentCompanyId ||
+        const companyId = req.validatedCompanyId ||
+                          req.user.currentCompanyId ||
                           req.user.companyId ||
                           parseInt(req.query.companyId);
 
@@ -99,9 +100,10 @@ router.get('/accounts', authenticateToken, async (req, res) => {
 // EXERCICES FISCAUX — Odoo account.fiscal.year
 // =============================================================================
 
-router.get('/fiscal-years', authenticateToken, async (req, res) => {
+router.get('/fiscal-years', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
-        const companyId = parseInt(req.query.companyId) ||
+        const companyId = req.validatedCompanyId ||
+                          parseInt(req.query.companyId) ||
                           req.user.currentCompanyId ||
                           req.user.companyId;
 
@@ -135,9 +137,10 @@ router.get('/fiscal-years', authenticateToken, async (req, res) => {
     }
 });
 
-router.post('/fiscal-years', authenticateToken, async (req, res) => {
+router.post('/fiscal-years', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
-        const { companyId, name, date_from, date_to } = req.body;
+        const { name, date_from, date_to } = req.body;
+        const companyId = req.validatedCompanyId || parseInt(req.body.companyId);
 
         if (!companyId || !name || !date_from || !date_to) {
             return res.status(400).json({
@@ -193,21 +196,28 @@ router.post('/fiscal-years', authenticateToken, async (req, res) => {
 const closingController = require('../controllers/closingController');
 
 // Lecture
-router.get ('/closing/available-years', protect, closingController.getAvailableYears);
-router.get ('/closing/status',          protect, closingController.getClosingStatus);
-router.get ('/closing/pre-checks',      protect, closingController.runPreChecks);
-router.get ('/closing/audit-log',       protect, closingController.getAuditLog);
+router.get ('/closing/available-years', protect, checkCompanyAccess, closingController.getAvailableYears);
+router.get ('/closing/status',          protect, checkCompanyAccess, closingController.getClosingStatus);
+router.get ('/closing/pre-checks',      protect, checkCompanyAccess, closingController.runPreChecks);
+router.get ('/closing/audit-log',       protect, checkCompanyAccess, closingController.getAuditLog);
 
 // Flux normal de clôture (dans l'ordre)
-router.post('/closing/post-result',     protect, closingController.postResultEntry);
-router.post('/closing/lock',            protect, closingController.lockFiscalYear);
-router.post('/closing/finalize',        protect, closingController.finalizeClosing);
+router.post('/closing/post-result',     protect, checkCompanyAccess, closingController.postResultEntry);
+router.post('/closing/lock',            protect, checkCompanyAccess, closingController.lockFiscalYear);
+router.post('/closing/finalize',        protect, checkCompanyAccess, closingController.finalizeClosing);
 
 // Flux correction
-router.post('/closing/unlock',          protect, closingController.unlockFiscalYear);
-router.post('/closing/relock',          protect, closingController.relockFiscalYear);
+router.post('/closing/unlock',          protect, checkCompanyAccess, closingController.unlockFiscalYear);
+router.post('/closing/relock',          protect, checkCompanyAccess, closingController.relockFiscalYear);
 
-router.post("/closing/snapshot",         protect, closingController.retrySnapshot);
-router.get ("/closing/opening-balances", protect, closingController.getOpeningBalances);
+router.post("/closing/snapshot",         protect, checkCompanyAccess, closingController.retrySnapshot);
+router.get ("/closing/opening-balances", protect, checkCompanyAccess, closingController.getOpeningBalances);
+
+// Lecture
+
+// Flux normal de clôture (dans l'ordre)
+
+// Flux correction
+
 
 module.exports = router;
