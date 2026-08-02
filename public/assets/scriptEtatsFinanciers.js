@@ -472,8 +472,8 @@
                 date_to:   prevTo.toISOString().split('T')[0]
             };
             const [respN, respN1] = await Promise.all([
-                apiFetch('accounting/trial-balance-syscohada?companyId=' + companyId + '&date_from=' + dateFrom + '&date_to=' + dateTo, { method: 'GET' }),
-                apiFetch('accounting/trial-balance-syscohada?companyId=' + companyId + '&date_from=' + prev.date_from + '&date_to=' + prev.date_to, { method: 'GET' })
+                apiFetch('accounting/trial-balance-syscohada?companyId=' + companyId + '&date_from=' + dateFrom + '&date_to=' + dateTo + '&excludeClosing=1', { method: 'GET' }),
+                apiFetch('accounting/trial-balance-syscohada?companyId=' + companyId + '&date_from=' + prev.date_from + '&date_to=' + prev.date_to + '&excludeClosing=1', { method: 'GET' })
             ]);
             if (respN.status !== 'success') throw new Error(respN.error || 'Erreur période N');
             const accountsN  = respN.data.accounts  || [];

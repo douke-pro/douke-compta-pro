@@ -758,16 +758,21 @@ exports.getSyscohadaTrialBalance = async (req, res) => {
             }
         });
 
+        const excludeClosing = req.query.excludeClosing === '1' || req.query.excludeClosing === 'true';
+        const periodDomain = [
+            ['company_id',   '=', companyId],
+            ['parent_state', '=', 'posted'],
+            ['date', '>=', date_from],
+            ['date', '<=', date_to]
+        ];
+        if (excludeClosing) {
+            periodDomain.push(['name', 'not ilike', 'Cloture des comptes de gestion']);
+        }
         const periodLines = await odooExecuteKw({
             uid:    ADMIN_UID_INT,
             model:  'account.move.line',
             method: 'search_read',
-            args:   [[
-                ['company_id',   '=', companyId],
-                ['parent_state', '=', 'posted'],
-                ['date', '>=', date_from],
-                ['date', '<=', date_to]
-            ]],
+            args:   [periodDomain],
             kwargs: {
                 fields:  ['account_id', 'debit', 'credit'],
                 context: { allowed_company_ids: [companyId] }
