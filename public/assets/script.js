@@ -2591,9 +2591,31 @@ function calculateTotals(accounts) {
 // =============================================================================
 
 window.exportBalanceToExcel = function() {
-    NotificationManager.show('Export Excel en cours de développement...', 'info');
-    // TODO: Implémenter avec SheetJS ou côté backend
+    exportContainerTableToExcel('ledger-balance-result', 'Balance_Generale_SYSCOHADA');
 };
+
+function exportContainerTableToExcel(containerId, filename) {
+    if (typeof XLSX === 'undefined') {
+        NotificationManager.show('Erreur: librairie Excel non chargée.', 'error');
+        return;
+    }
+    var container = document.getElementById(containerId);
+    var table = container ? container.querySelector('table') : null;
+    if (!table) {
+        NotificationManager.show('Aucun tableau à exporter.', 'warning');
+        return;
+    }
+    try {
+        var wb = XLSX.utils.table_to_book(table, { raw: false });
+        var company = (appState.currentCompanyName || 'Douke').replace(/[^a-zA-Z0-9]/g, '_');
+        var date = new Date().toISOString().slice(0,10);
+        XLSX.writeFile(wb, filename + '_' + company + '_' + date + '.xlsx');
+        NotificationManager.show('Export Excel généré avec succès !', 'success');
+    } catch (err) {
+        console.error('Erreur export Excel:', err);
+        NotificationManager.show('Erreur lors de l\'export Excel: ' + err.message, 'error');
+    }
+}
 
 
 // =============================================================================
@@ -2693,15 +2715,15 @@ function printModalContent(containerId, title) {
 }
 
 window.printBalance = function() {
-    printModalContent(null, 'Balance Générale');
+    printModalContent('ledger-balance-result', 'Balance Générale');
 };
 
 window.exportLedgerToExcel = function() {
-    NotificationManager.show('Export Excel en cours de développement...', 'info');
+    exportContainerTableToExcel('ledger-balance-result', 'Grand_Livre');
 };
 
 window.printLedger = function() {
-    printModalContent(null, 'Grand Livre');
+    printModalContent('ledger-balance-result', 'Grand Livre');
 };
 
 // =============================================================================
