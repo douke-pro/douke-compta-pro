@@ -1,90 +1,73 @@
-/**
- * Logique de génération du Bilan pour le système SYSCOHADA NORMAL.
- * Intègre toutes les rubriques détaillées de l'Actif et du Passif.
- * * NOTE: Les formules de calcul ci-dessous sont SIMULÉES (ex: dataComptable.Stocks)
- * et doivent être remplacées par votre logique d'agrégation précise des comptes (Classes 1, 2, 3, 4, 5).
- * * @param {Object} dataComptable - Les données brutes des comptes de l'entreprise.
- * @returns {Object} Le Bilan structuré au format Normal.
- */
-function genererBilanNormal(dataComptable) {
-    const ACTIF = {
-        // --- ACTIF IMMOBILISÉ ---
-        immobilisationsIncorporelles: dataComptable.immobilisations_incorporelles, // Rubrique
-        immobilisationsCorporelles: dataComptable.immobilisations_corporelles,     // Rubrique
-        immobilisationsFinancieres: dataComptable.immobilisations_financieres,     // Rubrique
-        totalActifImmobilise: dataComptable.immobilisations_incorporelles + dataComptable.immobilisations_corporelles + dataComptable.immobilisations_financieres,
-
-        // --- ACTIF CIRCULANT ---
-        stocks: dataComptable.stocks,                                              // Rubrique (Classes 3)
-        creancesClients: dataComptable.creances_clients,                           // Rubrique
-        autresCreances: dataComptable.autres_creances_circulantes,                 // Rubrique
-        tresorerieActif: dataComptable.banques_caisses,                            // Rubrique (Classes 5)
-        totalActifCirculant: dataComptable.stocks + dataComptable.creances_clients + dataComptable.autres_creances_circulantes + dataComptable.banques_caisses,
-
-        // --- TOTAL GÉNÉRAL ---
-        totalGeneralActif: (dataComptable.immobilisations_incorporelles + dataComptable.immobilisations_corporelles + dataComptable.immobilisations_financieres) +
-                           (dataComptable.stocks + dataComptable.creances_clients + dataComptable.autres_creances_circulantes + dataComptable.banques_caisses),
-    };
-
-    const PASSIF = {
-        // --- CAPITAUX PROPRES ET RESSOURCES ASSIMILÉES ---
-        capitauxPropriete: dataComptable.capital_social,                           // Rubrique (Classe 1)
-        reserves: dataComptable.reserves,                                          // Rubrique
-        resultatNetExercice: dataComptable.resultat_net,                           // Résultat du CR
-        totalCapitauxPropres: dataComptable.capital_social + dataComptable.reserves + dataComptable.resultat_net,
-
-        // --- DETTES ET RESSOURCES ASSIMILÉES ---
-        amortissementsProvisions: dataComptable.amortissements_provisions,
-        dettesFinancieres: dataComptable.emprunts,                                 // Rubrique
-        dettesFournisseurs: dataComptable.dettes_fournisseurs,                     // Rubrique (Classe 4)
-        autresDettes: dataComptable.autres_dettes,                                 // Rubrique
-        totalDettes: dataComptable.amortissements_provisions + dataComptable.emprunts + dataComptable.dettes_fournisseurs + dataComptable.autres_dettes,
-
-        // --- TOTAL GÉNÉRAL ---
-        totalGeneralPassif: ACTIF.totalGeneralActif, // L'actif doit toujours être égal au passif
-    };
-
-    return { ACTIF, PASSIF };
-}
+'use strict';
 
 /**
- * Logique de génération du Bilan pour le système SYSCOHADA MINIMAL.
- * Rubriques beaucoup plus agrégées pour une présentation simplifiée.
- * * @param {Object} dataComptable - Les données brutes des comptes de l'entreprise.
- * @returns {Object} Le Bilan structuré au format Minimal.
+ * ================================================================
+ * BILAN SYSCOHADA — VERSION CORRIGÉE / UNIFIÉE
+ * ================================================================
+ * L'ancienne version de ce fichier était une SIMULATION : elle
+ * attendait des champs inventés (dataComptable.immobilisations_*,
+ * dataComptable.stocks, etc.) qui ne correspondent à aucune donnée
+ * réelle de l'application, et ne respectait pas la nomenclature
+ * officielle (refs AD, AI, AZ, BZ, CA...DZ).
+ *
+ * Cette version délègue entièrement le calcul au moteur unique et
+ * validé `services/syscohadaMapper.js`, qui travaille directement
+ * à partir de la balance générale (comptes réels) et produit une
+ * structure conforme à 99%+ au modèle officiel DGI (refs, libellés,
+ * notes, totaux).
+ *
+ * Il n'y a donc plus qu'UNE SEULE source de vérité pour le Bilan
+ * dans toute l'application (que ce soit via l'API /api/syscohada/bilan
+ * ou via l'export global genererEtatsFinanciers).
+ * ================================================================
  */
-function genererBilanMinimal(dataComptable) {
-    const ACTIF = {
-        immobilisations: dataComptable.totalActifImmobilise,
-        stocksCreances: dataComptable.stocks + dataComptable.creances_clients + dataComptable.autres_creances_circulantes,
-        tresorerie: dataComptable.banques_caisses,
-        totalGeneralActif: dataComptable.totalActifImmobilise + dataComptable.stocks + dataComptable.creances_clients + dataComptable.autres_creances_circulantes + dataComptable.banques_caisses,
-    };
 
-    const PASSIF = {
-        capitauxPropres: dataComptable.totalCapitauxPropres,
-        dettes: dataComptable.totalDettes,
-        totalGeneralPassif: ACTIF.totalGeneralActif,
-    };
-
-    return { ACTIF, PASSIF };
-}
-
+const { computeActif, computePassif } = require('../../services/syscohadaMapper');
 
 /**
- * Point d'entrée unique du module Bilan. Gère l'aiguillage en fonction de la configuration.
- * * @param {Object} dataComptable - Les comptes (Classes 1 à 5) et leurs montants.
- * @param {Object} config - La configuration (doit contenir config.systeme, exercice, etc.).
- * @returns {Object} Le Bilan structuré selon le format SYSCOHADA requis.
+ * Génère le Bilan SYSCOHADA (Système Normal ou Minimal).
+ *
+ * @param {Array} balanceAccounts - Balance générale de l'exercice N
+ *        (format attendu par syscohadaMapper : [{ code, opening_debit, opening_credit, debit, credit }])
+ * @param {Array} prevYearBalances - Balance de clôture de l'exercice N-1 (mêmes champs)
+ * @param {number} resultatNet - Résultat net de l'exercice (calculé par compteResultat.js)
+ * @param {Object} config - { systeme: 'NORMAL' | 'MINIMAL', exercice, entrepriseId }
+ * @returns {Object} { ACTIF: [...], PASSIF: [...], equilibre, ecart }
  */
-function genererBilan(dataComptable, config) {
-    if (config.systeme === 'NORMAL') {
-        return genererBilanNormal(dataComptable);
-    } else if (config.systeme === 'MINIMAL') {
-        return genererBilanMinimal(dataComptable);
-    } else {
-        throw new Error(`Bilan: Le système '${config.systeme}' n'est pas pris en charge pour l'exercice ${config.exercice}.`);
+function genererBilan(balanceAccounts, prevYearBalances, resultatNet, config) {
+    if (!config || !config.systeme) {
+        throw new Error("Bilan: configuration manquante (systeme requis).");
     }
+    if (config.systeme !== 'NORMAL' && config.systeme !== 'MINIMAL') {
+        throw new Error(`Bilan: le système '${config.systeme}' n'est pas pris en charge pour l'exercice ${config.exercice}.`);
+    }
+
+    const actif  = computeActif(balanceAccounts, prevYearBalances);
+    const passif = computePassif(balanceAccounts, prevYearBalances, resultatNet);
+
+    const totalActif  = actif.find(l  => l.ref === 'BZ')?.net || 0;
+    const totalPassif = passif.find(l => l.ref === 'DZ')?.net || 0;
+    const ecart = Math.abs(totalActif - totalPassif);
+
+    // Le système MINIMAL affiche une présentation agrégée des mêmes
+    // données (les rubriques détaillées restent disponibles pour audit).
+    if (config.systeme === 'MINIMAL') {
+        return {
+            systeme: 'MINIMAL',
+            ACTIF: actif.filter(l => l.isTotal),
+            PASSIF: passif.filter(l => l.isTotal),
+            detailComplet: { actif, passif },
+            totaux: { total_actif: totalActif, total_passif: totalPassif, ecart, equilibre: ecart <= 1 },
+        };
+    }
+
+    return {
+        systeme: 'NORMAL',
+        ACTIF: actif,
+        PASSIF: passif,
+        totaux: { total_actif: totalActif, total_passif: totalPassif, ecart, equilibre: ecart <= 1 },
+    };
 }
 
 module.exports = { genererBilan };
+

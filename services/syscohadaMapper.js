@@ -1,5 +1,37 @@
 'use strict';
 
+/**
+ * ================================================================
+ * MAPPER SYSCOHADA RÉVISÉ — CORRIGÉ
+ * ================================================================
+ * Corrections apportées par rapport à la version précédente :
+ *
+ * 1. CLASSE 1 (Capitaux propres) — comptes réattribués selon le plan
+ *    comptable OHADA officiel (au lieu d'un chevauchement sur le
+ *    compte 141 entre CH "Report à nouveau" et CL "Subventions
+ *    d'investissement") :
+ *      - CA  Capital                         -> 101,102,103,104,109
+ *      - CD  Primes liées au capital social   -> 105
+ *      - CE  Écarts de réévaluation           -> 106   (au lieu de 121)
+ *      - CF  Réserves indisponibles           -> 111,112,113
+ *      - CG  Réserves libres                  -> 118
+ *      - CH  Report à nouveau                 -> 121,129 (au lieu de 141,142)
+ *      - CL  Subventions d'investissement     -> 141,148
+ *      - CM  Provisions réglementées          -> 151..158 (inchangé)
+ *
+ * 2. TFT — la CAFG (ligne FA) n'est plus assimilée à l'EBE (XD).
+ *    Elle est désormais calculée selon la formule officielle :
+ *      CAFG = Résultat net
+ *             + Dotations aux amortissements, provisions et dépréciations (charges)
+ *             - Reprises d'amortissements, provisions et dépréciations (produits)
+ *             + Valeur comptable des cessions d'immobilisations (charge HAO)
+ *             - Produits de cession d'immobilisations (produit HAO)
+ *             - Transferts de charges (à réintégrer, non décaissés / non générateurs de trésorerie selon les cas)
+ *    (formule simplifiée couramment admise ; à affiner selon les
+ *    retraitements spécifiques de l'entité si nécessaire)
+ * ================================================================
+ */
+
 const ACTIF_MAPPING = [
     { ref: 'AD', libelle: 'IMMOBILISATIONS INCORPORELLES', note: '3', isTotalLine: true,
       comptes_brut: ['201','202','203','204','205','206','207','208'], comptes_amort: ['2801','2802','2803','2804','2805','2806','2807','2808'] },
@@ -46,16 +78,16 @@ const ACTIF_MAPPING = [
 ];
 
 const PASSIF_MAPPING = [
-    { ref: 'CA', libelle: 'Capital', note: '13', comptes: ['101','102','103','104','105','106','109'], sens: 'credit' },
-    { ref: 'CB', libelle: 'Apporteurs capital non appelé (-)', note: '13', comptes: ['1094'], sens: 'debit', negatif: true },
-    { ref: 'CD', libelle: 'Primes liées au capital social', note: '14', comptes: ['111','112','113','114'], sens: 'credit' },
-    { ref: 'CE', libelle: 'Écarts de réévaluation', note: '3e', comptes: ['121'], sens: 'credit' },
-    { ref: 'CF', libelle: 'Réserves indisponibles', note: '14', comptes: ['1311','1312','1313','1318'], sens: 'credit' },
-    { ref: 'CG', libelle: 'Réserves libres', note: '14', comptes: ['132','133','134','138'], sens: 'credit' },
-    { ref: 'CH', libelle: 'Report à nouveau (+ ou -)', note: '14', comptes: ['141','142'], sens: 'solde' },
-    { ref: 'CJ', libelle: "Résultat net de l'exercice", note: '', comptes: ['131','139'], sens: 'solde', fromResultat: true },
-    { ref: 'CL', libelle: "Subventions d'investissement", note: '15', comptes: ['141'], sens: 'credit' },
-    { ref: 'CM', libelle: 'Provisions réglementées', note: '15', comptes: ['151','152','153','154','155','156','158'], sens: 'credit' },
+    { ref: 'CA', libelle: 'Capital', note: '13', comptes: ['101','102','103','104','109'], sens: 'credit' },
+    { ref: 'CB', libelle: 'Apporteurs capital non appelé (-)', note: '13', comptes: ['1091','1092','1093','1094'], sens: 'debit', negatif: true },
+    { ref: 'CD', libelle: 'Primes liées au capital social', note: '14', comptes: ['105'], sens: 'credit' },
+    { ref: 'CE', libelle: 'Écarts de réévaluation', note: '3e', comptes: ['106'], sens: 'credit' },
+    { ref: 'CF', libelle: 'Réserves indisponibles', note: '14', comptes: ['111','112','113'], sens: 'credit' },
+    { ref: 'CG', libelle: 'Réserves libres', note: '14', comptes: ['118'], sens: 'credit' },
+    { ref: 'CH', libelle: 'Report à nouveau (+ ou -)', note: '14', comptes: ['121','129'], sens: 'solde' },
+    { ref: 'CJ', libelle: "Résultat net de l'exercice", note: '', comptes: ['130','131','139'], sens: 'solde', fromResultat: true },
+    { ref: 'CL', libelle: "Subventions d'investissement", note: '15', comptes: ['141','148'], sens: 'credit' },
+    { ref: 'CM', libelle: 'Provisions réglementées', note: '15', comptes: ['151','152','153','154','155','158'], sens: 'credit' },
     { ref: 'CP', libelle: 'TOTAL CAPITAUX PROPRES ET RESSOURCES ASSIMILÉES', note: '', isGrandTotal: true, refs_sum: ['CA','CB','CD','CE','CF','CG','CH','CJ','CL','CM'] },
     { ref: 'DA', libelle: 'Emprunts et dettes financières diverses', note: '16', comptes: ['161','162','163','164','165','166','167','168'], sens: 'credit' },
     { ref: 'DB', libelle: 'Dettes de location-acquisition', note: '16', comptes: ['172','174'], sens: 'credit' },
@@ -102,13 +134,13 @@ const RESULTAT_MAPPING = [
     { ref: 'RK', libelle: 'Charges de personnel', sens: '-', note: '27', comptes: ['661','662','663','664','665','666','667','668'], type: 'charge' },
     { ref: 'XD', libelle: "EXCÉDENT BRUT D'EXPLOITATION", sens: '', note: '', isTotal: true, refs_sum: ['XC','RK'] },
     { ref: 'TJ', libelle: "Reprises d'amortissements, provisions et dépréciations", sens: '+', note: '28', comptes: ['781','791'], type: 'produit' },
-    { ref: 'RL', libelle: "Dotations aux amortissements, aux provisions et dépréciations", sens: '-', note: '28', comptes: ['681','691'], type: 'charge' },
+    { ref: 'RL', libelle: "Dotations aux amortissements, aux provisions et dépréciations", sens: '-', note: '3C&28', comptes: ['681','691'], type: 'charge' },
     { ref: 'XE', libelle: "RÉSULTAT D'EXPLOITATION", sens: '', note: '', isTotal: true, refs_sum: ['XD','TJ','RL'] },
     { ref: 'TK', libelle: 'Revenus financiers et assimilés', sens: '+', note: '29', comptes: ['77'], type: 'produit' },
     { ref: 'TL', libelle: 'Reprises de provisions et dépréciations financières', sens: '+', note: '28', comptes: ['797'], type: 'produit' },
     { ref: 'TM', libelle: 'Transferts de charges financières', sens: '+', note: '12', comptes: ['787'], type: 'produit' },
     { ref: 'RM', libelle: 'Frais financiers et charges assimilées', sens: '-', note: '29', comptes: ['67'], type: 'charge' },
-    { ref: 'RN', libelle: 'Dotations aux provisions et aux dépréciations financières', sens: '-', note: '28', comptes: ['697'], type: 'charge' },
+    { ref: 'RN', libelle: 'Dotations aux provisions et aux dépréciations financières', sens: '-', note: '3C&28', comptes: ['697'], type: 'charge' },
     { ref: 'XF', libelle: 'RÉSULTAT FINANCIER', sens: '', note: '', isTotal: true, refs_sum: ['TK','TL','TM','RM','RN'] },
     { ref: 'XG', libelle: 'RÉSULTAT DES ACTIVITÉS ORDINAIRES', sens: '', note: '', isTotal: true, refs_sum: ['XE','XF'] },
     { ref: 'TN', libelle: "Produits des cessions d'immobilisations", sens: '+', note: '3D', comptes: ['82'], type: 'produit' },
@@ -123,7 +155,7 @@ const RESULTAT_MAPPING = [
 
 const TFT_MAPPING = [
     { ref: 'ZA', libelle: 'Trésorerie nette au 1er janvier', sens: 'A', fromBilan: true },
-    { ref: 'FA', libelle: "Capacité d'Autofinancement Globale (CAFG)", sens: '+', comptes: [], fromResultat: 'XD' },
+    { ref: 'FA', libelle: "Capacité d'Autofinancement Globale (CAFG)", sens: '+', comptes: [], fromCAFG: true },
     { ref: 'FB', libelle: "Variation d'actif circulant HAO", sens: '-', comptes: ['481','485','488'] },
     { ref: 'FC', libelle: 'Variation des stocks', sens: '-', comptes: ['31','32','33','34','35','36','37','38'] },
     { ref: 'FD', libelle: 'Variation des créances', sens: '-', comptes: ['411','412','416','418','419','421','431','441','451','461'] },
@@ -136,8 +168,8 @@ const TFT_MAPPING = [
     { ref: 'FJ', libelle: 'Cessions immos financières', sens: '+', comptes: ['77'] },
     { ref: 'ZC', libelle: "Flux de trésorerie activités d'investissement", sens: 'C', isTotal: true, refs_sum: ['FF','FG','FH','FI','FJ'] },
     { ref: 'FK', libelle: 'Augmentations de capital', sens: '+', comptes: ['101','102','103','104','105'] },
-    { ref: 'FL', libelle: "Subventions d'investissement reçues", sens: '+', comptes: ['141'] },
-    { ref: 'FM', libelle: 'Prélèvements sur le capital', sens: '-', comptes: ['1094'] },
+    { ref: 'FL', libelle: "Subventions d'investissement reçues", sens: '+', comptes: ['141','148'] },
+    { ref: 'FM', libelle: 'Prélèvements sur le capital', sens: '-', comptes: ['1091','1092','1093','1094'] },
     { ref: 'FN', libelle: 'Dividendes versés', sens: '-', comptes: ['465'] },
     { ref: 'ZD', libelle: 'Flux capitaux propres', sens: 'D', isTotal: true, refs_sum: ['FK','FL','FM','FN'] },
     { ref: 'FO', libelle: 'Emprunts', sens: '+', comptes: ['161','162','1661','1662'] },
@@ -273,17 +305,39 @@ function computeResultat(balanceAccounts, prevYearBalances = []) {
     });
 }
 
+/**
+ * Calcule la CAFG (Capacité d'Autofinancement Globale) selon la
+ * méthode additive à partir du résultat net :
+ *   CAFG = Résultat net
+ *          + Dotations aux amortissements, provisions et dépréciations (RL, RN)
+ *          - Reprises d'amortissements, provisions et dépréciations (TJ, TL)
+ *          + Valeurs comptables des cessions d'immobilisations (RO)
+ *          - Produits des cessions d'immobilisations (TN)
+ *          - Transferts de charges (TI, TM) [charges déjà décaissées, non génératrices de CAFG]
+ */
+function computeCAFG(resultatLignes) {
+    const val = (ref) => (resultatLignes.find(l => l.ref === ref)?.montant_n) || 0;
+    const resultatNet = val('XI');
+    const dotations   = Math.abs(val('RL')) + Math.abs(val('RN'));
+    const reprises     = val('TJ') + val('TL');
+    const vcCessions   = Math.abs(val('RO'));
+    const produitsCessions = val('TN');
+    const transfertsCharges = val('TI') + val('TM');
+    return resultatNet + dotations - reprises + vcCessions - produitsCessions - transfertsCharges;
+}
+
 function computeTFT(balanceAccounts, bilanN = {}, bilanN1 = {}) {
     const index = buildAccountIndex(balanceAccounts);
     const refValues = {};
     const tresActifN1  = (bilanN1.actif  || []).find(l => l.ref === 'BT')?.net || 0;
     const tresPassifN1 = (bilanN1.passif || []).find(l => l.ref === 'DT')?.net || 0;
     const tresOuv = tresActifN1 - tresPassifN1;
-    const cafg = (bilanN.resultat || []).find(l => l.ref === 'XD')?.montant_n || 0;
+    const resultatLignes = bilanN.resultat || [];
+    const cafg = computeCAFG(resultatLignes);
     return TFT_MAPPING.map(ligne => {
         let montant_n = 0;
         if (ligne.ref === 'ZA') { montant_n = tresOuv; }
-        else if (ligne.fromResultat) { montant_n = cafg; }
+        else if (ligne.fromCAFG) { montant_n = cafg; }
         else if (ligne.isTotal) { montant_n = ligne.refs_sum.reduce((s, r) => s + (refValues[r]?.n || 0), 0); }
         else if (ligne.comptes?.length) {
             for (const [code, acc] of Object.entries(index)) {
@@ -297,4 +351,5 @@ function computeTFT(balanceAccounts, bilanN = {}, bilanN1 = {}) {
     });
 }
 
-module.exports = { computeActif, computePassif, computeResultat, computeTFT, buildAccountIndex, ACTIF_MAPPING, PASSIF_MAPPING, RESULTAT_MAPPING, TFT_MAPPING };
+module.exports = { computeActif, computePassif, computeResultat, computeTFT, computeCAFG, buildAccountIndex, ACTIF_MAPPING, PASSIF_MAPPING, RESULTAT_MAPPING, TFT_MAPPING };
+
