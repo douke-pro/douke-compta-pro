@@ -38,3 +38,7 @@ introspect_*.js
 diagnose_*.js
 diagnostic_*.js
 list_*.js
+*.bak.*
+patch_*.js
+patch_*.b64
+migrate_*.js

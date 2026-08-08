@@ -28,8 +28,8 @@ exports.subscribe = async (req, res) => {
         await pool.query(
             `INSERT INTO push_subscriptions (user_odoo_uid, company_id, endpoint, keys_p256dh, keys_auth, user_agent, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-             ON CONFLICT (endpoint) DO UPDATE SET
-                user_odoo_uid = $1, company_id = $2, keys_p256dh = $4, keys_auth = $5, user_agent = $6, updated_at = NOW()`,
+             ON CONFLICT (endpoint, company_id) DO UPDATE SET
+                user_odoo_uid = $1, keys_p256dh = $4, keys_auth = $5, user_agent = $6, updated_at = NOW()`,
             [userOdooUid, companyId, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, req.headers['user-agent'] || null]
         );
 

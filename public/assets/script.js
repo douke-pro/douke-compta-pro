@@ -428,9 +428,6 @@ async function initPushNotifications() {
         if (Notification.permission === 'denied') {
             return;
         }
-        if (localStorage.getItem('douke_push_subscribed') === 'true' && Notification.permission === 'granted') {
-            return;
-        }
 
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') return;
@@ -453,7 +450,6 @@ async function initPushNotifications() {
             body: JSON.stringify({ subscription, companyId: appState.currentCompanyId })
         });
 
-        localStorage.setItem('douke_push_subscribed', 'true');
         console.log('✅ Abonnement push enregistré.');
     } catch (err) {
         console.error('🚨 [initPushNotifications]', err.message);
@@ -498,6 +494,7 @@ window.handleCompanyChange = async function (newCompanyId) {
         document.getElementById('context-message').textContent = `Comptabilité Analytique : ${appState.currentCompanyName}`;
         NotificationManager.show(`Dossier actif changé : ${appState.currentCompanyName}`, 'info');
         loadContentArea('dashboard', 'Tableau de Bord');
+        initPushNotifications();
 
         // ✅ Recharger les previews rapports avec le nouveau companyId
         try {
