@@ -32,6 +32,7 @@ const reportsRoutes         = require('./routes/reports');
 const syscohadaRoutes       = require('./routes/syscohada');
 const hrRoutes              = require('./routes/hr');              // ✅ V27
 const closingRoutes         = require('./routes/closing');          // ✅ Chirurgie étape 1
+const pushRoutes             = require('./routes/push');             // ✅ Notifications Push
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -1077,6 +1078,7 @@ app.use('/api/syscohada',                  syscohadaRoutes);
 console.log('✅ Route /api/syscohada montee');
 app.use('/api/hr',                         hrRoutes);             // ✅ V27
 app.use('/api/closing',                    closingRoutes);            // ✅ Chirurgie étape 1
+app.use('/api/push',                       pushRoutes);                // ✅ Notifications Push
 console.log('✅ Route /api/hr montee');
 
 console.log('✅ Toutes les routes montees avec succes');

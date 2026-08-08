@@ -397,10 +397,66 @@ function loadDashboard() {
     
     if (appState.currentCompanyId) {
         loadContentArea('dashboard', 'Tableau de Bord');
+        initPushNotifications();
     } else {
         if (contentArea) {
              contentArea.innerHTML = generateCompanySelectionPromptHTML();
         }
+    }
+}
+
+// =============================================================================
+// PUSH NOTIFICATIONS (Phase 1)
+// =============================================================================
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function initPushNotifications() {
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            console.warn('⚠️ Push non supporté par ce navigateur.');
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            return;
+        }
+        if (localStorage.getItem('douke_push_subscribed') === 'true' && Notification.permission === 'granted') {
+            return;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+
+        const registration = await navigator.serviceWorker.ready;
+        const vapidResponse = await apiFetch('push/vapid-public-key', { method: 'GET' });
+        const publicKey = vapidResponse.publicKey;
+        if (!publicKey) {
+            console.warn('⚠️ Clé VAPID publique indisponible côté serveur.');
+            return;
+        }
+
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+
+        await apiFetch(`push/subscribe?companyId=${appState.currentCompanyId}`, {
+            method: 'POST',
+            body: JSON.stringify({ subscription, companyId: appState.currentCompanyId })
+        });
+
+        localStorage.setItem('douke_push_subscribed', 'true');
+        console.log('✅ Abonnement push enregistré.');
+    } catch (err) {
+        console.error('🚨 [initPushNotifications]', err.message);
     }
 }
 
