@@ -20,6 +20,7 @@ const jwt    = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { odooAuthenticate, odooExecuteKw } = require('../services/odooService');
 const emailService = require('../services/emailService');
+const pool = require('../services/dbService');
 
 // =============================================================================
 // CONFIGURATION
@@ -201,14 +202,11 @@ exports.loginUser = async (req, res) => {
         // ── 5b. Vérification terms_accepted_at dans Supabase ────────────────
         let termsAcceptedAt = null;
         try {
-            const { createClient } = require('@supabase/supabase-js');
-            const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-            const { data: consentRow } = await supabaseAdmin
-                .from('user_consents')
-                .select('terms_accepted_at')
-                .eq('email', email)
-                .maybeSingle();
-            termsAcceptedAt = consentRow?.terms_accepted_at || null;
+            const consentResult = await pool.query(
+                `SELECT terms_accepted_at FROM user_consents WHERE email = $1 LIMIT 1`,
+                [email]
+            );
+            termsAcceptedAt = consentResult.rows[0]?.terms_accepted_at || null;
         } catch(e) {
             console.warn('⚠️ [loginUser] terms_accepted_at non récupéré:', e.message);
         }
@@ -598,18 +596,15 @@ exports.getMe = async (req, res) => {
 
 exports.acceptTerms = async (req, res) => {
     try {
-        const { createClient } = require('@supabase/supabase-js');
-        const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
         const email = req.user?.email;
         if (!email) return res.status(401).json({ error: 'Non authentifié.' });
-        const { error } = await supabaseAdmin
-            .from('user_consents')
-            .upsert({ 
-                email, 
-                terms_accepted_at: new Date().toISOString(),
-                ip_address: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown'
-            }, { onConflict: 'email' });
-        if (error) throw new Error(error.message);
+        const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+        await pool.query(
+            `INSERT INTO user_consents (email, terms_accepted_at, ip_address)
+             VALUES ($1, NOW(), $2)
+             ON CONFLICT (email) DO UPDATE SET terms_accepted_at = NOW(), ip_address = $2`,
+            [email, ipAddress]
+        );
         console.log(`✅ [acceptTerms] Acceptation RGPD enregistrée pour ${email}`);
         res.status(200).json({ status: 'success', message: 'Conditions acceptées.' });
     } catch(error) {
