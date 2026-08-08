@@ -634,10 +634,10 @@ function generateStatCard(title, value, unit, icon, colorClass, trend = null, tr
 function generateDashboardHTML(data) {
     if (!data) return generateDashboardWelcomeHTML(appState.currentCompanyName, appState.user.profile);
 
-    const kpi1 = generateStatCard('Trésorerie Actuelle', data.cashBalance || 0, 'XOF', 'fas fa-wallet', 'border-success', data.cashTrend);
-    const kpi2 = generateStatCard('Résultat Net (Annuel)', data.netProfit || 0, 'XOF', 'fas fa-chart-bar', (data.netProfit || 0) >= 0 ? 'border-primary' : 'border-danger', data.profitTrend);
-    const kpi3 = generateStatCard('Passif Court Terme', data.shortTermDebt || 0, 'XOF', 'fas fa-hand-holding-dollar', 'border-warning', data.debtTrend, 'fas fa-arrow-up');
-    const kpi4 = generateStatCard('Marge Brute (Mois)', data.grossMargin || 0, '%', 'fas fa-percent', 'border-info', data.marginTrend);
+    const kpi1 = generateStatCard('Chiffre d\'Affaires', data.chiffreAffaires || 0, 'XOF', 'fas fa-file-invoice-dollar', 'border-primary', null);
+    const kpi2 = generateStatCard('Trésorerie en Caisse', data.tresorerieCaisse || 0, 'XOF', 'fas fa-cash-register', 'border-success', null);
+    const kpi3 = generateStatCard('Trésorerie en Banque et autres sources', data.tresorerieBanque || 0, 'XOF', 'fas fa-building-columns', 'border-info', null);
+    const kpi4 = generateStatCard('Résultat Net (Année active)', data.netProfit || 0, 'XOF', 'fas fa-chart-bar', (data.netProfit || 0) >= 0 ? 'border-primary' : 'border-danger', data.profitTrend);
 
     return `
         <h3 class="text-3xl font-black text-secondary mb-8 fade-in">Tableau de Bord Comptable pour ${appState.currentCompanyName}</h3>
@@ -757,6 +757,9 @@ async function fetchDashboardData(endpoint) {
         netProfit: 1200000,
         shortTermDebt: 350000,
         grossMargin: 45,
+        chiffreAffaires: 5000000,
+        tresorerieCaisse: 500000,
+        tresorerieBanque: 8000000,
         cashTrend: 12,
         profitTrend: -5,
         debtTrend: 8,

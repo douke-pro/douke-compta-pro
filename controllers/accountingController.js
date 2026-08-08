@@ -167,10 +167,13 @@ exports.getDashboardData = async (req, res) => {
         }
 
         // Calcul des KPIs par période via account.move.line
-        let cashBalance   = 0;
-        let totalIncome   = 0;
-        let totalExpenses = 0;
-        let shortTermDebt = 0;
+        let cashBalance      = 0;
+        let totalIncome      = 0;
+        let totalExpenses    = 0;
+        let shortTermDebt    = 0;
+        let tresorerieCaisse = 0;  // Classe 57 - solde chronologique sur l'exercice actif
+        let tresorerieBanque = 0;  // Classes 52+53+54+58 - solde chronologique sur l'exercice actif
+        let chiffreAffaires  = 0;  // Compte 70 strict - CA de l'exercice actif
 
         let periodLines = [];
         try {
@@ -189,7 +192,6 @@ exports.getDashboardData = async (req, res) => {
                     fields:  ['id', 'date', 'name', 'ref', 'move_id', 'journal_id',
                               'debit', 'credit', 'account_id'],
                     order:   'date DESC, id DESC',
-                    limit:   500,
                     context: { company_id: companyId, allowed_company_ids: [companyId] }
                 }
             });
@@ -202,7 +204,11 @@ exports.getDashboardData = async (req, res) => {
             const code = line.account_id ? (line.account_id[1] || '').split(' ')[0] : '';
             const net  = (line.debit || 0) - (line.credit || 0);
             if      (code.startsWith('5')) { cashBalance   += net; }
-            else if (code.startsWith('7')) { totalIncome   += (line.credit || 0); }
+            if      (code.startsWith('57')) { tresorerieCaisse += net; }
+            else if (code.startsWith('52') || code.startsWith('53') ||
+                     code.startsWith('54') || code.startsWith('58')) { tresorerieBanque += net; }
+            if      (code.startsWith('70')) { chiffreAffaires += (line.credit || 0); }
+            if      (code.startsWith('7')) { totalIncome   += (line.credit || 0); }
             else if (code.startsWith('6')) { totalExpenses += (line.debit  || 0); }
             else if (code.startsWith('4')) { shortTermDebt += Math.abs(net); }
         });
@@ -228,10 +234,13 @@ exports.getDashboardData = async (req, res) => {
         res.status(200).json({
             status: 'success',
             data: {
-                cashBalance:   Math.round(cashBalance),
-                netProfit:     Math.round(netProfit),
-                shortTermDebt: Math.round(shortTermDebt),
-                grossMargin:   Math.round(grossMargin * 10) / 10,
+                cashBalance:      Math.round(cashBalance),
+                netProfit:        Math.round(netProfit),
+                shortTermDebt:    Math.round(shortTermDebt),
+                grossMargin:      Math.round(grossMargin * 10) / 10,
+                tresorerieCaisse: Math.round(tresorerieCaisse),
+                tresorerieBanque: Math.round(tresorerieBanque),
+                chiffreAffaires:  Math.round(chiffreAffaires),
                 cashTrend:     null,
                 profitTrend:   null,
                 debtTrend:     null,
@@ -247,6 +256,7 @@ exports.getDashboardData = async (req, res) => {
             error:  err.message,
             data: {
                 cashBalance: 0, netProfit: 0, shortTermDebt: 0, grossMargin: 0,
+                tresorerieCaisse: 0, tresorerieBanque: 0, chiffreAffaires: 0,
                 cashTrend: null, profitTrend: null, debtTrend: null, marginTrend: null,
                 recentEntries: []
             }
