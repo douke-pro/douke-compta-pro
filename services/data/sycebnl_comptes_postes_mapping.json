@@ -1,0 +1,6142 @@
+[
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AB",
+  "nature": "POSTE",
+  "libelle_poste": "Immobilisations incorporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AB",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations incorporelles",
+  "compte": 201,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AC",
+  "nature": "POSTE",
+  "libelle_poste": "Immobilisations corporelles et financières",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AC",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations corporelles et financières",
+  "compte": 202,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AC",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations corporelles et financières",
+  "compte": 203,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AC",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations corporelles et financières",
+  "compte": 204,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AC",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations corporelles et financières",
+  "compte": 205,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AE",
+  "nature": "POSTE",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 212,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 213,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 214,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 2193,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AF",
+  "nature": "POSTE",
+  "libelle_poste": "Autres immobilisations incorporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AF",
+  "nature": "Composant",
+  "libelle_poste": "Autres immobilisations incorporelles",
+  "compte": 218,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AF",
+  "nature": "Composant",
+  "libelle_poste": "Autres immobilisations incorporelles",
+  "compte": 2198,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AG",
+  "nature": "POSTE",
+  "libelle_poste": "Avances et acomptes versés sur immobilisations_x000D_\nincorporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AG",
+  "nature": "Composant",
+  "libelle_poste": "Avances et acomptes versés sur immobilisations_x000D_\nincorporelles",
+  "compte": 251,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AI",
+  "nature": "POSTE",
+  "libelle_poste": "Terrains",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AI",
+  "nature": "Composant",
+  "libelle_poste": "Terrains",
+  "compte": 22,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AJ",
+  "nature": "POSTE",
+  "libelle_poste": "Bâtiments",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 231,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 232,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 233,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2391,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2392,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2393,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2396,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AK",
+  "nature": "POSTE",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 234,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 235,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 238,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2394,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2395,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2398,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AL",
+  "nature": "POSTE",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 24,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 245,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 2495,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AM",
+  "nature": "POSTE",
+  "libelle_poste": "Matériel de transport",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AM",
+  "nature": "Composant",
+  "libelle_poste": "Matériel de transport",
+  "compte": 245,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AM",
+  "nature": "Composant",
+  "libelle_poste": "Matériel de transport",
+  "compte": 2495,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AN",
+  "nature": "POSTE",
+  "libelle_poste": "Avances et acomptes versés sur immobilisations_x000D_\ncorporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AN",
+  "nature": "Composant",
+  "libelle_poste": "Avances et acomptes versés sur immobilisations_x000D_\ncorporelles",
+  "compte": 252,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AX",
+  "nature": "POSTE",
+  "libelle_poste": "Titres de participation",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AX",
+  "nature": "Composant",
+  "libelle_poste": "Titres de participation",
+  "compte": 26,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AY",
+  "nature": "POSTE",
+  "libelle_poste": "Autres immobilisations financières",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "AY",
+  "nature": "Composant",
+  "libelle_poste": "Autres immobilisations financières",
+  "compte": 27,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BA",
+  "nature": "POSTE",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BA",
+  "nature": "Composant",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": 485,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BA",
+  "nature": "Composant",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": 4865,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BA",
+  "nature": "Composant",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": 485,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BA",
+  "nature": "Composant",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": 4865,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "POSTE",
+  "libelle_poste": "Stocks et encours",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 31,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 32,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 33,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 34,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 35,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 36,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 37,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 38,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 31,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 32,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 33,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 34,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 35,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 36,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 37,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 38,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BC",
+  "nature": "POSTE",
+  "libelle_poste": "Fournisseurs débiteurs",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BC",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs débiteurs",
+  "compte": 409,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BC",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs débiteurs",
+  "compte": 409,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BD",
+  "nature": "POSTE",
+  "libelle_poste": "Adhérents, clients-usagers",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BD",
+  "nature": "Composant",
+  "libelle_poste": "Adhérents, clients-usagers",
+  "compte": 41,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BD",
+  "nature": "Composant",
+  "libelle_poste": "Adhérents, clients-usagers",
+  "compte": 419,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BD",
+  "nature": "Composant",
+  "libelle_poste": "Adhérents, clients-usagers",
+  "compte": 41,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BD",
+  "nature": "Composant",
+  "libelle_poste": "Adhérents, clients-usagers",
+  "compte": 419,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BE",
+  "nature": "POSTE",
+  "libelle_poste": "Autres créances",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 42,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 43,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 44,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 45,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 47,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 478,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BU",
+  "nature": "POSTE",
+  "libelle_poste": "Titres de placement",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BU",
+  "nature": "Composant",
+  "libelle_poste": "Titres de placement",
+  "compte": 50,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BU",
+  "nature": "Composant",
+  "libelle_poste": "Titres de placement",
+  "compte": 50,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BV",
+  "nature": "POSTE",
+  "libelle_poste": "Valeurs à encaisser",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BV",
+  "nature": "Composant",
+  "libelle_poste": "Valeurs à encaisser",
+  "compte": 51,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BV",
+  "nature": "Composant",
+  "libelle_poste": "Valeurs à encaisser",
+  "compte": 51,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BW",
+  "nature": "POSTE",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": 52,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": 53,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": 55,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": 57,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BY",
+  "nature": "POSTE",
+  "libelle_poste": "Ecart de conversion-Actif",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BY",
+  "nature": "Composant",
+  "libelle_poste": "Ecart de conversion-Actif",
+  "compte": 478,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_BRUT",
+  "code_poste": "BY",
+  "nature": "Composant",
+  "libelle_poste": "Ecart de conversion-Actif",
+  "compte": 478,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AB",
+  "nature": "POSTE",
+  "libelle_poste": "Immobilisations incorporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AB",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations incorporelles",
+  "compte": 280,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AB",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations incorporelles",
+  "compte": 2901,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AC",
+  "nature": "POSTE",
+  "libelle_poste": "Immobilisations corporelles et financières",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AC",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations corporelles et financières",
+  "compte": 2902,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AE",
+  "nature": "POSTE",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 2812,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 2813,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 2814,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 2912,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 2913,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 2914,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AE",
+  "nature": "Composant",
+  "libelle_poste": "Brevets, licences, logiciels et droits similaires",
+  "compte": 29193,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AF",
+  "nature": "POSTE",
+  "libelle_poste": "Autres immobilisations incorporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AF",
+  "nature": "Composant",
+  "libelle_poste": "Autres immobilisations incorporelles",
+  "compte": 2818,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AF",
+  "nature": "Composant",
+  "libelle_poste": "Autres immobilisations incorporelles",
+  "compte": 2918,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AF",
+  "nature": "Composant",
+  "libelle_poste": "Autres immobilisations incorporelles",
+  "compte": 29198,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AG",
+  "nature": "POSTE",
+  "libelle_poste": "Avances et acomptes versés sur immobilisations_x000D_\nincorporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AG",
+  "nature": "Composant",
+  "libelle_poste": "Avances et acomptes versés sur immobilisations_x000D_\nincorporelles",
+  "compte": 2951,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AI",
+  "nature": "POSTE",
+  "libelle_poste": "Terrains",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AI",
+  "nature": "Composant",
+  "libelle_poste": "Terrains",
+  "compte": 282,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AI",
+  "nature": "Composant",
+  "libelle_poste": "Terrains",
+  "compte": 292,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "POSTE",
+  "libelle_poste": "Bâtiments",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2831,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2832,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2833,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2931,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2932,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 2933,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 29391,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 29392,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 29393,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AJ",
+  "nature": "Composant",
+  "libelle_poste": "Bâtiments",
+  "compte": 29396,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "POSTE",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2834,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2835,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2838,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2934,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2935,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 2938,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 29394,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 29395,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AK",
+  "nature": "Composant",
+  "libelle_poste": "Aménagements, agencements et installations",
+  "compte": 29398,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AL",
+  "nature": "POSTE",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 284,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 294,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 2845,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 2945,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 2949,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AL",
+  "nature": "Composant",
+  "libelle_poste": "Matériel, mobilier et actifs biologiques",
+  "compte": 29495,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AM",
+  "nature": "POSTE",
+  "libelle_poste": "Matériel de transport",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AM",
+  "nature": "Composant",
+  "libelle_poste": "Matériel de transport",
+  "compte": 2845,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AM",
+  "nature": "Composant",
+  "libelle_poste": "Matériel de transport",
+  "compte": 2945,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AM",
+  "nature": "Composant",
+  "libelle_poste": "Matériel de transport",
+  "compte": 29495,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AN",
+  "nature": "POSTE",
+  "libelle_poste": "Avances et acomptes versés sur immobilisations_x000D_\ncorporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AN",
+  "nature": "Composant",
+  "libelle_poste": "Avances et acomptes versés sur immobilisations_x000D_\ncorporelles",
+  "compte": 2952,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AX",
+  "nature": "POSTE",
+  "libelle_poste": "Titres de participation",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AX",
+  "nature": "Composant",
+  "libelle_poste": "Titres de participation",
+  "compte": 296,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AY",
+  "nature": "POSTE",
+  "libelle_poste": "Autres immobilisations financières",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "AY",
+  "nature": "Composant",
+  "libelle_poste": "Autres immobilisations financières",
+  "compte": 297,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BA",
+  "nature": "POSTE",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BA",
+  "nature": "Composant",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": 498,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BB",
+  "nature": "POSTE",
+  "libelle_poste": "Stocks et encours",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BB",
+  "nature": "Composant",
+  "libelle_poste": "Stocks et encours",
+  "compte": 39,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BC",
+  "nature": "POSTE",
+  "libelle_poste": "Fournisseurs débiteurs",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BC",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs débiteurs",
+  "compte": 490,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BD",
+  "nature": "POSTE",
+  "libelle_poste": "Adhérents, clients-usagers",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BD",
+  "nature": "Composant",
+  "libelle_poste": "Adhérents, clients-usagers",
+  "compte": 491,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BE",
+  "nature": "POSTE",
+  "libelle_poste": "Autres créances",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 492,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 493,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 494,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BE",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": 497,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BU",
+  "nature": "POSTE",
+  "libelle_poste": "Titres de placement",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BU",
+  "nature": "Composant",
+  "libelle_poste": "Titres de placement",
+  "compte": 590,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BV",
+  "nature": "POSTE",
+  "libelle_poste": "Valeurs à encaisser",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BV",
+  "nature": "Composant",
+  "libelle_poste": "Valeurs à encaisser",
+  "compte": 591,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BW",
+  "nature": "POSTE",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": 592,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": 593,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "ACTIF_AMORT",
+  "code_poste": "BW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers, caisses et assimilés",
+  "compte": 595,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CA",
+  "nature": "POSTE",
+  "libelle_poste": "Dotation non consomptible sans droit reprise",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CA",
+  "nature": "Composant",
+  "libelle_poste": "Dotation non consomptible sans droit reprise",
+  "compte": 101,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CA",
+  "nature": "Composant",
+  "libelle_poste": "Dotation non consomptible sans droit reprise",
+  "compte": 101,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CB",
+  "nature": "POSTE",
+  "libelle_poste": "Dotation non consomptible avec droit_x000D_\nreprise",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CB",
+  "nature": "Composant",
+  "libelle_poste": "Dotation non consomptible avec droit_x000D_\nreprise",
+  "compte": 102,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CB",
+  "nature": "Composant",
+  "libelle_poste": "Dotation non consomptible avec droit_x000D_\nreprise",
+  "compte": 102,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CC",
+  "nature": "POSTE",
+  "libelle_poste": "Droit d'entrée",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CC",
+  "nature": "Composant",
+  "libelle_poste": "Droit d'entrée",
+  "compte": 103,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CC",
+  "nature": "Composant",
+  "libelle_poste": "Droit d'entrée",
+  "compte": 103,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CD",
+  "nature": "POSTE",
+  "libelle_poste": "Dotation consomptible",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CD",
+  "nature": "Composant",
+  "libelle_poste": "Dotation consomptible",
+  "compte": 104,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CD",
+  "nature": "Composant",
+  "libelle_poste": "Dotation consomptible",
+  "compte": 104,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CE",
+  "nature": "POSTE",
+  "libelle_poste": "Écarts de réévaluation",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CE",
+  "nature": "Composant",
+  "libelle_poste": "Écarts de réévaluation",
+  "compte": 106,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CE",
+  "nature": "Composant",
+  "libelle_poste": "Écarts de réévaluation",
+  "compte": 106,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CF",
+  "nature": "POSTE",
+  "libelle_poste": "Réserves",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CF",
+  "nature": "Composant",
+  "libelle_poste": "Réserves",
+  "compte": 11,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CF",
+  "nature": "Composant",
+  "libelle_poste": "Réserves",
+  "compte": 11,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CG",
+  "nature": "POSTE",
+  "libelle_poste": "Report à nouveau       (+ ou -)",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CG",
+  "nature": "Composant",
+  "libelle_poste": "Report à nouveau       (+ ou -)",
+  "compte": 12,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CG",
+  "nature": "Composant",
+  "libelle_poste": "Report à nouveau       (+ ou -)",
+  "compte": 12,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CH",
+  "nature": "POSTE",
+  "libelle_poste": "Résultat net de l’exercice (excédent + ou_x000D_\ndéficit -)",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CH",
+  "nature": "Composant",
+  "libelle_poste": "Résultat net de l’exercice (excédent + ou_x000D_\ndéficit -)",
+  "compte": "XE",
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CI",
+  "nature": "POSTE",
+  "libelle_poste": "Subventions d'investissement",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CI",
+  "nature": "Composant",
+  "libelle_poste": "Subventions d'investissement",
+  "compte": 14,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CI",
+  "nature": "Composant",
+  "libelle_poste": "Subventions d'investissement",
+  "compte": 14,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CJ",
+  "nature": "POSTE",
+  "libelle_poste": "Provisions réglementées",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CJ",
+  "nature": "Composant",
+  "libelle_poste": "Provisions réglementées",
+  "compte": 15,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CJ",
+  "nature": "Composant",
+  "libelle_poste": "Provisions réglementées",
+  "compte": 15,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CW",
+  "nature": "POSTE",
+  "libelle_poste": "Fonds affectés et provenant de dons et_x000D_\nlegs d'immobilisations",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CW",
+  "nature": "Composant",
+  "libelle_poste": "Fonds affectés et provenant de dons et_x000D_\nlegs d'immobilisations",
+  "compte": 16,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CW",
+  "nature": "Composant",
+  "libelle_poste": "Fonds affectés et provenant de dons et_x000D_\nlegs d'immobilisations",
+  "compte": 16,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CX",
+  "nature": "POSTE",
+  "libelle_poste": "Fonds reportés",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CX",
+  "nature": "Composant",
+  "libelle_poste": "Fonds reportés",
+  "compte": 17,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "CX",
+  "nature": "Composant",
+  "libelle_poste": "Fonds reportés",
+  "compte": 17,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "POSTE",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 181,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 182,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 183,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 185,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 186,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 188,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 181,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 182,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 183,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 185,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 186,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DA",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": 188,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DB",
+  "nature": "POSTE",
+  "libelle_poste": "Dettes de location-acquisition",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DB",
+  "nature": "Composant",
+  "libelle_poste": "Dettes de location-acquisition",
+  "compte": 187,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DB",
+  "nature": "Composant",
+  "libelle_poste": "Dettes de location-acquisition",
+  "compte": 187,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DC",
+  "nature": "POSTE",
+  "libelle_poste": "Provisions pour risques et charges",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DC",
+  "nature": "Composant",
+  "libelle_poste": "Provisions pour risques et charges",
+  "compte": 19,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DC",
+  "nature": "Composant",
+  "libelle_poste": "Provisions pour risques et charges",
+  "compte": 19,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "POSTE",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 481,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 484,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 4861,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 488,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 4998,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 481,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 484,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 4861,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 488,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DF",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": 4998,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DG",
+  "nature": "POSTE",
+  "libelle_poste": "Adhérents, clients-usagers créditeurs",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DG",
+  "nature": "Composant",
+  "libelle_poste": "Adhérents, clients-usagers créditeurs",
+  "compte": 419,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DG",
+  "nature": "Composant",
+  "libelle_poste": "Adhérents, clients-usagers créditeurs",
+  "compte": 419,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DH",
+  "nature": "POSTE",
+  "libelle_poste": "Fournisseurs",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DH",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs",
+  "compte": 40,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DH",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs",
+  "compte": 409,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DH",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs",
+  "compte": 40,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DH",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs",
+  "compte": 409,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "POSTE",
+  "libelle_poste": "Autres dettes",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 42,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 43,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 44,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 45,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 47,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 479,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 499,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 4998,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DI",
+  "nature": "Composant",
+  "libelle_poste": "Autres dettes",
+  "compte": 599,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DW",
+  "nature": "POSTE",
+  "libelle_poste": "Banques, établissements financiers et_x000D_\ncrédits de trésorerie",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers et_x000D_\ncrédits de trésorerie",
+  "compte": 56,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers et_x000D_\ncrédits de trésorerie",
+  "compte": 56,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers et_x000D_\ncrédits de trésorerie",
+  "compte": 52,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DW",
+  "nature": "Composant",
+  "libelle_poste": "Banques, établissements financiers et_x000D_\ncrédits de trésorerie",
+  "compte": 53,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DY",
+  "nature": "POSTE",
+  "libelle_poste": "Ecart de conversion-Passif",
+  "compte": null,
+  "signe": null,
+  "imputation": "",
+  "exercice": ""
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DY",
+  "nature": "Composant",
+  "libelle_poste": "Ecart de conversion-Passif",
+  "compte": 479,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "PASSIF",
+  "code_poste": "DY",
+  "nature": "Composant",
+  "libelle_poste": "Ecart de conversion-Passif",
+  "compte": 479,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RA",
+  "nature": "POSTE",
+  "libelle_poste": "Cotisations",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RA",
+  "nature": "Composant",
+  "libelle_poste": "Cotisations",
+  "compte": 701,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RA",
+  "nature": "Composant",
+  "libelle_poste": "Cotisations",
+  "compte": 701,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RB",
+  "nature": "POSTE",
+  "libelle_poste": "Dotations consomptibles transférées au compte de résultat",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RB",
+  "nature": "Composant",
+  "libelle_poste": "Dotations consomptibles transférées au compte de résultat",
+  "compte": 703,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RB",
+  "nature": "Composant",
+  "libelle_poste": "Dotations consomptibles transférées au compte de résultat",
+  "compte": 703,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RC",
+  "nature": "POSTE",
+  "libelle_poste": "Revenus liés à la générosité",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RC",
+  "nature": "Composant",
+  "libelle_poste": "Revenus liés à la générosité",
+  "compte": 704,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RC",
+  "nature": "Composant",
+  "libelle_poste": "Revenus liés à la générosité",
+  "compte": 704,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RD",
+  "nature": "POSTE",
+  "libelle_poste": "Ventes de marchandises",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RD",
+  "nature": "Composant",
+  "libelle_poste": "Ventes de marchandises",
+  "compte": 7051,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RD",
+  "nature": "Composant",
+  "libelle_poste": "Ventes de marchandises",
+  "compte": 7051,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RE",
+  "nature": "POSTE",
+  "libelle_poste": "Ventes de services et produits finis",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RE",
+  "nature": "Composant",
+  "libelle_poste": "Ventes de services et produits finis",
+  "compte": 7052,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RE",
+  "nature": "Composant",
+  "libelle_poste": "Ventes de services et produits finis",
+  "compte": 7053,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RE",
+  "nature": "Composant",
+  "libelle_poste": "Ventes de services et produits finis",
+  "compte": 7052,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RE",
+  "nature": "Composant",
+  "libelle_poste": "Ventes de services et produits finis",
+  "compte": 7053,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RF",
+  "nature": "POSTE",
+  "libelle_poste": "Subventions d'exploitation",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RF",
+  "nature": "Composant",
+  "libelle_poste": "Subventions d'exploitation",
+  "compte": 71,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RF",
+  "nature": "Composant",
+  "libelle_poste": "Subventions d'exploitation",
+  "compte": 71,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "POSTE",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 706,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 707,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 708,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 72,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 73,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 75,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 77,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 78,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 706,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 707,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 708,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 72,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 73,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 75,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 77,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RG",
+  "nature": "Composant",
+  "libelle_poste": "Autres produits et transferts de charges",
+  "compte": 78,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RH",
+  "nature": "POSTE",
+  "libelle_poste": "Reprises de provisions, dépréciations, subventions et autres reprises",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RH",
+  "nature": "Composant",
+  "libelle_poste": "Reprises de provisions, dépréciations, subventions et autres reprises",
+  "compte": 79,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "RH",
+  "nature": "Composant",
+  "libelle_poste": "Reprises de provisions, dépréciations, subventions et autres reprises",
+  "compte": 79,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TA",
+  "nature": "POSTE",
+  "libelle_poste": "Achats de de biens et services liés à l’activité",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TA",
+  "nature": "Composant",
+  "libelle_poste": "Achats de de biens et services liés à l’activité",
+  "compte": 601,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TA",
+  "nature": "Composant",
+  "libelle_poste": "Achats de de biens et services liés à l’activité",
+  "compte": 601,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TB",
+  "nature": "POSTE",
+  "libelle_poste": "Variation de stocks des achats de de biens et services liés à l’activité",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TB",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks des achats de de biens et services liés à l’activité",
+  "compte": 6031,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TB",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks des achats de de biens et services liés à l’activité",
+  "compte": 6031,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TC",
+  "nature": "POSTE",
+  "libelle_poste": "Achats de marchandises et matières premières",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TC",
+  "nature": "Composant",
+  "libelle_poste": "Achats de marchandises et matières premières",
+  "compte": 602,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TC",
+  "nature": "Composant",
+  "libelle_poste": "Achats de marchandises et matières premières",
+  "compte": 602,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "POSTE",
+  "libelle_poste": "Autres achats",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats",
+  "compte": 604,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats",
+  "compte": 605,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats",
+  "compte": 606,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats",
+  "compte": 608,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats",
+  "compte": 604,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats",
+  "compte": 605,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats",
+  "compte": 606,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TD",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats",
+  "compte": 608,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "POSTE",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": 6032,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": 6033,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": 6034,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": 6035,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": 6032,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": 6033,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": 6034,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TE",
+  "nature": "Composant",
+  "libelle_poste": "Variation de stocks de marchandises, de matières premières et autres",
+  "compte": 6035,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TF",
+  "nature": "POSTE",
+  "libelle_poste": "Transports",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TF",
+  "nature": "Composant",
+  "libelle_poste": "Transports",
+  "compte": 61,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TF",
+  "nature": "Composant",
+  "libelle_poste": "Transports",
+  "compte": 61,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TG",
+  "nature": "POSTE",
+  "libelle_poste": "Services extérieurs",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TG",
+  "nature": "Composant",
+  "libelle_poste": "Services extérieurs",
+  "compte": 62,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TG",
+  "nature": "Composant",
+  "libelle_poste": "Services extérieurs",
+  "compte": 63,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TG",
+  "nature": "Composant",
+  "libelle_poste": "Services extérieurs",
+  "compte": 62,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TG",
+  "nature": "Composant",
+  "libelle_poste": "Services extérieurs",
+  "compte": 63,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TH",
+  "nature": "POSTE",
+  "libelle_poste": "Impôts et taxes",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TH",
+  "nature": "Composant",
+  "libelle_poste": "Impôts et taxes",
+  "compte": 64,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TH",
+  "nature": "Composant",
+  "libelle_poste": "Impôts et taxes",
+  "compte": 64,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TI",
+  "nature": "POSTE",
+  "libelle_poste": "Autres charges",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TI",
+  "nature": "Composant",
+  "libelle_poste": "Autres charges",
+  "compte": 65,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TI",
+  "nature": "Composant",
+  "libelle_poste": "Autres charges",
+  "compte": 65,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TJ",
+  "nature": "POSTE",
+  "libelle_poste": "Charges de personnel",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TJ",
+  "nature": "Composant",
+  "libelle_poste": "Charges de personnel",
+  "compte": 66,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TJ",
+  "nature": "Composant",
+  "libelle_poste": "Charges de personnel",
+  "compte": 66,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TK",
+  "nature": "POSTE",
+  "libelle_poste": "Frais financiers et charges assimilées",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TK",
+  "nature": "Composant",
+  "libelle_poste": "Frais financiers et charges assimilées",
+  "compte": 67,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TK",
+  "nature": "Composant",
+  "libelle_poste": "Frais financiers et charges assimilées",
+  "compte": 67,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TL",
+  "nature": "POSTE",
+  "libelle_poste": "Dotations aux amortissements, aux provisions, aux dépréciations et autres",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TL",
+  "nature": "Composant",
+  "libelle_poste": "Dotations aux amortissements, aux provisions, aux dépréciations et autres",
+  "compte": 68,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TL",
+  "nature": "Composant",
+  "libelle_poste": "Dotations aux amortissements, aux provisions, aux dépréciations et autres",
+  "compte": 69,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TL",
+  "nature": "Composant",
+  "libelle_poste": "Dotations aux amortissements, aux provisions, aux dépréciations et autres",
+  "compte": 68,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TL",
+  "nature": "Composant",
+  "libelle_poste": "Dotations aux amortissements, aux provisions, aux dépréciations et autres",
+  "compte": 69,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "POSTE",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": 82,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": 84,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": 86,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": 88,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": 82,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": 84,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": 86,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TM",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O.",
+  "compte": 88,
+  "signe": "-",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "POSTE",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": ""
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": 81,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": 83,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": 85,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": 87,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": 81,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": 83,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": 85,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "RESULTAT",
+  "code_poste": "TN",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O.",
+  "compte": 87,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "ZA",
+  "nature": "POSTE",
+  "libelle_poste": "Trésorerie nette au 1er janvier\n(Trésorerie actif N-1 - Trésorerie passif N-1)",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "ZA",
+  "nature": "Composant",
+  "libelle_poste": "Trésorerie Actif BILAN",
+  "compte": "BX",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N-1"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "ZA",
+  "nature": "Composant",
+  "libelle_poste": "Trésorerie Passif BILAN",
+  "compte": "DX",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N-1"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "ZA",
+  "nature": "Composant",
+  "libelle_poste": "Créances et dettes sur titres de placement ",
+  "compte": 472,
+  "signe": null,
+  "imputation": "MD",
+  "exercice": "N-1"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "ZA",
+  "nature": "Composant",
+  "libelle_poste": "Créances et dettes sur titres de placement ",
+  "compte": 472,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N-1"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FA",
+  "nature": "POSTE",
+  "libelle_poste": "+ Encaissement des cotisations",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FA",
+  "nature": "Composant",
+  "libelle_poste": "Cotisations (COMPTE DE RESULTAT)",
+  "compte": "RA",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FA",
+  "nature": "Composant",
+  "libelle_poste": "Produits contatés d'avance ",
+  "compte": 477,
+  "signe": null,
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FA",
+  "nature": "Composant",
+  "libelle_poste": "Produits contatés d'avance ",
+  "compte": 477,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FA",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances créances adhérents, cotisations",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FA",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances créances adhérents, cotisations",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FA",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances et acompte reçus des adhérents",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FA",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances et acompte reçus des adhérents",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FB",
+  "nature": "POSTE",
+  "libelle_poste": "+ Encaissement des subventions d'exploitation et d’équilibre",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FB",
+  "nature": "Composant",
+  "libelle_poste": "Subventions d'exploitations (COMPTE DE RESULTAT)",
+  "compte": "RF",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FB",
+  "nature": "Composant",
+  "libelle_poste": "Subventions  d'équilibre",
+  "compte": null,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FB",
+  "nature": "Composant",
+  "libelle_poste": "Produits contatés d'avance, subventions d'exploitation et d'équilibre",
+  "compte": null,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FB",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances sur subventions d'exploitation et d'équilibre",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FB",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances sur subventions d'exploitation et d'équilibre",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FB",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances reçues sur subventions d'exploitation et d'équilibre",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FB",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances reçues sur subventions d'exploitation et d'équilibre",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FC",
+  "nature": "POSTE",
+  "libelle_poste": "+ Encaissement des revenus liés à la générosité",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FC",
+  "nature": "Composant",
+  "libelle_poste": "Revenus liés à la générosité (COMPTE DE RESULTAT)",
+  "compte": "RC",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FC",
+  "nature": "Composant",
+  "libelle_poste": "Produits contatés d'avance, revenus liés à la générosité",
+  "compte": null,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FC",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances rattachées aux revenus liés à la générosité",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FC",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances rattachées aux revenus liés à la générosité",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FD",
+  "nature": "POSTE",
+  "libelle_poste": "+ Encaissement des revenus des manifestations",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FD",
+  "nature": "Composant",
+  "libelle_poste": "Revenus des manifestations ",
+  "compte": 706,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FD",
+  "nature": "Composant",
+  "libelle_poste": "Produits contatés d'avance, revenus des manifestations",
+  "compte": null,
+  "signe": "+",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FD",
+  "nature": "Composant",
+  "libelle_poste": "Variation clients-usagers, revenus des manifestations",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FD",
+  "nature": "Composant",
+  "libelle_poste": "Variation clients-usagers, revenus des manifestations",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "POSTE",
+  "libelle_poste": "+ Encaissement des autres revenus",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Ventes  Marchandises, services et produits finis",
+  "compte": 705,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Produits accessoires",
+  "compte": 707,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Autres Revenus ",
+  "compte": 708,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "AUTRES PRODUITS",
+  "compte": 75,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "REVENUS FINANCIERS ET PRODUITS ASSIMILES",
+  "compte": 77,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Reprises de charges pour dépréciations et provisions pour risque a court terme financières",
+  "compte": 779,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Intérêt courus ",
+  "compte": 276,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Produits H.A.O constatés",
+  "compte": 841,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Contributions volontaires en numéraire",
+  "compte": 843,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - actif ) Diminution des créances d'exploitation et HAO ",
+  "compte": 4781,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - actif ) Diminution des créances d'exploitation et HAO ",
+  "compte": 4781,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - actif ) Diminution des créances financières ",
+  "compte": 4782,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - actif ) Diminution des créances financières ",
+  "compte": 4782,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - passif ) Augmentation des créances d'exploitation et HAO ",
+  "compte": 4791,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - passif ) Augmentation des créances d'exploitation et HAO ",
+  "compte": 4791,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - passif ) Augmentation des créances financières ",
+  "compte": 4792,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - passif ) Augmentation des créances financières ",
+  "compte": 4792,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Mvt Credit 4712 à Contrepartie trésorerie",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Produits constatés d'avance sur ckients-usagers",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances reçues sur clients-usagers",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances reçues sur clients-usagers",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances rattachées aux autres revenus",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FE",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances rattachées aux autres revenus",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "POSTE",
+  "libelle_poste": "-  Décaissement des sommes versées aux fournisseurs (1)",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Achats de biens et services liés à l'activité (COMPTE DE RESULTAT)",
+  "compte": "TA",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Achats de marchandises et matières premières (COMPTE DE RESULTAT)",
+  "compte": "TC",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Autres achats (COMPTE DE RESULTAT)",
+  "compte": "TD",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Transports (COMPTE DE RESULTAT)",
+  "compte": "TF",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Services extérieurs (COMPTE DE RESULTAT)",
+  "compte": "TG",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs et comptes rattachés",
+  "compte": 40,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs et comptes rattachés",
+  "compte": 40,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - actif ) Augmentation des dettes d'exploitation et HAO",
+  "compte": 4783,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - actif ) Augmentation des dettes d'exploitation et HAO",
+  "compte": 4783,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - actif ) Augmention des dettes financières ",
+  "compte": 4784,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - actif ) Augmention des dettes financières ",
+  "compte": 4784,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - passif ) Diminution des dettes d'exploitations et HAO ",
+  "compte": 4793,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - passif ) Diminution des dettes d'exploitations et HAO ",
+  "compte": 4793,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - passif ) Diminution des dettes financières ",
+  "compte": 4794,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "(Ecarts de conversion - passif ) Diminution des dettes financières ",
+  "compte": 4794,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Charges constatées d'avance, charges-fourniddeurs",
+  "compte": null,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances et acomptes verés aux fournisseurs",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FF",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances et acomptes verés aux fournisseurs",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FG",
+  "nature": "POSTE",
+  "libelle_poste": "- Décaissement des sommes versées au personnel",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FG",
+  "nature": "Composant",
+  "libelle_poste": "Charges de personnel (COMPTE DE RESULTAT)",
+  "compte": "TJ",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FG",
+  "nature": "Composant",
+  "libelle_poste": "Charges constaées d'avance, charges-personnel",
+  "compte": null,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FG",
+  "nature": "Composant",
+  "libelle_poste": "Variation des dettes fiscales, sociales et d'autres dettes liées aux charges de personnel",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FG",
+  "nature": "Composant",
+  "libelle_poste": "Variation des dettes fiscales, sociales et d'autres dettes liées aux charges de personnel",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FG",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances acomptes versés au personnel",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FG",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances acomptes versés au personnel",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FH",
+  "nature": "POSTE",
+  "libelle_poste": "- Autres décaissements",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FH",
+  "nature": "Composant",
+  "libelle_poste": "Impôts et taxes (COMPTE DE RESULTAT)",
+  "compte": "TH",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FH",
+  "nature": "Composant",
+  "libelle_poste": "Autres chargess",
+  "compte": null,
+  "signe": "+",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FH",
+  "nature": "Composant",
+  "libelle_poste": "Frais financiers et charges assimilées",
+  "compte": null,
+  "signe": "+",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FH",
+  "nature": "Composant",
+  "libelle_poste": "Charges HAO",
+  "compte": null,
+  "signe": "+",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FH",
+  "nature": "Composant",
+  "libelle_poste": "Variation des dettes fiscales et autres dettes",
+  "compte": null,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FH",
+  "nature": "Composant",
+  "libelle_poste": "Variation des dettes fiscales et autres dettes",
+  "compte": null,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "POSTE",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations incorporelles et corporelles",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations corporelles",
+  "compte": "AH",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations corporelles",
+  "compte": "AH",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N-1"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations incorporelles",
+  "compte": "AD",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations incorporelles",
+  "compte": "AD",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N-1"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations incorporelles et corporelles",
+  "compte": 28,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations incorporelles et corporelles",
+  "compte": 28,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations incorporelles et corporelles",
+  "compte": 4811,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations incorporelles et corporelles",
+  "compte": 4811,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations incorporelles et corporelles",
+  "compte": 4812,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations incorporelles et corporelles",
+  "compte": 4812,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Valeur nette domptable des cessions ou sorties dimmobilisations incorporelles et corporelles au cours de l'exercice majorée des amortissements",
+  "compte": 811,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations incorporelles et corporelles",
+  "compte": 812,
+  "signe": "+",
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Ecart de conversion passif",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Ecart de conversion actif",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Indices de la réévaluation: compte d'écart de réévaluation",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Provisions pour démantèlement et remise en état",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Virement de compte à compte hors catégories incorporelles et corporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Quote-part des subvensions d'investissement incorporel et corporel reçues en nature",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations corporelles et incorporelles reçues lors d'un apport de ressources propres en nature",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Variation des dettes fournisseurs d'investissement incorporels et corporels",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Variation des dettes fournisseurs d'investissement incorporels et corporels",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances et acomptes verées sur immobilisations incorporelles et corporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FI",
+  "nature": "Composant",
+  "libelle_poste": "Variation des avances et acomptes verées sur immobilisations incorporelles et corporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "POSTE",
+  "libelle_poste": "- Décaissements liés aux acquisitions d'immobilisations financières",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "TITRES DE PARTICIPATIONS ",
+  "compte": 26,
+  "signe": null,
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "TITRES DE PARTICIPATIONS ",
+  "compte": 26,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "AUTRES IMMOBILISATIONS FINANCIERES",
+  "compte": 27,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "AUTRES IMMOBILISATIONS FINANCIERES",
+  "compte": 27,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Versements restant à effectuer sur titres de participation et titres immobilisés non libérés ",
+  "compte": 4813,
+  "signe": "+",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Versements restant à effectuer sur titres de participation et titres immobilisés non libérés ",
+  "compte": 4813,
+  "signe": "-",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Indices de la réévaluation: compte d'écart de réévaluation",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Ecarts de conversion - actif ",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Ecarts de conversion - actif ",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Ecarts de conversion - passif",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Ecarts de conversion - passif",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations financières reçues lors d'un apport de ressources propres en nature",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FJ",
+  "nature": "Composant",
+  "libelle_poste": "Immobilisations financières reçues lors d'un apport de ressources propres en nature",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FK",
+  "nature": "POSTE",
+  "libelle_poste": "+ Encaissements liés aux cessions d’immobilisations incorporelles et corporelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FK",
+  "nature": "Composant",
+  "libelle_poste": "Produits des cessions d'immobilisations incorporelles ",
+  "compte": 821,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FK",
+  "nature": "Composant",
+  "libelle_poste": "Produits des cessions d'immobilisations corporelles ",
+  "compte": 822,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FK",
+  "nature": "Composant",
+  "libelle_poste": "Créances ,en compte,immobilisations incorpporelles",
+  "compte": 4851,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FK",
+  "nature": "Composant",
+  "libelle_poste": "Créances ,en compte,immobilisations incorpporelles",
+  "compte": 4851,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FK",
+  "nature": "Composant",
+  "libelle_poste": "Créances, en compte,immobilisations corporelles",
+  "compte": 4852,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FK",
+  "nature": "Composant",
+  "libelle_poste": "Créances, en compte,immobilisations corporelles",
+  "compte": 4852,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FL",
+  "nature": "POSTE",
+  "libelle_poste": "+ Encaissements liés aux cessions d’immobilisations financières",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FL",
+  "nature": "Composant",
+  "libelle_poste": "Produits des cessions d'immobilisations financières",
+  "compte": 826,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FL",
+  "nature": "Composant",
+  "libelle_poste": "Produits des cessions d'immobilisations financières",
+  "compte": 826,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FL",
+  "nature": "Composant",
+  "libelle_poste": "Créances, immobilisations financières",
+  "compte": 4856,
+  "signe": "+",
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FL",
+  "nature": "Composant",
+  "libelle_poste": "Créances, immobilisations financières",
+  "compte": 4856,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "POSTE",
+  "libelle_poste": "+ Encaissement des dotations et autres fonds propres",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Dotationb non consomptible sans droit de reprise en numéraire",
+  "compte": 1011,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Dotationb non consomptible sans droit de reprise en numéraire",
+  "compte": 1011,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Dotationb non consomptible avec droit de reprise en numéraire",
+  "compte": 1021,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Dotationb non consomptible avec droit de reprise ",
+  "compte": 1021,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Droit d'entrée",
+  "compte": 103,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Droit d'entrée",
+  "compte": 103,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Dotation consomptible ",
+  "compte": 1041,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Dotation consomptible ",
+  "compte": 1041,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances liées aux fondateurs,adhérents et compte courant",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FM",
+  "nature": "Composant",
+  "libelle_poste": "Variation des créances liées aux fondateurs,adhérents et compte courant",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FN",
+  "nature": "POSTE",
+  "libelle_poste": "+ Subventions d'investissement reçues",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FN",
+  "nature": "Composant",
+  "libelle_poste": " SUBVENTIONS D'INVESTISSEMENT",
+  "compte": 14,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FN",
+  "nature": "Composant",
+  "libelle_poste": " SUBVENTIONS D'INVESTISSEMENT",
+  "compte": 14,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FO",
+  "nature": "POSTE",
+  "libelle_poste": "- Décaissement des dotations et autres fonds propres",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FO",
+  "nature": "Composant",
+  "libelle_poste": "(Trésorerie) Fonds affectés à un projet spécifique",
+  "compte": 1652,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FO",
+  "nature": "Composant",
+  "libelle_poste": "(Trésorerie) Fonds affectés à un projet spécifique",
+  "compte": 1652,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FO",
+  "nature": "Composant",
+  "libelle_poste": "(Trésorerie) Autres fonds affectés",
+  "compte": 1682,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FO",
+  "nature": "Composant",
+  "libelle_poste": "(Trésorerie) Autres fonds affectés",
+  "compte": 1682,
+  "signe": "-",
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FP",
+  "nature": "POSTE",
+  "libelle_poste": "+Encaissement provenant des emprunts et des autres dettes financières",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FP",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts obligatoires",
+  "compte": 181,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FP",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes auprés des établissements de crédit ",
+  "compte": 182,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FP",
+  "nature": "Composant",
+  "libelle_poste": "Avances reçues de l'Etat",
+  "compte": 183,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FP",
+  "nature": "Composant",
+  "libelle_poste": "Dépôts et cautionnements reçus ",
+  "compte": 185,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FP",
+  "nature": "Composant",
+  "libelle_poste": "Autres emprunts et dettes",
+  "compte": 188,
+  "signe": null,
+  "imputation": "MC",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FP",
+  "nature": "Composant",
+  "libelle_poste": "Ecarts de conversion - actif ",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FP",
+  "nature": "Composant",
+  "libelle_poste": "Ecarts de conversion - passif ",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FQ",
+  "nature": "POSTE",
+  "libelle_poste": "- Remboursements des emprunts et autres dettes financières",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FQ",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts obligatoires",
+  "compte": 181,
+  "signe": null,
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FQ",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes auprés des établissements de crédit ",
+  "compte": 182,
+  "signe": null,
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FQ",
+  "nature": "Composant",
+  "libelle_poste": "Avances reçues de l'Etat",
+  "compte": 183,
+  "signe": null,
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FQ",
+  "nature": "Composant",
+  "libelle_poste": "Dépôts et cautionnements reçus ",
+  "compte": 185,
+  "signe": null,
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FQ",
+  "nature": "Composant",
+  "libelle_poste": "Autres emprunts et dettes",
+  "compte": 188,
+  "signe": null,
+  "imputation": "MD",
+  "exercice": "N"
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FQ",
+  "nature": "Composant",
+  "libelle_poste": "Ecarts de conversion - actif ",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "TFT",
+  "code_poste": "FQ",
+  "nature": "Composant",
+  "libelle_poste": "Ecarts de conversion - passif ",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A1",
+  "nature": "POSTE",
+  "libelle_poste": "Resultat des activites ordinaires",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A1",
+  "nature": "Composant",
+  "libelle_poste": "Resultat des activites ordinaires",
+  "compte": "XC",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A2",
+  "nature": "POSTE",
+  "libelle_poste": "Resultat hors activites ordinaires",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A2",
+  "nature": "Composant",
+  "libelle_poste": "Resultat hors activites ordinaires",
+  "compte": "XD",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A3",
+  "nature": "POSTE",
+  "libelle_poste": "Resultat net",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A3",
+  "nature": "Composant",
+  "libelle_poste": "Resultat net",
+  "compte": "XE",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "POSTE",
+  "libelle_poste": "Capacité d'autofinancement globale ( CAFG) (a)",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "Resultat net",
+  "compte": "XE",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "Dotations aux amortissements d’exploitation",
+  "compte": 681,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "Dotations aux provisions et aux dépréciations d’exploitation",
+  "compte": 691,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "Dotations aux provisions et aux dépréciations financières",
+  "compte": 697,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "VALEURS COMPTABLES DES CESSIONS D’IMMOBILISATIONS",
+  "compte": 81,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "Reprises de provisions et dépréciations d’exploitation",
+  "compte": 791,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "Reprises de provisions et dépréciations financières",
+  "compte": 797,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "Reprises d’amortissements",
+  "compte": 798,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "Reprises de subventions d’investissement",
+  "compte": 799,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A4",
+  "nature": "Composant",
+  "libelle_poste": "PRODUITS DES CESSIONS D’IMMOBILISATIONS",
+  "compte": 82,
+  "signe": "-",
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A5",
+  "nature": "POSTE",
+  "libelle_poste": " Cotisations",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A5",
+  "nature": "Composant",
+  "libelle_poste": " Cotisations",
+  "compte": "RA",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A6",
+  "nature": "POSTE",
+  "libelle_poste": "Charges de l'exercice (b)",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A6",
+  "nature": "Composant",
+  "libelle_poste": "CHARGES DES ACTIVITES ORDINAIRES (Somme TA à TL)",
+  "compte": "XB",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A6",
+  "nature": "Composant",
+  "libelle_poste": "Charges H.A.O",
+  "compte": "TN",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A7",
+  "nature": "POSTE",
+  "libelle_poste": "Somme versées directement aux bénéficiaires",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A7",
+  "nature": "Composant",
+  "libelle_poste": "Subventions versées par l’entité",
+  "compte": 652,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A8",
+  "nature": "POSTE",
+  "libelle_poste": "Sommes collectées brutes ",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "A8",
+  "nature": "Composant",
+  "libelle_poste": "Revenus liés à la générosité",
+  "compte": 704,
+  "signe": null,
+  "imputation": "SFC",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B1",
+  "nature": "POSTE",
+  "libelle_poste": "+ Fonds propres et assimilées",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B1",
+  "nature": "Composant",
+  "libelle_poste": "TOTAL FONDS PROPRES ET ASSIMILES",
+  "compte": "CK",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B2",
+  "nature": "POSTE",
+  "libelle_poste": "+ Dettes financières* et  ressources assimilées (c)",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B2",
+  "nature": "Composant",
+  "libelle_poste": "Emprunts et dettes financières",
+  "compte": "DA",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B2",
+  "nature": "Composant",
+  "libelle_poste": "Dettes de location acquisition",
+  "compte": "DB",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B2",
+  "nature": "Composant",
+  "libelle_poste": "Provisions pour risques et charges",
+  "compte": "DC",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B3",
+  "nature": "POSTE",
+  "libelle_poste": "- Actif immobilisé (c)",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B3",
+  "nature": "Composant",
+  "libelle_poste": "TOTAL ACTIF IMMOBILISE",
+  "compte": "AZ",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B4",
+  "nature": "POSTE",
+  "libelle_poste": "+ Actif circulant d'exploitation (c)",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B4",
+  "nature": "Composant",
+  "libelle_poste": "TOTAL ACTIF CIRCULANT",
+  "compte": "BT",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B4",
+  "nature": "Composant",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": "BA",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B5",
+  "nature": "POSTE",
+  "libelle_poste": "-  Passif circulant d'exploitation (c)",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B5",
+  "nature": "Composant",
+  "libelle_poste": "TOTAL PASSIF CIRCULANT",
+  "compte": "DV",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B5",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": "DF",
+  "signe": "-",
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B6",
+  "nature": "POSTE",
+  "libelle_poste": "+ Actif circulant HAO (c)",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B6",
+  "nature": "Composant",
+  "libelle_poste": "Actif circulant HAO",
+  "compte": "BA",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B7",
+  "nature": "POSTE",
+  "libelle_poste": "-  Passif circulant HAO (c)",
+  "compte": null,
+  "signe": "-",
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B7",
+  "nature": "Composant",
+  "libelle_poste": "Dettes circulantes HAO",
+  "compte": "DF",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B8",
+  "nature": "POSTE",
+  "libelle_poste": "TRESORERIE - ACTIF",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B8",
+  "nature": "Composant",
+  "libelle_poste": "TOTAL TRESORERIE ACTIF",
+  "compte": "BX",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B9",
+  "nature": "POSTE",
+  "libelle_poste": "TRESORERIE - PASSIF",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B9",
+  "nature": "Composant",
+  "libelle_poste": "TOTAL TRESORERIE PASSIF",
+  "compte": "DX",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B10",
+  "nature": "POSTE",
+  "libelle_poste": "Créances",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B10",
+  "nature": "Composant",
+  "libelle_poste": "Fournisseurs avances versées ",
+  "compte": 4091,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B10",
+  "nature": "Composant",
+  "libelle_poste": "Adhérents",
+  "compte": 411,
+  "signe": null,
+  "imputation": "SFD",
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B10",
+  "nature": "Composant",
+  "libelle_poste": "Autres créances",
+  "compte": "BE",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B11",
+  "nature": "POSTE",
+  "libelle_poste": "Passif circulant ",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "B11",
+  "nature": "Composant",
+  "libelle_poste": "Passif circulant ",
+  "compte": "DV",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "C1",
+  "nature": "POSTE",
+  "libelle_poste": "+ Flux de trésorerie des activités opérationnelles",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "C1",
+  "nature": "Composant",
+  "libelle_poste": "Flux de trésorerie des activités opérationnelles",
+  "compte": "ZB",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "C2",
+  "nature": "POSTE",
+  "libelle_poste": "Flux de trésorerie des activités d'investissement",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "C2",
+  "nature": "Composant",
+  "libelle_poste": "Flux de trésorerie des activités d'investissement",
+  "compte": "ZC",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "C3",
+  "nature": "POSTE",
+  "libelle_poste": "+ Flux de trésorerie des activités de financement",
+  "compte": null,
+  "signe": null,
+  "imputation": null,
+  "exercice": null
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "C3",
+  "nature": "Composant",
+  "libelle_poste": "Flux de trésorerie provenant des activités d’investissement",
+  "compte": "ZD",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ },
+ {
+  "etat": "INDICATEURS",
+  "code_poste": "C3",
+  "nature": "Composant",
+  "libelle_poste": "Flux de trésorerie provenant des capitaux étrangers",
+  "compte": "ZE",
+  "signe": null,
+  "imputation": null,
+  "exercice": "N"
+ }
+]

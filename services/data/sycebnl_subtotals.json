@@ -1,0 +1,117 @@
+{
+  "XA": {
+    "etat": "RESULTAT",
+    "libelle": "REVENUS DES ACTIVITES ORDINAIRES (Somme RA à RH)",
+    "formule": "SUM(RA:RH)",
+    "type": "sum_range_postes"
+  },
+  "XB": {
+    "etat": "RESULTAT",
+    "libelle": "CHARGES DES ACTIVITES ORDINAIRES (Somme TA à TL)",
+    "formule": "SUM(TA:TL)",
+    "type": "sum_range_postes"
+  },
+  "XC": {
+    "etat": "RESULTAT",
+    "libelle": "RESULTAT DES ACTIVITES ORDINAIRES (XA - XB)",
+    "formule": "XA + XB",
+    "type": "sum_postes",
+    "note": "XB déjà signé négativement en amont"
+  },
+  "XD": {
+    "etat": "RESULTAT",
+    "libelle": "RESULTAT H.A.O. (TM - TN)",
+    "formule": "TM - TN",
+    "type": "diff_postes"
+  },
+  "XE": {
+    "etat": "RESULTAT",
+    "libelle": "RESULTAT NET DE L'EXERCICE (XC+XD)",
+    "formule": "XC + XD",
+    "type": "sum_postes"
+  },
+  "AD": {
+    "etat": "ACTIF",
+    "libelle": "sous-total immobilisations incorporelles (net)",
+    "formule": "brut(AD) - amort(AD); N-1 = SUM(AE:AG)",
+    "type": "net_or_sum_prior"
+  },
+  "AH": {
+    "etat": "ACTIF",
+    "libelle": "sous-total immobilisations corporelles (net)",
+    "formule": "brut(AH) - amort(AH); N-1 = SUM(AI:AN)",
+    "type": "net_or_sum_prior"
+  },
+  "AZ": {
+    "etat": "ACTIF",
+    "libelle": "TOTAL ACTIF IMMOBILISE",
+    "formule": "brut(AZ) - amort(AZ); N-1 = AD_N1 + AH_N1 + AX_N1 + AY_N1 (lignes 25,18,14,11)",
+    "type": "total_immobilise"
+  },
+  "BT": {
+    "etat": "ACTIF",
+    "libelle": "TOTAL ACTIF CIRCULANT",
+    "formule": "brut(BT) - amort(BT); N-1 = SUM(BA:BE)",
+    "type": "net_or_sum_prior"
+  },
+  "BX": {
+    "etat": "ACTIF",
+    "libelle": "TOTAL TRESORERIE ACTIF",
+    "formule": "SUM(BU, BV, BW) — net (brut-amort) par poste, puis sommés",
+    "type": "sum_postes"
+  },
+  "CK": {
+    "etat": "PASSIF",
+    "libelle": "TOTAL FONDS PROPRES ET ASSIMILES",
+    "formule": "SUM(CA:CJ)",
+    "type": "sum_range_postes"
+  },
+  "DV": {
+    "etat": "PASSIF",
+    "libelle": "TOTAL PASSIF CIRCULANT",
+    "formule": "SUM(DF, DG, DH, DI)",
+    "type": "sum_range_postes"
+  },
+  "DX": {
+    "etat": "PASSIF",
+    "libelle": "TOTAL TRESORERIE PASSIF",
+    "formule": "= DW (alias direct, pas de somme)",
+    "type": "alias_poste"
+  },
+  "ZB": {
+    "etat": "TFT",
+    "libelle": "Flux net activités opérationnelles",
+    "formule": "SUM(FA:FH)",
+    "type": "sum_range_postes"
+  },
+  "ZC": {
+    "etat": "TFT",
+    "libelle": "Flux net activités d'investissement",
+    "formule": "SUM(FI:FL)",
+    "type": "sum_range_postes"
+  },
+  "ZD": {
+    "etat": "TFT",
+    "libelle": "Flux net activités de financement (partie 1)",
+    "formule": "SUM(FM:FO)",
+    "type": "sum_range_postes"
+  },
+  "ZE": {
+    "etat": "TFT",
+    "libelle": "Flux net activités de financement (partie 2)",
+    "formule": "SUM(FP:FQ)",
+    "type": "sum_range_postes"
+  },
+  "ZF": {
+    "etat": "TFT",
+    "libelle": "Flux net total de trésorerie",
+    "formule": "ZB + ZC + (ZD + ZE)",
+    "type": "sum_postes"
+  },
+  "ZG": {
+    "etat": "TFT",
+    "libelle": "Trésorerie nette de clôture",
+    "formule": "ZA + ZF",
+    "type": "sum_postes"
+  }
+}
