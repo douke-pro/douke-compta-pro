@@ -52,6 +52,21 @@ const t7 = calculerEtatsFinanciers(balanceCotis, balanceCotis);
 check('TFT.ZG est un nombre', typeof t7.tft.ZG === 'number', true);
 console.log('    (avertissements TFT signalés:', t7.avertissements.tft.length, '— attendu, comptes propres à chaque entité)');
 
+console.log('\n=== TEST 8 : AZ inclut bien AA (immo. destinées à la vente / dons-legs) ===');
+const balanceAA = [{ compte: '201', sid: 0, sic: 0, md: 0, mc: 0, sfd: 1000000, sfc: 0 }]; // AB (-> AA)
+const t8 = calculerEtatsFinanciers(balanceAA, []);
+check('ACTIF.AA', t8.actif.AA.net, 1000000);
+check('ACTIF.AZ inclut AA', t8.actif.AZ.net, 1000000);
+check('ACTIF.BZ (total général)', t8.actif.BZ.net, 1000000);
+
+console.log('\n=== TEST 9 : équilibre du bilan (actif = passif) sur un cas simple ===');
+const balanceEquilibre = [
+  { compte: '521', sid: 0, sic: 0, md: 0, mc: 0, sfd: 10000000, sfc: 0 }, // Banque (actif)
+  { compte: '1011', sid: 0, sic: 0, md: 0, mc: 10000000, sfd: 0, sfc: 10000000 }, // Dotation (passif)
+];
+const t9 = calculerEtatsFinanciers(balanceEquilibre, []);
+check('ACTIF.BZ = PASSIF.DZ (équilibre)', t9.actif.BZ.net, t9.passif.DZ);
+
 console.log(failures === 0 ? '\nTOUS LES TESTS SONT PASSÉS.' : `\n${failures} TEST(S) EN ÉCHEC.`);
 process.exit(failures === 0 ? 0 : 1);
 

@@ -142,6 +142,23 @@ function codesLeafDe(etat) {
   return [...new Set(mapping.filter((m) => m.etat === etat && m.nature === 'POSTE').map((m) => m.code_poste))];
 }
 
+/**
+ * Le signe porté par la ligne "POSTE" (par opposition aux lignes "Composant")
+ * indique le sens d'agrégation du poste dans son état (ex. TA-TL et TN sont
+ * marqués '-' car ce sont des postes de CHARGE : calculerPosteLeaf() renvoie
+ * leur montant en valeur absolue — normal pour un solde débiteur — mais ils
+ * doivent être SOUSTRAITS lors du calcul des totaux (XB, XD...). RA-RH et TM
+ * (produits) ne portent pas ce signe et s'additionnent normalement.
+ * VÉRIFIÉ : sans cette correction, XB était additionné au lieu d'être
+ * soustrait et le résultat net (XE) était donc faux dès qu'il y avait à la
+ * fois des produits et des charges (bug détecté par test d'intégration).
+ */
+function signeDePoste(etat, code) {
+  const mapping = loadMapping();
+  const posteRow = mapping.find((m) => m.etat === etat && m.code_poste === code && m.nature === 'POSTE');
+  return posteRow && posteRow.signe === '-' ? -1 : 1;
+}
+
 // -----------------------------------------------------------------------------
 // 4. Moteur complet
 // -----------------------------------------------------------------------------
@@ -164,12 +181,19 @@ function calculerEtatsFinanciers(balanceN, balanceN1) {
   }
   const net = (code) => actif[code]?.net || 0;
 
-  // Rollups ACTIF, vérifiés sur BILAN!F29/F35/F39 :
-  actif.AD = { net: net('AE') + net('AF') + net('AG') };                          // Immo. incorp. (sous-total)
-  actif.AH = { net: net('AI') + net('AJ') + net('AK') + net('AL') + net('AM') + net('AN') }; // Immo. corp.
-  actif.AZ = { net: actif.AD.net + actif.AH.net + net('AX') + net('AY') };        // TOTAL ACTIF IMMOBILISE
+  // Rollups ACTIF, vérifiés ligne à ligne sur 'BILAN DRAFT' (colonnes F/G/H, exercice N) :
+  //   AA (F11=SUM(F12:F13)), AD (F14=SUM(F15:F17)), AH (F18=SUM(F19:F24)),
+  //   AO (F25=SUM(F26:F28)), AZ (F29=F25+F18+F14+F11) — AZ = AO+AH+AD+AA, PAS AD+AH+AX+AY.
+  // AA et AO sont absents des 614 lignes de mapping ET des 19 rollups extraits par le
+  // pipeline (lacune du pipeline d'extraction d'origine) — recalculés ici directement.
+  actif.AA = { net: net('AB') + net('AC') };                                      // Immo. destinées à la vente (dons/legs non reçus, usufruit)
+  actif.AD = { net: net('AE') + net('AF') + net('AG') };                          // Immo. incorporelles (sous-total)
+  actif.AH = { net: net('AI') + net('AJ') + net('AK') + net('AL') + net('AM') + net('AN') }; // Immo. corporelles
+  actif.AO = { net: net('AX') + net('AY') };                                      // Immo. financières (sous-total)
+  actif.AZ = { net: actif.AA.net + actif.AD.net + actif.AH.net + actif.AO.net };  // TOTAL ACTIF IMMOBILISE
   actif.BT = { net: net('BA') + net('BB') + net('BC') + net('BD') + net('BE') };  // TOTAL ACTIF CIRCULANT
   actif.BX = { net: net('BU') + net('BV') + net('BW') };                          // TOTAL TRESORERIE ACTIF
+  actif.BZ = { net: actif.AZ.net + actif.BT.net + actif.BX.net + net('BY') };     // TOTAL GENERAL ACTIF (BILAN DRAFT!F41=F29+F35+F39+F40)
 
   // ---- 2. RESULTAT (avant PASSIF car PASSIF.CH référence XE) ----------------
   const resultat = {};
@@ -178,10 +202,13 @@ function calculerEtatsFinanciers(balanceN, balanceN1) {
   }
   const RA_RH = ['RA', 'RB', 'RC', 'RD', 'RE', 'RF', 'RG', 'RH'];
   const TA_TL = ['TA', 'TB', 'TC', 'TD', 'TE', 'TF', 'TG', 'TH', 'TI', 'TJ', 'TK', 'TL'];
-  resultat.XA = RA_RH.reduce((s, c) => s + (resultat[c] || 0), 0);
-  resultat.XB = TA_TL.reduce((s, c) => s + (resultat[c] || 0), 0); // déjà négatif (signe '-' dans le mapping)
+  // calculerPosteLeaf() renvoie une magnitude (solde net) pour chaque poste ; le signe
+  // d'agrégation réel (produit + / charge -) vient de la ligne "POSTE" du mapping, pas
+  // d'une convention implicite — voir signeDePoste() ci-dessus.
+  resultat.XA = RA_RH.reduce((s, c) => s + signeDePoste('RESULTAT', c) * (resultat[c] || 0), 0);
+  resultat.XB = TA_TL.reduce((s, c) => s + signeDePoste('RESULTAT', c) * (resultat[c] || 0), 0);
   resultat.XC = resultat.XA + resultat.XB;
-  resultat.XD = (resultat.TM || 0) - (resultat.TN || 0);
+  resultat.XD = signeDePoste('RESULTAT', 'TM') * (resultat.TM || 0) + signeDePoste('RESULTAT', 'TN') * (resultat.TN || 0);
   resultat.XE = resultat.XC + resultat.XD; // RESULTAT NET DE L'EXERCICE
 
   // ---- 3. PASSIF (CH référence XE — cross-référence déjà encodée dans le mapping) --
@@ -205,6 +232,10 @@ function calculerEtatsFinanciers(balanceN, balanceN1) {
   passif.CK = CA_CJ.reduce((s, c) => s + (passif[c] || 0), 0);           // TOTAL FONDS PROPRES ET ASSIMILES
   passif.DV = (passif.DF || 0) + (passif.DG || 0) + (passif.DH || 0) + (passif.DI || 0); // TOTAL PASSIF CIRCULANT
   passif.DX = passif.DW || 0;                                            // TOTAL TRESORERIE PASSIF
+  // TOTAL GENERAL PASSIF, vérifié sur BILAN DRAFT!M41 = M40+M39+M35+(M25=M24+M21) où M24='CY' (SUMIF, vide dans ce
+  // classeur -> 0, cohérent avec l'absence de CY dans les 614 lignes) :
+  const CY = calculerPosteLeaf(idxN, 'PASSIF', 'CY', 'N'); // 0 si aucune règle (cas de ce classeur)
+  passif.DZ = passif.CK + CY + (passif.DA || 0) + (passif.DB || 0) + (passif.DC || 0) + passif.DV + passif.DX + (passif.DY || 0);
 
   // ---- 4. TFT -----------------------------------------------------------------
   const posteDejaCalcule = (code) => {

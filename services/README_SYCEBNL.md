@@ -2,10 +2,44 @@
 
 ## Statut
 Construit et testé dans cette session à partir du classeur officiel réel
-(`LIASSE MSG-SYCEBNL-AOP-Pro V1.xlsm`). Chaque formule de rollup (AZ, BT, BX,
-CK, DV, DX, XA-XE, ZB-ZG) a été vérifiée directement contre les formules
-Excel du classeur avant d'être codée — pas de formule devinée.
-12/12 tests passés (`node test_sycebnlMapper.js`).
+(`LIASSE MSG-SYCEBNL-AOP-Pro V1.xlsm`). Chaque formule de rollup (AA, AD, AH,
+AO, AZ, BT, BX, BZ, CK, DV, DX, DZ, XA-XE, ZB-ZG) a été vérifiée directement
+contre les formules Excel du classeur avant d'être codée.
+16/16 tests unitaires passés + 1 test d'intégration bout-en-bout (balance →
+mapper → adaptateur → vrais PDF via pdfGenerator.js inchangé, bilan équilibré
+confirmé, PDF rendu et inspecté visuellement).
+
+## Deux bugs réels trouvés et corrigés avant livraison
+1. **TOTAL ACTIF IMMOBILISE (AZ) incomplet** : la formule oubliait la
+   catégorie AA (« Immobilisations destinées à la vente provenant de dons et
+   legs non reçus, usufruit temporaire »). AZ = AA + AD + AH + AO, pas
+   AD + AH + AX + AY. Trouvé en comparant les formules réelles des feuilles
+   `BILAN` / `BILAN DRAFT` ligne à ligne.
+2. **Résultat net faux dès qu'il y a des charges** : les postes de charge
+   (TA-TL, TN) sont stockés en valeur absolue (solde débiteur net) dans la
+   table de correspondance ; seule la ligne "POSTE" porte le signe `-` qui
+   indique qu'il faut les SOUSTRAIRE du total. Ce signe n'était pas appliqué
+   → XB (charges) s'additionnait au lieu de se soustraire, gonflant le
+   résultat net. Trouvé par le test d'intégration bout-en-bout (produits +
+   charges combinés), pas par les tests unitaires initiaux qui ne testaient
+   jamais les deux à la fois.
+
+## sycebnlReportAdapter.js
+Nouveau fichier : transforme `calculerEtatsFinanciers()` dans le format exact
+attendu par `pdfGenerator.js` (vérifié sur le vrai fichier, format identique
+à SYSCOHADA : `{ref, libelle, note, brut, amort, net, net_n1, isTotal}` pour
+l'actif, etc.). Usage :
+
+```js
+const { buildReportData } = require('./sycebnlReportAdapter');
+const reportData = buildReportData(balanceN, balanceN1, {
+  company: { name, street, city, zip },
+  period: { start, end },
+});
+const pdfs = await require('./pdfGenerator').generateAllReports(reportData, 'SYCEBNL_NORMAL', requestId);
+```
+
+`pdfGenerator.js` n'a besoin d'AUCUNE modification — testé tel quel.
 
 ## Ce qui est fiable à 100%
 - ACTIF (brut, amortissement, net) — tous postes leaf + rollups AD, AH, AZ, BT, BX
@@ -41,17 +75,6 @@ const etats = calculerEtatsFinanciers(balanceN, balanceN1 /* optionnel */);
 // etats.tft.ZG         -> Trésorerie nette de clôture
 // etats.avertissements.tft -> lignes TFT non résolues, à vérifier manuellement
 ```
-
-## Intégration avec pdfGenerator.js / scriptEtatsFinanciers.js
-Ce module n'a pas pu être calqué sur la convention exacte de
-`syscohadaMapper.js` (le fichier n'a pas pu être transmis dans cette
-session). L'export suit une convention CommonJS standard
-(`module.exports = { calculerEtatsFinanciers, ... }`). Si le format attendu
-par `pdfGenerator.js` diffère (ex. `{ref, libelle, note, brut, amort, net,
-net_n1, isTotal}` comme pour SYSCOHADA), il faudra écrire une petite couche
-d'adaptation entre `calculerEtatsFinanciers()` et le générateur PDF —
-n'hésite pas à revenir avec cette couche à écrire si besoin, une fois que tu
-vois comment `pdfGenerator.js` consomme `syscohadaMapper.js`.
 
 ## Tester
 ```bash
