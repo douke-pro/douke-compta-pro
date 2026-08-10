@@ -22,6 +22,8 @@ const fs                 = require('fs').promises;
 // ✅ AJOUT — service notifications internes
 const notificationService = require('../services/notifications');
 const syscohadaMapper     = require('../services/syscohadaMapper');
+const sycebnlBalanceAdapter = require('../services/sycebnlBalanceAdapter');
+const sycebnlReportAdapter  = require('../services/sycebnlReportAdapter');
 
 // ============================================
 // HELPER : récupérer l'email de l'admin pour les notifications
@@ -387,6 +389,18 @@ exports.generateReports = async (req, res) => {
                     request.company_id, request.period_start, request.period_end, request.accounting_system
                 );
 
+                const isSycebnl = (request.accounting_system || '').startsWith('SYCEBNL');
+                let reportData;
+
+                if (isSycebnl) {
+                    // Chemin SYCEBNL (associations/ONG) — sycebnlMapper + sycebnlReportAdapter
+                    const balanceN  = sycebnlBalanceAdapter.toBalanceSycebnl(odooData.raw_data.move_lines      || []);
+                    const balanceN1 = sycebnlBalanceAdapter.toBalanceSycebnl(odooData.raw_data.prev_year_lines || []);
+                    reportData = sycebnlReportAdapter.buildReportData(balanceN, balanceN1, {
+                        company: odooData.company,
+                        period:  odooData.period,
+                    });
+                } else {
                 // Adaptateur enrichedLines → format attendu par syscohadaMapper
                 function toBalanceAccounts(lines) {
                     const map = {};
@@ -417,7 +431,7 @@ exports.generateReports = async (req, res) => {
                 const tft    = syscohadaMapper.computeTFT(balanceAccounts, bilanN, {});
                 const tresFin = tft.find(l => l.ref === 'ZH')?.montant_n || 0;
 
-                const reportData = {
+                reportData = {
                     company: odooData.company,
                     period:  odooData.period,
                     bilan: {
@@ -439,6 +453,7 @@ exports.generateReports = async (req, res) => {
                     },
                     annexes: odooData.annexes || null
                 };
+                }
 
                 const pdfFiles = await pdfGeneratorService.generateAllReports(
                     reportData, request.accounting_system, requestId
@@ -676,6 +691,18 @@ exports.regenerateReportsWithEdits = async (req, res) => {
                 const rawLines  = odooData.raw_data?.move_lines      || [];
                 const prevLines = odooData.raw_data?.prev_year_lines  || [];
 
+                const isSycebnl = (request.accounting_system || '').startsWith('SYCEBNL');
+                let reportData;
+
+                if (isSycebnl) {
+                    // Chemin SYCEBNL (associations/ONG) — sycebnlMapper + sycebnlReportAdapter
+                    const balanceN  = sycebnlBalanceAdapter.toBalanceSycebnl(rawLines);
+                    const balanceN1 = sycebnlBalanceAdapter.toBalanceSycebnl(prevLines);
+                    reportData = sycebnlReportAdapter.buildReportData(balanceN, balanceN1, {
+                        company: odooData.company,
+                        period:  odooData.period,
+                    });
+                } else {
                 function toBalanceAccounts(lines) {
                     const map = {};
                     for (const line of (lines || [])) {
@@ -701,7 +728,7 @@ exports.regenerateReportsWithEdits = async (req, res) => {
                 const tft            = syscohadaMapper.computeTFT(balanceAccounts, bilanN, {});
                 const tresFin        = tft.find(l => l.ref === 'ZH')?.montant_n || 0;
 
-                const reportData = {
+                reportData = {
                     company: odooData.company,
                     period:  odooData.period,
                     bilan: {
@@ -712,6 +739,7 @@ exports.regenerateReportsWithEdits = async (req, res) => {
                     tft:             { lignes: tft, tresorerie_finale: tresFin },
                     annexes:         odooData.annexes || null
                 };
+                }
 
                 const pdfFiles = await pdfGeneratorService.generateAllReports(
                     reportData, request.accounting_system, req.params.id
