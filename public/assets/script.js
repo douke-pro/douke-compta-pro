@@ -1691,7 +1691,13 @@ function generateJournalHTML(entries) {
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </td>
-                ` : '<td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-400">—</td>'}
+                ` : (entry.status === 'Validé' && isAdminOrCollab() ? `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right" onclick="event.stopPropagation()">
+                    <button onclick="window.handleResetToDraft(${entry.id})" class="text-warning hover:text-warning/80" title="Remettre en Brouillon pour correction">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                </td>
+                ` : '<td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-400">—</td>')}
             </tr>
         `;
     }).join('');
@@ -1755,6 +1761,29 @@ window.handleDeleteEntry = async function(entryId) {
     } catch (error) {
         console.error('❌ [handleDeleteEntry]', error);
         NotificationManager.show(error.message || 'Erreur lors de la suppression.', 'error');
+    }
+};
+
+/**
+ * Remet une écriture Validée en Brouillon pour correction
+ * Réservé à ADMIN et COLLABORATEUR (bouton masqué côté UI pour les autres profils
+ * via isAdminOrCollab() ; contrôle également appliqué côté serveur)
+ */
+window.handleResetToDraft = async function(entryId) {
+    if (!confirm('Remettre cette écriture en Brouillon pour la corriger ? Elle redeviendra modifiable et devra être revalidée.')) return;
+    try {
+        const companyId = appState.currentCompanyId;
+        await apiFetch(`accounting/move/${entryId}/reset-draft`, {
+            method: 'POST',
+            body: JSON.stringify({ companyId })
+        });
+        NotificationManager.show('Écriture remise en Brouillon avec succès.', 'success');
+        if (typeof window.handleJournalApplyFilters === 'function') {
+            window.handleJournalApplyFilters();
+        }
+    } catch (error) {
+        console.error('❌ [handleResetToDraft]', error);
+        NotificationManager.show(error.message || 'Erreur lors de la remise en brouillon.', 'error');
     }
 };
 

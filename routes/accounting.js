@@ -45,6 +45,7 @@ router.get('/chart-of-accounts', protect, checkCompanyAccess, accountingControll
 
 router.post('/move/create',       protect, checkCompanyAccess, checkWritePermission, accountingController.createJournalEntry);
 router.post('/move/:id/validate', protect, checkCompanyAccess, checkWritePermission, accountingController.validateJournalEntry);
+router.post('/move/:id/reset-draft', protect, checkCompanyAccess, checkWritePermission, accountingController.resetJournalEntryToDraft);
 router.delete('/move/:id',        protect, checkCompanyAccess, checkWritePermission, accountingController.deleteJournalEntry);
 router.post('/caisse-entry',      protect, checkCompanyAccess, checkWritePermission, accountingController.handleCaisseEntry);
 router.post('/chart-of-accounts', protect, checkCompanyAccess, checkWritePermission, accountingController.createAccount);

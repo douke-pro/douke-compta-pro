@@ -722,6 +722,67 @@ exports.deleteJournalEntry = async (req, res) => {
     }
 };
 
+/**
+ * Remet une écriture Validée à l'état Brouillon pour correction
+ * Réservé à ADMIN et COLLABORATEUR uniquement (USER explicitement exclu,
+ * même si checkWritePermission le laisse passer en amont)
+ * @route POST /api/accounting/move/:id/reset-draft
+ */
+exports.resetJournalEntryToDraft = async (req, res) => {
+    try {
+        const allowedRoles = ['ADMIN', 'COLLABORATEUR'];
+        if (!allowedRoles.includes(req.user?.role)) {
+            console.warn(`⚠️ [resetJournalEntryToDraft] BLOQUÉ pour rôle "${req.user?.role}" (${req.user?.email})`);
+            return res.status(403).json({
+                status: 'error',
+                error:  'Accès refusé. Seuls les profils ADMIN et COLLABORATEUR peuvent remettre une écriture en Brouillon.'
+            });
+        }
+
+        const moveId    = parseInt(req.params.id);
+        const companyId = req.validatedCompanyId || parseInt(req.body.companyId || req.body.company_id);
+
+        if (!moveId || !companyId) {
+            return res.status(400).json({ status: 'error', error: 'ID écriture et companyId requis.' });
+        }
+
+        const moveCheck = await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'account.move',
+            method: 'search_read',
+            args:   [[['id', '=', moveId], ['company_id', '=', companyId]]],
+            kwargs: { fields: ['id', 'state', 'name'], limit: 1, context: { allowed_company_ids: [companyId] } }
+        });
+
+        if (!moveCheck || moveCheck.length === 0) {
+            return res.status(404).json({ status: 'error', error: 'Écriture introuvable.' });
+        }
+
+        if (moveCheck[0].state !== 'posted') {
+            return res.status(409).json({
+                status: 'error',
+                error:  `Impossible de remettre en brouillon : écriture à l'état \"${moveCheck[0].state}\". Seule une écriture Validée peut être remise en Brouillon.`
+            });
+        }
+
+        await odooExecuteKw({
+            uid:    ADMIN_UID_INT,
+            model:  'account.move',
+            method: 'button_draft',
+            args:   [[moveId]],
+            kwargs: { context: { allowed_company_ids: [companyId] } }
+        });
+
+        console.log(`↩️ [resetJournalEntryToDraft] Écriture ${moveCheck[0].name} (${moveId}) remise en Brouillon par ${req.user?.name || req.user?.email} (rôle: ${req.user?.role})`);
+
+        res.json({ status: 'success', message: 'Écriture remise en Brouillon avec succès. Vous pouvez maintenant la corriger.' });
+
+    } catch (error) {
+        console.error('🚨 resetJournalEntryToDraft Error:', error.message);
+        res.status(500).json({ status: 'error', error: `Échec de la remise en brouillon : ${error.message}` });
+    }
+};
+
 // =============================================================================
 // 7. BALANCE SYSCOHADA 6 COLONNES
 // =============================================================================
