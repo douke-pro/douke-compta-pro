@@ -210,7 +210,8 @@ router.get('/categories/list', protect, checkCompanyAccess, async (req, res) => 
             ]],
             kwargs: {
                 fields: ['id', 'code', 'name'],
-                order: 'code asc'
+                order: 'code asc',
+                context: { allowed_company_ids: [companyId] }
             }
         });
         
