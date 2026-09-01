@@ -4562,7 +4562,7 @@ window.openNewImmobilisationModal = async function() {
         
         if (response.status === 'success' && response.data) {
             categoriesHTML += response.data.map(cat => 
-                `<option value="${cat.id}">${cat.name}</option>`
+                `<option value="${cat.id}">${cat.code} - ${cat.name}</option>`
             ).join('');
         }
     } catch (error) {
@@ -4630,7 +4630,7 @@ window.openNewImmobilisationModal = async function() {
                         
                         <div>
                             <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                                Catégorie SYSCOHADA <span class="text-danger">*</span>
+                                Compte associé (SYSCOHADA) <span class="text-danger">*</span>
                             </label>
                             <select name="category_id" required
                                 class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 focus:ring-2 focus:ring-primary outline-none">
@@ -4698,9 +4698,9 @@ window.openNewImmobilisationModal = async function() {
         const data = {
             name: formData.get('name'),
             code: formData.get('code'),
-            value: parseFloat(formData.get('value')),
-            category_id: parseInt(formData.get('category_id')),
-            date: formData.get('date'),
+            original_value: parseFloat(formData.get('value')),
+            account_asset_id: parseInt(formData.get('category_id')),
+            acquisition_date: formData.get('date'),
             method: formData.get('method') || 'linear',
             method_number: parseInt(formData.get('method_number')) || 5
         };
