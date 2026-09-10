@@ -565,7 +565,7 @@ exports.getJournals = async (req, res) => {
 exports.getJournalEntries = async (req, res) => {
     try {
         const companyId = req.validatedCompanyId || parseInt(req.query.companyId);
-        const { journal_id, date_from, date_to } = req.query;
+        const { journal_id, date_from, date_to, account_code } = req.query;
 
         if (!companyId) {
             return res.status(400).json({ status: 'error', error: 'companyId requis' });
@@ -575,9 +575,10 @@ exports.getJournalEntries = async (req, res) => {
             ['company_id', '=', companyId]
         ];
 
-        if (journal_id) domain.push(['journal_id', '=', parseInt(journal_id)]);
-        if (date_from)  domain.push(['date', '>=', date_from]);
-        if (date_to)    domain.push(['date', '<=', date_to]);
+        if (journal_id)   domain.push(['journal_id', '=', parseInt(journal_id)]);
+        if (date_from)    domain.push(['date', '>=', date_from]);
+        if (date_to)      domain.push(['date', '<=', date_to]);
+        if (account_code) domain.push(['line_ids.account_id.code', 'like', account_code.trim()]);
 
         const moves = await odooExecuteKw({
             uid:    ADMIN_UID_INT,

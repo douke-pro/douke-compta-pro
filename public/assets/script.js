@@ -1847,14 +1847,7 @@ window.handleJournalApplyFilters = async function() {
     try {
         const response = await apiFetch(endpoint, { method: 'GET' });
         let entries = response.data?.entries || response.data || [];
-
-        // Filtrage local par numéro de compte en complément
-        if (accountNum) {
-            entries = entries.filter(e =>
-                (e.account_code && e.account_code.startsWith(accountNum)) ||
-                (e.lines && e.lines.some(l => l.account_code?.startsWith(accountNum)))
-            );
-        }
+        // Filtrage désormais assuré côté serveur (domaine Odoo sur line_ids.account_id.code)
 
         const tableContainer = document.getElementById('journal-table-container');
         if (tableContainer) {
