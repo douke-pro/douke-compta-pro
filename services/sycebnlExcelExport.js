@@ -2,8 +2,11 @@
 
 const path = require('path');
 const ExcelJS = require('exceljs');
+const { restoreOfficialParts } = require('./sycebnlOfficialParts');
 
 const TEMPLATE_PATH = path.join(__dirname, '..', 'backups', 'EF_SYSCEBNL_Juin (1).xlsx');
+// Classeur OFFICIEL intact (bannieres + noms definis) : exceljs ne sait pas les conserver, on les reinjecte apres ecriture.
+const ORIGINAL_PATH = path.join(__dirname, '..', 'backups', 'SYCEBNL_officiel_original.xlsx');
 
 function isFormulaCell(cell) {
     return Boolean(cell && cell.value && typeof cell.value === 'object' &&
@@ -220,7 +223,20 @@ async function buildSycebnlExcel(reportData, options = {}) {
     fillResultat(workbook, reportData);
     fillTft(workbook, reportData);
     workbook.calcProperties = Object.assign({}, workbook.calcProperties, { fullCalcOnLoad: true });
-    return workbook.xlsx.writeBuffer();
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    try {
+        const co = reportData.company || {}, pe = reportData.period || {};
+        return await restoreOfficialParts(buffer, {
+            originalPath: options.originalPath || ORIGINAL_PATH,
+            identite: { nom: co.name || co.company_name, adresse: buildAddress(co) || co.street || co.address,
+                        ifu: co.vat || co.tax_id, ville: co.city, tel: co.phone, rccm: co.company_registry },
+            exercice: { debut: String(pe.start || pe.period_start || '').slice(0, 10), fin: String(pe.end || pe.period_end || '').slice(0, 10) },
+        });
+    } catch (err) {
+        // Degradation maitrisee : liasse valide sans bannieres ni noms plutot qu'une erreur d'export
+        console.error('[sycebnlExcelExport] restauration des elements officiels impossible :', err.message);
+        return buffer;
+    }
 }
 
 module.exports = { buildSycebnlExcel, TEMPLATE_PATH };
