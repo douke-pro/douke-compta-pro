@@ -24,6 +24,7 @@ const notificationService = require('../services/notifications');
 const syscohadaMapper     = require('../services/syscohadaMapper');
 const sycebnlBalanceAdapter = require('../services/sycebnlBalanceAdapter');
 const sycebnlReportAdapter  = require('../services/sycebnlReportAdapter');
+const sycebnlExcelExport     = require('../services/sycebnlExcelExport');
 
 // ============================================
 // HELPER : récupérer l'email de l'admin pour les notifications
@@ -458,6 +459,10 @@ exports.generateReports = async (req, res) => {
                 const pdfFiles = await pdfGeneratorService.generateAllReports(
                     reportData, request.accounting_system, requestId
                 );
+                if (isSycebnl) {
+                    const excelBuffer = await sycebnlExcelExport.buildSycebnlExcel(reportData);
+                    pdfFiles.excel = Buffer.from(excelBuffer).toString('base64');
+                }
 
                 await pool.query(
                     `UPDATE financial_reports_requests SET status = 'generated', pdf_files = $1, odoo_data = $2, updated_at = NOW() WHERE id = $3`,
@@ -744,6 +749,10 @@ exports.regenerateReportsWithEdits = async (req, res) => {
                 const pdfFiles = await pdfGeneratorService.generateAllReports(
                     reportData, request.accounting_system, req.params.id
                 );
+                if (isSycebnl) {
+                    const excelBuffer = await sycebnlExcelExport.buildSycebnlExcel(reportData);
+                    pdfFiles.excel = Buffer.from(excelBuffer).toString('base64');
+                }
                 await pool.query(
                     `UPDATE financial_reports_requests SET status = 'generated', pdf_files = $1, processed_by = $2, processed_at = NOW(), updated_at = NOW() WHERE id = $3`,
                     [JSON.stringify(pdfFiles), userId, req.params.id]
@@ -791,8 +800,9 @@ exports.downloadPDF = async (req, res) => {
         }
 
         const buffer = Buffer.from(base64, 'base64');
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${req.params.id}_${req.params.fileType}.pdf"`);
+        const isExcel = req.params.fileType === 'excel';
+        res.setHeader('Content-Type', isExcel ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${req.params.id}_${req.params.fileType}.${isExcel ? 'xlsx' : 'pdf'}"`);
         res.setHeader('Content-Length', buffer.length);
         res.send(buffer);
 

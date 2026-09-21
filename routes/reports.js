@@ -212,7 +212,7 @@ router.post(
  * GET /api/reports/:id/download/:fileType
  * Télécharger un fichier PDF spécifique
  * Permissions : USER (propriétaire), COLLABORATEUR, ADMIN
- * fileType : bilan, compte_resultat, tft, annexes
+ * fileType : bilan, compte_resultat, tft, annexes, excel
  */
 router.get(
     '/:id/download/:fileType',
