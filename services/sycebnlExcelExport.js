@@ -25,8 +25,8 @@ function setCellValue(worksheet, address, value) {
     if (value === undefined || value === null) return;
     const cell = worksheet.getCell(address);
     if (isFormulaCell(cell)) {
-        const formula = cell.value.formula || cell.value.sharedFormula;
-        cell.value = { formula, result: value };
+        // Objet formule conserve tel quel (formules partagees incluses) : seul le resultat change.
+        cell.value = Object.assign({}, cell.value, { result: value });
     } else {
         cell.value = value;
     }
@@ -149,20 +149,30 @@ function fillIdentity(workbook, company = {}, period = {}) {
 
     setIdentityCell(worksheet, 'E25', name);
     setIdentityCell(worksheet, 'G20', end ? `Exercice clos le ${end}` : '');
+    setIdentityCell(worksheet, 'D11', ''); // centre des impots : aucun champ Odoo ; ne plus afficher celui du gabarit
     setIdentityCell(worksheet, 'D30', ''); // sigle : pas de champ source, voir commentaire ci-dessus
     setIdentityCell(worksheet, 'E32', address);
     setIdentityCell(worksheet, 'B34', taxId ? `N° D'IDENTIFICATION FISCALE :     ${taxId}` : "N° D'IDENTIFICATION FISCALE :");
+}
+
+// Vide le resultat en cache de TOUTES les formules : celles que le mapper ne renseigne pas
+// (totaux Brut/Amort...) sont recalculees a l'ouverture au lieu d'afficher les chiffres du gabarit.
+function invalidateFormulaCaches(workbook) {
+    workbook.eachSheet(ws => ws.eachRow(row => row.eachCell(cell => {
+        if (isFormulaCell(cell)) cell.value = Object.assign({}, cell.value, { result: undefined });
+    })));
 }
 
 async function buildSycebnlExcel(reportData, options = {}) {
     const templatePath = options.templatePath || TEMPLATE_PATH;
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(templatePath);
+    invalidateFormulaCaches(workbook);
     fillIdentity(workbook, reportData.company, reportData.period);
     fillBilan(workbook, reportData);
     fillResultat(workbook, reportData);
     fillTft(workbook, reportData);
-    workbook.calcMode = 'auto';
+    workbook.calcProperties = Object.assign({}, workbook.calcProperties, { fullCalcOnLoad: true });
     return workbook.xlsx.writeBuffer();
 }
 
