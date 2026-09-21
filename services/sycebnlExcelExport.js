@@ -1,9 +1,7 @@
 'use strict';
 
 const path = require('path');
-const fs = require('fs/promises');
 const ExcelJS = require('exceljs');
-const JSZip = require('jszip');
 
 const TEMPLATE_PATH = path.join(__dirname, '..', 'backups', 'EF_SYSCEBNL_Juin (1).xlsx');
 
@@ -12,9 +10,42 @@ function isFormulaCell(cell) {
         (cell.value.formula || cell.value.sharedFormula));
 }
 
-function setIfInputCell(worksheet, address, value) {
+// FIX (21/09/2026) : ExcelJS n'exécute aucun moteur de calcul. Une cellule à
+// formule conserve son ancien résultat mis en cache (celui de l'entité
+// d'origine du gabarit) tant qu'aucune application ne la recalcule
+// explicitement — vérifié : ni le drapeau fullCalcOnLoad, ni une conversion
+// LibreOffice headless ne déclenchent ce recalcul automatiquement. On
+// conserve donc la formule (traçabilité, recalcul correct si l'utilisateur
+// modifie une cellule dans Excel par la suite) MAIS on fige aussi, dans le
+// même appel, le résultat déjà connu et fiable (calculé par
+// sycebnlMapper.js) comme valeur en cache, pour que le fichier affiche les
+// bons chiffres dès l'ouverture, sans dépendre du comportement de
+// recalcul de l'application qui l'ouvre.
+function setCellValue(worksheet, address, value) {
+    if (value === undefined || value === null) return;
     const cell = worksheet.getCell(address);
-    if (!isFormulaCell(cell) && value !== undefined && value !== null) cell.value = value;
+    if (isFormulaCell(cell)) {
+        const formula = cell.value.formula || cell.value.sharedFormula;
+        cell.value = { formula, result: value };
+    } else {
+        cell.value = value;
+    }
+}
+
+// Alias conservé pour compatibilité de lecture du code : le comportement
+// legacy ("ne jamais toucher une cellule à formule") a été remplacé
+// partout par setCellValue ci-dessus.
+const setIfInputCell = setCellValue;
+
+// Ecrit une valeur littérale dans une cellule d'identité (PAGE DE GARDE), en
+// écrasant délibérément tout contenu existant (y compris une formule cassée
+// du type =_soNom) : cf. audit du 21/09/2026, les 45 noms définis métier du
+// classeur officiel ont été perdus lors d'un précédent passage par ExcelJS
+// (ExcelJS ne préserve pas les noms définis à valeur littérale). On écrit
+// donc directement dans les cellules réelles plutôt que de dépendre de noms
+// définis, mécanisme prouvé fragile.
+function setIdentityCell(worksheet, address, value) {
+    worksheet.getCell(address).value = value !== undefined && value !== null ? value : '';
 }
 
 function indexRowsByRef(worksheet, refColumn) {
@@ -67,72 +98,72 @@ function fillTft(workbook, reportData) {
         const row = rows.get(ligne.ref);
         if (!row) continue;
         setIfInputCell(worksheet, `E${row}`, ligne.montant_n);
+        // FIX (21/09/2026) : montant_n1 est désormais fourni par
+        // sycebnlReportAdapter.js (voir buildReportData) — avant cette
+        // correction ce champ était toujours undefined et la colonne N-1
+        // du TFT gardait indéfiniment les chiffres de l'entité du gabarit.
         setIfInputCell(worksheet, `F${row}`, ligne.montant_n1);
     }
 }
 
+// Convertit une date au format Odoo (YYYY-MM-DD) vers le format d'affichage
+// français attendu par le classeur (DD/MM/YYYY). Si le format est déjà autre
+// chose (ou absent), la valeur est retournée telle quelle plutôt que d'être
+// devinée.
+function toFrenchDate(isoLike) {
+    if (!isoLike) return undefined;
+    const m = String(isoLike).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return String(isoLike);
+    return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+// Adresse composée à partir des SEULS champs réellement disponibles depuis
+// res.company côté Odoo (cf. odooReportsService.getCompanyInfo :
+// name, street, city, zip, country_id, phone, email, website, vat,
+// company_registry, currency_id). Aucun champ "sigle" n'existe dans cette
+// liste : le sigle n'est donc PAS renseigné automatiquement (voir
+// fillIdentity) plutôt que d'être deviné à partir du nom.
+function buildAddress(company) {
+    const parts = [company.street, [company.zip, company.city].filter(Boolean).join(' ')].filter(Boolean);
+    const countryName = Array.isArray(company.country_id) ? company.country_id[1] : company.country_id;
+    if (countryName) parts.push(countryName);
+    return parts.filter(Boolean).join(', ') || undefined;
+}
+
+/**
+ * Renseigne les champs d'identité de la PAGE DE GARDE directement dans les
+ * cellules réelles (E25, G20, D30, E32, B34), et non via des noms définis.
+ *
+ * Champs volontairement NON renseignés (aucune donnée source fiable) :
+ *   - D30 (sigle) : `res.company` côté Odoo ne fournit aucun champ sigle.
+ *     Laissé vide plutôt que de conserver ou deviner une valeur.
+ */
 function fillIdentity(workbook, company = {}, period = {}) {
+    const worksheet = workbook.getWorksheet('PAGE DE GARDE');
+    if (!worksheet) return;
+
     const name = company.name || company.company_name;
-    const address = company.street || company.address;
+    const address = buildAddress(company) || company.street || company.address;
     const taxId = company.vat || company.tax_id;
-    const registration = company.company_registry || company.registration_number;
-    const end = period.end || period.period_end;
-    const start = period.start || period.period_start;
-    return {
-        _soNom: name,
-        _soNom1: name ? `Désignation entité : ${name}` : undefined,
-        _soNom2: name ? `DENOMINATION SOCIALE : ${name}` : undefined,
-        _soAdr: address,
-        _soAdr2: address ? `ADRESSE COMPLETE : ${address}` : undefined,
-        _soNumFisc: taxId,
-        _soNumFisc1: taxId ? `Numéro IFU : ${taxId}` : undefined,
-        _soNumFisc2: taxId ? `N° D'IDENTIFICATION FISCALE : ${taxId}` : undefined,
-        _soregCm: registration,
-        _ExerClos: end ? `Exercice clos le ${end}` : undefined,
-        _ExerFin: end ? ` ${end}` : undefined,
-        _Period: start && end ? `Période du ${start} Au ${end}` : undefined,
-    };
-}
+    const end = toFrenchDate(period.end || period.period_end);
 
-function xmlEscape(value) {
-    return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-        .replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-async function restoreDefinedNames(buffer, templatePath, values) {
-    const [outputZip, templateZip] = await Promise.all([
-        JSZip.loadAsync(buffer),
-        fs.readFile(templatePath).then(data => JSZip.loadAsync(data)),
-    ]);
-    const templateWorkbook = await templateZip.file('xl/workbook.xml').async('string');
-    const definedNamesMatch = templateWorkbook.match(/<definedNames>[\s\S]*?<\/definedNames>/);
-    if (!definedNamesMatch) return buffer;
-
-    let definedNames = definedNamesMatch[0];
-    for (const [name, value] of Object.entries(values)) {
-        if (value === undefined || value === null) continue;
-        const pattern = new RegExp(`(<definedName\\s+name="${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>)[\\s\\S]*?(</definedName>)`);
-        const replacement = `$1"${xmlEscape(value).replace(/&quot;/g, '""') }"$2`;
-        if (pattern.test(definedNames)) definedNames = definedNames.replace(pattern, replacement);
-    }
-
-    let generatedWorkbook = await outputZip.file('xl/workbook.xml').async('string');
-    generatedWorkbook = generatedWorkbook.replace('</workbook>', `${definedNames}</workbook>`);
-    outputZip.file('xl/workbook.xml', generatedWorkbook);
-    return outputZip.generateAsync({ type: 'nodebuffer' });
+    setIdentityCell(worksheet, 'E25', name);
+    setIdentityCell(worksheet, 'G20', end ? `Exercice clos le ${end}` : '');
+    setIdentityCell(worksheet, 'D30', ''); // sigle : pas de champ source, voir commentaire ci-dessus
+    setIdentityCell(worksheet, 'E32', address);
+    setIdentityCell(worksheet, 'B34', taxId ? `N° D'IDENTIFICATION FISCALE :     ${taxId}` : "N° D'IDENTIFICATION FISCALE :");
 }
 
 async function buildSycebnlExcel(reportData, options = {}) {
     const templatePath = options.templatePath || TEMPLATE_PATH;
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(templatePath);
-    const identity = fillIdentity(workbook, reportData.company, reportData.period);
+    fillIdentity(workbook, reportData.company, reportData.period);
     fillBilan(workbook, reportData);
     fillResultat(workbook, reportData);
     fillTft(workbook, reportData);
     workbook.calcMode = 'auto';
-    const buffer = await workbook.xlsx.writeBuffer();
-    return restoreDefinedNames(buffer, templatePath, identity);
+    return workbook.xlsx.writeBuffer();
 }
 
 module.exports = { buildSycebnlExcel, TEMPLATE_PATH };

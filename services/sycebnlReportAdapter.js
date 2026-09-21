@@ -134,11 +134,22 @@ function buildReportData(balanceN, balanceN1, meta = {}) {
   const tftLignes = ORDRE_TFT.map((code) => {
     const isTotal = TOTAUX_TFT.has(code);
     const montant_n = etatsN.tft[code] !== undefined ? etatsN.tft[code] : 0;
+    // FIX (21/09/2026) : montant_n1 etait absent -> sycebnlExcelExport.js ne
+    // pouvait jamais ecrire la colonne N-1 du TFT, qui gardait donc
+    // indefiniment les chiffres de l'entite du gabarit source. Calcule ici
+    // via un second appel a calculerEtatsFinanciers sur balanceN1 (meme
+    // principe que pour actif/passif/resultat ci-dessus). Limite connue et
+    // assumee : ZA/ZG de la colonne N-1 (tresorerie nette au 1er janvier
+    // N-1) necessiteraient une balance N-2, non disponible ; ce moteur
+    // renvoie alors 0 pour ZA (cf. sycebnlMapper.js) plutot qu'une valeur
+    // devinee.
+    const montant_n1 = etatsN1 ? (etatsN1.tft[code] !== undefined ? etatsN1.tft[code] : 0) : undefined;
     return {
       ref: code,
       sens: code.startsWith('F') && ['FF', 'FG', 'FH', 'FI', 'FJ', 'FO', 'FQ'].includes(code) ? '-' : '',
       libelle: getLibelle('TFT', code),
       montant_n,
+      montant_n1,
       isTotal,
     };
   });
