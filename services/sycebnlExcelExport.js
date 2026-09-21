@@ -163,11 +163,58 @@ function invalidateFormulaCaches(workbook) {
     })));
 }
 
+// ---------------------------------------------------------------------------
+// Remise a blanc des donnees de l'entite du gabarit (BTP) : aucun chiffre ni commentaire
+// d'une autre entite ne doit sortir dans un export. Les notes annexes ne sont pas encore
+// alimentees par le mapper : elles sortent a zero / vides, a saisir par l'utilisateur.
+// ---------------------------------------------------------------------------
+const NOTE_TEXTES_A_VIDER = {
+    'NOTE 5A': ['A24'], 'NOTE 5B': ['A29'], 'NOTE 13': ['A24', 'A25'], 'NOTE 16': ['A14', 'A15'],
+    'NOTE 19': ['A20', 'A21', 'A22'], 'NOTE 23': ['A23', 'A24'], 'NOTE 25': ['A18'], 'NOTE 26': ['A29'], 'NOTE 28': ['A20'],
+    'EXECUTION BUDGETAIRE': ['A9', 'B9', 'A10', 'B10', 'A11', 'B11', 'A12', 'B12'],
+};
+// Nombres qui sont des numeros (colonne "Note", numerotation de colonnes) et non des montants
+const NOMBRES_STRUCTURELS = { 'NOTE 1': /^B(2[1-8])$/, 'NOTE 35': /^[C-E]11$/, 'EXECUTION BUDGETAIRE': /^[C-E]8$/ };
+const COLONNES_SAISIE_ETATS = { 'BILAN': ['D', 'E', 'G', 'K', 'L'], 'COMPTE_DE_RESULTAT': ['D', 'E'], 'TFT': ['E', 'F'] };
+
+function blankTemplateData(workbook) {
+    workbook.eachSheet(ws => {
+        const name = ws.name;
+        if (name === 'PAGE DE GARDE' || name.startsWith('CORRESPONDANCE') || name.trim() === 'NOTES') return;
+        const cols = COLONNES_SAISIE_ETATS[name], keep = NOMBRES_STRUCTURELS[name];
+        ws.eachRow(row => row.eachCell(cell => {
+            if (typeof cell.value !== 'number' || cell.value === 0) return;
+            const letters = cell.address.replace(/\d+/g, '');
+            if (cols) { if (cols.includes(letters) && Number(row.number) >= 5) cell.value = 0; return; }
+            if (keep && keep.test(cell.address)) return;
+            cell.value = 0;
+        }));
+    });
+    for (const [sn, refs] of Object.entries(NOTE_TEXTES_A_VIDER)) {
+        const ws = workbook.getWorksheet(sn);
+        if (ws) for (const a of refs) ws.getCell(a).value = null;
+    }
+}
+
+// Dates ecrites en dur dans deux titres : remplacees par l'exercice de l'entite
+function refreshDateTexts(workbook, period = {}) {
+    const start = toFrenchDate(period.start || period.period_start);
+    const end = toFrenchDate(period.end || period.period_end);
+    if (!start || !end) return;
+    for (const [sn, a] of [['NOTE 3', 'A5'], ['EXECUTION BUDGETAIRE', 'A6']]) {
+        const ws = workbook.getWorksheet(sn); if (!ws) continue;
+        const c = ws.getCell(a);
+        if (typeof c.value === 'string') c.value = c.value.replace('31/12/2025', end).replace('01/01/2025', start);
+    }
+}
+
 async function buildSycebnlExcel(reportData, options = {}) {
     const templatePath = options.templatePath || TEMPLATE_PATH;
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(templatePath);
     invalidateFormulaCaches(workbook);
+    blankTemplateData(workbook);
+    refreshDateTexts(workbook, reportData.period);
     fillIdentity(workbook, reportData.company, reportData.period);
     fillBilan(workbook, reportData);
     fillResultat(workbook, reportData);
