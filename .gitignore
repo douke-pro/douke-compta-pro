@@ -42,3 +42,4 @@ list_*.js
 patch_*.js
 patch_*.b64
 migrate_*.js
+backups/EF_SYSCEBNL_Juin_AVANT_ECRITURE_*.xlsx
