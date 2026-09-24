@@ -592,6 +592,81 @@ exports.sendReportsToUser = async (req, res) => {
 // GET /api/reports/:id/preview
 // ============================================
 
+// AJOUT (24/09/2026) — reconnexion du "Mode Édition" SYSCOHADA (régression du
+// 22/06/2026, commit 2d079bc). Affichage uniquement : ne modifie ni ne persiste
+// request.odoo_data. SYCEBNL volontairement non couvert (hors périmètre).
+function buildEditableBilanEtResultat(odooData) {
+    const rawLines  = odooData.raw_data?.move_lines      || [];
+    const prevLines = odooData.raw_data?.prev_year_lines || [];
+
+    const toBalanceAccounts = (lines) => {
+        const map = {};
+        for (const line of lines) {
+            const code = line.account_code;
+            if (!code || code === 'UNKNOWN') continue;
+            if (!map[code]) map[code] = { code, opening_debit: 0, opening_credit: 0, debit: 0, credit: 0 };
+            map[code].debit  += line.debit  || 0;
+            map[code].credit += line.credit || 0;
+        }
+        return Object.values(map);
+    };
+
+    const balanceAccounts  = toBalanceAccounts(rawLines);
+    const prevYearAccounts = toBalanceAccounts(prevLines);
+
+    const lignesResultat = syscohadaMapper.computeResultat(balanceAccounts, prevYearAccounts);
+    const resultatNet    = lignesResultat.find(l => l.ref === 'XI')?.montant_n || 0;
+    const actif          = syscohadaMapper.computeActif(balanceAccounts, prevYearAccounts);
+    const passif         = syscohadaMapper.computePassif(balanceAccounts, prevYearAccounts, resultatNet);
+
+    // Refs réellement éditables : celles qui participent à un refs_sum et ne
+    // sont pas elles-mêmes un total. CJ exclu côté Passif : c'est un miroir
+    // de XI (Compte de Résultat), non éditable indépendamment (cf. validation
+    // du 24/09/2026 — évite une divergence Bilan/Compte de Résultat).
+    const actifEditableRefs    = syscohadaMapper.getEditableRefs(syscohadaMapper.ACTIF_MAPPING, 'isGrandTotal');
+    const passifEditableRefs   = syscohadaMapper.getEditableRefs(syscohadaMapper.PASSIF_MAPPING, 'isGrandTotal', ['CJ']);
+    const resultatEditableRefs = syscohadaMapper.getEditableRefs(syscohadaMapper.RESULTAT_MAPPING, 'isTotal');
+
+    const toEditableMap = (lignes, refsAutorisees, valueField) => {
+        const out = {};
+        for (const l of lignes) {
+            if (!refsAutorisees.includes(l.ref)) continue;
+            // Valeur affichée en magnitude positive (cf. frontend generateEditableSection,
+            // qui fait Math.abs(category.balance) et renvoie toujours un positif à la saisie).
+            out[l.ref] = { label: l.libelle, balance: Math.abs(l[valueField] || 0) };
+        }
+        return out;
+    };
+
+    const actifEditable  = toEditableMap(actif,  actifEditableRefs,  'net');
+    const passifEditable = toEditableMap(passif, passifEditableRefs, 'net');
+
+    const resultatMapByRef = new Map(syscohadaMapper.RESULTAT_MAPPING.map(m => [m.ref, m]));
+    const charges = {}, produits = {};
+    for (const l of lignesResultat) {
+        if (!resultatEditableRefs.includes(l.ref)) continue;
+        const m = resultatMapByRef.get(l.ref);
+        const entry = { label: l.libelle, balance: Math.abs(l.montant_n) };
+        if (m.type === 'charge') charges[l.ref] = entry;
+        else if (m.type === 'produit') produits[l.ref] = entry;
+    }
+
+    const totalActif  = actif.find(l  => l.ref === 'BZ')?.net || 0;
+    const totalPassif = passif.find(l => l.ref === 'DZ')?.net || 0;
+
+    return {
+        bilan: {
+            actif: actifEditable,
+            passif: passifEditable,
+            totaux: { actif: totalActif, passif: totalPassif }
+        },
+        compte_resultat: {
+            charges, produits,
+            totaux: { resultat: resultatNet }
+        }
+    };
+}
+
 exports.previewReportData = async (req, res) => {
     try {
         const result = await pool.query(
@@ -603,8 +678,20 @@ exports.previewReportData = async (req, res) => {
         }
 
         const request = result.rows[0];
+        const isSycebnl = (request.accounting_system || '').startsWith('SYCEBNL');
+
+        const attachEditable = (data) => {
+            if (isSycebnl) return data; // hors périmètre
+            try {
+                return { ...data, ...buildEditableBilanEtResultat(data) };
+            } catch (e) {
+                console.error('Erreur calcul bilan/compte_resultat editables:', e.message);
+                return data; // en cas d'erreur, on ne casse pas l'aperçu existant
+            }
+        };
+
         if (request.odoo_data) {
-            return res.json({ success: true, data: request.odoo_data, cached: true });
+            return res.json({ success: true, data: attachEditable(request.odoo_data), cached: true });
         }
 
         const odooData = await odooReportsService.extractFinancialData(
@@ -615,7 +702,7 @@ exports.previewReportData = async (req, res) => {
             [JSON.stringify(odooData), req.params.id]
         );
 
-        res.json({ success: true, data: odooData, cached: false });
+        res.json({ success: true, data: attachEditable(odooData), cached: false });
 
     } catch (error) {
         console.error('Erreur previewReportData:', error.message);
@@ -650,65 +737,26 @@ exports.regenerateReportsWithEdits = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Cette demande ne peut plus être modifiée' });
         }
 
-        await client.query('BEGIN');
-        const odooData = request.odoo_data || {};
+        const odooData  = request.odoo_data || {};
+        const isSycebnl = (request.accounting_system || '').startsWith('SYCEBNL');
 
-        const applyEdits = (target, edits) => {
-            if (!edits || !target) return;
-            Object.keys(edits).forEach(k => { if (target[k]) target[k].balance = parseFloat(edits[k]); });
-        };
+        // ---------------------------------------------------------------
+        // AJOUT (24/09/2026) — reconnexion réelle des éditions SYSCOHADA.
+        // L'ancien code appelait applyEdits() sur odooData.bilan?.actif,
+        // qui n'existe jamais dans odoo_data (régression du 22/06/2026,
+        // commit 2d079bc) : les éditions n'étaient jamais appliquées, et
+        // même si elles l'avaient été, le setImmediate plus bas recalculait
+        // ensuite tout depuis raw_data en les ignorant silencieusement.
+        // Cette section ne touche pas à la branche SYCEBNL (inchangée).
+        // ---------------------------------------------------------------
+        let actifRecalcule = null, passifRecalcule = null, resultatRecalcule = null;
 
-        applyEdits(odooData.bilan?.actif,              edited_data.actif);
-        applyEdits(odooData.bilan?.passif,             edited_data.passif);
-        applyEdits(odooData.compte_resultat?.charges,  edited_data.charges);
-        applyEdits(odooData.compte_resultat?.produits, edited_data.produits);
-
-        if (odooData.bilan) {
-            const a = Object.values(odooData.bilan.actif  || {}).reduce((s,c) => s + Math.abs(c.balance||0), 0);
-            const p = Object.values(odooData.bilan.passif || {}).reduce((s,c) => s + Math.abs(c.balance||0), 0);
-            odooData.bilan.totaux = { actif: a, passif: p, difference: Math.abs(a - p) };
-        }
-        if (odooData.compte_resultat) {
-            const tc = Object.values(odooData.compte_resultat.charges  || {}).reduce((s,c) => s + Math.abs(c.balance||0), 0);
-            const tp = Object.values(odooData.compte_resultat.produits || {}).reduce((s,c) => s + Math.abs(c.balance||0), 0);
-            odooData.compte_resultat.totaux = {
-                charges:        tc,
-                produits:       tp,
-                resultat:       tp - tc,
-                resultat_label: (tp - tc) >= 0 ? 'Bénéfice' : 'Perte'
-            };
-        }
-
-        await client.query(
-            `UPDATE financial_reports_requests SET odoo_data = $1, updated_at = NOW() WHERE id = $2`,
-            [JSON.stringify(odooData), req.params.id]
-        );
-        await client.query('COMMIT');
-
-        res.json({
-            success: true,
-            message: 'Modifications sauvegardées. Régénération en cours...',
-            data: { request_id: req.params.id, status: 'processing' }
-        });
-        setImmediate(async () => {
+        if (!isSycebnl) {
             try {
-                // Reconstruction reportData depuis raw_data stocké en DB
                 const rawLines  = odooData.raw_data?.move_lines      || [];
-                const prevLines = odooData.raw_data?.prev_year_lines  || [];
+                const prevLines = odooData.raw_data?.prev_year_lines || [];
 
-                const isSycebnl = (request.accounting_system || '').startsWith('SYCEBNL');
-                let reportData;
-
-                if (isSycebnl) {
-                    // Chemin SYCEBNL (associations/ONG) — sycebnlMapper + sycebnlReportAdapter
-                    const balanceN  = sycebnlBalanceAdapter.toBalanceSycebnl(rawLines);
-                    const balanceN1 = sycebnlBalanceAdapter.toBalanceSycebnl(prevLines);
-                    reportData = sycebnlReportAdapter.buildReportData(balanceN, balanceN1, {
-                        company: odooData.company,
-                        period:  odooData.period,
-                    });
-                } else {
-                function toBalanceAccounts(lines) {
+                const toBalanceAccounts = (lines) => {
                     const map = {};
                     for (const line of (lines || [])) {
                         const code = line.account_code;
@@ -718,32 +766,132 @@ exports.regenerateReportsWithEdits = async (req, res) => {
                         map[code].credit += line.credit || 0;
                     }
                     return Object.values(map);
-                }
+                };
 
                 const balanceAccounts  = toBalanceAccounts(rawLines);
                 const prevYearAccounts = toBalanceAccounts(prevLines);
 
-                const lignesResultat = syscohadaMapper.computeResultat(balanceAccounts, prevYearAccounts);
-                const resultatNet    = lignesResultat.find(l => l.ref === 'XI')?.montant_n || 0;
-                const actif          = syscohadaMapper.computeActif(balanceAccounts, prevYearAccounts);
-                const passif         = syscohadaMapper.computePassif(balanceAccounts, prevYearAccounts, resultatNet);
-                const totalActif     = actif.find(l  => l.ref === 'BZ')?.net || 0;
-                const totalPassif    = passif.find(l => l.ref === 'DZ')?.net || 0;
-                const bilanN         = { actif, passif, resultat: lignesResultat };
-                const tft            = syscohadaMapper.computeTFT(balanceAccounts, bilanN, {});
-                const tresFin        = tft.find(l => l.ref === 'ZH')?.montant_n || 0;
+                const lignesResultatBase = syscohadaMapper.computeResultat(balanceAccounts, prevYearAccounts);
+                const resultatNetBase    = lignesResultatBase.find(l => l.ref === 'XI')?.montant_n || 0;
+                const actifBase          = syscohadaMapper.computeActif(balanceAccounts, prevYearAccounts);
+                const passifBase         = syscohadaMapper.computePassif(balanceAccounts, prevYearAccounts, resultatNetBase);
 
-                reportData = {
-                    company: odooData.company,
-                    period:  odooData.period,
-                    bilan: {
-                        actif, passif,
-                        totaux: { total_actif: totalActif, total_passif: totalPassif, equilibre: Math.abs(totalActif - totalPassif) < 1 }
-                    },
-                    compte_resultat: { lignes: lignesResultat, resultat_net: resultatNet },
-                    tft:             { lignes: tft, tresorerie_finale: tresFin },
-                    annexes:         odooData.annexes || null
-                };
+                const chargesProduitsEdits = { ...(edited_data.charges || {}), ...(edited_data.produits || {}) };
+                resultatRecalcule = syscohadaMapper.recomputeResultatWithEdits(lignesResultatBase, chargesProduitsEdits);
+                const resultatNetRecalcule = resultatRecalcule.find(l => l.ref === 'XI')?.montant_n || 0;
+
+                actifRecalcule = syscohadaMapper.recomputeActifWithEdits(actifBase, edited_data.actif || {});
+
+                // CJ (résultat net côté Passif) suit TOUJOURS le résultat net recalculé du Compte
+                // de Résultat, jamais une saisie indépendante (cf. validation du 24/09/2026 — CJ
+                // exclu des refs éditables pour éviter une divergence Bilan / Compte de Résultat).
+                let passifIntermediaire = syscohadaMapper.recomputePassifWithEdits(passifBase, edited_data.passif || {});
+                passifIntermediaire = passifIntermediaire.map(l => l.ref === 'CJ' ? { ...l, net: Math.round(resultatNetRecalcule) } : l);
+                // Deuxième passe pour propager CJ dans les totaux qui en dépendent (CP, DF, DZ).
+                passifRecalcule = syscohadaMapper.recomputePassifWithEdits(passifIntermediaire, {});
+            } catch (e) {
+                console.error('Erreur recalcul édition SYSCOHADA (non bloquant, edited_data ignoré):', e.message);
+                actifRecalcule = null; passifRecalcule = null; resultatRecalcule = null;
+            }
+        }
+
+        await client.query('BEGIN');
+        await client.query(
+            `UPDATE financial_reports_requests SET updated_at = NOW() WHERE id = $1`,
+            [req.params.id]
+        );
+        await client.query('COMMIT');
+
+        res.json({
+            success: true,
+            message: 'Modifications sauvegardées. Régénération en cours...',
+            data: { request_id: req.params.id, status: 'processing' }
+        });
+
+        setImmediate(async () => {
+            try {
+                const rawLines  = odooData.raw_data?.move_lines      || [];
+                const prevLines = odooData.raw_data?.prev_year_lines || [];
+
+                let reportData;
+
+                if (isSycebnl) {
+                    const balanceN  = sycebnlBalanceAdapter.toBalanceSycebnl(rawLines);
+                    const balanceN1 = sycebnlBalanceAdapter.toBalanceSycebnl(prevLines);
+                    reportData = sycebnlReportAdapter.buildReportData(balanceN, balanceN1, {
+                        company: odooData.company,
+                        period:  odooData.period,
+                    });
+                } else if (actifRecalcule && passifRecalcule && resultatRecalcule) {
+                    const totalActif  = actifRecalcule.find(l  => l.ref === 'BZ')?.net || 0;
+                    const totalPassif = passifRecalcule.find(l => l.ref === 'DZ')?.net || 0;
+                    const resultatNet = resultatRecalcule.find(l => l.ref === 'XI')?.montant_n || 0;
+
+                    function toBalanceAccounts(lines) {
+                        const map = {};
+                        for (const line of (lines || [])) {
+                            const code = line.account_code;
+                            if (!code || code === 'UNKNOWN') continue;
+                            if (!map[code]) map[code] = { code, opening_debit: 0, opening_credit: 0, debit: 0, credit: 0 };
+                            map[code].debit  += line.debit  || 0;
+                            map[code].credit += line.credit || 0;
+                        }
+                        return Object.values(map);
+                    }
+                    const balanceAccounts = toBalanceAccounts(rawLines);
+                    const bilanN = { actif: actifRecalcule, passif: passifRecalcule, resultat: resultatRecalcule };
+                    const tft     = syscohadaMapper.computeTFT(balanceAccounts, bilanN, {});
+                    const tresFin = tft.find(l => l.ref === 'ZH')?.montant_n || 0;
+
+                    reportData = {
+                        company: odooData.company,
+                        period:  odooData.period,
+                        bilan: {
+                            actif: actifRecalcule,
+                            passif: passifRecalcule,
+                            totaux: { total_actif: totalActif, total_passif: totalPassif, equilibre: Math.abs(totalActif - totalPassif) < 1 }
+                        },
+                        compte_resultat: { lignes: resultatRecalcule, resultat_net: resultatNet },
+                        tft:             { lignes: tft, tresorerie_finale: tresFin },
+                        annexes:         odooData.annexes || null
+                    };
+                } else {
+                    function toBalanceAccounts(lines) {
+                        const map = {};
+                        for (const line of (lines || [])) {
+                            const code = line.account_code;
+                            if (!code || code === 'UNKNOWN') continue;
+                            if (!map[code]) map[code] = { code, opening_debit: 0, opening_credit: 0, debit: 0, credit: 0 };
+                            map[code].debit  += line.debit  || 0;
+                            map[code].credit += line.credit || 0;
+                        }
+                        return Object.values(map);
+                    }
+
+                    const balanceAccounts  = toBalanceAccounts(rawLines);
+                    const prevYearAccounts = toBalanceAccounts(prevLines);
+
+                    const lignesResultat = syscohadaMapper.computeResultat(balanceAccounts, prevYearAccounts);
+                    const resultatNet    = lignesResultat.find(l => l.ref === 'XI')?.montant_n || 0;
+                    const actif          = syscohadaMapper.computeActif(balanceAccounts, prevYearAccounts);
+                    const passif         = syscohadaMapper.computePassif(balanceAccounts, prevYearAccounts, resultatNet);
+                    const totalActif     = actif.find(l  => l.ref === 'BZ')?.net || 0;
+                    const totalPassif    = passif.find(l => l.ref === 'DZ')?.net || 0;
+                    const bilanN         = { actif, passif, resultat: lignesResultat };
+                    const tft            = syscohadaMapper.computeTFT(balanceAccounts, bilanN, {});
+                    const tresFin        = tft.find(l => l.ref === 'ZH')?.montant_n || 0;
+
+                    reportData = {
+                        company: odooData.company,
+                        period:  odooData.period,
+                        bilan: {
+                            actif, passif,
+                            totaux: { total_actif: totalActif, total_passif: totalPassif, equilibre: Math.abs(totalActif - totalPassif) < 1 }
+                        },
+                        compte_resultat: { lignes: lignesResultat, resultat_net: resultatNet },
+                        tft:             { lignes: tft, tresorerie_finale: tresFin },
+                        annexes:         odooData.annexes || null
+                    };
                 }
 
                 const pdfFiles = await pdfGeneratorService.generateAllReports(

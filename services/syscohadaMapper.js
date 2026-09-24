@@ -351,5 +351,102 @@ function computeTFT(balanceAccounts, bilanN = {}, bilanN1 = {}) {
     });
 }
 
-module.exports = { computeActif, computePassif, computeResultat, computeTFT, computeCAFG, buildAccountIndex, ACTIF_MAPPING, PASSIF_MAPPING, RESULTAT_MAPPING, TFT_MAPPING };
+/**
+ * ================================================================
+ * ÉDITION MANUELLE — fonctions additives, rien d'existant modifié
+ * ================================================================
+ * Recalculent les totaux (refs_sum) après application de valeurs
+ * éditées à la main. Parcourent chaque mapping dans son ORDRE
+ * DÉCLARATIF — vérifié : aucun total ne dépend d'une ligne déclarée
+ * après lui, donc ce parcours simple suffit (même principe que
+ * computeActif/computePassif/computeResultat ci-dessus).
+ */
+
+function recomputeActifWithEdits(actifLignes, edits) {
+    const ligneByRef = new Map(actifLignes.map(l => [l.ref, l]));
+    const refValues = {};
+    return ACTIF_MAPPING.map(map => {
+        const ligne = ligneByRef.get(map.ref);
+        let brut, amort, net, net_n1;
+        if (map.isGrandTotal) {
+            brut   = map.refs_sum.reduce((s, r) => s + (refValues[r]?.brut  || 0), 0);
+            amort  = map.refs_sum.reduce((s, r) => s + (refValues[r]?.amort || 0), 0);
+            net    = brut - amort;
+            net_n1 = map.refs_sum.reduce((s, r) => s + (refValues[r]?.net_n1 || 0), 0);
+        } else if (Object.prototype.hasOwnProperty.call(edits, map.ref)) {
+            // brut = net, amort = 0 : identité brut-amort=net préservée,
+            // donc les totaux en chaîne (Σbrut - Σamort) restent exacts.
+            net    = parseFloat(edits[map.ref]) || 0;
+            brut   = net;
+            amort  = 0;
+            net_n1 = ligne.net_n1;
+        } else {
+            brut = ligne.brut; amort = ligne.amort; net = ligne.net; net_n1 = ligne.net_n1;
+        }
+        refValues[map.ref] = { brut, amort, net, net_n1 };
+        return { ...ligne, brut: Math.round(brut), amort: Math.round(amort), net: Math.round(net), net_n1: Math.round(net_n1) };
+    });
+}
+
+function recomputePassifWithEdits(passifLignes, edits) {
+    const ligneByRef = new Map(passifLignes.map(l => [l.ref, l]));
+    const refValues = {};
+    return PASSIF_MAPPING.map(map => {
+        const ligne = ligneByRef.get(map.ref);
+        let net, net_n1;
+        if (map.isGrandTotal) {
+            net    = map.refs_sum.reduce((s, r) => s + (refValues[r]?.net   || 0), 0);
+            net_n1 = map.refs_sum.reduce((s, r) => s + (refValues[r]?.net_n1 || 0), 0);
+        } else if (Object.prototype.hasOwnProperty.call(edits, map.ref)) {
+            net    = parseFloat(edits[map.ref]) || 0;
+            net_n1 = ligne.net_n1;
+        } else {
+            net = ligne.net; net_n1 = ligne.net_n1;
+        }
+        refValues[map.ref] = { net, net_n1 };
+        return { ...ligne, net: Math.round(net), net_n1: Math.round(net_n1) };
+    });
+}
+
+function recomputeResultatWithEdits(resultatLignes, edits) {
+    // edits : valeurs en MAGNITUDE POSITIVE, telles que saisies dans le
+    // champ (généré par Math.abs(category.balance) côté frontend).
+    const ligneByRef = new Map(resultatLignes.map(l => [l.ref, l]));
+    const refValues = {};
+    return RESULTAT_MAPPING.map(map => {
+        const ligne = ligneByRef.get(map.ref);
+        let montant_n, montant_n1;
+        if (map.isTotal) {
+            montant_n  = map.refs_sum.reduce((s, r) => s + (refValues[r]?.n  || 0), 0);
+            montant_n1 = map.refs_sum.reduce((s, r) => s + (refValues[r]?.n1 || 0), 0);
+        } else if (Object.prototype.hasOwnProperty.call(edits, map.ref)) {
+            // Reconversion magnitude positive -> signe interne du moteur
+            // (charge = négatif, produit = positif ; cf. computeResultat ligne ~301)
+            const magnitude = Math.abs(parseFloat(edits[map.ref]) || 0);
+            montant_n  = (map.type === 'charge') ? -magnitude : magnitude;
+            montant_n1 = ligne.montant_n1;
+        } else {
+            montant_n = ligne.montant_n; montant_n1 = ligne.montant_n1;
+        }
+        refValues[map.ref] = { n: montant_n, n1: montant_n1 };
+        return { ...ligne, montant_n: Math.round(montant_n), montant_n1: Math.round(montant_n1) };
+    });
+}
+
+/**
+ * Retourne les refs d'un mapping qui sont de VRAIES lignes de saisie :
+ * elles participent à un refs_sum quelque part (donc leur édition remonte
+ * bien dans un total) ET elles ne sont pas elles-mêmes un total. Exclut
+ * aussi les refs de excludeRefs (ex: CJ, miroir de XI côté Passif).
+ */
+function getEditableRefs(mapping, totalFlagKey, excludeRefs = []) {
+    const inRefsSum = new Set();
+    mapping.forEach(l => { if (l.refs_sum) l.refs_sum.forEach(r => inRefsSum.add(r)); });
+    const isTotal = (l) => !!(l[totalFlagKey] || l.isTotal);
+    return mapping
+        .filter(l => inRefsSum.has(l.ref) && !isTotal(l) && !excludeRefs.includes(l.ref))
+        .map(l => l.ref);
+}
+
+module.exports = { computeActif, computePassif, computeResultat, computeTFT, computeCAFG, buildAccountIndex, ACTIF_MAPPING, PASSIF_MAPPING, RESULTAT_MAPPING, TFT_MAPPING, recomputeActifWithEdits, recomputePassifWithEdits, recomputeResultatWithEdits, getEditableRefs };
 
