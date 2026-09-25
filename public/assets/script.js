@@ -58,15 +58,31 @@ const NotificationManager = {
 };
 
 const ModalManager = {
-    get modalBackdrop() { return document.getElementById('professional-modal'); },
-    get modalTitle()   { return document.getElementById('modal-title'); },
-    get modalBody()    { return document.getElementById('modal-body'); },
+    get modalBackdrop()  { return document.getElementById('professional-modal'); },
+    get modalTitle()     { return document.getElementById('modal-title'); },
+    get modalSubtitle()  { return document.getElementById('modal-subtitle'); },
+    get modalBody()      { return document.getElementById('modal-body'); },
+    get modalDialog()    { return this.modalBackdrop ? this.modalBackdrop.querySelector('[data-modal-dialog]') : null; },
     
-    open: function (title, contentHTML) {
+    open: function (title, contentHTML, maxWidthClass, subtitle) {
         if (!this.modalBackdrop) return;
         
         this.modalTitle.textContent = title;
         this.modalBody.innerHTML = contentHTML;
+
+        if (this.modalSubtitle) {
+            if (subtitle) {
+                this.modalSubtitle.textContent = subtitle;
+                this.modalSubtitle.style.display = '';
+            } else {
+                this.modalSubtitle.style.display = 'none';
+            }
+        }
+
+        if (this.modalDialog && maxWidthClass) {
+            this.modalDialog.className = this.modalDialog.className.replace(/\bmax-w-\S+/g, '').trim();
+            this.modalDialog.classList.add(maxWidthClass);
+        }
         
         document.body.classList.add('modal-open');
         this.modalBackdrop.style.display = 'flex';
@@ -13614,7 +13630,7 @@ function stopNotificationPolling() {
                 reportsState.currentEditingReport = response.data;
                 
                 const modalHTML = generateFinancialReportEditorHTML(response.data, requestId);
-                ModalManager.open(`✏️ Éditer : ${response.data.report_type}`, modalHTML);
+                ModalManager.open(`✏️ Éditer : ${response.data.report_type}`, modalHTML, undefined, getAccountingSystemLabel(response.data.accounting_system));
             }
         } catch (error) {
             console.error('❌ [editFinancialReport] Erreur:', error);
